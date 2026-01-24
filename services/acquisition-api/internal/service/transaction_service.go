@@ -1,0 +1,551 @@
+package service
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
+	"go.uber.org/zap"
+)
+
+// TransactionService handles acquisition transaction business logic
+type TransactionService struct {
+	txRepo           *repository.TransactionRepository
+	campaignRepo     *repository.CampaignRepository
+	postbackRepo     *repository.PostbackRepository
+	providerReg      *ProviderRegistry
+	postbackTemplate *PostbackTemplateService
+	timweClient      TIMWEClient // Will be implemented to call TIMWE API
+	logger           *zap.Logger
+}
+
+// TIMWEClient interface for TIMWE API integration
+type TIMWEClient interface {
+	OptIn(msisdn string, productID int, entryChannel string, trackingFields map[string]string, partnerRoleID string) (*TIMWEResponse, error)
+	Confirm(msisdn string, productID int, entryChannel string, partnerRoleID string, authCode string) (*TIMWEResponse, error)
+}
+
+// TIMWEResponse represents a response from TIMWE API
+type TIMWEResponse struct {
+	Success             bool
+	TransactionID       string
+	TransactionAuthCode string
+	Status              string
+	RequiresConfirm     bool
+	Message             string
+}
+
+// NewTransactionService creates a new transaction service
+func NewTransactionService(
+	txRepo *repository.TransactionRepository,
+	campaignRepo *repository.CampaignRepository,
+	postbackRepo *repository.PostbackRepository,
+	providerReg *ProviderRegistry,
+	timweClient TIMWEClient,
+	logger *zap.Logger,
+) *TransactionService {
+	return &TransactionService{
+		txRepo:           txRepo,
+		campaignRepo:     campaignRepo,
+		postbackRepo:     postbackRepo,
+		providerReg:      providerReg,
+		postbackTemplate: NewPostbackTemplateService(logger),
+		timweClient:      timweClient,
+		logger:           logger,
+	}
+}
+
+// CreateTransaction creates a new acquisition transaction
+func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequest) (*domain.CreateTransactionResponse, error) {
+	// Get campaign
+	campaign, err := s.campaignRepo.GetBySlug(req.CampaignSlug)
+	if err != nil {
+		return nil, fmt.Errorf("campaign not found: %w", err)
+	}
+
+	// Normalize attribution
+	var attribution *domain.Attribution
+	if req.Provider != nil && *req.Provider != "" {
+		provider, err := s.providerReg.Get(*req.Provider)
+		if err != nil {
+			s.logger.Warn("Provider not found, using generic", zap.String("provider", *req.Provider), zap.Error(err))
+			provider, _ = s.providerReg.Get("generic")
+		}
+
+		// Convert attribution data to map[string]string
+		attrMap := make(map[string]string)
+		for k, v := range req.AttributionData {
+			attrMap[k] = v
+		}
+		if req.ClickID != nil {
+			attrMap["click_id"] = *req.ClickID
+		}
+
+		attribution, err = provider.Normalize(attrMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to normalize attribution: %w", err)
+		}
+		attribution.CampaignSlug = req.CampaignSlug
+	} else {
+		// Generic attribution
+		attribution = &domain.Attribution{
+			Provider:     "generic",
+			CampaignSlug: req.CampaignSlug,
+		}
+		if req.ClickID != nil {
+			attribution.ClickID = *req.ClickID
+		}
+	}
+
+	// Check for duplicate (idempotency)
+	if attribution.ClickID != "" && attribution.Provider != "" {
+		existing, err := s.txRepo.FindByClickID(attribution.Provider, attribution.ClickID)
+		if err == nil && existing != nil {
+			// Return existing transaction
+			return s.buildResponse(existing), nil
+		}
+	}
+
+	// Check throttles
+	throttles := make(map[string]interface{})
+	if len(campaign.Throttles) > 0 {
+		json.Unmarshal(campaign.Throttles, &throttles)
+	}
+
+	ipAddr := ""
+	if req.IPAddress != nil {
+		ipAddr = *req.IPAddress
+	}
+
+	throttled, err := s.txRepo.CheckThrottle(campaign.Slug, req.MSISDN, ipAddr, throttles)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check throttle: %w", err)
+	}
+	if throttled {
+		return nil, fmt.Errorf("request throttled")
+	}
+
+	// Validate consent if required
+	if campaign.ConsentRequired && !req.ConsentChecked {
+		return nil, fmt.Errorf("consent required but not checked")
+	}
+
+	// Create transaction
+	correlationID := uuid.New()
+	transactionID := uuid.New()
+
+	// Determine which MSISDN to use: HE-detected or form-submitted
+	msisdnToUse := req.MSISDN
+	if req.HESource != nil && *req.HESource != domain.HESourceNone && req.HEMSISDN != nil && *req.HEMSISDN != "" {
+		// Use HE-detected MSISDN (trusted from MNO or simulation)
+		msisdnToUse = *req.HEMSISDN
+		s.logger.Info("Using HE identity for transaction",
+			zap.String("he_source", string(*req.HESource)),
+			zap.String("form_msisdn_prefix", req.MSISDN[:min(5, len(req.MSISDN))]),
+			zap.String("he_msisdn_prefix", msisdnToUse[:min(5, len(msisdnToUse))]),
+		)
+	}
+
+	tx := &domain.AcquisitionTransaction{
+		ID:              transactionID,
+		CorrelationID:   correlationID,
+		CampaignSlug:    req.CampaignSlug,
+		MSISDN:          msisdnToUse, // Use HE MSISDN if available
+		Status:          domain.StatusPending,
+		AdProvider:      &attribution.Provider,
+		ClickID:         &attribution.ClickID,
+		IPAddress:       req.IPAddress,
+		UserAgent:       req.UserAgent,
+		ConsentRequired: campaign.ConsentRequired,
+		ConsentChecked:  req.ConsentChecked,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+		// HE tracking fields
+		HESource:   req.HESource,
+		HEMSISDN:   req.HEMSISDN,
+		HEOperator: req.HEOperator,
+	}
+
+	if campaign.ConsentVersion != nil {
+		tx.ConsentVersion = campaign.ConsentVersion
+		if req.ConsentChecked {
+			now := time.Now()
+			tx.ConsentTimestamp = &now
+		}
+	}
+
+	// Store attribution data
+	attrData, _ := json.Marshal(attribution)
+	tx.AttributionData = attrData
+
+	// Call TIMWE API
+	partnerRoleID := ""
+	if campaign.PartnerRoleID != nil && *campaign.PartnerRoleID > 0 {
+		partnerRoleID = fmt.Sprintf("%d", *campaign.PartnerRoleID)
+	}
+	timweResp, err := s.timweClient.OptIn(
+		msisdnToUse, // Use HE MSISDN if available, otherwise form MSISDN
+		campaign.OfferProductID,
+		"WEB",
+		map[string]string{
+			"click_id": attribution.ClickID,
+			"campaign": attribution.CampaignSlug,
+		},
+		partnerRoleID,
+	)
+
+	if err != nil {
+		tx.Status = domain.StatusFailed
+		s.txRepo.Create(tx)
+		return nil, fmt.Errorf("TIMWE opt-in failed: %w", err)
+	}
+
+	// Update transaction with TIMWE response
+	if timweResp.TransactionID != "" {
+		tx.TimweTransactionID = &timweResp.TransactionID
+	}
+	if timweResp.TransactionAuthCode != "" {
+		tx.TransactionAuthCode = &timweResp.TransactionAuthCode
+	}
+	if timweResp.Status != "" {
+		tx.TimweStatus = &timweResp.Status
+	}
+
+	// Determine next action based on campaign flow type and TIMWE response
+	var nextAction domain.NextAction
+	var payload map[string]interface{}
+
+	if timweResp.RequiresConfirm {
+		tx.Status = domain.StatusConfirmRequired
+		nextAction = domain.NextActionOTP
+		payload = map[string]interface{}{
+			"transaction_id": tx.ID.String(),
+			"prompt":         "Please enter the confirmation code sent to your phone",
+		}
+	} else if campaign.FlowType == domain.FlowTypeClickToSMS && campaign.ShortCode != nil && campaign.SMSKeyword != nil {
+		tx.Status = domain.StatusActionRequired
+		nextAction = domain.NextActionOpenSMS
+		smsLink := fmt.Sprintf("sms:%s?body=%s", *campaign.ShortCode, *campaign.SMSKeyword)
+		payload = map[string]interface{}{
+			"sms_link":   smsLink,
+			"short_code": *campaign.ShortCode,
+			"keyword":    *campaign.SMSKeyword,
+			"fallback_steps": []string{
+				"Open your SMS app",
+				fmt.Sprintf("Send '%s' to %s", *campaign.SMSKeyword, *campaign.ShortCode),
+				"Wait for confirmation",
+			},
+		}
+	} else if timweResp.Success {
+		tx.Status = domain.StatusSubscribed
+		nextAction = domain.NextActionShowInstructions
+		payload = map[string]interface{}{
+			"message": "Subscription successful!",
+		}
+		// NOTE: Conversion postback is NOT fired here. It fires on charge success
+		// via HandleChargeSuccess() when subscription-external notifies us.
+		// This is the Mobplus requirement: postback only on actual charge.
+	} else {
+		tx.Status = domain.StatusFailed
+		nextAction = domain.NextActionShowInstructions
+		payload = map[string]interface{}{
+			"message": "Subscription failed. Please try again.",
+		}
+	}
+
+	tx.NextAction = &nextAction
+	payloadJSON, _ := json.Marshal(payload)
+	tx.NextActionPayload = payloadJSON
+
+	// Save transaction
+	err = s.txRepo.Create(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save transaction: %w", err)
+	}
+
+	return s.buildResponse(tx), nil
+}
+
+// ConfirmTransaction confirms a transaction (OTP flow)
+func (s *TransactionService) ConfirmTransaction(transactionID uuid.UUID, authCode string) (*domain.TransactionStatusResponse, error) {
+	// Get transaction
+	tx, err := s.txRepo.GetByID(transactionID)
+	if err != nil {
+		return nil, fmt.Errorf("transaction not found: %w", err)
+	}
+
+	if tx.Status != domain.StatusConfirmRequired {
+		return nil, fmt.Errorf("transaction is not in confirm_required status")
+	}
+
+	// Call TIMWE confirm
+	if tx.TimweTransactionID == nil {
+		return nil, fmt.Errorf("missing TIMWE transaction data")
+	}
+
+	// Fetch campaign to get product + partner role (confirm endpoint requires these)
+	campaign, err := s.campaignRepo.GetBySlug(tx.CampaignSlug)
+	if err != nil {
+		return nil, fmt.Errorf("campaign not found: %w", err)
+	}
+	partnerRoleID := ""
+	if campaign.PartnerRoleID != nil && *campaign.PartnerRoleID > 0 {
+		partnerRoleID = fmt.Sprintf("%d", *campaign.PartnerRoleID)
+	}
+
+	timweResp, err := s.timweClient.Confirm(tx.MSISDN, campaign.OfferProductID, "WEB", partnerRoleID, authCode)
+	if err != nil {
+		return nil, fmt.Errorf("TIMWE confirm failed: %w", err)
+	}
+
+	if !timweResp.Success {
+		// Update status to failed
+		s.txRepo.UpdateStatus(transactionID, domain.StatusFailed, nil, nil)
+		return &domain.TransactionStatusResponse{
+			TransactionID: transactionID,
+			Status:        domain.StatusFailed,
+		}, nil
+	}
+
+	// Update to subscribed
+	s.txRepo.UpdateStatus(transactionID, domain.StatusSubscribed, nil, nil)
+	if timweResp.Status != "" {
+		s.txRepo.UpdateTIMWEData(transactionID, *tx.TimweTransactionID, authCode, timweResp.Status)
+	}
+
+	// NOTE: Conversion postback is NOT fired here. It fires on charge success
+	// via HandleChargeSuccess() when subscription-external notifies us.
+
+	return &domain.TransactionStatusResponse{
+		TransactionID: transactionID,
+		Status:        domain.StatusSubscribed,
+		NextAction:    nil,
+		Payload:       map[string]interface{}{"message": "Subscription confirmed successfully"},
+	}, nil
+}
+
+// GetTransactionStatus retrieves the current status of a transaction
+func (s *TransactionService) GetTransactionStatus(transactionID uuid.UUID) (*domain.TransactionStatusResponse, error) {
+	tx, err := s.txRepo.GetByID(transactionID)
+	if err != nil {
+		return nil, fmt.Errorf("transaction not found: %w", err)
+	}
+
+	var payload map[string]interface{}
+	if len(tx.NextActionPayload) > 0 {
+		json.Unmarshal(tx.NextActionPayload, &payload)
+	}
+
+	return &domain.TransactionStatusResponse{
+		TransactionID: tx.ID,
+		Status:        tx.Status,
+		NextAction:    tx.NextAction,
+		Payload:       payload,
+	}, nil
+}
+
+// buildResponse builds a CreateTransactionResponse from a transaction
+func (s *TransactionService) buildResponse(tx *domain.AcquisitionTransaction) *domain.CreateTransactionResponse {
+	var payload map[string]interface{}
+	if len(tx.NextActionPayload) > 0 {
+		json.Unmarshal(tx.NextActionPayload, &payload)
+	}
+
+	var nextAction domain.NextAction
+	if tx.NextAction != nil {
+		nextAction = *tx.NextAction
+	}
+
+	return &domain.CreateTransactionResponse{
+		TransactionID: tx.ID,
+		CorrelationID: tx.CorrelationID,
+		Status:        tx.Status,
+		NextAction:    nextAction,
+		Payload:       payload,
+	}
+}
+
+// enqueuePostback enqueues a postback for async delivery using campaign templates
+func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, event domain.PostbackEvent, attribution *domain.Attribution, campaign *domain.Campaign) {
+	if attribution == nil || attribution.Provider == "" {
+		s.logger.Debug("Skipping postback: no provider")
+		return
+	}
+
+	// Build postback context
+	ctx := domain.NewPostbackContext(tx, attribution)
+
+	// Add payout if available
+	if tx.ChargePayout != nil {
+		ctx.Payout = *tx.ChargePayout
+	}
+
+	var req *http.Request
+	var err error
+
+	// Try template-driven postback first (preferred)
+	if campaign != nil && len(campaign.PostbackRules) > 0 {
+		rules, parseErr := s.postbackTemplate.ParsePostbackRules(campaign.PostbackRules)
+		if parseErr == nil && rules != nil {
+			template, found := s.postbackTemplate.GetTemplateForEvent(rules, event, attribution.Provider)
+			if found {
+				req, err = s.postbackTemplate.BuildPostbackFromTemplate(template, ctx)
+				if err != nil {
+					s.logger.Error("Failed to build postback from template",
+						zap.String("event", string(event)),
+						zap.String("provider", attribution.Provider),
+						zap.Error(err))
+					return
+				}
+			}
+		}
+	}
+
+	// Fallback to legacy provider-based postback if no template found
+	if req == nil {
+		provider, providerErr := s.providerReg.Get(attribution.Provider)
+		if providerErr != nil {
+			s.logger.Warn("Provider not found for postback", zap.String("provider", attribution.Provider))
+			return
+		}
+
+		outcome := map[string]interface{}{
+			"transaction_id": tx.ID.String(),
+			"status":         string(tx.Status),
+			"msisdn":         tx.MSISDN,
+		}
+
+		req, err = provider.BuildPostback(event, attribution, outcome)
+		if err != nil {
+			s.logger.Error("Failed to build postback", zap.Error(err))
+			return
+		}
+	}
+
+	// Create outbox entry
+	outbox := &domain.PostbackOutbox{
+		ID:                  uuid.New(),
+		TransactionID:       tx.ID,
+		Event:               event,
+		Provider:            attribution.Provider,
+		URLTemplateRendered: req.URL.String(),
+		HTTPMethod:          req.Method,
+		AttemptCount:        0,
+		MaxAttempts:         5,
+		Status:              domain.PostbackStatusPending,
+		CreatedAt:           time.Now(),
+		UpdatedAt:           time.Now(),
+	}
+
+	// Serialize headers
+	headersJSON, _ := json.Marshal(req.Header)
+	outbox.Headers = string(headersJSON)
+
+	err = s.postbackRepo.CreateOutbox(outbox)
+	if err != nil {
+		s.logger.Error("Failed to enqueue postback", zap.Error(err))
+	} else {
+		s.logger.Info("Postback enqueued",
+			zap.String("transaction_id", tx.ID.String()),
+			zap.String("event", string(event)),
+			zap.String("provider", attribution.Provider),
+			zap.String("url", req.URL.String()),
+		)
+	}
+}
+
+// ChargeSuccessRequest represents the request from subscription-external on charge success
+type ChargeSuccessRequest struct {
+	TimweTransactionID string `json:"timwe_transaction_id"`
+	MSISDN             string `json:"msisdn,omitempty"`
+	ProductID          int    `json:"product_id,omitempty"`
+	ChargedAt          string `json:"charged_at,omitempty"`
+	Payout             string `json:"payout,omitempty"`
+}
+
+// HandleChargeSuccess processes a charge success notification and enqueues conversion postback
+func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) error {
+	if req.TimweTransactionID == "" {
+		return fmt.Errorf("timwe_transaction_id is required")
+	}
+
+	// Find transaction by TIMWE transaction ID
+	tx, err := s.txRepo.FindByTimweTransactionID(req.TimweTransactionID)
+	if err != nil {
+		// Fallback: try by MSISDN if provided
+		if req.MSISDN != "" {
+			tx, err = s.txRepo.FindByMSISDNAndStatus(req.MSISDN, domain.StatusSubscribed)
+			if err != nil {
+				return fmt.Errorf("transaction not found for timwe_transaction_id=%s: %w", req.TimweTransactionID, err)
+			}
+		} else {
+			return fmt.Errorf("transaction not found for timwe_transaction_id=%s: %w", req.TimweTransactionID, err)
+		}
+	}
+
+	// Check if already processed (idempotency)
+	if tx.ConversionPostbackSent {
+		s.logger.Info("Conversion postback already sent, skipping",
+			zap.String("transaction_id", tx.ID.String()),
+			zap.String("timwe_transaction_id", req.TimweTransactionID),
+		)
+		return nil
+	}
+
+	// Update transaction to CHARGED status
+	now := time.Now()
+	tx.Status = domain.StatusCharged
+	tx.ChargedAt = &now
+	if req.Payout != "" {
+		tx.ChargePayout = &req.Payout
+	}
+
+	// Mark postback as pending to be sent
+	if err := s.txRepo.MarkCharged(tx.ID, &now, req.Payout); err != nil {
+		return fmt.Errorf("failed to mark transaction as charged: %w", err)
+	}
+
+	// Get campaign for postback rules
+	campaign, err := s.campaignRepo.GetBySlug(tx.CampaignSlug)
+	if err != nil {
+		s.logger.Warn("Campaign not found for postback rules",
+			zap.String("campaign_slug", tx.CampaignSlug),
+			zap.Error(err))
+		// Continue anyway, will use fallback postback logic
+	}
+
+	// Parse attribution data
+	var attribution domain.Attribution
+	if len(tx.AttributionData) > 0 {
+		if err := json.Unmarshal(tx.AttributionData, &attribution); err != nil {
+			s.logger.Warn("Failed to parse attribution data", zap.Error(err))
+		}
+	}
+
+	// Enqueue conversion postback (Mobplus requirement: fire on charge success)
+	s.enqueuePostback(tx, domain.PostbackEventConversion, &attribution, campaign)
+
+	// Mark conversion postback as sent
+	if err := s.txRepo.MarkConversionPostbackSent(tx.ID); err != nil {
+		s.logger.Error("Failed to mark conversion postback sent", zap.Error(err))
+		// Don't return error - postback is already enqueued
+	}
+
+	s.logger.Info("Charge success processed, conversion postback enqueued",
+		zap.String("transaction_id", tx.ID.String()),
+		zap.String("timwe_transaction_id", req.TimweTransactionID),
+		zap.String("provider", attribution.Provider),
+		zap.String("click_id", attribution.ClickID),
+	)
+
+	return nil
+}
+
+// GetTransactionByTimweID retrieves a transaction by TIMWE transaction ID
+func (s *TransactionService) GetTransactionByTimweID(timweTransactionID string) (*domain.AcquisitionTransaction, error) {
+	return s.txRepo.FindByTimweTransactionID(timweTransactionID)
+}
