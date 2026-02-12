@@ -1,0 +1,37 @@
+# Example crontab entries for Resubscribe Processor
+# Add these to your crontab with: crontab -e
+
+# Run resubscribe processor every 6 hours (at 00:00, 06:00, 12:00, 18:00)
+# This will resubscribe active subscriptions with the specified products
+0 */6 * * * cd /opt/subscription-external/resubscribe-processor && ./resubscribe-processor -config config.json >> logs/cron.log 2>&1
+
+# Run resubscribe processor daily at 02:00 AM (low traffic time)
+# This will process all active subscriptions for the specified products
+0 2 * * * cd /opt/subscription-external/resubscribe-processor && ./resubscribe-processor -config config.json >> logs/daily.log 2>&1
+
+# Run resubscribe processor weekly on Sunday at 03:00 AM
+# This will process all active subscriptions for the specified products
+0 3 * * 0 cd /opt/subscription-external/resubscribe-processor && ./resubscribe-processor -config config.json >> logs/weekly.log 2>&1
+
+# Run resubscribe processor monthly on the 1st at 04:00 AM
+# This will process all active subscriptions for the specified products
+0 4 1 * * cd /opt/subscription-external/resubscribe-processor && ./resubscribe-processor -config config.json >> logs/monthly.log 2>&1
+
+# Run resubscribe processor with specific product IDs every 4 hours
+# This will resubscribe only subscriptions with product ID 8509
+0 */4 * * * cd /opt/subscription-external/resubscribe-processor && ./resubscribe-processor -products "8509" -config config.json >> logs/product_8509.log 2>&1
+
+# Run resubscribe processor with specific telco every 8 hours
+# This will resubscribe only Vodafone subscriptions
+0 */8 * * * cd /opt/subscription-external/resubscribe-processor && ./resubscribe-processor -telco "Vodafone" -config config.json >> logs/vodafone.log 2>&1
+
+# Run resubscribe processor with channel rotation every 12 hours
+# This will rotate between USSD, WEB, and SMS channels
+0 */12 * * * cd /opt/subscription-external/resubscribe-processor && ./resubscribe-processor -channels "USSD,WEB,SMS" -config config.json >> logs/channel_rotation.log 2>&1
+
+# Notes:
+# - Adjust paths according to your installation
+# - Modify timing based on your business requirements
+# - Consider using different config files for different scenarios
+# - Monitor logs to ensure proper execution
+# - Use dry-run mode first to verify configuration

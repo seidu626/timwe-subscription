@@ -1,0 +1,95 @@
+{{define "CategoryApiEndpoint"}}
+
+{{$host := .}}
+
+{
+    "endpoint": "/categories/all",
+    "method": "GET",
+    "output_encoding": "no-op",
+    "extra_config": {},
+    "backend": [
+        {
+            "url_pattern": "/all",
+            "encoding": "no-op",
+            "sd": "static",
+            "method": "GET",
+            "extra_config": {},
+            "host": ["{{ $host }}"],
+            "disable_host_sanitize": true
+        }
+    ]
+},
+
+{
+    "endpoint": "/category/{id}",
+    "method": "GET",
+    "output_encoding": "no-op",
+    "extra_config": {},
+    "backend": [
+        {
+            "url_pattern": "/{id}",
+            "encoding": "no-op",
+            "sd": "static",
+            "method": "GET",
+            "extra_config": {},
+            "host": ["{{ $host }}"],
+            "disable_host_sanitize": true
+        }
+    ]
+},
+
+{
+    "endpoint": "/category",
+    "method": "POST",
+    "output_encoding": "no-op",
+    "extra_config": {},
+    "backend": [
+        {
+            "url_pattern": "/insert",
+            "encoding": "no-op",
+            "sd": "static",
+            "method": "POST",
+            "extra_config": {},
+            "host": ["{{ $host }}"],
+            "disable_host_sanitize": true
+        }
+    ]
+},
+
+{
+    "endpoint": "/category/{id}",
+    "method": "PUT",
+    "output_encoding": "no-op",
+    "extra_config": {},
+    "backend": [
+        {
+            "url_pattern": "/update/{id}",
+            "encoding": "no-op",
+            "sd": "static",
+            "method": "PUT",
+            "extra_config": {},
+            "host": ["{{ $host }}"],
+            "disable_host_sanitize": true
+        }
+    ]
+},
+
+{
+    "endpoint": "/category/{id}",
+    "method": "DELETE",
+    "output_encoding": "no-op",
+    "extra_config": {},
+    "backend": [
+        {
+            "url_pattern": "/delete/{id}",
+            "encoding": "no-op",
+            "sd": "static",
+            "method": "DELETE",
+            "extra_config": {},
+            "host": ["{{ $host }}"],
+            "disable_host_sanitize": true
+        }
+    ]
+}
+
+{{end}}

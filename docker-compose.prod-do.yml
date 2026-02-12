@@ -1,0 +1,376 @@
+# DigitalOcean Droplet Production Docker Compose
+# Usage: docker-compose -f docker-compose.prod-do.yml up -d
+#
+# Prerequisites:
+# 1. Create .env file with required secrets (see docs/environment-variables.md)
+# 2. Place SSL certificates at ./certs/STAR_nouveauricheglobalgroup.crt and .key
+# 3. Create shared-network: docker network create shared-network (if not exists)
+# 4. PostgreSQL must be running on host (port 5432)
+#
+# Required environment variables in .env:
+#   PG_HOST (default: host.docker.internal for Docker Desktop, or use actual IP)
+#   PG_USER, PG_PASSWORD, PG_DB
+#   JWT_SECRET, TIMWE_API_KEY, TIMWE_PSK
+#   ADMIN_AUTH0_DOMAIN, ADMIN_AUTH0_AUDIENCE
+#   NOTIFICATION_WORKER_MT_BASE_URL, NOTIFICATION_WORKER_MT_CHANNEL
+
+services:
+  # ============================================
+  # API Gateway - KrakenD (behind Nginx)
+  # ============================================
+  # krakend:
+  #   image: devopsfaith/krakend:latest
+  #   container_name: krakend
+  #   # Internal-only: Nginx terminates TLS and forwards to krakend:8080
+  #   expose:
+  #     - "8080"
+  #   volumes:
+  #     - ./krakend:/etc/krakend:ro
+  #   environment:
+  #     - FC_ENABLE=1
+  #     - FC_SETTINGS=/etc/krakend/config/settings/do
+  #     - FC_PARTIALS=/etc/krakend/config/partials
+  #     - FC_TEMPLATES=/etc/krakend/config/templates
+  #     - FC_OUT=/tmp/krakend.json
+  #   command: ["run", "-d", "-c", "/etc/krakend/config/krakend.tmpl"]
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/__health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 10s
+  #   networks:
+  #     - backend
+  #   depends_on:
+  #     subscription-partner:
+  #       condition: service_healthy
+  #     subscription-external:
+  #       condition: service_healthy
+  #     notification:
+  #       condition: service_healthy
+  #     acquisition-api:
+  #       condition: service_healthy
+  #     cadence-engine:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+  # ============================================
+  # Core Services
+  # ============================================
+  subscription-partner:
+    image: xper626/subscription-partner:latest
+    container_name: subscription-partner
+    # Port bound to localhost - access via reverse proxy or SSH tunnel
+    ports:
+      - "8081:8081"
+    environment:
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
+      - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+      - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - APP_CACHE_REDIS_HOST=${REDIS_HOST:-host.docker.internal}
+      - APP_CACHE_REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  subscription-external:
+    image: xper626/subscription-external:latest
+    container_name: subscription-external
+    # Port bound to localhost - access via reverse proxy or SSH tunnel
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./services/subscription-external/config:/app/config:ro
+    environment:
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
+      - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+      - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - APP_CACHE_REDIS_HOST=${REDIS_HOST:-host.docker.internal}
+      - APP_CACHE_REDIS_PORT=6379
+      - TIMWE_API_KEY=${TIMWE_API_KEY}
+      - TIMWE_PSK=${TIMWE_PSK}
+      - ACQUISITION_API_URL=http://acquisition-api:8084
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # billing:
+  #   image: xper626/billing-service:latest
+  #   container_name: billing-service
+  #   ports:
+  #     - "8085:8085"
+  #   environment:
+  #     - DB_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
+  #     - DB_POSTGRESQL_PORT=${PG_PORT:-5432}
+  #     - DB_POSTGRESQL_USER=${PG_USER}
+  #     - DB_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+  #     - DB_POSTGRESQL_DB_NAME=${PG_DB}
+  #     - DB_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+  #     - CACHE_REDIS_HOST=${REDIS_HOST:-host.docker.internal}
+  #     - CACHE_REDIS_PORT=6379
+  #     - APPLICATION_PORT=8085
+  #     - AUTH_JWT_TOKEN_SECRET=${JWT_SECRET}
+  #     - ENVIRONMENT=PRODUCTION
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8085/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 5s
+  #   networks:
+  #     - backend
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   restart: unless-stopped
+
+  notification:
+    image: xper626/notification-service:latest
+    container_name: notification-service
+    # Port bound to localhost - access via reverse proxy or SSH tunnel
+    ports:
+      - "8082:8082"
+    environment:
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
+      - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+      - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - APP_CACHE_REDIS_HOST=${REDIS_HOST:-host.docker.internal}
+      - APP_CACHE_REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  notification-worker:
+    image: xper626/notification-service:latest
+    container_name: notification-worker
+    command: ["./notification-worker"]
+    environment:
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
+      - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+      - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - NOTIFICATION_WORKER_MT_BASE_URL=${NOTIFICATION_WORKER_MT_BASE_URL:-http://subscription-external:8083}
+      - NOTIFICATION_WORKER_MT_CHANNEL=${NOTIFICATION_WORKER_MT_CHANNEL:-SMS}
+    networks:
+      - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      subscription-external:
+        condition: service_healthy
+    restart: unless-stopped
+
+  acquisition-api:
+    image: xper626/acquisition-api:latest
+    container_name: acquisition-api
+    # Port bound to localhost - access via reverse proxy or SSH tunnel
+    ports:
+      - "8084:8084"
+    environment:
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
+      - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+      - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - TIMWE_API_KEY=${TIMWE_API_KEY}
+      - TIMWE_PSK=${TIMWE_PSK}
+      - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN}
+      - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE}
+      - ACQUISITION_ADMIN_CORS_ORIGINS=${ACQUISITION_ADMIN_CORS_ORIGINS:-*}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8084/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  cadence-engine:
+    image: xper626/cadence-engine:latest
+    container_name: cadence-engine
+    # Expose cadence admin API publicly (Option B).
+    ports:
+      - "8091:8091"
+    environment:
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
+      - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+      - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - CADENCE_ADMIN_HTTP_ADDR=:8091
+      - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN}
+      - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE}
+      - CADENCE_ADMIN_CORS_ORIGINS=${CADENCE_ADMIN_CORS_ORIGINS:-*}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8091/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  postback-dispatcher:
+    image: xper626/postback-dispatcher:latest
+    container_name: postback-dispatcher
+    environment:
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
+      - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+      - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+    networks:
+      - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  landing-web:
+    image: xper626/landing-web:latest
+    container_name: landing-web
+    # Port bound to localhost - access via reverse proxy or SSH tunnel
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_ACQUISITION_API_URL=${NEXT_PUBLIC_ACQUISITION_API_URL:-https://api.nouveauricheglobalgroup.com}
+      # Server-side API calls (API routes) use internal Docker network
+      - ACQUISITION_API_URL=http://acquisition-api:8084
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - backend
+    depends_on:
+      - acquisition-api
+    restart: unless-stopped
+
+  webspa-admin:
+    image: xper626/nr-subscription-webspa-admin:latest
+    container_name: webspa-admin
+    # Port bound to localhost - access via reverse proxy or SSH tunnel
+    ports:
+      - "127.0.0.1:4200:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - backend
+    depends_on:
+      - subscription-partner
+      - notification
+      - acquisition-api
+      - cadence-engine
+    restart: unless-stopped
+
+  # ============================================
+  # Reverse Proxy - Nginx
+  # ============================================
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: nginx-proxy
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./ops/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ops/nginx/conf.d:/etc/nginx/conf.d:ro
+  #     - ./certs:/etc/ssl/certs:ro
+  #   networks:
+  #     - backend
+  #   depends_on:
+  #     - webspa-admin
+  #     - landing-web
+  #     - krakend
+  #   restart: unless-stopped
+
+  # ============================================
+  # Infrastructure Services
+  # ============================================
+  # Redis runs on host - not in Docker
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: subscription_redis
+  #   ports:
+  #     - "6379:6379"
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - backend
+  #   volumes:
+  #     - redis_data:/data
+  #   restart: always
+
+  # Portainer (Docker UI) - bound to localhost (use SSH tunnel)
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    ports:
+      - "127.0.0.1:9443:9443"
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    restart: unless-stopped
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  portainer_data:

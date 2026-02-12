@@ -1,0 +1,78 @@
+{
+  "name": "KRAKEND API Gateway",
+  "port": 8080,
+  "cache_ttl": "3600s",
+  "timeout": "30s",
+  "read_header_timeout": "30s",
+  "max_header_bytes": 10485760,
+  "default_hosts": [
+    "https://api.nouveauricheglobalgroup.com"
+  ],
+  "subscription_api_url":          "http://127.0.0.1:8081",
+  "notification_api_url":          "http://127.0.0.1:8082",
+  "subscription_external_api_url": "http://127.0.0.1:8083",
+  "billing_api_url":               "http://127.0.0.1:8085",
+  "acquisition_api_url":           "http://127.0.0.1:8084",
+  "landing_web_url":               "http://127.0.0.1:3000",
+  "cadence_api_url":               "http://127.0.0.1:8091",
+  "admin_auth0_domain":            "dev-chliep5q.auth0.com",
+  "admin_auth0_audience":          "https://dev-chliep5q.auth0.com/api/v2/",
+  "extra_config": {
+    "security/http": {
+      "allowed_hosts": [],
+      "ssl_proxy_headers": {
+        "X-Forwarded-Proto": "https"
+      },
+      "ssl_certificate": "/etc/ssl/STAR_nouveauricheglobalgroup.crt",
+      "ssl_private_key": "/etc/ssl/STAR_nouveauricheglobalgroup.key"
+    },
+    "security/cors": {
+      "allow_origins": [
+        "https://api.nouveauricheglobalgroup.com",
+        "https://admin.nouveauricheglobalgroup.com",
+        "http://139.59.135.253",
+        "http://139.59.135.253:4200",
+        "http://139.59.135.253:3000",
+        "http://localhost:3000",
+        "http://localhost:4200"
+      ],
+      "allow_methods": [
+        "POST",
+        "GET",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "allow_headers": [
+        "Origin",
+        "Authorization",
+        "Content-Type",
+        "External-Tx-Id",
+        "Accept",
+        "X-Requested-With",
+        "X-Requestid"
+      ],
+      "expose_headers": [
+        "Content-Length",
+        "x-pagination"
+      ],
+      "allow_credentials": true,
+      "max_age": "12h"
+    },
+    "telemetry/logging": {
+      "level": "INFO",
+      "prefix": "[KRAKEND]",
+      "syslog": false,
+      "stdout": true
+    },
+    "telemetry/metrics": {
+      "collection_time": "60s",
+      "proxy_disabled": false,
+      "router_disabled": false,
+      "backend_disabled": false,
+      "endpoint_disabled": false,
+      "listen_address": ":8090"
+    }
+  }
+}

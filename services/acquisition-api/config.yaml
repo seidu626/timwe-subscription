@@ -1,0 +1,82 @@
+# Acquisition API Configuration
+# -----------------------------------------
+# SECURITY NOTE: All secrets MUST be provided via environment variables.
+# This file contains NON-SENSITIVE defaults only.
+#
+# Required Environment Variables:
+#   - TIMWE_API_KEY: TIMWE API key for authentication
+#   - TIMWE_PSK: TIMWE Pre-Shared Key for auth key generation
+#   - APP_DATABASE_POSTGRESQL_PASSWORD: Database password for PostgreSQL
+#   - INTERNAL_API_SECRET: Secret for internal service-to-service auth (charge-success endpoint)
+#
+# Optional Environment Variables:
+#   - APP_DATABASE_POSTGRESQL_HOST: Override database host (default: localhost)
+#   - APP_DATABASE_POSTGRESQL_PORT: Override database port (default: 5432)
+#   - APP_DATABASE_POSTGRESQL_USER: Override database user (default: sm_admin)
+#   - DISPATCHER_BATCH_SIZE: Postback dispatcher batch size (default: 10)
+#   - DISPATCHER_POLL_INTERVAL: Postback dispatcher poll interval (default: 5s)
+# -----------------------------------------
+
+APPLICATION:
+  ENVIRONMENT: DEVELOPMENT
+  PORT: 8084
+  ALLOWED_ORIGINS:
+    - "*"
+  HTTP:
+    READ_TIMEOUT: 60s
+    WRITE_TIMEOUT: 60s
+    IDLE_TIMEOUT: 120s
+    MAX_REQUEST_BODY_MB: 16
+    CONCURRENCY: 0
+  # TIMWE_MA matches the mapstructure tag in common/config/config.go
+  TIMWE_MA:
+    HOST: https://tigo.timwe.com/gh
+    BASE_URL: https://tigo.timwe.com/gh/ma/api/external/v1
+    # API_KEY provided via TIMWE_API_KEY environment variable
+    # PSK provided via TIMWE_PSK environment variable
+    PARTNER_ROLE_ID: "2117"
+    PARTNER_SERVICE_ID: "2170"
+    TIMEOUT: 30s
+    MAX_CONNECTIONS: 500
+    MCC: "620"
+    MNC: "03"
+    # Circuit breaker config
+    CB_MAX_REQUESTS: 100
+    CB_TIMEOUT: 15s
+    CB_INTERVAL: 0s
+    CB_MIN_REQUESTS: 50
+    CB_FAILURE_RATE_THRESHOLD: 0.8
+    CB_CONSECUTIVE_FAILURES: 10
+    # Charge retry configuration (used by buildTIMWEConfig for retries)
+    CHARGE_RETRY_MAX_DURATION: 2m
+    CHARGE_RETRY_BASE_DELAY: 200ms
+    CHARGE_RETRY_MAX_DELAY: 5s
+
+  # Header Enrichment (HE) Simulation Configuration
+  # SECURITY: Must be disabled in production environments
+  HE_SIMULATION:
+    # Master switch - set to true to enable HE simulation (default: false)
+    # Environment override: HE_SIMULATION_ENABLED
+    ENABLED: true
+    # Candidate MSISDN headers to check (in order of preference)
+    # Based on Ghana MNO documentation
+    MSISDN_HEADERS:
+      - X-MSISDN
+      - X-UP-CALLING-LINE-ID
+      - X_WAP_NETWORK_CLIENT_MSISDN
+    # Headers for MCC/MNC detection
+    MCC_HEADER: X-MCC
+    MNC_HEADER: X-MNC
+    OPERATOR_HEADER: X-Operator-ID
+
+DATABASE:
+  POSTGRESQL:
+    HOST: 139.59.135.253
+    PORT: "5432"
+    USER: sm_admin
+    # PASSWORD provided via APP_DATABASE_POSTGRESQL_PASSWORD environment variable
+    DB_NAME: subscription_manager
+    SSL_MODE: disable
+    MAX_OPEN_CONNS: 50
+    MAX_IDLE_CONNS: 10
+    CONN_MAX_LIFETIME: 1h

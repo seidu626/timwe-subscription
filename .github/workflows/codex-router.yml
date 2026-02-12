@@ -1,0 +1,216 @@
+name: Codex Router (maintainer commands)
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: codex-router-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  route:
+    # Only PR comments; only maintainers/collaborators.
+    if: >
+      github.event.issue.pull_request != null &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    outputs:
+      action: ${{ steps.cmd.outputs.action }}
+      focus_csv: ${{ steps.cmd.outputs.focus_csv }}
+      pr_number: ${{ steps.pr.outputs.number }}
+      diff_url: ${{ steps.pr.outputs.diff_url }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+
+    steps:
+      # Checkout default branch so the router script exists.
+      - name: Checkout repo (default branch)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Parse /codex command (sanitized)
+        id: cmd
+        run: |
+          set -euo pipefail
+          python3 tools/codex_command_router.py "${{ github.event.comment.body }}" >> "$GITHUB_OUTPUT"
+
+      - name: Exit early if not a supported /codex command
+        if: ${{ steps.cmd.outputs.action == 'none' }}
+        run: |
+          echo "Not a supported /codex command. Exiting."
+
+      - name: Fetch PR metadata (diff URL, base SHA)
+        id: pr
+        if: ${{ steps.cmd.outputs.action != 'none' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          curl -sSL \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            > pr.json
+
+          echo "number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "diff_url=$(jq -r '.diff_url' pr.json)" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$(jq -r '.base.sha' pr.json)" >> "$GITHUB_OUTPUT"
+
+  # Translate /codex review and /codex fix-ci into @codex comments (requires Codex GitHub integration installed).
+  translate_to_codex_comment:
+    needs: route
+    if: >
+      needs.route.outputs.action == 'review' ||
+      needs.route.outputs.action == 'fix-ci'
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Post @codex comment
+        uses: actions/github-script@v7
+        env:
+          ACTION: ${{ needs.route.outputs.action }}
+          FOCUS: ${{ needs.route.outputs.focus_csv }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const action = process.env.ACTION;
+            const focus = process.env.FOCUS;
+
+            let body = "";
+            if (action === "review") {
+              body += "@codex review\n\n";
+              body += "Focus: " + focus + "\n\n";
+              body += "_Triggered by `/codex review`._\n";
+            } else if (action === "fix-ci") {
+              body += "@codex Fix the CI failures in this PR with a minimal diff.\n\n";
+              body += "Hard constraints:\n";
+              body += "- Do NOT skip tests or weaken assertions.\n";
+              body += "- Do NOT refactor unrelated code.\n";
+              body += "- Preserve public APIs unless required for correctness.\n\n";
+              body += "After pushing commits:\n";
+              body += "- Post a short summary\n";
+              body += "- Include verification commands + results\n\n";
+              body += "_Triggered by `/codex fix-ci`._\n";
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body
+            });
+
+  # /codex gate -> run a diff-only structured gate via codex-action (works for forks safely).
+  gate:
+    needs: route
+    if: ${{ needs.route.outputs.action == 'gate' }}
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout base SHA (safe context)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.route.outputs.base_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch PR diff as text (untrusted data)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DIFF_URL: ${{ needs.route.outputs.diff_url }}
+        run: |
+          set -euo pipefail
+          curl -sSL \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github.v3.diff" \
+            "${DIFF_URL}" \
+            -o pr.diff
+
+      - name: Size-cap diff (avoid huge prompts)
+        run: |
+          set -euo pipefail
+          MAX_BYTES=$((600 * 1024))
+          BYTES=$(wc -c < pr.diff)
+          if [ "${BYTES}" -gt "${MAX_BYTES}" ]; then
+            head -c "${MAX_BYTES}" pr.diff > pr.diff.truncated
+            mv pr.diff.truncated pr.diff
+            printf "\n\n[TRUNCATED: original diff was %s bytes]\n" "${BYTES}" >> pr.diff
+          fi
+
+      # Run Codex as the last step in the job when possible (recommended by the Codex Action security guidance).
+      - name: Run Codex gate (structured JSON)
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/prompts/review_gate.md
+          output-schema-file: .github/codex/schemas/review_gate.schema.json
+          output-file: codex-gate.json
+          safety-strategy: drop-sudo
+          sandbox: read-only
+          codex-home: .codex-home
+          codex-args: '["--ask-for-approval","never"]'
+
+      - name: Post gate output and fail on P0
+        uses: actions/github-script@v7
+        env:
+          GATE_JSON: ${{ steps.codex.outputs.final-message }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            let data;
+            try { data = JSON.parse(process.env.GATE_JSON); }
+            catch (e) {
+              core.setFailed("Codex gate output was not valid JSON. Failing the gate.");
+              return;
+            }
+
+            const decision = data.decision;
+            const p0 = data.p0_count;
+            const p1 = data.p1_count;
+
+            let body = `## Codex Gate Review\n`;
+            body += `**Decision:** \`${decision}\`  \n`;
+            body += `**P0:** ${p0}  **P1:** ${p1}\n\n`;
+            body += `### Summary\n${data.summary}\n\n`;
+            body += `### Findings\n`;
+            for (const f of (data.findings || [])) {
+              body += `- [${f.severity}] **${f.title}** — ${f.where}\n  - ${f.recommendation}\n`;
+            }
+            body += `\n_Triggered by \`/codex gate\`._\n`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body
+            });
+
+            if (decision === "block" || (p0 || 0) > 0) {
+              core.setFailed(`Blocking: decision=${decision}, p0=${p0}`);
+            }

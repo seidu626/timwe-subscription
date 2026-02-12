@@ -121,7 +121,14 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 		ipAddr = *req.IPAddress
 	}
 
-	throttled, err := s.txRepo.CheckThrottle(campaign.Slug, req.MSISDN, ipAddr, throttles)
+	msisdnToUse := req.MSISDN
+	useHEMSISDN := false
+	if req.HESource != nil && *req.HESource != domain.HESourceNone && req.HEMSISDN != nil && *req.HEMSISDN != "" {
+		msisdnToUse = *req.HEMSISDN
+		useHEMSISDN = true
+	}
+
+	throttled, err := s.txRepo.CheckThrottle(campaign.Slug, msisdnToUse, ipAddr, throttles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check throttle: %w", err)
 	}
@@ -138,11 +145,8 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 	correlationID := uuid.New()
 	transactionID := uuid.New()
 
-	// Determine which MSISDN to use: HE-detected or form-submitted
-	msisdnToUse := req.MSISDN
-	if req.HESource != nil && *req.HESource != domain.HESourceNone && req.HEMSISDN != nil && *req.HEMSISDN != "" {
-		// Use HE-detected MSISDN (trusted from MNO or simulation)
-		msisdnToUse = *req.HEMSISDN
+	// Log only after throttling so rejected requests don't leak details
+	if useHEMSISDN {
 		s.logger.Info("Using HE identity for transaction",
 			zap.String("he_source", string(*req.HESource)),
 			zap.String("form_msisdn_prefix", req.MSISDN[:min(5, len(req.MSISDN))]),

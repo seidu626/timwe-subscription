@@ -1,0 +1,322 @@
+# Subscription External Service Configuration
+# -----------------------------------------
+# SECURITY NOTE: All secrets MUST be provided via environment variables.
+# This file contains NON-SENSITIVE defaults only.
+#
+# Required Environment Variables:
+#   - APP_DATABASE_POSTGRESQL_PASSWORD: Database password
+#   - TIMWE_API_KEY: TIMWE API key
+#   - TIMWE_PSK: TIMWE Pre-Shared Key
+#   - JWT_SECRET: JWT signing secret
+#
+# Optional Environment Variables:
+#   - APP_DATABASE_POSTGRESQL_HOST: Override database host (default: localhost)
+#   - APP_DATABASE_POSTGRESQL_PORT: Override database port (default: 5432)
+#   - APP_DATABASE_POSTGRESQL_USER: Override database user (default: sm_admin)
+#   - APP_CACHE_REDIS_HOST: Override Redis host (default: localhost)
+#   - APP_CACHE_REDIS_PORT: Override Redis port (default: 6379)
+#   - ACQUISITION_API_URL: URL for acquisition-api service
+# -----------------------------------------
+
+APPLICATION:
+  ENVIRONMENT: DEVELOPMENT
+  PORT: 8083
+  ALLOWED_ORIGINS:
+    - http://localhost:4200
+    - https://admin.nouveauricheglobalgroup.com
+    - https://api.nouveauricheglobalgroup.com
+  HTTP:
+    READ_TIMEOUT: 60s
+    WRITE_TIMEOUT: 60s
+    IDLE_TIMEOUT: 120s
+    MAX_REQUEST_BODY_MB: 16
+    CONCURRENCY: 0 # 0 lets fasthttp pick based on GOMAXPROCS
+  BATCH:
+    MAX_WORKERS_PER_JOB: 200
+    MAX_CONCURRENT_OPTINS: 200
+    TARGET_QPS: 500
+  # MSISDN Generator Configuration
+  MSISDN_GENERATOR:
+    ENABLED: true
+    BATCH_SIZE: 1000
+    MAX_CONCURRENT: 50
+    MAX_MSISDN_COUNT: 1000000
+    CACHE_ENABLED: true
+    BLOOM_FILTER_ENABLED: true
+    FALSE_POSITIVE_RATE: 0.01
+    VALIDATION_TIMEOUT: 30s
+    GENERATION_TIMEOUT: 60s
+    WORKER_POOL_SIZE: 100
+    CHANNEL_BUFFER_SIZE: 2000
+    FALLBACK_TO_DATABASE: true
+    MAX_RETRY_ATTEMPTS: 3
+    PRELOAD_ENABLED: true
+    PRELOAD_BATCH_SIZE: 10000
+  TIMWE_MA:
+    HOST: https://tigo.timwe.com/gh
+    APPLICATION_PATH: /api/external/v1
+    BASE_URL: https://tigo.timwe.com/gh/ma/api/external/v1
+    # API_KEY provided via TIMWE_API_KEY environment variable
+    # MT_API_KEY provided via TIMWE_MT_API_KEY environment variable
+    # PSK provided via TIMWE_PSK environment variable
+    PARTNER_ROLE_ID: 2117
+    PARTNER_SERVICE_ID: 2170
+    REALM: realm
+    AUTHENTICATION_KEY: ""
+    TIMEOUT: 30s
+    MAX_CONNECTIONS: 2000
+    DIAL_TIMEOUT: 10s
+    MAX_CONN_DURATION: 60s
+    IDLE_CONN_TIMEOUT: 30s
+    MCC: "620"
+    MNC: "03"
+    CB_MAX_REQUESTS: 200
+    CB_TIMEOUT: 15s
+    CB_INTERVAL: 0s
+    CB_MIN_REQUESTS: 100
+    CB_FAILURE_RATE_THRESHOLD: 0.8
+    CB_CONSECUTIVE_FAILURES: 10
+    MT: /subscription/optin/:partnerRoleId
+    OPT_IN: /subscription/optin/:partnerRoleId
+    OPT_OUT: /subscription/optin/:partnerRoleId
+    CHARGE_RETRY_MAX_DURATION: 2m
+    CHARGE_RETRY_BASE_DELAY: 200ms
+    CHARGE_RETRY_MAX_DELAY: 5s
+  TELCO_PREFIXES:
+    AirtelTigo:
+      [
+        "233278", "233203", "233578", "233242", "233307", "233245", "233247",
+        "233576", "233271", "233273", "233571", "233277", "233233", "233544",
+        "233561", "233579", "233317", "233243", "233265", "233246", "233285",
+        "233270", "233267", "233542", "233572", "233276", "233264", "233200",
+        "233556", "233263", "233274", "233577", "233261", "233275", "233268",
+        "233272", "233269", "233337", "233543", "233208", "233262", "233575",
+        "233573", "233570", "233249", "233232", "233244", "233574", "233279",
+        "233266", "233260", "233236", "233560", "233240", "233546", "233549"
+      ]
+    MTN: ["233540", "233550", "233244", "233240"]
+    Vodafone: ["233201", "233202", "233203"]
+  MSISDN_VALIDATION:
+    CACHE_EXPIRY: "30m"
+    ENABLE_PREFIX_VALIDATION: true
+    ENABLE_EXCLUDED_USER_CHECK: true
+    ENABLE_INVALID_LOG_CHECK: true
+    MAX_VALIDATION_ERRORS: 1000
+    TELCO_PREFIXES:
+      MTN:
+        - "23324"
+        - "23325"
+        - "23354"
+        - "23355"
+        - "23359"
+        - "23326"
+      AirtelTigo:
+        - "233278"
+        - "233203"
+        - "233578"
+        - "233242"
+        - "233307"
+        - "233245"
+        - "233247"
+        - "233576"
+        - "233271"
+        - "233273"
+        - "233571"
+        - "233277"
+        - "233233"
+        - "233544"
+        - "233561"
+        - "233579"
+        - "233317"
+        - "233243"
+        - "233265"
+        - "233246"
+        - "233285"
+        - "233270"
+        - "233267"
+        - "233542"
+        - "233572"
+        - "233276"
+        - "233264"
+        - "233200"
+        - "233556"
+        - "233263"
+        - "233274"
+        - "233577"
+        - "233261"
+        - "233275"
+        - "233268"
+        - "233272"
+        - "233269"
+        - "233337"
+        - "233543"
+        - "233208"
+        - "233262"
+        - "233575"
+        - "233573"
+        - "233570"
+        - "233249"
+        - "233232"
+        - "233244"
+        - "233574"
+        - "233279"
+        - "233266"
+        - "233260"
+        - "233236"
+        - "233560"
+        - "233240"
+        - "233546"
+        - "233549"
+      Vodafone:
+        - "23323"
+        - "23333"
+        - "23320"
+        - "23350"
+        - "23351"
+        - "23352"
+        - "23353"
+        - "23354"
+      Glo:
+        - "23323"
+        - "23358"
+        - "23359"
+  NETWORK_RESILIENCE:
+    MAX_RETRIES: 5
+    BASE_RETRY_DELAY: "200ms"
+    MAX_RETRY_DELAY: "30s"
+    CONNECTION_TIMEOUT: "10s"
+    READ_TIMEOUT: "30s"
+    WRITE_TIMEOUT: "30s"
+    MAX_CONNS_PER_HOST: 200
+    MAX_IDLE_CONN_DURATION: "60s"
+    CIRCUIT_BREAKER_THRESHOLD: 3
+    CIRCUIT_BREAKER_TIMEOUT: "30s"
+    JITTER_ENABLED: true
+  ENHANCED_MONITORING:
+    ENABLE_AUTOMATED_RECOVERY: true
+    RECOVERY_COOLDOWN: "5m"
+    MAX_RECOVERY_ATTEMPTS: 3
+    HEALTH_CHECK_INTERVAL: "30s"
+    ALERT_COOLDOWN: "2m"
+    ENABLE_REAL_TIME_METRICS: true
+  LOG:
+    PATH: /var/log/subscription-external-app.log
+    ROLLING:
+      ENABLED: true
+      MAX_SIZE: 100
+      MAX_AGE: 30
+      MAX_BACKUPS: 10
+      COMPRESS: true
+      COMPRESS_THRESHOLD: 10
+      LOCAL_TIME: true
+  KEY:
+    DEFAULT: default_key_value
+    RSA:
+      PUBLIC: /path/to/public.key
+      PRIVATE: /path/to/private.key
+  GRACEFUL:
+    MAX_SECOND: 30s
+
+AUTH:
+  JWT_TOKEN:
+    TYPE: Bearer
+    EXPIRED: 24h
+    REFRESH_EXPIRED: 72h
+    # SECRET provided via JWT_SECRET environment variable
+
+# Enhanced Database Configuration
+DATABASE:
+  POSTGRESQL:
+    HOST: localhost
+    PORT: 5432
+    USER: sm_admin
+    # PASSWORD provided via APP_DATABASE_POSTGRESQL_PASSWORD environment variable
+    DB_NAME: subscription_manager
+    SSL_MODE: disable
+    MAX_OPEN_CONNS: 100
+    MAX_IDLE_CONNS: 25
+    CONN_MAX_LIFETIME: 300s
+    QUERY_TIMEOUT: 30s
+    CONNECTION_TIMEOUT: 10s
+    TRANSACTION_TIMEOUT: 60s
+    POOL_TIMEOUT: 5s
+
+CACHE:
+  REDIS:
+    HOST: localhost
+    PORT: 6379
+    DB: 0
+    PASS: ""
+    BLOOM_FILTER:
+      ENABLED: true
+      EXPECTED_ITEMS: 1000000
+      FALSE_POSITIVE_RATE: 0.01
+      TTL: 24h
+      PRELOAD_ENABLED: true
+      PRELOAD_BATCH_SIZE: 10000
+
+# Monitoring and Alerting Configuration
+MONITORING:
+  CHARGING_FAILURE:
+    HIGH_FAILURE_RATE: 50.0
+    LOW_SUCCESS_RATE: 70.0
+    HIGH_QUEUE_SIZE: 5000
+    PROCESSING_DELAY: 3.0
+    DATABASE_ERRORS: 5
+  HEALTH_CHECK:
+    INTERVAL: "30s"
+    TIMEOUT: "10s"
+    MAX_FAILURES: 3
+    ENABLE_METRICS: true
+    ENABLE_ALERTS: true
+  METRICS_CACHE:
+    DEFAULT_TTL: "5m"
+    MAX_ENTRIES: 1000
+    CLEANUP_INTERVAL: "1m"
+    ENABLE_STATS: true
+    COMPRESSION: false
+
+# Worker Configuration
+WORKER:
+  RESUBSCRIPTION:
+    MAX_WORKERS: 20
+    BATCH_SIZE: 100
+    PROCESSING_TIMEOUT: "10m"
+    RETRY_ATTEMPTS: 3
+    RETRY_DELAY: "5s"
+  RENEWAL:
+    MAX_WORKERS: 10
+    BATCH_SIZE: 50
+    PROCESSING_TIMEOUT: "5m"
+    RETRY_ATTEMPTS: 2
+    RETRY_DELAY: "10s"
+
+# Security Configuration
+SECURITY:
+  JWT:
+    # SECRET provided via JWT_SECRET environment variable
+    EXPIRY: "24h"
+    REFRESH_EXPIRY: "7d"
+  RATE_LIMIT:
+    REQUESTS_PER_MINUTE: 1000
+    BURST_SIZE: 100
+  CORS:
+    ALLOWED_ORIGINS: ["*"]
+    ALLOWED_METHODS: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    ALLOWED_HEADERS: ["*"]
+    EXPOSED_HEADERS: ["Content-Length"]
+    ALLOW_CREDENTIALS: true
+    MAX_AGE: "86400"
+
+# Feature Flags
+FEATURES:
+  ENABLE_MSISDN_VALIDATION: true
+  ENABLE_NETWORK_RESILIENCE: true
+  ENABLE_ENHANCED_MONITORING: true
+  ENABLE_AUTOMATED_RECOVERY: true
+  ENABLE_BATCH_PROCESSING: true
+  ENABLE_CIRCUIT_BREAKER: true
+  ENABLE_RETRY_MECHANISMS: true
+  ENABLE_CACHING: true
+  ENABLE_METRICS: true
+  ENABLE_ALERTING: true

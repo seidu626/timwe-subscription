@@ -1,0 +1,22 @@
+# examples/default.rules
+#
+# Copy to: ~/.codex/rules/default.rules
+#
+# Codex loads *.rules at startup.
+# Use these to require prompts / block dangerous commands.
+
+# Prompt before any "gh pr view" usage (keeps you mindful of untrusted content).
+prefix_rule(
+  pattern = ["gh", "pr", "view"],
+  decision = "prompt",
+  justification = "Review PR metadata carefully; do not paste untrusted content into prompts.",
+  match = ["gh pr view 123", "gh pr view 123 --json title,body,comments"],
+)
+
+# Forbid auth/token commands via agent (do manually).
+prefix_rule(
+  pattern = ["gh", "auth"],
+  decision = "forbidden",
+  justification = "Never run gh auth commands via agent. Do it manually.",
+  match = ["gh auth status", "gh auth token"],
+)

@@ -3,6 +3,8 @@ package handler
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"net"
+	"os"
 	"regexp"
 	"strings"
 
@@ -35,20 +37,24 @@ type HEContextConfig struct {
 	MCCHeader         string
 	MNCHeader         string
 	OperatorHeader    string
+	TrustedProxyCIDRs []string
 }
 
 // DefaultHEContextConfig returns the default HE context configuration
 func DefaultHEContextConfig() *HEContextConfig {
+	simulationEnabled := os.Getenv("HE_SIMULATION_ENABLED") == "true"
+	trustedProxyCIDRs := splitCommaList(os.Getenv("HE_TRUSTED_PROXY_CIDRS"))
 	return &HEContextConfig{
-		SimulationEnabled: false,
+		SimulationEnabled: simulationEnabled,
 		MSISDNHeaders: []string{
 			"X-MSISDN",
 			"X-UP-CALLING-LINE-ID",
 			"X_WAP_NETWORK_CLIENT_MSISDN",
 		},
-		MCCHeader:      "X-MCC",
-		MNCHeader:      "X-MNC",
-		OperatorHeader: "X-Operator-ID",
+		MCCHeader:         "X-MCC",
+		MNCHeader:         "X-MNC",
+		OperatorHeader:    "X-Operator-ID",
+		TrustedProxyCIDRs: trustedProxyCIDRs,
 	}
 }
 
@@ -69,8 +75,9 @@ const (
 
 // HEContextMiddleware creates middleware for extracting HE identity
 type HEContextMiddleware struct {
-	config *HEContextConfig
-	logger *zap.Logger
+	config           *HEContextConfig
+	logger           *zap.Logger
+	trustedProxyNets []*net.IPNet
 }
 
 // NewHEContextMiddleware creates a new HE context middleware
@@ -78,9 +85,11 @@ func NewHEContextMiddleware(config *HEContextConfig, logger *zap.Logger) *HECont
 	if config == nil {
 		config = DefaultHEContextConfig()
 	}
+	trustedProxyNets := parseTrustedProxyCIDRs(config.TrustedProxyCIDRs, logger)
 	return &HEContextMiddleware{
-		config: config,
-		logger: logger,
+		config:           config,
+		logger:           logger,
+		trustedProxyNets: trustedProxyNets,
 	}
 }
 
@@ -112,6 +121,10 @@ func (m *HEContextMiddleware) ExtractIdentity(ctx *fasthttp.RequestCtx) *HEIdent
 
 // extractRealHEIdentity extracts identity from real MNO HE headers
 func (m *HEContextMiddleware) extractRealHEIdentity(ctx *fasthttp.RequestCtx) *HEIdentity {
+	if !m.isTrustedProxy(ctx) {
+		return nil
+	}
+
 	var msisdn string
 
 	// Check candidate MSISDN headers in order of preference
@@ -137,6 +150,35 @@ func (m *HEContextMiddleware) extractRealHEIdentity(ctx *fasthttp.RequestCtx) *H
 		MNC:        string(ctx.Request.Header.Peek(m.config.MNCHeader)),
 		Source:     HESourceReal,
 	}
+}
+
+func (m *HEContextMiddleware) isTrustedProxy(ctx *fasthttp.RequestCtx) bool {
+	if len(m.trustedProxyNets) == 0 {
+		return false
+	}
+
+	addr := ctx.RemoteAddr()
+	if addr == nil {
+		return false
+	}
+
+	ipStr := addr.String()
+	if host, _, err := net.SplitHostPort(ipStr); err == nil {
+		ipStr = host
+	}
+
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+
+	for _, cidr := range m.trustedProxyNets {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // extractSimulatedIdentity extracts identity from simulation headers (set by frontend)
@@ -194,6 +236,58 @@ func isValidMSISDN(msisdn string) bool {
 func hashMSISDN(msisdn string) string {
 	hash := sha256.Sum256([]byte(msisdn))
 	return hex.EncodeToString(hash[:8]) // First 8 bytes for brevity
+}
+
+func splitCommaList(value string) []string {
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+func parseTrustedProxyCIDRs(entries []string, logger *zap.Logger) []*net.IPNet {
+	var nets []*net.IPNet
+	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if strings.Contains(entry, "/") {
+			_, cidr, err := net.ParseCIDR(entry)
+			if err != nil {
+				if logger != nil {
+					logger.Warn("Invalid HE trusted proxy CIDR", zap.String("cidr", entry))
+				}
+				continue
+			}
+			nets = append(nets, cidr)
+			continue
+		}
+
+		ip := net.ParseIP(entry)
+		if ip == nil {
+			if logger != nil {
+				logger.Warn("Invalid HE trusted proxy IP", zap.String("ip", entry))
+			}
+			continue
+		}
+
+		bits := 32
+		if ip.To4() == nil {
+			bits = 128
+		}
+		nets = append(nets, &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)})
+	}
+
+	return nets
 }
 
 // GhanaOperator represents a Ghana MNO with prefix mappings

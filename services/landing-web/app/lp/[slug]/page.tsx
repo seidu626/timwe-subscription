@@ -14,6 +14,12 @@ import {
   captureAttribution,
   storeAttribution,
 } from '../../lib/analytics'
+import {
+  captureBootstrapTokenFromUrl,
+  getBootstrapToken,
+  clearBootstrapToken,
+} from '@/lib/he-bootstrap'
+import { HE_BOOTSTRAP_TOKEN_HEADER } from '@/lib/he-types'
 import type {
   Campaign,
   TransactionResponse,
@@ -97,7 +103,7 @@ const eventTypeMap: Record<string, AnalyticsEventType | null> = {
   'subscription_error': null,
 }
 
-// Send analytics event to acquisition-api
+// Send analytics event to acquisition-api (forwards HE bootstrap token when present)
 const sendAnalyticsEvent = async (
   eventType: AnalyticsEventType,
   campaignSlug: string,
@@ -107,11 +113,17 @@ const sendAnalyticsEvent = async (
   referrerDomain?: string | null
 ) => {
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    const heToken = getBootstrapToken()
+    if (heToken) {
+      headers[HE_BOOTSTRAP_TOKEN_HEADER] = heToken
+    }
+
     const response = await fetch('/api/analytics/landing', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         event_type: eventType,
         campaign_slug: campaignSlug,
@@ -168,11 +180,10 @@ const getReferrerDomain = (): string | null => {
 
 // Simple analytics utility
 const trackEvent = (eventName: string, properties: Record<string, any> = {}) => {
-  // Log to console for debugging
-  console.log('Analytics Event:', eventName, properties)
+  if (typeof window === 'undefined') return
 
-  // Store in localStorage for debugging
-  if (typeof window !== 'undefined') {
+  // Store in localStorage for debugging (dev only)
+  if (process.env.NODE_ENV === 'development') {
     const events = JSON.parse(localStorage.getItem('analytics_events') || '[]')
     events.push({
       event: eventName,
@@ -180,7 +191,7 @@ const trackEvent = (eventName: string, properties: Record<string, any> = {}) => 
       timestamp: new Date().toISOString(),
       url: window.location.href
     })
-    localStorage.setItem('analytics_events', JSON.stringify(events.slice(-100))) // Keep last 100 events
+    localStorage.setItem('analytics_events', JSON.stringify(events.slice(-100)))
   }
 
   // Send to acquisition-api if this event type should be tracked
@@ -210,6 +221,11 @@ function LandingPageWithSearchParams() {
     if (attribution.click_id || attribution.utm_source || attribution.fbclid || attribution.gclid) {
       storeAttribution(attribution, 'last_touch')
     }
+  }, [])
+
+  // Capture HE bootstrap token from URL (from HE bootstrap redirect)
+  useEffect(() => {
+    captureBootstrapTokenFromUrl()
   }, [])
 
   return (
@@ -506,11 +522,18 @@ function LandingPageContent({
     setPhoneError(null)
 
     try {
+      // Build headers - include HE bootstrap token if available
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      const heToken = getBootstrapToken()
+      if (heToken) {
+        headers[HE_BOOTSTRAP_TOKEN_HEADER] = heToken
+      }
+
       const response = await fetch(`/api/transactions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           campaign_slug: slug,
           msisdn: msisdn,
@@ -528,6 +551,11 @@ function LandingPageContent({
 
       const data: TransactionResponse = await response.json()
       setTransaction(data)
+
+      // Clear HE bootstrap token after successful use (single-use)
+      if (heToken) {
+        clearBootstrapToken()
+      }
 
       // Track successful transaction creation (form submit = lead)
       trackEventWithPixels('transaction_created', {

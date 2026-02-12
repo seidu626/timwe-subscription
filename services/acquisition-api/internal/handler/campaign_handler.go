@@ -1,15 +1,17 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -79,14 +81,14 @@ func (h *CampaignHandler) GetBySlug(ctx *fasthttp.RequestCtx) {
 		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
 		return
 	}
-	
+
 	campaign, err := h.service.GetBySlug(slug)
 	if err != nil {
 		h.logger.Error("Failed to get campaign", zap.String("slug", slug), zap.Error(err))
 		ctx.Error("Campaign not found", fasthttp.StatusNotFound)
 		return
 	}
-	
+
 	writeJSON(ctx, fasthttp.StatusOK, campaign)
 }
 
@@ -98,30 +100,30 @@ func (h *CampaignHandler) ListEnabled(ctx *fasthttp.RequestCtx) {
 		ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
 		return
 	}
-	
+
 	writeJSON(ctx, fasthttp.StatusOK, map[string]interface{}{
 		"campaigns": campaigns,
 	})
 }
 
 type adminCampaignUpsertRequest struct {
-	Slug              string          `json:"slug"`
-	Language          string          `json:"language"`
-	Country           string          `json:"country"`
-	Operator          *string         `json:"operator,omitempty"`
-	OfferProductID    int             `json:"offer_product_id"`
-	PricepointID      *int            `json:"pricepoint_id,omitempty"`
-	PartnerRoleID     *int            `json:"partner_role_id,omitempty"`
-	FlowType          domain.FlowType `json:"flow_type"`
-	ShortCode         *string         `json:"short_code,omitempty"`
-	SMSKeyword        *string         `json:"sms_keyword,omitempty"`
-	Price             *float64        `json:"price,omitempty"`
-	BillingCycle      *string         `json:"billing_cycle,omitempty"`
-	TrialFlags        json.RawMessage `json:"trial_flags,omitempty"`
-	TermsURL          *string         `json:"terms_url,omitempty"`
-	InlineTermsText   *string         `json:"inline_terms_text,omitempty"`
-	ConsentRequired   bool            `json:"consent_required"`
-	ConsentVersion    *string         `json:"consent_version,omitempty"`
+	Slug               string          `json:"slug"`
+	Language           string          `json:"language"`
+	Country            string          `json:"country"`
+	Operator           *string         `json:"operator,omitempty"`
+	OfferProductID     int             `json:"offer_product_id"`
+	PricepointID       *int            `json:"pricepoint_id,omitempty"`
+	PartnerRoleID      *int            `json:"partner_role_id,omitempty"`
+	FlowType           domain.FlowType `json:"flow_type"`
+	ShortCode          *string         `json:"short_code,omitempty"`
+	SMSKeyword         *string         `json:"sms_keyword,omitempty"`
+	Price              *float64        `json:"price,omitempty"`
+	BillingCycle       *string         `json:"billing_cycle,omitempty"`
+	TrialFlags         json.RawMessage `json:"trial_flags,omitempty"`
+	TermsURL           *string         `json:"terms_url,omitempty"`
+	InlineTermsText    *string         `json:"inline_terms_text,omitempty"`
+	ConsentRequired    bool            `json:"consent_required"`
+	ConsentVersion     *string         `json:"consent_version,omitempty"`
 	AttributionMapping json.RawMessage `json:"attribution_mapping,omitempty"`
 	PostbackRules      json.RawMessage `json:"postback_rules,omitempty"`
 	Throttles          json.RawMessage `json:"throttles,omitempty"`
@@ -129,14 +131,52 @@ type adminCampaignUpsertRequest struct {
 	AllowedSources     []string        `json:"allowed_sources,omitempty"`
 	LandingPageURLs    []string        `json:"landing_page_urls,omitempty"`
 	TrackingConfig     json.RawMessage `json:"tracking_config,omitempty"`
-	Enabled           bool            `json:"enabled"`
-	CreatedBy         *string         `json:"created_by,omitempty"`
-	UpdatedBy         *string         `json:"updated_by,omitempty"`
+	Enabled            bool            `json:"enabled"`
+	CreatedBy          *string         `json:"created_by,omitempty"`
+	UpdatedBy          *string         `json:"updated_by,omitempty"`
 }
 
 type adminSetEnabledRequest struct {
 	Enabled   bool    `json:"enabled"`
 	UpdatedBy *string `json:"updated_by,omitempty"`
+}
+
+type trackingConfig struct {
+	Pixels       *trackingPixels       `json:"pixels,omitempty"`
+	Attribution  *trackingAttribution  `json:"attribution,omitempty"`
+	CustomEvents []trackingCustomEvent `json:"custom_events,omitempty"`
+}
+
+type trackingPixels struct {
+	Facebook *trackingFacebookPixel `json:"facebook,omitempty"`
+	Google   *trackingGoogleTag     `json:"google,omitempty"`
+	TikTok   *trackingTikTokPixel   `json:"tiktok,omitempty"`
+}
+
+type trackingFacebookPixel struct {
+	PixelID string `json:"pixel_id"`
+	Enabled *bool  `json:"enabled"`
+}
+
+type trackingGoogleTag struct {
+	MeasurementID string  `json:"measurement_id"`
+	AdsID         *string `json:"ads_id,omitempty"`
+	Enabled       *bool   `json:"enabled"`
+}
+
+type trackingTikTokPixel struct {
+	PixelID string `json:"pixel_id"`
+	Enabled *bool  `json:"enabled"`
+}
+
+type trackingAttribution struct {
+	Model      string `json:"model"`
+	WindowDays int    `json:"window_days"`
+}
+
+type trackingCustomEvent struct {
+	Name    string `json:"name"`
+	Trigger string `json:"trigger"`
 }
 
 // cleanLandingPageURLs trims whitespace, removes empty strings, and deduplicates URLs
@@ -196,6 +236,9 @@ func validateAdminUpsert(req *adminCampaignUpsertRequest, requireSlug bool) erro
 	if req.OfferProductID <= 0 {
 		return fmt.Errorf("offer_product_id is required")
 	}
+	if err := validateTrackingConfig(req.TrackingConfig); err != nil {
+		return err
+	}
 	// Validate landing page URLs (each must be a valid absolute http(s) URL)
 	for i, lpURL := range req.LandingPageURLs {
 		lpURL = strings.TrimSpace(lpURL)
@@ -213,6 +256,73 @@ func validateAdminUpsert(req *adminCampaignUpsertRequest, requireSlug bool) erro
 			return fmt.Errorf("landing_page_urls[%d]: URL must have a host", i)
 		}
 	}
+	return nil
+}
+
+func validateTrackingConfig(raw json.RawMessage) error {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return nil
+	}
+
+	var cfg trackingConfig
+	dec := json.NewDecoder(bytes.NewReader(trimmed))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&cfg); err != nil {
+		return fmt.Errorf("tracking_config: %w", err)
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		return fmt.Errorf("tracking_config: invalid trailing data")
+	}
+
+	if cfg.Pixels != nil {
+		if cfg.Pixels.Facebook != nil {
+			if strings.TrimSpace(cfg.Pixels.Facebook.PixelID) == "" {
+				return fmt.Errorf("tracking_config.pixels.facebook.pixel_id is required")
+			}
+			if cfg.Pixels.Facebook.Enabled == nil {
+				return fmt.Errorf("tracking_config.pixels.facebook.enabled is required")
+			}
+		}
+		if cfg.Pixels.Google != nil {
+			if strings.TrimSpace(cfg.Pixels.Google.MeasurementID) == "" {
+				return fmt.Errorf("tracking_config.pixels.google.measurement_id is required")
+			}
+			if cfg.Pixels.Google.Enabled == nil {
+				return fmt.Errorf("tracking_config.pixels.google.enabled is required")
+			}
+		}
+		if cfg.Pixels.TikTok != nil {
+			if strings.TrimSpace(cfg.Pixels.TikTok.PixelID) == "" {
+				return fmt.Errorf("tracking_config.pixels.tiktok.pixel_id is required")
+			}
+			if cfg.Pixels.TikTok.Enabled == nil {
+				return fmt.Errorf("tracking_config.pixels.tiktok.enabled is required")
+			}
+		}
+	}
+
+	if cfg.Attribution != nil {
+		model := strings.TrimSpace(cfg.Attribution.Model)
+		switch model {
+		case "first_touch", "last_touch", "linear":
+		default:
+			return fmt.Errorf("tracking_config.attribution.model must be one of first_touch, last_touch, linear")
+		}
+		if cfg.Attribution.WindowDays <= 0 {
+			return fmt.Errorf("tracking_config.attribution.window_days must be greater than 0")
+		}
+	}
+
+	for i, event := range cfg.CustomEvents {
+		if strings.TrimSpace(event.Name) == "" {
+			return fmt.Errorf("tracking_config.custom_events[%d].name is required", i)
+		}
+		if strings.TrimSpace(event.Trigger) == "" {
+			return fmt.Errorf("tracking_config.custom_events[%d].trigger is required", i)
+		}
+	}
+
 	return nil
 }
 

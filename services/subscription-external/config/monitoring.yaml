@@ -1,0 +1,120 @@
+# Monitoring System Configuration
+thresholds:
+  high_failure_rate: 80.0
+  low_success_rate: 60.0
+  high_queue_size: 10000
+  processing_delay: 5.0
+  database_errors: 10
+  service_unavailable: false
+
+sync_interval: 30s
+retention_period: 24h
+
+alert_rules:
+  - id: "high_failure_rate"
+    name: "High Charging Failure Rate"
+    condition: "failure_rate > 80"
+    severity: "high"
+    enabled: true
+    cooldown: 5m
+    escalation:
+      - level: 1
+        delay: 0s
+        recipients: ["admin@company.com"]
+        actions: ["log", "email"]
+      - level: 2
+        delay: 15m
+        recipients: ["manager@company.com"]
+        actions: ["log", "email", "slack"]
+    notification_channels:
+      - type: "email"
+        enabled: true
+        priority: 1
+        config:
+          subject: "High Charging Failure Rate Alert"
+      - type: "slack"
+        enabled: true
+        priority: 2
+        config:
+          channel: "#alerts"
+
+  - id: "low_success_rate"
+    name: "Low Processing Success Rate"
+    condition: "success_rate < 60"
+    severity: "medium"
+    enabled: true
+    cooldown: 10m
+    escalation:
+      - level: 1
+        delay: 0s
+        recipients: ["ops@company.com"]
+        actions: ["log", "email"]
+    notification_channels:
+      - type: "email"
+        enabled: true
+        priority: 1
+        config:
+          subject: "Low Success Rate Alert"
+
+notification:
+  default_channels: ["log", "email"]
+  retry_attempts: 3
+  retry_delay: 5s
+  
+  email:
+    smtp_host: "smtp.company.com"
+    smtp_port: 587
+    username: "alerts@company.com"
+    password: "${SMTP_PASSWORD}"
+    from_address: "alerts@company.com"
+    to_addresses: ["admin@company.com", "ops@company.com"]
+    use_tls: true
+  
+  slack:
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channel: "#monitoring"
+    username: "Monitoring Bot"
+    icon_emoji: ":warning:"
+  
+  webhook:
+    url: "${WEBHOOK_URL}"
+    method: "POST"
+    headers:
+      Content-Type: "application/json"
+      Authorization: "Bearer ${WEBHOOK_TOKEN}"
+    timeout: 10s
+    retry_on_error: true
+
+circuit_breaker:
+  name: "database_operations"
+  max_failures: 3
+  timeout: 30s
+  reset_timeout: 60s
+
+real_time:
+  websocket_path: "/api/v1/subscription-external/monitoring/ws"
+  broadcast_interval: 5s
+  max_connections: 100
+  heartbeat_interval: 30s
+  enable_compression: true
+
+health:
+  check_interval: 30s
+  timeout: 10s
+  max_failures: 3
+  enable_metrics: true
+  enable_alerts: true
+  health_check_path: "/health"
+
+cache:
+  default_ttl: 5m
+  max_entries: 1000
+  cleanup_interval: 1m
+  enable_stats: true
+  compression: false 
+
+monitoring:
+  metrics_enabled: true
+  health_check_interval: 30s
+  slow_query_threshold: 5s
+  error_rate_threshold: 0.1 

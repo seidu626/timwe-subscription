@@ -1,0 +1,71 @@
+{{define "Endpoint"}}
+
+{{$service := .}}
+
+{{ template "DefaultEndpoint"  "http://localhost/status" }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/list"                         "METHOD" "GET" "BackendUrlPattern" "/api/v1/notification/list"                         "BackendHost" $service.notification_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/mo/{partnerRole}"             "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/mo/{partnerRole}"            "BackendHost" $service.notification_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/mt/dn/{partnerRole}"          "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/mt/dn/{partnerRole}"         "BackendHost" $service.notification_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/user-optin/{partnerRole}"     "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/user-optin/{partnerRole}"    "BackendHost" $service.notification_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/user-renewed/{partnerRole}"   "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/user-renewed/{partnerRole}"  "BackendHost" $service.notification_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/user-optout/{partnerRole}"    "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/user-optout/{partnerRole}"   "BackendHost" $service.notification_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/charge/{partnerRole}"         "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/charge/{partnerRole}"        "BackendHost" $service.notification_api_url) }},
+
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external"                           "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external"                          "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/batch"                     "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/batch"                    "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/userbase/upload"                           "METHOD" "POST" "BackendUrlPattern" "/api/v1/userbase/upload"                          "BackendHost" $service.subscription_external_api_url) }},
+
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/list"                         "METHOD" "GET" "BackendUrlPattern" "/api/v1/subscription/list"                         "BackendHost" $service.subscription_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/optin/{partnerRole}"          "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription/optin/{partnerRole}"         "BackendHost" $service.subscription_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/optin/confirm/{partnerRole}"  "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription/optin/confirm/{partnerRole}" "BackendHost" $service.subscription_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/optout/{partnerRole}"         "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription/optout/{partnerRole}"        "BackendHost" $service.subscription_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/status/{partnerRole}"         "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription/status/{partnerRole}"        "BackendHost" $service.subscription_api_url) }},
+
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/products/list"                             "METHOD" "GET" "BackendUrlPattern" "/api/v1/products/list"                             "BackendHost" $service.subscription_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/products/batch"                            "METHOD" "POST" "BackendUrlPattern" "/api/v1/products/batch"                           "BackendHost" $service.subscription_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/products"                                  "METHOD" "GET" "BackendUrlPattern" "/api/v1/products"                                  "BackendHost" $service.subscription_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/products"                                  "METHOD" "POST" "BackendUrlPattern" "/api/v1/products"                                 "BackendHost" $service.subscription_api_url) }},
+
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/{realm}/{channel}/mt/{partnerRole}"        "METHOD" "POST" "BackendUrlPattern" "/api/v1/{realm}/{channel}/mt/{partnerRole}"       "BackendHost" $service.billing_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/{realm}/charge/dob/{partnerRole}"          "METHOD" "POST" "BackendUrlPattern" "/api/v1/{realm}/charge/dob/{partnerRole}"         "BackendHost" $service.billing_api_url) }},
+
+{{/* Landing Web Routes */}}
+{{ template "LandingWebEndpoint" (dict "Endpoint" "/lp/{slug}" "METHOD" "GET" "BackendUrlPattern" "/lp/{slug}" "BackendHost" $service.landing_web_url) }},
+
+{{/* Acquisition API Routes */}}
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/campaigns/{slug}" "METHOD" "GET" "BackendUrlPattern" "/v1/campaigns/{slug}" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/campaigns" "METHOD" "GET" "BackendUrlPattern" "/v1/campaigns" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/click/out" "METHOD" "GET" "BackendUrlPattern" "/v1/click/out" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/analytics/landing/events" "METHOD" "POST" "BackendUrlPattern" "/v1/analytics/landing/events" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/acquisition/transactions" "METHOD" "POST" "BackendUrlPattern" "/v1/acquisition/transactions" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/acquisition/transactions/{id}/confirm" "METHOD" "POST" "BackendUrlPattern" "/v1/acquisition/transactions/{id}/confirm" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/acquisition/transactions/{id}/status" "METHOD" "GET" "BackendUrlPattern" "/v1/acquisition/transactions/{id}/status" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/callbacks/{telco}" "METHOD" "POST" "BackendUrlPattern" "/v1/callbacks/{telco}" "BackendHost" $service.acquisition_api_url) }},
+
+{{/* Admin API Routes - Acquisition Reports */}}
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/kpis" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/kpis" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/acquisition-funnel" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/acquisition-funnel" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/campaign-performance" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/campaign-performance" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/campaign-performance/export" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/campaign-performance/export" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/timeseries" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/timeseries" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+
+{{/* Admin API Routes - Campaigns Management */}}
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/campaigns" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/campaigns" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/campaigns" "METHOD" "POST" "BackendUrlPattern" "/v1/admin/campaigns" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/campaigns/{slug}" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/campaigns/{slug}" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/campaigns/{slug}" "METHOD" "PUT" "BackendUrlPattern" "/v1/admin/campaigns/{slug}" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/campaigns/{slug}/enabled" "METHOD" "PATCH" "BackendUrlPattern" "/v1/admin/campaigns/{slug}/enabled" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+
+{{/* Admin API Routes - Cadence Engine */}}
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/cadence/series" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/cadence/series" "BackendHost" $service.cadence_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/cadence/series" "METHOD" "POST" "BackendUrlPattern" "/v1/admin/cadence/series" "BackendHost" $service.cadence_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/cadence/series/{seriesId}" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/cadence/series/{seriesId}" "BackendHost" $service.cadence_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/cadence/series/{seriesId}" "METHOD" "PATCH" "BackendUrlPattern" "/v1/admin/cadence/series/{seriesId}" "BackendHost" $service.cadence_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/cadence/series/{seriesId}/rule" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/cadence/series/{seriesId}/rule" "BackendHost" $service.cadence_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/cadence/series/{seriesId}/rule" "METHOD" "PUT" "BackendUrlPattern" "/v1/admin/cadence/series/{seriesId}/rule" "BackendHost" $service.cadence_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/cadence/series/{seriesId}/content" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/cadence/series/{seriesId}/content" "BackendHost" $service.cadence_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/cadence/series/{seriesId}/content" "METHOD" "POST" "BackendUrlPattern" "/v1/admin/cadence/series/{seriesId}/content" "BackendHost" $service.cadence_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/cadence/content/import/csv" "METHOD" "POST" "BackendUrlPattern" "/v1/admin/cadence/content/import/csv" "BackendHost" $service.cadence_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/cadence/series/{seriesId}/publish" "METHOD" "POST" "BackendUrlPattern" "/v1/admin/cadence/series/{seriesId}/publish" "BackendHost" $service.cadence_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }}
+
+{{end}}

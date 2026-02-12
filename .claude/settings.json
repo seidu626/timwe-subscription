@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python tools/review_bundle.py*)",
+      "Bash(git diff*)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(make lint)",
+      "Bash(make test)",
+      "Bash(make typecheck)",
+      "Bash(make check)"
+    ],
+    "deny": []
+  }
+}

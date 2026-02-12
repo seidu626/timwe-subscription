@@ -1,0 +1,12 @@
+{
+    "$schema": "https://www.krakend.io/schema/v2.5/krakend.json",
+    "version": 3,    
+    "port": {{ .service.port }},
+    "name": "{{ .service.name }}",
+    "cache_ttl": "{{ .service.cache_ttl }}",
+    "timeout":  "{{ .service.timeout }}",
+    "read_header_timeout": "{{ .service.read_header_timeout }}",
+    "max_header_bytes": {{ .service.max_header_bytes }},
+    "extra_config": {{ marshal .service.extra_config }},
+    "endpoints": [{{ template "Endpoint" .service }}]
+}

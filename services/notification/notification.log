@@ -1,0 +1,3 @@
+2026-01-31T05:12:29.955Z	INFO	cmd/main.go:27	Configuration loaded	{"environment": "", "port": 8082, "db_host": "localhost", "redis_host": "localhost"}
+2026/01/31 05:12:29 Starting notification service on port: 8082...
+2026/01/31 05:12:29 listen tcp4 :8082: bind: address already in use

@@ -1,0 +1,517 @@
+basePath: /
+definitions:
+  domain.BackfillRequest:
+    properties:
+      end_index:
+        type: integer
+      entry_channel:
+        type: string
+      msisdns:
+        description: optional explicit list to include
+        items:
+          type: string
+        type: array
+      product_ids:
+        items:
+          type: string
+        type: array
+      start_index:
+        description: 0 or -1 means use full list
+        type: integer
+      telco:
+        type: string
+    type: object
+  domain.BatchOptinRequest:
+    properties:
+      count:
+        type: integer
+      entry_channel:
+        type: string
+      msisdns:
+        description: if provided, skip generation
+        items:
+          type: string
+        type: array
+      product_ids:
+        items:
+          type: string
+        type: array
+      telco:
+        type: string
+    type: object
+  domain.ChargeRequest:
+    properties:
+      channel:
+        type: string
+      context:
+        type: string
+      mcc:
+        type: string
+      mnc:
+        type: string
+      msisdn:
+        type: string
+      pricepointId:
+        type: integer
+      productId:
+        type: integer
+      shortCode:
+        type: string
+    type: object
+  domain.ChargeResponse:
+    properties:
+      code:
+        type: string
+      inError:
+        type: boolean
+      message:
+        type: string
+      requestId:
+        type: string
+      responseData:
+        additionalProperties: true
+        type: object
+    type: object
+  domain.GetStatusRequest:
+    properties:
+      clientIp:
+        type: string
+      controlKeyword:
+        type: string
+      controlServiceKeyword:
+        type: string
+      entryChannel:
+        type: string
+      mcc:
+        type: string
+      mnc:
+        type: string
+      productId:
+        type: integer
+      subId:
+        type: integer
+      userIdentifier:
+        type: string
+      userIdentifierType:
+        type: string
+    type: object
+  domain.MTResponse:
+    properties:
+      code:
+        type: string
+      inError:
+        type: boolean
+      message:
+        type: string
+      requestId:
+        type: string
+      responseData:
+        additionalProperties: true
+        type: object
+    type: object
+  domain.OptinRequest:
+    properties:
+      entry_channel:
+        type: string
+      msisdn:
+        type: string
+      product_ids:
+        items:
+          type: string
+        type: array
+      telco:
+        type: string
+    type: object
+  domain.UnsubscriptionRequest:
+    properties:
+      cancelReason:
+        type: integer
+      cancelSource:
+        type: integer
+      clientIp:
+        type: string
+      controlKeyword:
+        type: string
+      controlServiceKeyword:
+        type: string
+      entryChannel:
+        type: string
+      largeAccount:
+        type: string
+      mcc:
+        type: string
+      mnc:
+        type: string
+      productId:
+        type: integer
+      subId:
+        type: integer
+      subKeyword:
+        type: string
+      trackingId:
+        type: string
+      userIdentifier:
+        type: string
+      userIdentifierType:
+        type: string
+    type: object
+  handler.partnerMtRequest:
+    properties:
+      context:
+        type: string
+      largeAccount:
+        type: string
+      mcc:
+        type: string
+      mnc:
+        type: string
+      moTransactionUUID:
+        type: string
+      msisdn:
+        type: string
+      pricepointId:
+        type: integer
+      priority:
+        type: string
+      productId:
+        type: integer
+      sendDate:
+        type: string
+      text:
+        description: Not used by current upstream optin API, accepted for compatibility
+        type: string
+      timezone:
+        type: string
+    type: object
+host: localhost:8083
+info:
+  contact:
+    email: support@omni-connect.com
+    name: API Support
+    url: https://omni-connect.com/support
+  description: This is the API documentation for the Subscription Management Service.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://omni-connect.com/terms/
+  title: Subscription Management API
+  version: "1.0"
+paths:
+  /api/external/v1/{realm}/{channel}/mt/{partnerRole}:
+    post:
+      consumes:
+      - application/json
+      description: Implements /api/external/v1/{realm}/{channel}/mt/{partnerRole}
+      parameters:
+      - description: Partner Realm
+        in: path
+        name: realm
+        required: true
+        type: string
+      - description: Channel (SMS/WEB/IVR/USSD)
+        in: path
+        name: channel
+        required: true
+        type: string
+      - description: Partner Role
+        in: path
+        name: partnerRole
+        required: true
+        type: integer
+      - description: MT request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.partnerMtRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.MTResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Send MT to TIMWE Partner MA Platform
+      tags:
+      - PartnerMt
+  /api/external/v1/{realm}/charge/dob/{partnerRole}:
+    post:
+      consumes:
+      - application/json
+      description: Implements /api/external/v1/{realm}/charge/dob/{partnerRole}
+      parameters:
+      - description: Partner Realm
+        in: path
+        name: realm
+        required: true
+        type: string
+      - description: Partner Role
+        in: path
+        name: partnerRole
+        required: true
+        type: integer
+      - description: Charging request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ChargeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ChargeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Request Direct Billing charge to TIMWE Partner MA Platform
+      tags:
+      - PartnerDobCharging
+  /api/external/v1/{realm}/subscription/optout/{partnerRole}:
+    post:
+      consumes:
+      - application/json
+      description: Implements /api/external/v1/{realm}/subscription/optout/{partnerRole}
+      parameters:
+      - description: Partner Realm
+        in: path
+        name: realm
+        required: true
+        type: string
+      - description: Partner Role
+        in: path
+        name: partnerRole
+        required: true
+        type: integer
+      - description: Unsubscription request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UnsubscriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.MTResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Unsubscribe user via TIMWE Partner MA Platform
+      tags:
+      - PartnerOptout
+  /api/external/v1/{realm}/subscription/status/{partnerRole}:
+    post:
+      consumes:
+      - application/json
+      description: Implements /api/external/v1/{realm}/subscription/status/{partnerRole}
+      parameters:
+      - description: Partner Realm
+        in: path
+        name: realm
+        required: true
+        type: string
+      - description: Partner Role
+        in: path
+        name: partnerRole
+        required: true
+        type: integer
+      - description: Status request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.GetStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.MTResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get subscription status from TIMWE Partner MA Platform
+      tags:
+      - PartnerStatus
+  /api/v1/subscription-external:
+    post:
+      consumes:
+      - application/json
+      description: Opt-in a user subscription with the provided details
+      parameters:
+      - description: Optin Request
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/domain.OptinRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: "200"
+          schema:
+            type: string
+        "400":
+          description: Invalid\t query parameters
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      summary: Opt-in a single subscription
+      tags:
+      - Subscriptions
+  /api/v1/subscription-external/backfill:
+    post:
+      consumes:
+      - application/json
+      description: If msisdns not provided, finds active MSISDNs missing the provided
+        product_ids and enqueues opt-in jobs.
+      parameters:
+      - description: Backfill Request
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/domain.BackfillRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted with jobId
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request payload
+          schema:
+            type: string
+      summary: Backfill subscriptions for MSISDNs missing specified products (async)
+      tags:
+      - Subscriptions
+  /api/v1/subscription-external/batch:
+    post:
+      consumes:
+      - application/json
+      description: Enqueue a batch job and return jobId to poll status.
+      parameters:
+      - description: Batch Optin Request
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/domain.BatchOptinRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted with jobId
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request payload or error generating MSISDNS
+          schema:
+            type: string
+      summary: Batch Opt-in subscriptions (async)
+      tags:
+      - Subscriptions
+  /api/v1/userbase/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload and process CSV or XLSX files containing user base data
+      parameters:
+      - description: CSV or XLSX file containing user data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully processed records
+          schema:
+            type: string
+        "400":
+          description: Invalid file format or failed to retrieve file
+          schema:
+            type: string
+        "500":
+          description: Failed to parse file or store records
+          schema:
+            type: string
+      summary: Upload user base file
+      tags:
+      - UserBase
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Check if the service is healthy and running
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Health check endpoint
+      tags:
+      - System
+  /metrics:
+    get:
+      consumes:
+      - application/json
+      description: Get Prometheus metrics for the service
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Prometheus metrics
+          schema:
+            type: string
+      summary: Metrics endpoint
+      tags:
+      - System
+swagger: "2.0"
