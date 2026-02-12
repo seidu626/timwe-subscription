@@ -1,0 +1,42 @@
+# Environment / secrets
+.env
+*.env.local
+
+# IDE
+.idea/
+.cursor/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Go binaries and build output
+services/acquisition-api/acquisition-api
+services/subscription-external/main
+services/subscription-external/subscription-external
+services/subscription-external/notification-monitor
+services/subscription-external/test_msisdn_length
+
+# Go vendor directories
+vendor/
+
+# Go test/build artifacts
+*.test
+*.out
+coverage.txt
+
+# Logs
+*.log
+logs/
+
+# Node.js / Next.js
+node_modules/
+.next/
+tsconfig.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Data files
+*.csv
