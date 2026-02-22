@@ -12,10 +12,17 @@
 
 # Go binaries and build output
 services/acquisition-api/acquisition-api
+services/billing/billing
+services/cadence-engine/cadence-engine
+services/notification/notification
 services/subscription-external/main
 services/subscription-external/subscription-external
 services/subscription-external/notification-monitor
 services/subscription-external/test_msisdn_length
+services/subscription-partner/subscription
+
+# PID files
+*.pid
 
 # Go vendor directories
 vendor/
