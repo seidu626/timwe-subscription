@@ -235,17 +235,20 @@ func InitConfig(logger *zap.Logger, path string, files []string) *Config {
 	// Auto-load .env from common locations (project root, current dir, parent dirs)
 	autoLoadDotEnv(logger)
 
-	// Explicitly bind database environment variables (required for nested struct unmarshaling)
-	_ = v.BindEnv("DATABASE.POSTGRESQL.HOST", "APP_DATABASE_POSTGRESQL_HOST")
-	_ = v.BindEnv("DATABASE.POSTGRESQL.PORT", "APP_DATABASE_POSTGRESQL_PORT")
-	_ = v.BindEnv("DATABASE.POSTGRESQL.USER", "APP_DATABASE_POSTGRESQL_USER")
-	_ = v.BindEnv("DATABASE.POSTGRESQL.PASSWORD", "APP_DATABASE_POSTGRESQL_PASSWORD")
-	_ = v.BindEnv("DATABASE.POSTGRESQL.DB_NAME", "APP_DATABASE_POSTGRESQL_DB_NAME")
-	_ = v.BindEnv("DATABASE.POSTGRESQL.SSL_MODE", "APP_DATABASE_POSTGRESQL_SSL_MODE")
+	// Explicitly bind database environment variables (required for nested struct unmarshaling).
+	// Support both APP_* and legacy DB.POSTGRESQL.*/.env-style keys used by services.
+	_ = v.BindEnv("DATABASE.POSTGRESQL.HOST", "APP_DATABASE_POSTGRESQL_HOST", "DB.POSTGRESQL.HOST", "DB_POSTGRESQL_HOST", "PGHOST")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.PORT", "APP_DATABASE_POSTGRESQL_PORT", "DB.POSTGRESQL.PORT", "DB_POSTGRESQL_PORT", "PGPORT")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.USER", "APP_DATABASE_POSTGRESQL_USER", "DB.POSTGRESQL.USER", "DB_POSTGRESQL_USER", "PG_USER", "PGUSER")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.PASSWORD", "APP_DATABASE_POSTGRESQL_PASSWORD", "DB.POSTGRESQL.PASSWORD", "DB_POSTGRESQL_PASSWORD", "PG_PASSWORD", "PGPASSWORD")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.DB_NAME", "APP_DATABASE_POSTGRESQL_DB_NAME", "DB.POSTGRESQL.DB_NAME", "DB_POSTGRESQL_DB_NAME", "PG_DB", "PGDATABASE")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.SSL_MODE", "APP_DATABASE_POSTGRESQL_SSL_MODE", "DB.POSTGRESQL.SSL_MODE", "DB_POSTGRESQL_SSL_MODE", "PGSSLMODE")
 
-	// Bind cache/Redis environment variables
-	_ = v.BindEnv("CACHE.REDIS.HOST", "APP_CACHE_REDIS_HOST")
-	_ = v.BindEnv("CACHE.REDIS.PORT", "APP_CACHE_REDIS_PORT")
+	// Bind cache/Redis environment variables (APP_* and legacy CACHE.REDIS.* keys).
+	_ = v.BindEnv("CACHE.REDIS.HOST", "APP_CACHE_REDIS_HOST", "CACHE.REDIS.HOST", "CACHE_REDIS_HOST", "REDIS_HOST")
+	_ = v.BindEnv("CACHE.REDIS.PORT", "APP_CACHE_REDIS_PORT", "CACHE.REDIS.PORT", "CACHE_REDIS_PORT", "REDIS_PORT")
+	_ = v.BindEnv("CACHE.REDIS.PASS", "APP_CACHE_REDIS_PASS", "APP_CACHE_REDIS_PASSWORD", "CACHE.REDIS.PASS", "CACHE_REDIS_PASS", "REDIS_PASSWORD")
+	_ = v.BindEnv("CACHE.REDIS.DB", "APP_CACHE_REDIS_DB", "CACHE.REDIS.DB", "CACHE_REDIS_DB", "REDIS_DB")
 
 	// Bind auth environment variables
 	_ = v.BindEnv("AUTH.JWT_TOKEN.SECRET", "JWT_SECRET")
@@ -373,10 +376,10 @@ func autoLoadDotEnv(logger *zap.Logger) {
 
 	// Paths to search for .env (relative to cwd or absolute)
 	searchPaths := []string{
-		".env",           // Current directory
-		"../.env",        // Parent (services/<name>/ -> services/)
-		"../../.env",     // Grandparent (services/<name>/ -> project root)
-		"../../../.env",  // Great-grandparent
+		".env",          // Current directory
+		"../.env",       // Parent (services/<name>/ -> services/)
+		"../../.env",    // Grandparent (services/<name>/ -> project root)
+		"../../../.env", // Great-grandparent
 	}
 
 	for _, relPath := range searchPaths {

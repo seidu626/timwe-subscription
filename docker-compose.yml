@@ -159,6 +159,43 @@ services:
     volumes:
       - pgadmin-data:/var/lib/pgadmin
 
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    networks:
+      - backend
+      - shared-network
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin}; do
+        echo 'waiting for minio...';
+        sleep 2;
+      done;
+      mc mb -p local/${CAMPAIGN_ASSET_STORAGE_BUCKET:-campaign-assets} || true;
+      mc anonymous set download local/${CAMPAIGN_ASSET_STORAGE_BUCKET:-campaign-assets} || true;
+      echo 'minio bucket bootstrap complete';
+      "
+    depends_on:
+      minio:
+        condition: service_started
+    networks:
+      - backend
+      - shared-network
+    restart: "no"
+
   acquisition-api:
     build:
       context: ./services/acquisition-api
@@ -178,9 +215,22 @@ services:
       - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
       - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
       - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
+      - CAMPAIGN_ASSET_STORAGE_ENABLED=${CAMPAIGN_ASSET_STORAGE_ENABLED:-true}
+      - CAMPAIGN_ASSET_STORAGE_ENDPOINT=${CAMPAIGN_ASSET_STORAGE_ENDPOINT:-minio:9000}
+      - CAMPAIGN_ASSET_STORAGE_BUCKET=${CAMPAIGN_ASSET_STORAGE_BUCKET:-campaign-assets}
+      - CAMPAIGN_ASSET_STORAGE_REGION=${CAMPAIGN_ASSET_STORAGE_REGION:-us-east-1}
+      - CAMPAIGN_ASSET_STORAGE_ACCESS_KEY_ID=${CAMPAIGN_ASSET_STORAGE_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-minioadmin}}
+      - CAMPAIGN_ASSET_STORAGE_SECRET_ACCESS_KEY=${CAMPAIGN_ASSET_STORAGE_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-minioadmin}}
+      - CAMPAIGN_ASSET_STORAGE_USE_SSL=${CAMPAIGN_ASSET_STORAGE_USE_SSL:-false}
+      - CAMPAIGN_ASSET_STORAGE_PUBLIC_BASE_URL=${CAMPAIGN_ASSET_STORAGE_PUBLIC_BASE_URL:-http://localhost:9100/${CAMPAIGN_ASSET_STORAGE_BUCKET:-campaign-assets}}
+      - CAMPAIGN_ASSET_STORAGE_KEY_PREFIX=${CAMPAIGN_ASSET_STORAGE_KEY_PREFIX:-campaign-backgrounds}
+      - CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES=${CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES:-2097152}
+      - CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY=${CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY:-10m}
     depends_on:
       database:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     networks:
       - backend
       - shared-network
@@ -251,3 +301,4 @@ volumes:
   db_data:
   pgadmin-data:
     driver: local
+  minio_data:

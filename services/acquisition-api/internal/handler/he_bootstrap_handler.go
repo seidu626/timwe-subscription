@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -20,7 +21,7 @@ import (
 // It captures MSISDN from operator-injected headers, creates a short-lived token,
 // and redirects to HTTPS where the token can be exchanged for a subscriber context.
 type HEBootstrapHandler struct {
-	redisClient     *redis.Client
+	redisClient     cached.RedisClient
 	logger          *zap.Logger
 	heMiddleware    *HEContextMiddleware
 	tokenTTL        time.Duration
@@ -32,7 +33,7 @@ type HEBootstrapHandler struct {
 // HEBootstrapConfig holds configuration for the HE bootstrap handler
 type HEBootstrapConfig struct {
 	// Redis client for token storage
-	RedisClient *redis.Client
+	RedisClient cached.RedisClient
 	// Token TTL (default: 60 seconds)
 	TokenTTL time.Duration
 	// Secret for token signing (optional, for additional security)
@@ -305,11 +306,10 @@ func (h *HEBootstrapHandler) storeTokenWithCampaign(ctx *fasthttp.RequestCtx, to
 		"remote_addr": ctx.RemoteAddr().String(),
 	}
 
-	// Use HSET with expiry
-	pipe := h.redisClient.Pipeline()
-	pipe.HSet(context.Background(), key, data)
-	pipe.Expire(context.Background(), key, h.tokenTTL)
-	_, err := pipe.Exec(context.Background())
+	if _, err := h.redisClient.HSet(context.Background(), key, data); err != nil {
+		return err
+	}
+	_, err := h.redisClient.Expire(context.Background(), key, h.tokenTTL)
 	return err
 }
 
@@ -323,7 +323,7 @@ func (h *HEBootstrapHandler) exchangeToken(ctx *fasthttp.RequestCtx, token strin
 	bgCtx := context.Background()
 
 	// Get all fields
-	result, err := h.redisClient.HGetAll(bgCtx, key).Result()
+	result, err := h.redisClient.HGetAll(bgCtx, key)
 	if err != nil {
 		return nil, "", err
 	}
@@ -332,7 +332,7 @@ func (h *HEBootstrapHandler) exchangeToken(ctx *fasthttp.RequestCtx, token strin
 	}
 
 	// Delete immediately (single-use)
-	if err := h.redisClient.Del(bgCtx, key).Err(); err != nil {
+	if _, err := h.redisClient.Del(bgCtx, key); err != nil {
 		h.logger.Warn("Failed to delete used bootstrap token", zap.Error(err), zap.String("token_prefix", token[:8]))
 	}
 
@@ -354,22 +354,22 @@ func (h *HEBootstrapHandler) exchangeToken(ctx *fasthttp.RequestCtx, token strin
 func (h *HEBootstrapHandler) getRedirectHost(ctx *fasthttp.RequestCtx) string {
 	// Get the host from the incoming request
 	requestHost := string(ctx.Host())
-	
+
 	// Strip port if present (HTTP is port 80, we redirect to HTTPS on 443)
 	if idx := strings.Index(requestHost, ":"); idx != -1 {
 		requestHost = requestHost[:idx]
 	}
-	
+
 	// Use request host if available, otherwise fall back to configured host
 	if requestHost != "" {
 		return requestHost
 	}
-	
+
 	// Fallback to configured host
 	if h.httpsHost != "" {
 		return h.httpsHost
 	}
-	
+
 	// Default fallback
 	return "landing.nouveauricheglobalgroup.com"
 }

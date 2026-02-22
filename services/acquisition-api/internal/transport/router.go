@@ -17,6 +17,7 @@ func NewRouter(
 	reportsHandler *handler.ReportsHandler,
 	postbackAdminHandler *handler.PostbackAdminHandler,
 	transactionAdminHandler *handler.TransactionAdminHandler,
+	adminManagementHandler *handler.AdminManagementHandler,
 	clickOutHandler *handler.ClickOutHandler,
 	heBootstrapHandler *handler.HEBootstrapHandler,
 ) fasthttp.RequestHandler {
@@ -115,6 +116,15 @@ func NewRouter(
 			}
 			return
 
+		// Admin campaign background uploads
+		case strings.EqualFold(path, "/v1/admin/campaign-assets/background/presign"):
+			if method == fasthttp.MethodPost {
+				campaignHandler.AdminPresignBackgroundUpload(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		// Admin postback diagnostics
 		case strings.EqualFold(path, "/v1/admin/postbacks"):
 			if method == fasthttp.MethodGet {
@@ -142,6 +152,85 @@ func NewRouter(
 			}
 			return
 
+		// Admin products management
+		case strings.EqualFold(path, "/v1/admin/products"):
+			switch method {
+			case fasthttp.MethodGet:
+				adminManagementHandler.ListProducts(ctx)
+			case fasthttp.MethodPost:
+				adminManagementHandler.CreateProduct(ctx)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.EqualFold(path, "/v1/admin/products/batch"):
+			if method == fasthttp.MethodPost {
+				adminManagementHandler.BatchUpsertProducts(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/products/"):
+			switch method {
+			case fasthttp.MethodPut:
+				adminManagementHandler.UpdateProduct(ctx)
+			case fasthttp.MethodDelete:
+				adminManagementHandler.DeleteProduct(ctx)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		// Admin userbase management
+		case strings.EqualFold(path, "/v1/admin/userbase"):
+			switch method {
+			case fasthttp.MethodGet:
+				adminManagementHandler.ListUserbase(ctx)
+			case fasthttp.MethodPost:
+				adminManagementHandler.UpsertUserbase(ctx)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.EqualFold(path, "/v1/admin/userbase/imports"):
+			switch method {
+			case fasthttp.MethodGet:
+				adminManagementHandler.ListUserbaseImports(ctx)
+			case fasthttp.MethodPost:
+				adminManagementHandler.ImportUserbase(ctx)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/userbase/imports/"):
+			if method == fasthttp.MethodGet {
+				adminManagementHandler.GetUserbaseImport(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/userbase/"):
+			if method == fasthttp.MethodDelete {
+				adminManagementHandler.DeleteUserbase(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		// Admin activity logs
+		case strings.EqualFold(path, "/v1/admin/activity-logs"):
+			if method == fasthttp.MethodGet {
+				adminManagementHandler.ListActivityLogs(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		// Admin transaction detail
 		case strings.HasPrefix(path, "/v1/admin/transactions/"):
 			if method == fasthttp.MethodGet {
@@ -154,6 +243,14 @@ func NewRouter(
 		case strings.HasPrefix(path, "/v1/admin/campaigns/") && strings.HasSuffix(path, "/enabled"):
 			if method == fasthttp.MethodPatch {
 				campaignHandler.AdminSetEnabled(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/campaigns/") && strings.HasSuffix(path, "/clone"):
+			if method == fasthttp.MethodPost {
+				campaignHandler.AdminClone(ctx)
 			} else {
 				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
 			}

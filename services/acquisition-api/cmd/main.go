@@ -18,6 +18,7 @@ import (
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/transport"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/common/config"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
@@ -31,7 +32,8 @@ func main() {
 	logConfig.ErrorOutputPaths = []string{"stderr"}
 	logConfig.Encoding = "json"
 	logConfig.EncoderConfig.TimeKey = "ts"
-	logConfig.EncoderConfig.EncodeTime = zapcore.EpochTimeEncoder
+	// Include explicit date+time in each log line (RFC3339/ISO8601 format).
+	logConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
 	logger, err := logConfig.Build()
 	if err != nil {
@@ -71,6 +73,7 @@ func main() {
 	landingEventRepo := repository.NewLandingEventRepository(db, logger)
 	reportsRepo := repository.NewReportsRepository(db, logger)
 	outboundClickRepo := repository.NewOutboundClickRepository(db, logger)
+	adminManagementRepo := repository.NewAdminManagementRepository(db, logger)
 
 	// Initialize TIMWE client with configuration
 	timweConfig := buildTIMWEConfig(cfg)
@@ -106,6 +109,15 @@ func main() {
 	providerRegistry := service.NewProviderRegistry(logger)
 	registerAdProviders(providerRegistry, logger)
 	campaignService := service.NewCampaignService(campaignRepo, logger)
+	campaignAssetService, err := service.NewCampaignAssetService(buildCampaignAssetStorageConfig(), logger)
+	if err != nil {
+		logger.Fatal("Failed to initialize campaign asset service", zap.Error(err))
+	}
+	if campaignAssetService != nil {
+		logger.Info("Campaign asset service initialized")
+	} else {
+		logger.Info("Campaign asset service not configured")
+	}
 	transactionService := service.NewTransactionService(
 		transactionRepo,
 		campaignRepo,
@@ -114,9 +126,10 @@ func main() {
 		timweClient,
 		logger,
 	)
+	adminManagementService := service.NewAdminManagementService(adminManagementRepo, logger)
 
 	// Initialize handlers
-	campaignHandler := handler.NewCampaignHandler(campaignService, logger)
+	campaignHandler := handler.NewCampaignHandler(campaignService, campaignAssetService, logger)
 	transactionHandler := handler.NewTransactionHandler(transactionService, logger)
 	callbackHandler := handler.NewCallbackHandler(transactionRepo, postbackRepo, providerRegistry, logger)
 	internalHandler := handler.NewInternalHandler(transactionService, logger)
@@ -124,6 +137,7 @@ func main() {
 	reportsHandler := handler.NewReportsHandler(reportsRepo, logger)
 	postbackAdminHandler := handler.NewPostbackAdminHandler(postbackRepo, logger)
 	transactionAdminHandler := handler.NewTransactionAdminHandler(transactionRepo, logger)
+	adminManagementHandler := handler.NewAdminManagementHandler(adminManagementService, logger)
 
 	// Initialize click-out handler (optional, configured via environment)
 	var clickOutHandler *handler.ClickOutHandler
@@ -149,7 +163,7 @@ func main() {
 	}
 
 	// Create router
-	router := transport.NewRouter(campaignHandler, transactionHandler, callbackHandler, internalHandler, analyticsHandler, reportsHandler, postbackAdminHandler, transactionAdminHandler, clickOutHandler, heBootstrapHandler)
+	router := transport.NewRouter(campaignHandler, transactionHandler, callbackHandler, internalHandler, analyticsHandler, reportsHandler, postbackAdminHandler, transactionAdminHandler, adminManagementHandler, clickOutHandler, heBootstrapHandler)
 
 	// Create server
 	server := &fasthttp.Server{
@@ -301,6 +315,41 @@ func validateConfig(timweCfg *service.TIMWEConfig, logger *zap.Logger) {
 	}
 }
 
+func buildCampaignAssetStorageConfig() service.CampaignAssetStorageConfig {
+	cfg := service.CampaignAssetStorageConfig{
+		Enabled:            strings.EqualFold(strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_ENABLED")), "true"),
+		Endpoint:           strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_ENDPOINT")),
+		Bucket:             strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_BUCKET")),
+		Region:             strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_REGION")),
+		AccessKeyID:        strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_ACCESS_KEY_ID")),
+		SecretAccessKey:    strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_SECRET_ACCESS_KEY")),
+		PublicBaseURL:      strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_PUBLIC_BASE_URL")),
+		KeyPrefix:          strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_KEY_PREFIX")),
+		MaxUploadSizeBytes: 2 * 1024 * 1024,
+		PresignExpiry:      10 * time.Minute,
+		UseSSL:             true,
+	}
+
+	if useSSL := strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_USE_SSL")); useSSL != "" {
+		cfg.UseSSL = !strings.EqualFold(useSSL, "false")
+	}
+
+	if rawBytes := strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES")); rawBytes != "" {
+		var maxBytes int64
+		if _, err := fmt.Sscanf(rawBytes, "%d", &maxBytes); err == nil && maxBytes > 0 {
+			cfg.MaxUploadSizeBytes = maxBytes
+		}
+	}
+
+	if expiry := strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY")); expiry != "" {
+		if d, err := time.ParseDuration(expiry); err == nil && d > 0 {
+			cfg.PresignExpiry = d
+		}
+	}
+
+	return cfg
+}
+
 // buildClickOutConfig creates ClickOutConfig from environment variables
 // Environment variables:
 //   - CLICKOUT_DESTINATIONS_JSON: JSON map of dest_key -> destination config.
@@ -408,7 +457,7 @@ func buildHEBootstrapConfig(logger *zap.Logger) *handler.HEBootstrapConfig {
 		// Try to use common config
 		opts := config.GetRedisOptions()
 		if opts != nil && opts.Addr != ":0" && opts.Addr != "" {
-			cfg.RedisClient = redis.NewClient(opts)
+			cfg.RedisClient = cached.NewFailoverRedisClient(opts)
 		}
 	} else {
 		redisPort := os.Getenv("REDIS_PORT")
@@ -423,7 +472,7 @@ func buildHEBootstrapConfig(logger *zap.Logger) *handler.HEBootstrapConfig {
 			redisPassword = os.Getenv("APP_CACHE_REDIS_PASSWORD")
 		}
 
-		cfg.RedisClient = redis.NewClient(&redis.Options{
+		cfg.RedisClient = cached.NewFailoverRedisClient(&redis.Options{
 			Addr:     fmt.Sprintf("%s:%s", redisHost, redisPort),
 			Password: redisPassword,
 			DB:       0,
@@ -434,13 +483,14 @@ func buildHEBootstrapConfig(logger *zap.Logger) *handler.HEBootstrapConfig {
 	if cfg.RedisClient != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := cfg.RedisClient.Ping(ctx).Err(); err != nil {
+		if _, err := cfg.RedisClient.Ping(ctx); err != nil {
 			logger.Warn("Failed to connect to Redis for HE bootstrap, handler will be disabled",
 				zap.Error(err),
 			)
-			cfg.RedisClient = nil
 		} else {
-			logger.Info("Redis connection established for HE bootstrap")
+			logger.Info("Redis cache client initialized for HE bootstrap",
+				zap.String("mode", string(cfg.RedisClient.Mode())),
+			)
 		}
 	}
 

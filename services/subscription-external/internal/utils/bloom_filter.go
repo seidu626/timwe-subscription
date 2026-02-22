@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bits-and-blooms/bloom/v3"
-	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"go.uber.org/zap"
 )
 
@@ -17,7 +17,7 @@ import (
 type MSISDNBloomFilter struct {
 	filter *bloom.BloomFilter
 	mutex  sync.RWMutex
-	redis  *redis.Client
+	redis  cached.RedisClient
 	logger *zap.Logger
 
 	// Configuration
@@ -35,7 +35,7 @@ type MSISDNBloomFilter struct {
 }
 
 // NewMSISDNBloomFilter creates a new Bloom Filter for MSISDN validation
-func NewMSISDNBloomFilter(expectedItems uint, falsePositiveRate float64, redisClient *redis.Client, logger *zap.Logger) *MSISDNBloomFilter {
+func NewMSISDNBloomFilter(expectedItems uint, falsePositiveRate float64, redisClient cached.RedisClient, logger *zap.Logger) *MSISDNBloomFilter {
 	bf := &MSISDNBloomFilter{
 		filter:            bloom.NewWithEstimates(expectedItems, falsePositiveRate),
 		redis:             redisClient,
@@ -127,7 +127,7 @@ func (bf *MSISDNBloomFilter) checkRedisCache(ctx context.Context, msisdn string)
 		return false, fmt.Errorf("redis client is not configured")
 	}
 	key := fmt.Sprintf("invalid_msisdn:%s", msisdn)
-	exists, err := bf.redis.Exists(ctx, key).Result()
+	exists, err := bf.redis.Exists(ctx, key)
 	if err != nil {
 		return false, err
 	}
@@ -142,7 +142,7 @@ func (bf *MSISDNBloomFilter) cacheInRedis(msisdn string) {
 	key := fmt.Sprintf("invalid_msisdn:%s", msisdn)
 	ctx := context.Background()
 
-	err := bf.redis.Set(ctx, key, "1", bf.ttl).Err()
+	err := bf.redis.Set(ctx, key, "1", bf.ttl)
 	if err != nil {
 		bf.logger.Warn("Failed to cache MSISDN in Redis",
 			zap.String("msisdn", msisdn),
@@ -160,16 +160,13 @@ func (bf *MSISDNBloomFilter) cacheBatchInRedis(msisdns []string) {
 	}
 
 	ctx := context.Background()
-	pipe := bf.redis.Pipeline()
-
 	for _, msisdn := range msisdns {
 		key := fmt.Sprintf("invalid_msisdn:%s", msisdn)
-		pipe.Set(ctx, key, "1", bf.ttl)
-	}
-
-	_, err := pipe.Exec(ctx)
-	if err != nil {
-		bf.logger.Warn("Failed to batch cache MSISDNs in Redis", zap.Error(err))
+		if err := bf.redis.Set(ctx, key, "1", bf.ttl); err != nil {
+			bf.logger.Warn("Failed to cache MSISDN in batch",
+				zap.String("msisdn", msisdn),
+				zap.Error(err))
+		}
 	}
 }
 
@@ -187,7 +184,7 @@ func (bf *MSISDNBloomFilter) loadFromRedis() {
 	var err error
 
 	for {
-		keys, cursor, err = bf.redis.Scan(ctx, cursor, pattern, 1000).Result()
+		keys, cursor, err = bf.redis.Scan(ctx, cursor, pattern, 1000)
 		if err != nil {
 			bf.logger.Error("Failed to scan Redis for invalid MSISDNs", zap.Error(err))
 			return

@@ -8,7 +8,7 @@
             "alg": "RS256",
             "jwk_url": "https://{{ .Auth0Domain }}/.well-known/jwks.json",
             "issuer": "https://{{ .Auth0Domain }}/",
-            "audience": ["{{ .Auth0Audience }}"],
+            "audience": [{{- $auds := splitList "," .Auth0Audience -}}{{- range $i, $aud := $auds }}{{- if $i }}, {{ end -}}"{{ trim $aud }}"{{- end }}],
             "cache": true,
             "cache_duration": 900
         },

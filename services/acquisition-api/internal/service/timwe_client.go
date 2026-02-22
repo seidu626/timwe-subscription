@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,12 +33,12 @@ type TIMWEConfig struct {
 	RetryBaseDelay time.Duration
 	RetryMaxDelay  time.Duration
 	// Circuit breaker settings
-	CBMaxRequests            uint32
-	CBTimeout                time.Duration
-	CBInterval               time.Duration
-	CBMinRequests            uint32
-	CBFailureRateThreshold   float64
-	CBConsecutiveFailures    uint32
+	CBMaxRequests          uint32
+	CBTimeout              time.Duration
+	CBInterval             time.Duration
+	CBMinRequests          uint32
+	CBFailureRateThreshold float64
+	CBConsecutiveFailures  uint32
 }
 
 // DefaultTIMWEConfig returns default TIMWE configuration
@@ -118,12 +119,12 @@ func NewTIMWEClient(logger *zap.Logger) *TIMWEClientImpl {
 func NewTIMWEClientWithConfig(config *TIMWEConfig, logger *zap.Logger) *TIMWEClientImpl {
 	// Create HTTP client with configured timeouts
 	client := &fasthttp.Client{
-		MaxConnsPerHost:          config.MaxConnections,
-		MaxIdleConnDuration:      config.IdleConnTimeout,
-		ReadTimeout:              config.Timeout,
-		WriteTimeout:             config.Timeout,
-		MaxConnWaitTimeout:       config.DialTimeout,
-		MaxResponseBodySize:      10 * 1024 * 1024, // 10MB
+		MaxConnsPerHost:               config.MaxConnections,
+		MaxIdleConnDuration:           config.IdleConnTimeout,
+		ReadTimeout:                   config.Timeout,
+		WriteTimeout:                  config.Timeout,
+		MaxConnWaitTimeout:            config.DialTimeout,
+		MaxResponseBodySize:           10 * 1024 * 1024, // 10MB
 		DisableHeaderNamesNormalizing: false,
 	}
 
@@ -208,6 +209,23 @@ func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel strin
 		c.logger.Error("Failed to marshal request data", zap.Error(err))
 		return nil, fmt.Errorf("failed to marshal request data: %w", err)
 	}
+
+	// Log full OTP request payload + headers for debugging.
+	// NOTE: this intentionally includes auth headers because explicit full-request logging was requested.
+	var requestBodyMap map[string]interface{}
+	_ = json.Unmarshal(requestBody, &requestBodyMap)
+	c.logger.Info("TIMWE OTP full request",
+		zap.String("url", url),
+		zap.String("method", "POST"),
+		zap.Any("headers", map[string]string{
+			"apikey":         c.config.APIKey,
+			"authentication": authKey,
+			"external-tx-id": txUUID,
+			"Content-Type":   "application/json",
+		}),
+		zap.Any("body", requestBodyMap),
+		zap.String("raw_body", string(requestBody)),
+	)
 
 	// Execute with circuit breaker
 	done, cbErr := c.circuitBreaker.Allow()
@@ -328,19 +346,9 @@ func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel str
 
 	// Convert to TIMWEResponse
 	response := &TIMWEResponse{
-		Success: !mtResp.InError,
-		Status:        mtResp.Code,
-		Message:       mtResp.Message,
-	}
-
-	// Check success codes
-	switch mtResp.Code {
-	case "SUBSCRIBED", "SUCCESS", "OPTIN_SUCCESS", "CONFIRMED":
-		response.Success = true
-	default:
-		if mtResp.InError {
-			response.Success = false
-		}
+		Success: c.isFinalConfirmSuccess(mtResp),
+		Status:  mtResp.Code,
+		Message: mtResp.Message,
 	}
 
 	c.logger.Info("TIMWE Confirm response",
@@ -406,19 +414,9 @@ func (c *TIMWEClientImpl) ConfirmWithDetails(msisdn string, productID int, authC
 
 	// Convert to TIMWEResponse
 	response := &TIMWEResponse{
-		Success: !mtResp.InError,
+		Success: c.isFinalConfirmSuccess(mtResp),
 		Status:  mtResp.Code,
 		Message: mtResp.Message,
-	}
-
-	// Check success codes
-	switch mtResp.Code {
-	case "SUBSCRIBED", "SUCCESS", "OPTIN_SUCCESS", "CONFIRMED":
-		response.Success = true
-	default:
-		if mtResp.InError {
-			response.Success = false
-		}
 	}
 
 	c.logger.Info("TIMWE ConfirmWithDetails response",
@@ -549,4 +547,34 @@ func (c *TIMWEClientImpl) sendMTRequestWithRetry(url, authKey, externalTxID stri
 	}
 
 	return nil, fmt.Errorf("exhausted all retry attempts")
+}
+
+func (c *TIMWEClientImpl) isFinalConfirmSuccess(mtResp *MTResponse) bool {
+	if mtResp == nil || mtResp.InError {
+		return false
+	}
+
+	switch strings.ToUpper(mtResp.Code) {
+	case "SUBSCRIBED", "CONFIRMED", "OPTIN_SUCCESS":
+		return true
+	}
+
+	if mtResp.ResponseData != nil {
+		for _, key := range []string{"subscriptionResult", "status", "subscriptionStatus"} {
+			raw, ok := mtResp.ResponseData[key]
+			if !ok {
+				continue
+			}
+			value, ok := raw.(string)
+			if !ok {
+				continue
+			}
+			switch strings.ToUpper(value) {
+			case "SUBSCRIBED", "CONFIRMED", "OPTIN_SUCCESS":
+				return true
+			}
+		}
+	}
+
+	return false
 }

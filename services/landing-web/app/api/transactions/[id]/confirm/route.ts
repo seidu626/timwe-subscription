@@ -22,7 +22,7 @@ export async function POST(
       }
     )
 
-    const data = await response.json()
+    const data = await parseUpstreamResponse(response)
 
     if (!response.ok) {
       return NextResponse.json(data, { status: response.status })
@@ -35,5 +35,19 @@ export async function POST(
       { error: 'Failed to confirm transaction' },
       { status: 500 }
     )
+  }
+}
+
+async function parseUpstreamResponse(response: Response): Promise<unknown> {
+  const raw = await response.text()
+
+  if (!raw) {
+    return response.ok ? {} : { error: 'Empty response from acquisition API' }
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return { error: raw }
   }
 }

@@ -149,6 +149,37 @@ Maps incoming URL parameters to canonical fields:
 https://landing.example.com/lp/gh-tigo-mobplus-daily?txid=ABC123&sub1=campaign1
 ```
 
+## Level23 Integration (Tracker Parameter)
+
+For Level23 campaigns, pass their `{tracker}` macro as our click identifier and force generic provider:
+
+```text
+http://139.59.135.253:3000/lp/gh-airteltigo-level23-daily-v1?provider=generic&click_id={tracker}
+```
+
+Alternative alias:
+
+```text
+http://139.59.135.253:3000/lp/gh-airteltigo-level23-daily-v1?provider=generic&txid={tracker}
+```
+
+Configure the Level23 conversion postback under `conversion.generic`:
+
+```json
+{
+  "conversion": {
+    "generic": {
+      "method": "GET",
+      "url": "https://postback.level23.nl/?currency=USD&handler=10844&hash=1c2d51e38d4bf6b3fba837c64f7390bd&tracker={click_id}"
+    }
+  }
+}
+```
+
+Operational scripts:
+- `make db-configure-level23-campaign`
+- `make db-generate-level23-share-info`
+
 ## Database Setup
 
 ### Run Migrations

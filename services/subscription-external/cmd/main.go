@@ -72,7 +72,7 @@ import (
 
 	"database/sql"
 
-	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/common/config"
 	_ "github.com/seidu626/subscription-manager/subscription-external/docs"
 	renewalconfig "github.com/seidu626/subscription-manager/subscription-external/internal/config"
@@ -417,7 +417,8 @@ func main() {
 	}(db)
 
 	redisOptions := config.GetRedisOptions()
-	redisClient := redis.NewClient(redisOptions)
+	redisClient := cached.NewFailoverRedisClient(redisOptions)
+	logger.Info("cache client initialized", zap.String("mode", string(redisClient.Mode())))
 
 	repo := repository.NewSubscriptionRepository(db, logger, redisClient)
 	productRepo := repository.NewProductRepository(db, logger, redisClient)

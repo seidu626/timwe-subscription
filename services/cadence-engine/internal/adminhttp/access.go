@@ -1,6 +1,7 @@
 package adminhttp
 
 import (
+	"crypto/subtle"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 type access struct {
 	validator      *auth0jwt.Validator
+	staticToken    string
 	allowedOrigins []string
 }
 
@@ -41,6 +43,7 @@ func newAccess() *access {
 
 	return &access{
 		validator:      validator,
+		staticToken:    strings.TrimSpace(os.Getenv("CADENCE_ADMIN_TOKEN")),
 		allowedOrigins: allowed,
 	}
 }
@@ -69,7 +72,7 @@ func (a *access) setCORS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
 	w.Header().Set("Vary", "Origin")
 	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Token")
 	w.Header().Set("Access-Control-Max-Age", "600")
 }
 
@@ -85,6 +88,10 @@ func (a *access) handlePreflight(w http.ResponseWriter, r *http.Request) bool {
 func (a *access) require(w http.ResponseWriter, r *http.Request) bool {
 	a.setCORS(w, r)
 
+	if a.validateStaticToken(r) {
+		return true
+	}
+
 	if a.validator == nil {
 		http.Error(w, "Admin access not configured", http.StatusServiceUnavailable)
 		return false
@@ -97,4 +104,30 @@ func (a *access) require(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	return true
+}
+
+func (a *access) validateStaticToken(r *http.Request) bool {
+	expected := strings.TrimSpace(a.staticToken)
+	if expected == "" {
+		return false
+	}
+
+	candidates := []string{
+		strings.TrimSpace(r.Header.Get("X-Admin-Token")),
+	}
+
+	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		candidates = append(candidates, strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer ")))
+	}
+
+	for _, token := range candidates {
+		if token == "" {
+			continue
+		}
+		if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) == 1 {
+			return true
+		}
+	}
+	return false
 }

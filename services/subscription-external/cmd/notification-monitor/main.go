@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/common/config"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/service"
@@ -34,7 +34,11 @@ func main() {
 	defer func() { _ = db.Close() }()
 
 	redisOptions := config.GetRedisOptions()
-	redisClient := redis.NewClient(redisOptions)
+	redisClient := cached.NewFailoverRedisClient(redisOptions)
+	logger.Info("cache client initialized", zap.String("mode", string(redisClient.Mode())))
+	if redisClient.Mode() == cached.RedisModeFallback && os.Getenv("APP_SINGLE_INSTANCE") != "true" {
+		logger.Warn("running notification monitor with in-memory cache fallback; distributed locks are local-only. Set APP_SINGLE_INSTANCE=true to avoid multi-instance duplicate processing")
+	}
 
 	repo := repository.NewSubscriptionRepository(db, logger, redisClient)
 	productRepo := repository.NewProductRepository(db, logger, redisClient)

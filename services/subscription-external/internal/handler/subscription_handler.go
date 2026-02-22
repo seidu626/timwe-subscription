@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/common/config"
 	"go.uber.org/zap"
 
@@ -55,8 +56,8 @@ func NewSubscriptionHandler(logger *zap.Logger, service *service.SubscriptionSer
 
 	// Try to initialize Bloom Filter with Redis if available
 	if c.Cache.Redis.Host != "" && c.Cache.Redis.Port != 0 {
-		// Create Redis client for Bloom Filter
-		redisClient := redis.NewClient(&redis.Options{
+		// Create failover Redis client for Bloom Filter
+		redisClient := cached.NewFailoverRedisClient(&redis.Options{
 			Addr: fmt.Sprintf("%s:%d", c.Cache.Redis.Host, c.Cache.Redis.Port),
 			DB:   c.Cache.Redis.DB,
 		})
@@ -65,7 +66,7 @@ func NewSubscriptionHandler(logger *zap.Logger, service *service.SubscriptionSer
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := redisClient.Ping(ctx).Err(); err != nil {
+		if _, err := redisClient.Ping(ctx); err != nil {
 			logger.Warn("Redis connection failed, Bloom Filter disabled",
 				zap.String("host", c.Cache.Redis.Host),
 				zap.Int("port", c.Cache.Redis.Port),
@@ -95,6 +96,7 @@ func NewSubscriptionHandler(logger *zap.Logger, service *service.SubscriptionSer
 			logger.Info("Bloom Filter initialized with Redis",
 				zap.String("host", c.Cache.Redis.Host),
 				zap.Int("port", c.Cache.Redis.Port),
+				zap.String("cacheMode", string(redisClient.Mode())),
 				zap.Uint("expectedItems", expectedItems),
 				zap.Float64("falsePositiveRate", falsePositiveRate))
 		}

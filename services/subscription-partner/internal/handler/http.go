@@ -89,7 +89,22 @@ func (h *SubscriptionHandler) handleSubscription(ctx *fasthttp.RequestCtx, subsc
 	partnerRoleId, err := strconv.Atoi(partnerRoleIdStr)
 	if err != nil {
 		log.Printf("Error converting partnerRoleId: %v", err)
-		ctx.Error(`{"message": "Invalid partnerRoleId", "code": "FAILURE", "inError": "true"}`, fasthttp.StatusBadRequest)
+		writeJSONResponse(ctx, fasthttp.StatusBadRequest, map[string]interface{}{
+			"message": "Invalid partnerRoleId",
+			"code":    "FAILURE",
+			"inError": true,
+		})
+		return
+	}
+
+	// Confirm path is deprecated in subscription-partner.
+	// Real confirm is handled by subscription-external's Partner API.
+	if subscriptionType == "CONFIRM" {
+		writeJSONResponse(ctx, fasthttp.StatusNotImplemented, map[string]interface{}{
+			"message": "Confirmation is handled by /api/external/v1/subscription/optin/confirm",
+			"code":    "NOT_SUPPORTED",
+			"inError": true,
+		})
 		return
 	}
 
@@ -105,14 +120,22 @@ func (h *SubscriptionHandler) handleSubscription(ctx *fasthttp.RequestCtx, subsc
 	case "STATUS":
 		subscriptionRequest = &domain.GetStatusRequest{}
 	default:
-		ctx.Error(`{"message": "Invalid subscription type", "code": "FAILURE", "inError": "true"}`, fasthttp.StatusBadRequest)
+		writeJSONResponse(ctx, fasthttp.StatusBadRequest, map[string]interface{}{
+			"message": "Invalid subscription type",
+			"code":    "FAILURE",
+			"inError": true,
+		})
 		return
 	}
 
 	// Unmarshal the request body into the appropriate struct
 	if err := json.Unmarshal(ctx.PostBody(), subscriptionRequest); err != nil {
 		log.Printf("Error unmarshalling request: %v", err)
-		ctx.Error(`{"message": "Invalid request payload", "code": "FAILURE", "inError": "true"}`, fasthttp.StatusBadRequest)
+		writeJSONResponse(ctx, fasthttp.StatusBadRequest, map[string]interface{}{
+			"message": "Invalid request payload",
+			"code":    "FAILURE",
+			"inError": true,
+		})
 		return
 	}
 
@@ -152,13 +175,21 @@ func (h *SubscriptionHandler) handleSubscription(ctx *fasthttp.RequestCtx, subsc
 
 	if processErr != nil {
 		log.Printf("Error processing subscription: %+v", processErr)
-		ctx.Error(`{"message": "Error processing subscription", "code": "FAILURE", "inError": "true"}`, fasthttp.StatusInternalServerError)
+		writeJSONResponse(ctx, fasthttp.StatusInternalServerError, map[string]interface{}{
+			"message": "Error processing subscription",
+			"code":    "FAILURE",
+			"inError": true,
+		})
 		return
 	}
 
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	if subscriptionType != "STATUS" {
-		ctx.SetBody([]byte(`{"message": "Subscription processed successfully", "code": "SUCCESS", "inError": "false"`))
+		writeJSONResponse(ctx, fasthttp.StatusOK, map[string]interface{}{
+			"message": "Subscription processed successfully",
+			"code":    "SUCCESS",
+			"inError": false,
+		})
 	}
 }
 
@@ -176,4 +207,15 @@ func (h *SubscriptionHandler) OptoutHandler(ctx *fasthttp.RequestCtx) {
 
 func (h *SubscriptionHandler) StatusHandler(ctx *fasthttp.RequestCtx) {
 	h.handleSubscription(ctx, "STATUS")
+}
+
+func writeJSONResponse(ctx *fasthttp.RequestCtx, status int, payload interface{}) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		ctx.Error("Error formatting response", fasthttp.StatusInternalServerError)
+		return
+	}
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(status)
+	ctx.SetBody(body)
 }

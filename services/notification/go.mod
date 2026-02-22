@@ -8,6 +8,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/prometheus/client_golang v1.20.4
 	github.com/redis/go-redis/v9 v9.7.0
+	github.com/seidu626/subscription-manager/common v0.0.0-00010101000000-000000000000
 	github.com/sony/gobreaker v1.0.0
 	github.com/spf13/viper v1.19.0
 	github.com/valyala/fasthttp v1.56.0

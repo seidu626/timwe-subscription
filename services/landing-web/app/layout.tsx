@@ -107,7 +107,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Hammersmith+One&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Work+Sans:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
 
@@ -116,14 +116,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://connect.facebook.net" />
         <link rel="dns-prefetch" href="https://analytics.tiktok.com" />
       </head>
-      <body style={{
-        margin: 0,
-        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        lineHeight: 1.6,
-        color: '#1a1a1a',
-        backgroundColor: '#f8f9fa',
-        minHeight: '100vh',
-      }}>
+      <body>
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <div id="main-content">
           {children}

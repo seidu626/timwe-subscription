@@ -48,8 +48,34 @@ For services using `APP_` prefix (subscription-partner, notification, cadence-en
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | `ADMIN_AUTH0_DOMAIN` | Auth0 tenant domain for admin JWT validation (e.g. `dev-chliep5q.auth0.com`) | - | Yes |
-| `ADMIN_AUTH0_AUDIENCE` | Auth0 API Audience/Identifier expected in `aud` claim. Supports comma-separated values to allow migration (e.g. `aud1,aud2`). | - | Yes |
+| `ADMIN_AUTH0_AUDIENCE` | Auth0 API Audience/Identifier expected in `aud` claim (for this project: `https://dev-chliep5q.auth0.com/api/v2/`). | - | Yes |
 | `ACQUISITION_ADMIN_CORS_ORIGINS` | Comma-separated allowed CORS origins | `http://localhost:4200` | No |
+
+### Acquisition API Campaign Asset Storage (Optional)
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `CAMPAIGN_ASSET_STORAGE_ENABLED` | Enables campaign background image upload endpoint | `false` | No |
+| `CAMPAIGN_ASSET_STORAGE_ENDPOINT` | S3-compatible endpoint host/URL | - | Yes (if enabled) |
+| `CAMPAIGN_ASSET_STORAGE_BUCKET` | Target object storage bucket/container | - | Yes (if enabled) |
+| `CAMPAIGN_ASSET_STORAGE_REGION` | Object storage region | - | No |
+| `CAMPAIGN_ASSET_STORAGE_ACCESS_KEY_ID` | Access key ID | - | Yes (if enabled) |
+| `CAMPAIGN_ASSET_STORAGE_SECRET_ACCESS_KEY` | Secret access key | - | Yes (if enabled) |
+| `CAMPAIGN_ASSET_STORAGE_USE_SSL` | Use TLS for storage endpoint | `true` | No |
+| `CAMPAIGN_ASSET_STORAGE_PUBLIC_BASE_URL` | Public/CDN base URL used for generated asset URLs | - | No |
+| `CAMPAIGN_ASSET_STORAGE_KEY_PREFIX` | Prefix/folder for campaign background objects | `campaign-backgrounds` | No |
+| `CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES` | Max upload payload size in bytes | `2097152` | No |
+| `CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY` | Presigned URL validity duration | `10m` | No |
+
+### MinIO (Docker local S3 backend)
+
+When using `docker-compose.yml`, MinIO is used as the default S3 backend for campaign background uploads.
+MinIO API is exposed on `http://localhost:9100` and MinIO Console on `http://localhost:9101`.
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `MINIO_ROOT_USER` | MinIO root access key/user | `minioadmin` | No |
+| `MINIO_ROOT_PASSWORD` | MinIO root secret key/password | `minioadmin` | No |
 
 ## Notification Worker
 

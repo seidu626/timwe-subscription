@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"go.uber.org/zap"
@@ -39,7 +40,7 @@ func (s *CampaignService) GetBySlug(slug string) (*domain.PublicCampaign, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get campaign: %w", err)
 	}
-	
+
 	return campaign.ToPublic(), nil
 }
 
@@ -49,12 +50,12 @@ func (s *CampaignService) ListEnabled() ([]*domain.PublicCampaign, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list campaigns: %w", err)
 	}
-	
+
 	public := make([]*domain.PublicCampaign, len(campaigns))
 	for i, c := range campaigns {
 		public[i] = c.ToPublic()
 	}
-	
+
 	return public, nil
 }
 
@@ -101,4 +102,101 @@ func (s *CampaignService) AdminSetEnabled(slug string, enabled bool, updatedBy *
 		return nil, fmt.Errorf("failed to set enabled: %w", err)
 	}
 	return updated, nil
+}
+
+// AdminClone creates a new campaign by cloning an existing one with a new slug.
+// The cloned campaign is always disabled to avoid accidental activation.
+func (s *CampaignService) AdminClone(sourceSlug, newSlug string, createdBy *string) (*domain.Campaign, error) {
+	source, err := s.repo.GetAdminBySlug(sourceSlug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get source campaign: %w", err)
+	}
+
+	newSlug = strings.TrimSpace(newSlug)
+	if newSlug == "" {
+		return nil, fmt.Errorf("new_slug is required")
+	}
+
+	var normalizedCreatedBy *string
+	if createdBy != nil {
+		v := strings.TrimSpace(*createdBy)
+		if v != "" {
+			normalizedCreatedBy = &v
+		}
+	}
+
+	clone := &domain.Campaign{
+		Slug:               newSlug,
+		Language:           source.Language,
+		Country:            source.Country,
+		Operator:           cloneStringPtr(source.Operator),
+		OfferProductID:     source.OfferProductID,
+		PricepointID:       cloneIntPtr(source.PricepointID),
+		PartnerRoleID:      cloneIntPtr(source.PartnerRoleID),
+		FlowType:           source.FlowType,
+		ShortCode:          cloneStringPtr(source.ShortCode),
+		SMSKeyword:         cloneStringPtr(source.SMSKeyword),
+		Price:              cloneFloat64Ptr(source.Price),
+		BillingCycle:       cloneStringPtr(source.BillingCycle),
+		TrialFlags:         cloneRawMessage(source.TrialFlags),
+		TermsURL:           cloneStringPtr(source.TermsURL),
+		InlineTermsText:    cloneStringPtr(source.InlineTermsText),
+		ConsentRequired:    source.ConsentRequired,
+		ConsentVersion:     cloneStringPtr(source.ConsentVersion),
+		AttributionMapping: cloneRawMessage(source.AttributionMapping),
+		PostbackRules:      cloneRawMessage(source.PostbackRules),
+		Throttles:          cloneRawMessage(source.Throttles),
+		AllowedReferrers:   cloneStringSlice(source.AllowedReferrers),
+		AllowedSources:     cloneStringSlice(source.AllowedSources),
+		LandingPageURLs:    cloneStringSlice(source.LandingPageURLs),
+		TrackingConfig:     cloneRawMessage(source.TrackingConfig),
+		LPCopy:             cloneRawMessage(source.LPCopy),
+		Enabled:            false,
+		CreatedBy:          normalizedCreatedBy,
+		UpdatedBy:          normalizedCreatedBy,
+	}
+
+	created, err := s.repo.Create(clone)
+	if err != nil {
+		return nil, fmt.Errorf("failed to clone campaign: %w", err)
+	}
+	return created, nil
+}
+
+func cloneStringPtr(v *string) *string {
+	if v == nil {
+		return nil
+	}
+	out := *v
+	return &out
+}
+
+func cloneIntPtr(v *int) *int {
+	if v == nil {
+		return nil
+	}
+	out := *v
+	return &out
+}
+
+func cloneFloat64Ptr(v *float64) *float64 {
+	if v == nil {
+		return nil
+	}
+	out := *v
+	return &out
+}
+
+func cloneRawMessage(v []byte) []byte {
+	if len(v) == 0 {
+		return nil
+	}
+	return append([]byte(nil), v...)
+}
+
+func cloneStringSlice(v []string) []string {
+	if len(v) == 0 {
+		return nil
+	}
+	return append([]string(nil), v...)
 }

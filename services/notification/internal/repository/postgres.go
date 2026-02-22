@@ -4,22 +4,25 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
 	"log"
+	"strings"
 	"time"
 )
 
 type NotificationRepository struct {
 	db    *sql.DB
-	redis *redis.Client
+	redis cached.RedisClient
 	ctx   context.Context
 }
 
-func NewNotificationRepository(db *sql.DB, client *redis.Client) *NotificationRepository {
+func NewNotificationRepository(db *sql.DB, client cached.RedisClient) *NotificationRepository {
 	return &NotificationRepository{
 		db:    db,
 		redis: client,
@@ -28,23 +31,28 @@ func NewNotificationRepository(db *sql.DB, client *redis.Client) *NotificationRe
 }
 
 // GenerateCacheKey generates a unique cache key for query filters
-func (r *NotificationRepository) GenerateCacheKey(startDate, endDate time.Time, partnerRole, msisdn, channel string, page, pageSize int) string {
-	return fmt.Sprintf("notifications:%s:%s:%s:%s:%s:%d:%d", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), partnerRole, msisdn, channel, page, pageSize)
+func (r *NotificationRepository) GenerateCacheKey(startDate, endDate time.Time, partnerRole, msisdn, channel, notificationType string, page, pageSize int) string {
+	return fmt.Sprintf("notifications:%s:%s:%s:%s:%s:%s:%d:%d", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), partnerRole, msisdn, channel, notificationType, page, pageSize)
 }
 
 // FetchNotifications retrieves notifications with filtering, pagination, and caching support.
-func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time, partnerRole, msisdn, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
-	cacheKey := r.GenerateCacheKey(startDate, endDate, partnerRole, msisdn, entryChannel, page, pageSize)
+func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+	partnerRole = strings.TrimSpace(partnerRole)
+	msisdn = strings.TrimSpace(msisdn)
+	entryChannel = strings.TrimSpace(entryChannel)
+	notificationType = strings.TrimSpace(notificationType)
+
+	cacheKey := r.GenerateCacheKey(startDate, endDate, partnerRole, msisdn, entryChannel, notificationType, page, pageSize)
 
 	// Try fetching cached response
 	log.Printf("Fetching notifications from cache: %s", cacheKey)
-	cachedData, err := r.redis.Get(r.ctx, cacheKey).Result()
+	cachedData, err := r.redis.Get(r.ctx, cacheKey)
 	if err == nil {
 		var listResponse *domain.ListResponse
 		if jsonErr := json.Unmarshal([]byte(cachedData), &listResponse); jsonErr == nil {
 			return listResponse, nil
 		}
-	} else {
+	} else if !errors.Is(err, redis.Nil) {
 		log.Printf("Cache miss or error: %+v", err)
 	}
 
@@ -71,28 +79,34 @@ func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time
 		argIndex++
 	}
 	if partnerRole != "" {
-		query += fmt.Sprintf(" AND partner_role = $%d", argIndex)
-		countQuery += fmt.Sprintf(" AND partner_role = $%d", argIndex)
-		args = append(args, partnerRole)
+		query += fmt.Sprintf(" AND CAST(partner_role AS TEXT) LIKE $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND CAST(partner_role AS TEXT) LIKE $%d", argIndex)
+		args = append(args, "%"+partnerRole+"%")
 		argIndex++
 	}
 	if msisdn != "" {
-		query += fmt.Sprintf(" AND msisdn = $%d", argIndex)
-		countQuery += fmt.Sprintf(" AND msisdn = $%d", argIndex)
-		args = append(args, msisdn)
+		query += fmt.Sprintf(" AND msisdn LIKE $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND msisdn LIKE $%d", argIndex)
+		args = append(args, "%"+msisdn+"%")
 		argIndex++
 	}
 	if entryChannel != "" {
-		query += fmt.Sprintf(" AND entry_channel = $%d", argIndex)
-		countQuery += fmt.Sprintf(" AND entry_channel = $%d", argIndex)
-		args = append(args, entryChannel)
+		query += fmt.Sprintf(" AND COALESCE(entry_channel, '') ILIKE $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND COALESCE(entry_channel, '') ILIKE $%d", argIndex)
+		args = append(args, "%"+entryChannel+"%")
+		argIndex++
+	}
+	if notificationType != "" {
+		query += fmt.Sprintf(" AND COALESCE(type, '') ILIKE $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND COALESCE(type, '') ILIKE $%d", argIndex)
+		args = append(args, "%"+notificationType+"%")
 		argIndex++
 	}
 
 	// Get total count for pagination
 	var totalRecords int
 	if err := r.db.QueryRow(countQuery, args...).Scan(&totalRecords); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("count notifications: %w", err)
 	}
 
 	// Add pagination support
@@ -102,27 +116,21 @@ func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query notifications: %w", err)
 	}
 	defer rows.Close()
 
 	// Scan results into notifications
 	var notifications []*domain.Notification
 	for rows.Next() {
-		notification := &domain.Notification{}
-		if err := rows.Scan(
-			&notification.ID,
-			&notification.PartnerRole,
-			&notification.MSISDN,
-			&notification.ProductID,
-			&notification.EntryChannel,
-			&notification.PricepointID,
-			&notification.Type,
-			&notification.CreatedAt,
-		); err != nil {
-			return nil, err
+		notification, scanErr := scanAndMapNotification(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan notification row: %w", scanErr)
 		}
 		notifications = append(notifications, notification)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate notification rows: %w", err)
 	}
 
 	totalPages := (totalRecords + pageSize - 1) / pageSize // to round up
@@ -142,10 +150,64 @@ func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time
 	// Cache the response data for 10 minutes
 	data, jsonErr := json.Marshal(listResponse)
 	if jsonErr == nil {
-		r.redis.Set(r.ctx, cacheKey, data, 10*time.Minute)
+		_ = r.redis.Set(r.ctx, cacheKey, data, 10*time.Minute)
 	}
 
 	return listResponse, nil
+}
+
+type rowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanAndMapNotification(scanner rowScanner) (*domain.Notification, error) {
+	var id int
+	var partnerRole int
+	var msisdn string
+	var productID int
+	var entryChannel sql.NullString
+	var pricepointID int
+	var notificationType sql.NullString
+	var createdAt time.Time
+
+	if err := scanner.Scan(
+		&id,
+		&partnerRole,
+		&msisdn,
+		&productID,
+		&entryChannel,
+		&pricepointID,
+		&notificationType,
+		&createdAt,
+	); err != nil {
+		return nil, err
+	}
+
+	return &domain.Notification{
+		ID:           id,
+		PartnerRole:  partnerRole,
+		MSISDN:       msisdn,
+		ProductID:    productID,
+		EntryChannel: nullStringToString(entryChannel),
+		PricepointID: pricepointID,
+		Type:         nullStringPtr(notificationType),
+		CreatedAt:    createdAt,
+	}, nil
+}
+
+func nullStringToString(val sql.NullString) string {
+	if val.Valid {
+		return val.String
+	}
+	return ""
+}
+
+func nullStringPtr(val sql.NullString) *string {
+	if !val.Valid {
+		return nil
+	}
+	s := val.String
+	return &s
 }
 
 func (r *NotificationRepository) Save(notification *domain.NotificationRequest) error {

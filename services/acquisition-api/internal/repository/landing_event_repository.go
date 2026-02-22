@@ -109,11 +109,11 @@ func (r *LandingEventRepository) CountByType(
 	startDate, endDate time.Time,
 ) (int64, error) {
 	query := `
-		SELECT COUNT(*) 
-		FROM landing_events 
-		WHERE event_type = $1 
-		  AND created_at >= $3 
-		  AND created_at < $4
+		SELECT COUNT(*)
+		FROM landing_events
+		WHERE event_type = $1
+		  AND created_at >= $2
+		  AND created_at < $3
 	`
 
 	var count int64

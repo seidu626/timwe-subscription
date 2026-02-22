@@ -10,6 +10,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"go.uber.org/zap"
 )
@@ -17,12 +18,12 @@ import (
 type UserBaseRepository struct {
 	db     *sql.DB
 	logger *zap.Logger
-	redis  *redis.Client
+	redis  cached.RedisClient
 	ctx    context.Context
 }
 
 // NewUserBaseRepository initializes a new UserBaseRepository with the database connection
-func NewUserBaseRepository(db *sql.DB, logger *zap.Logger, client *redis.Client) *UserBaseRepository {
+func NewUserBaseRepository(db *sql.DB, logger *zap.Logger, client cached.RedisClient) *UserBaseRepository {
 	return &UserBaseRepository{db: db,
 		logger: logger,
 		redis:  client,
@@ -102,7 +103,7 @@ func (repo *UserBaseRepository) InsertUserRecords(ctx context.Context, records [
 // LoadExclusionList loads MSISDNS for Premier, Staff, and Blacklisted users in memory for batch filtering
 func (repo *UserBaseRepository) LoadExclusionList() (map[string]bool, error) {
 	cacheKey := "__USER_BASE_LIST__"
-	cachedData, err := repo.redis.Get(repo.ctx, cacheKey).Result()
+	cachedData, err := repo.redis.Get(repo.ctx, cacheKey)
 	if err == nil {
 		var listResponse map[string]bool
 		if err := json.Unmarshal([]byte(cachedData), &listResponse); err == nil {
@@ -129,7 +130,7 @@ func (repo *UserBaseRepository) LoadExclusionList() (map[string]bool, error) {
 
 	data, err := json.Marshal(msisdnSet)
 	if err == nil {
-		repo.redis.Set(repo.ctx, cacheKey, data, 30*time.Minute)
+		_ = repo.redis.Set(repo.ctx, cacheKey, data, 30*time.Minute)
 	}
 	return msisdnSet, nil
 }
@@ -151,7 +152,7 @@ func (repo *UserBaseRepository) IsExcludedUser(msisdn string) (bool, error) {
 	}
 
 	// Fallback to Redis cache
-	cachedType, err := repo.redis.Get(repo.ctx, cacheKey(msisdn)).Result()
+	cachedType, err := repo.redis.Get(repo.ctx, cacheKey(msisdn))
 	if errors.Is(err, redis.Nil) {
 		// Cache miss, check database
 		var userType string
@@ -159,14 +160,14 @@ func (repo *UserBaseRepository) IsExcludedUser(msisdn string) (bool, error) {
 		err := repo.db.QueryRow(query, msisdn).Scan(&userType)
 		if errors.Is(err, sql.ErrNoRows) {
 			// UserIdentifier is not an excluded user, cache as Non-Excluded
-			repo.redis.Set(repo.ctx, cacheKey(msisdn), "Non-Excluded", time.Hour*24)
+			_ = repo.redis.Set(repo.ctx, cacheKey(msisdn), "Non-Excluded", time.Hour*24)
 			return false, nil
 		} else if err != nil {
 			return false, fmt.Errorf("database error: %v", err)
 		}
 
 		// Cache the result as excluded user type
-		repo.redis.Set(repo.ctx, cacheKey(msisdn), userType, time.Hour*24)
+		_ = repo.redis.Set(repo.ctx, cacheKey(msisdn), userType, time.Hour*24)
 		return true, nil
 	} else if err != nil {
 		return false, fmt.Errorf("redis error: %v", err)
@@ -215,7 +216,7 @@ func (repo *UserBaseRepository) FilterMSISDNS(msisdns []string) ([]string, error
 		keys[i] = cacheKey(msisdn)
 	}
 
-	cachedResults, err := repo.redis.MGet(ctx, keys...).Result()
+	cachedResults, err := repo.redis.MGet(ctx, keys...)
 	if err != nil {
 		return nil, fmt.Errorf("redis error: %v", err)
 	}
@@ -279,7 +280,6 @@ func (repo *UserBaseRepository) FilterMSISDNS(msisdns []string) ([]string, error
 		foundPremier := make(map[string]bool, len(toDB))
 
 		// Prepare for batch caching with Redis pipeline
-		pipe := repo.redis.Pipeline()
 		dbExcludedCount := 0
 		for rows.Next() {
 			var msisdn string
@@ -287,7 +287,7 @@ func (repo *UserBaseRepository) FilterMSISDNS(msisdns []string) ([]string, error
 				return nil, fmt.Errorf("error scanning row: %v", err)
 			}
 			foundPremier[msisdn] = true
-			pipe.Set(ctx, cacheKey(msisdn), "Premier/Staff", 24*time.Hour)
+			_ = repo.redis.Set(ctx, cacheKey(msisdn), "Premier/Staff", 24*time.Hour)
 			dbExcludedCount++
 		}
 
@@ -296,13 +296,9 @@ func (repo *UserBaseRepository) FilterMSISDNS(msisdns []string) ([]string, error
 		for _, msisdn := range toDB {
 			if !foundPremier[msisdn] {
 				validMSISDNS = append(validMSISDNS, msisdn)
-				pipe.Set(ctx, cacheKey(msisdn), "Non-Premier/Staff", 24*time.Hour)
+				_ = repo.redis.Set(ctx, cacheKey(msisdn), "Non-Premier/Staff", 24*time.Hour)
 				dbValidCount++
 			}
-		}
-
-		if _, err := pipe.Exec(ctx); err != nil {
-			return nil, fmt.Errorf("redis pipeline error: %v", err)
 		}
 	}
 
@@ -403,7 +399,7 @@ func (repo *UserBaseRepository) GetInvalidMSISDNSOptimized(ctx context.Context, 
 func (repo *UserBaseRepository) GetInvalidMSISDNSFast(ctx context.Context, msisdn string) (bool, error) {
 	// Check cache first
 	cacheKey := fmt.Sprintf("invalid_msisdn:%s", msisdn)
-	exists, err := repo.redis.Exists(ctx, cacheKey).Result()
+	exists, err := repo.redis.Exists(ctx, cacheKey)
 	if err == nil && exists > 0 {
 		return true, nil // Found in cache - it's invalid
 	}
@@ -444,7 +440,7 @@ func (repo *UserBaseRepository) getCachedInvalidMSISDNS(ctx context.Context, msi
 	}
 
 	// Batch check cache
-	cachedResults, err := repo.redis.MGet(ctx, cacheKeys...).Result()
+	cachedResults, err := repo.redis.MGet(ctx, cacheKeys...)
 	if err != nil {
 		repo.logger.Warn("Failed to check cache, falling back to database", zap.Error(err))
 		return []string{}, msisdns
@@ -470,7 +466,7 @@ func (repo *UserBaseRepository) getCachedInvalidMSISDNS(ctx context.Context, msi
 func (repo *UserBaseRepository) cacheInvalidMSISDN(ctx context.Context, msisdn string) {
 	cacheKey := fmt.Sprintf("invalid_msisdn:%s", msisdn)
 	// Cache for 24 hours - invalid MSISDNs don't change frequently
-	err := repo.redis.Set(ctx, cacheKey, "1", 24*time.Hour).Err()
+	err := repo.redis.Set(ctx, cacheKey, "1", 24*time.Hour)
 	if err != nil {
 		repo.logger.Warn("Failed to cache invalid MSISDN",
 			zap.String("msisdn", msisdn),

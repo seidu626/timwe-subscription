@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/lib/pq"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"go.uber.org/zap"
 )
 
@@ -29,15 +29,15 @@ func NewCampaignRepository(db *sql.DB, logger *zap.Logger) *CampaignRepository {
 // GetBySlug retrieves a campaign by slug
 func (r *CampaignRepository) GetBySlug(slug string) (*domain.Campaign, error) {
 	query := `
-		SELECT id, slug, language, country, operator, offer_product_id, pricepoint_id,
-		       partner_role_id, flow_type, short_code, sms_keyword, price, billing_cycle,
-		       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
-		       attribution_mapping, postback_rules, throttles, allowed_referrers,
-		       allowed_sources, landing_page_urls, tracking_config,
-		       enabled, created_at, updated_at, created_by, updated_by
-		FROM campaigns
-		WHERE slug = $1 AND enabled = true
-	`
+			SELECT id, slug, language, country, operator, offer_product_id, pricepoint_id,
+			       partner_role_id, flow_type, short_code, sms_keyword, price, billing_cycle,
+			       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
+			       attribution_mapping, postback_rules, throttles, allowed_referrers,
+			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
+			       enabled, created_at, updated_at, created_by, updated_by
+			FROM campaigns
+			WHERE slug = $1 AND enabled = true
+		`
 
 	var campaign domain.Campaign
 	var operator, shortCode, smsKeyword, termsURL,
@@ -45,7 +45,7 @@ func (r *CampaignRepository) GetBySlug(slug string) (*domain.Campaign, error) {
 	var pricepointID, partnerRoleID sql.NullInt64 // Fixed: use NullInt64 for integer columns
 	var price sql.NullFloat64
 	var billingCycle sql.NullString
-	var trialFlags, attributionMapping, postbackRules, throttles, trackingConfig sql.NullString
+	var trialFlags, attributionMapping, postbackRules, throttles, trackingConfig, lpCopy sql.NullString
 	var allowedReferrers, allowedSources, landingPageURLs pq.StringArray
 
 	err := r.db.QueryRow(query, slug).Scan(
@@ -54,7 +54,7 @@ func (r *CampaignRepository) GetBySlug(slug string) (*domain.Campaign, error) {
 		&shortCode, &smsKeyword, &price, &billingCycle, &trialFlags, &termsURL,
 		&inlineTermsText, &campaign.ConsentRequired, &consentVersion,
 		&attributionMapping, &postbackRules, &throttles, &allowedReferrers,
-		&allowedSources, &landingPageURLs, &trackingConfig,
+		&allowedSources, &landingPageURLs, &trackingConfig, &lpCopy,
 		&campaign.Enabled, &campaign.CreatedAt, &campaign.UpdatedAt,
 		&createdBy, &updatedBy,
 	)
@@ -122,6 +122,9 @@ func (r *CampaignRepository) GetBySlug(slug string) (*domain.Campaign, error) {
 	if trackingConfig.Valid {
 		campaign.TrackingConfig = json.RawMessage(trackingConfig.String)
 	}
+	if lpCopy.Valid {
+		campaign.LPCopy = json.RawMessage(lpCopy.String)
+	}
 
 	campaign.AllowedReferrers = allowedReferrers
 	campaign.AllowedSources = allowedSources
@@ -133,15 +136,15 @@ func (r *CampaignRepository) GetBySlug(slug string) (*domain.Campaign, error) {
 // GetAdminBySlug retrieves a campaign by slug (admin view; enabled + disabled).
 func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, error) {
 	query := `
-		SELECT id, slug, language, country, operator, offer_product_id, pricepoint_id,
-		       partner_role_id, flow_type, short_code, sms_keyword, price, billing_cycle,
-		       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
-		       attribution_mapping, postback_rules, throttles, allowed_referrers,
-		       allowed_sources, landing_page_urls, tracking_config,
-		       enabled, created_at, updated_at, created_by, updated_by
-		FROM campaigns
-		WHERE slug = $1
-	`
+			SELECT id, slug, language, country, operator, offer_product_id, pricepoint_id,
+			       partner_role_id, flow_type, short_code, sms_keyword, price, billing_cycle,
+			       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
+			       attribution_mapping, postback_rules, throttles, allowed_referrers,
+			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
+			       enabled, created_at, updated_at, created_by, updated_by
+			FROM campaigns
+			WHERE slug = $1
+		`
 
 	var campaign domain.Campaign
 	var operator, shortCode, smsKeyword, termsURL,
@@ -149,7 +152,7 @@ func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, erro
 	var pricepointID, partnerRoleID sql.NullInt64
 	var price sql.NullFloat64
 	var billingCycle sql.NullString
-	var trialFlags, attributionMapping, postbackRules, throttles, trackingConfig sql.NullString
+	var trialFlags, attributionMapping, postbackRules, throttles, trackingConfig, lpCopy sql.NullString
 	var allowedReferrers, allowedSources, landingPageURLs pq.StringArray
 
 	err := r.db.QueryRow(query, slug).Scan(
@@ -158,7 +161,7 @@ func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, erro
 		&shortCode, &smsKeyword, &price, &billingCycle, &trialFlags, &termsURL,
 		&inlineTermsText, &campaign.ConsentRequired, &consentVersion,
 		&attributionMapping, &postbackRules, &throttles, &allowedReferrers,
-		&allowedSources, &landingPageURLs, &trackingConfig,
+		&allowedSources, &landingPageURLs, &trackingConfig, &lpCopy,
 		&campaign.Enabled, &campaign.CreatedAt, &campaign.UpdatedAt,
 		&createdBy, &updatedBy,
 	)
@@ -223,6 +226,9 @@ func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, erro
 	if trackingConfig.Valid {
 		campaign.TrackingConfig = json.RawMessage(trackingConfig.String)
 	}
+	if lpCopy.Valid {
+		campaign.LPCopy = json.RawMessage(lpCopy.String)
+	}
 
 	campaign.AllowedReferrers = allowedReferrers
 	campaign.AllowedSources = allowedSources
@@ -234,23 +240,23 @@ func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, erro
 // ListEnabled retrieves all enabled campaigns
 func (r *CampaignRepository) ListEnabled() ([]*domain.Campaign, error) {
 	query := `
-		SELECT id, slug, language, country, operator, offer_product_id, pricepoint_id,
-		       partner_role_id, flow_type, short_code, sms_keyword, price, billing_cycle,
-		       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
-		       attribution_mapping, postback_rules, throttles, allowed_referrers,
-		       allowed_sources, landing_page_urls, tracking_config,
-		       enabled, created_at, updated_at, created_by, updated_by
-		FROM campaigns
-		WHERE enabled = true
-		ORDER BY created_at DESC
+			SELECT id, slug, language, country, operator, offer_product_id, pricepoint_id,
+			       partner_role_id, flow_type, short_code, sms_keyword, price, billing_cycle,
+			       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
+			       attribution_mapping, postback_rules, throttles, allowed_referrers,
+			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
+			       enabled, created_at, updated_at, created_by, updated_by
+			FROM campaigns
+			WHERE enabled = true
+			ORDER BY created_at DESC
 	`
-	
+
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list campaigns: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var campaigns []*domain.Campaign
 	for rows.Next() {
 		campaign, err := r.scanCampaign(rows)
@@ -260,22 +266,22 @@ func (r *CampaignRepository) ListEnabled() ([]*domain.Campaign, error) {
 		}
 		campaigns = append(campaigns, campaign)
 	}
-	
+
 	return campaigns, nil
 }
 
 // ListAll retrieves campaigns (enabled + disabled) with optional filters.
 func (r *CampaignRepository) ListAll(enabled *bool, country *string) ([]*domain.Campaign, error) {
 	query := `
-		SELECT id, slug, language, country, operator, offer_product_id, pricepoint_id,
-		       partner_role_id, flow_type, short_code, sms_keyword, price, billing_cycle,
-		       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
-		       attribution_mapping, postback_rules, throttles, allowed_referrers,
-		       allowed_sources, landing_page_urls, tracking_config,
-		       enabled, created_at, updated_at, created_by, updated_by
-		FROM campaigns
-		WHERE 1=1
-	`
+			SELECT id, slug, language, country, operator, offer_product_id, pricepoint_id,
+			       partner_role_id, flow_type, short_code, sms_keyword, price, billing_cycle,
+			       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
+			       attribution_mapping, postback_rules, throttles, allowed_referrers,
+			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
+			       enabled, created_at, updated_at, created_by, updated_by
+			FROM campaigns
+			WHERE 1=1
+		`
 
 	args := []any{}
 	argN := 1
@@ -351,27 +357,27 @@ func (r *CampaignRepository) Create(c *domain.Campaign) (*domain.Campaign, error
 	}
 
 	query := `
-		INSERT INTO campaigns (
-			slug, language, country, operator,
-			offer_product_id, pricepoint_id, partner_role_id,
-			flow_type, short_code, sms_keyword,
-			price, billing_cycle, trial_flags,
-			terms_url, inline_terms_text, consent_required, consent_version,
-			attribution_mapping, postback_rules,
-			throttles, allowed_referrers, allowed_sources, landing_page_urls,
-			tracking_config, enabled, created_by, updated_by
-		) VALUES (
-			$1,$2,$3,$4,
-			$5,$6,$7,
-			$8,$9,$10,
-			$11,$12,$13,
-			$14,$15,$16,$17,
-			$18,$19,
-			$20,$21,$22,$23,
-			$24,$25,$26,$27
-		)
-		RETURNING slug
-	`
+			INSERT INTO campaigns (
+				slug, language, country, operator,
+				offer_product_id, pricepoint_id, partner_role_id,
+				flow_type, short_code, sms_keyword,
+				price, billing_cycle, trial_flags,
+				terms_url, inline_terms_text, consent_required, consent_version,
+				attribution_mapping, postback_rules,
+				throttles, allowed_referrers, allowed_sources, landing_page_urls,
+				tracking_config, lp_copy, enabled, created_by, updated_by
+			) VALUES (
+				$1,$2,$3,$4,
+				$5,$6,$7,
+				$8,$9,$10,
+				$11,$12,$13,
+				$14,$15,$16,$17,
+				$18,$19,
+				$20,$21,$22,$23,
+				$24,$25,$26,$27,$28
+			)
+			RETURNING slug
+		`
 
 	operator := toNullString(c.Operator)
 	pricepointID := toNullInt(c.PricepointID)
@@ -388,6 +394,7 @@ func (r *CampaignRepository) Create(c *domain.Campaign) (*domain.Campaign, error
 	postbackRules := toNullJSON(c.PostbackRules)
 	throttles := toNullJSON(c.Throttles)
 	trackingConfig := toNullJSON(c.TrackingConfig)
+	lpCopy := toNullJSON(c.LPCopy)
 	createdBy := toNullString(c.CreatedBy)
 	updatedBy := toNullString(c.UpdatedBy)
 
@@ -401,7 +408,7 @@ func (r *CampaignRepository) Create(c *domain.Campaign) (*domain.Campaign, error
 		termsURL, inlineTermsText, c.ConsentRequired, consentVersion,
 		attributionMapping, postbackRules,
 		throttles, pq.StringArray(c.AllowedReferrers), pq.StringArray(c.AllowedSources), pq.StringArray(c.LandingPageURLs),
-		trackingConfig, c.Enabled, createdBy, updatedBy,
+		trackingConfig, lpCopy, c.Enabled, createdBy, updatedBy,
 	).Scan(&slug)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert campaign: %w", err)
@@ -439,16 +446,17 @@ func (r *CampaignRepository) Update(slug string, c *domain.Campaign) (*domain.Ca
 			consent_version = $16,
 			attribution_mapping = $17,
 			postback_rules = $18,
-			throttles = $19,
-			allowed_referrers = $20,
-			allowed_sources = $21,
-			landing_page_urls = $22,
-			tracking_config = $23,
-			enabled = $24,
-			updated_by = $25
-		WHERE slug = $26
-		RETURNING slug
-	`
+				throttles = $19,
+				allowed_referrers = $20,
+				allowed_sources = $21,
+				landing_page_urls = $22,
+				tracking_config = $23,
+				lp_copy = $24,
+				enabled = $25,
+				updated_by = $26
+			WHERE slug = $27
+			RETURNING slug
+		`
 
 	operator := toNullString(c.Operator)
 	pricepointID := toNullInt(c.PricepointID)
@@ -465,6 +473,7 @@ func (r *CampaignRepository) Update(slug string, c *domain.Campaign) (*domain.Ca
 	postbackRules := toNullJSON(c.PostbackRules)
 	throttles := toNullJSON(c.Throttles)
 	trackingConfig := toNullJSON(c.TrackingConfig)
+	lpCopy := toNullJSON(c.LPCopy)
 	updatedBy := toNullString(c.UpdatedBy)
 
 	var outSlug string
@@ -493,6 +502,7 @@ func (r *CampaignRepository) Update(slug string, c *domain.Campaign) (*domain.Ca
 		pq.StringArray(c.AllowedSources),
 		pq.StringArray(c.LandingPageURLs),
 		trackingConfig,
+		lpCopy,
 		c.Enabled,
 		updatedBy,
 		slug,
@@ -538,7 +548,7 @@ func (r *CampaignRepository) scanCampaign(rows *sql.Rows) (*domain.Campaign, err
 	var pricepointID, partnerRoleID sql.NullInt64 // Fixed: use NullInt64 for integer columns
 	var price sql.NullFloat64
 	var billingCycle sql.NullString
-	var trialFlags, attributionMapping, postbackRules, throttles, trackingConfig sql.NullString
+	var trialFlags, attributionMapping, postbackRules, throttles, trackingConfig, lpCopy sql.NullString
 	var allowedReferrers, allowedSources, landingPageURLs pq.StringArray
 
 	err := rows.Scan(
@@ -547,7 +557,7 @@ func (r *CampaignRepository) scanCampaign(rows *sql.Rows) (*domain.Campaign, err
 		&shortCode, &smsKeyword, &price, &billingCycle, &trialFlags, &termsURL,
 		&inlineTermsText, &campaign.ConsentRequired, &consentVersion,
 		&attributionMapping, &postbackRules, &throttles, &allowedReferrers,
-		&allowedSources, &landingPageURLs, &trackingConfig,
+		&allowedSources, &landingPageURLs, &trackingConfig, &lpCopy,
 		&campaign.Enabled, &campaign.CreatedAt, &campaign.UpdatedAt,
 		&createdBy, &updatedBy,
 	)
@@ -610,6 +620,9 @@ func (r *CampaignRepository) scanCampaign(rows *sql.Rows) (*domain.Campaign, err
 	}
 	if trackingConfig.Valid {
 		campaign.TrackingConfig = json.RawMessage(trackingConfig.String)
+	}
+	if lpCopy.Valid {
+		campaign.LPCopy = json.RawMessage(lpCopy.String)
 	}
 
 	campaign.AllowedReferrers = allowedReferrers

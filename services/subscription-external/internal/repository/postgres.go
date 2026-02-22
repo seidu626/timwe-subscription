@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"go.uber.org/zap"
 )
@@ -18,7 +18,7 @@ import (
 type SubscriptionRepository struct {
 	db     *sql.DB
 	logger *zap.Logger
-	redis  *redis.Client
+	redis  cached.RedisClient
 	ctx    context.Context
 }
 
@@ -43,7 +43,7 @@ type notificationRow struct {
 }
 
 // NewSubscriptionRepository creates a new repository with proper context handling
-func NewSubscriptionRepository(db *sql.DB, logger *zap.Logger, client *redis.Client) *SubscriptionRepository {
+func NewSubscriptionRepository(db *sql.DB, logger *zap.Logger, client cached.RedisClient) *SubscriptionRepository {
 	return &SubscriptionRepository{
 		db:     db,
 		logger: logger,

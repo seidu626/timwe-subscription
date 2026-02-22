@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -128,6 +129,35 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 		useHEMSISDN = true
 	}
 
+	normalizedMSISDN, err := normalizeMSISDNForCountry(msisdnToUse, campaign.Country)
+	if err != nil {
+		return nil, fmt.Errorf("invalid msisdn format: %w", err)
+	}
+	msisdnToUse = normalizedMSISDN
+
+	// Idempotency by campaign+msisdn: if user already has an active/finished transaction,
+	// return it instead of creating new attempts that consume throttle budget.
+	existingByMSISDN, err := s.txRepo.FindLatestByCampaignAndMSISDN(
+		campaign.Slug,
+		msisdnToUse,
+		[]domain.TransactionStatus{
+			domain.StatusConfirmRequired,
+			domain.StatusActionRequired,
+		},
+	)
+	if err == nil && existingByMSISDN != nil {
+		s.logger.Info("Returning existing transaction for campaign+msisdn",
+			zap.String("campaign_slug", campaign.Slug),
+			zap.String("msisdn_prefix", msisdnToUse[:min(5, len(msisdnToUse))]),
+			zap.String("status", string(existingByMSISDN.Status)),
+			zap.String("transaction_id", existingByMSISDN.ID.String()),
+		)
+		return s.buildResponse(existingByMSISDN), nil
+	}
+	if err != nil && err.Error() != "transaction not found" {
+		return nil, fmt.Errorf("failed to check existing campaign+msisdn transaction: %w", err)
+	}
+
 	throttled, err := s.txRepo.CheckThrottle(campaign.Slug, msisdnToUse, ipAddr, throttles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check throttle: %w", err)
@@ -222,15 +252,14 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 	// Determine next action based on campaign flow type and TIMWE response
 	var nextAction domain.NextAction
 	var payload map[string]interface{}
+	isOTPFlow := campaign.FlowType == domain.FlowTypeOTP
+	isMixedFlow := campaign.FlowType == domain.FlowTypeMixed
+	hasHEIdentity := req.HESource != nil &&
+		*req.HESource != domain.HESourceNone &&
+		req.HEMSISDN != nil &&
+		*req.HEMSISDN != ""
 
-	if timweResp.RequiresConfirm {
-		tx.Status = domain.StatusConfirmRequired
-		nextAction = domain.NextActionOTP
-		payload = map[string]interface{}{
-			"transaction_id": tx.ID.String(),
-			"prompt":         "Please enter the confirmation code sent to your phone",
-		}
-	} else if campaign.FlowType == domain.FlowTypeClickToSMS && campaign.ShortCode != nil && campaign.SMSKeyword != nil {
+	if campaign.FlowType == domain.FlowTypeClickToSMS && campaign.ShortCode != nil && campaign.SMSKeyword != nil {
 		tx.Status = domain.StatusActionRequired
 		nextAction = domain.NextActionOpenSMS
 		smsLink := fmt.Sprintf("sms:%s?body=%s", *campaign.ShortCode, *campaign.SMSKeyword)
@@ -243,6 +272,40 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 				fmt.Sprintf("Send '%s' to %s", *campaign.SMSKeyword, *campaign.ShortCode),
 				"Wait for confirmation",
 			},
+		}
+	} else if isOTPFlow && timweResp.Success && !hasHEIdentity {
+		tx.Status = domain.StatusConfirmRequired
+		nextAction = domain.NextActionOTP
+		payload = map[string]interface{}{
+			"transaction_id": tx.ID.String(),
+			"prompt":         "Please enter the confirmation code sent to your phone",
+			"message":        "OTP sent successfully. Please confirm your subscription.",
+		}
+	} else if isMixedFlow && timweResp.RequiresConfirm {
+		// Preserve mixed-flow behavior for providers that explicitly require confirmation.
+		tx.Status = domain.StatusConfirmRequired
+		nextAction = domain.NextActionOTP
+		payload = map[string]interface{}{
+			"transaction_id": tx.ID.String(),
+			"prompt":         "Please enter the confirmation code sent to your phone",
+			"message":        "OTP sent successfully. Please confirm your subscription.",
+		}
+	} else if campaign.FlowType == domain.FlowTypeRedirect && timweResp.Success {
+		redirectURL, hasRedirect := resolveCampaignRedirectURL(campaign)
+		if hasRedirect {
+			tx.Status = domain.StatusActionRequired
+			nextAction = domain.NextActionRedirect
+			payload = map[string]interface{}{
+				"url":          redirectURL,
+				"redirect_url": redirectURL,
+				"message":      "Redirecting to complete subscription...",
+			}
+		} else {
+			tx.Status = domain.StatusSubscribed
+			nextAction = domain.NextActionShowInstructions
+			payload = map[string]interface{}{
+				"message": "Subscription successful!",
+			}
 		}
 	} else if timweResp.Success {
 		tx.Status = domain.StatusSubscribed
@@ -307,6 +370,22 @@ func (s *TransactionService) ConfirmTransaction(transactionID uuid.UUID, authCod
 	}
 
 	if !timweResp.Success {
+		if isPendingConfirmStatus(timweResp.Status) {
+			if timweResp.Status != "" {
+				s.txRepo.UpdateTIMWEData(transactionID, *tx.TimweTransactionID, authCode, timweResp.Status)
+			}
+			message := timweResp.Message
+			if message == "" {
+				message = "Confirmation not finalized yet. Please retry."
+			}
+			return &domain.TransactionStatusResponse{
+				TransactionID: transactionID,
+				Status:        domain.StatusConfirmRequired,
+				NextAction:    nil,
+				Payload:       map[string]interface{}{"message": message},
+			}, nil
+		}
+
 		// Update status to failed
 		s.txRepo.UpdateStatus(transactionID, domain.StatusFailed, nil, nil)
 		return &domain.TransactionStatusResponse{
@@ -552,4 +631,59 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 // GetTransactionByTimweID retrieves a transaction by TIMWE transaction ID
 func (s *TransactionService) GetTransactionByTimweID(timweTransactionID string) (*domain.AcquisitionTransaction, error) {
 	return s.txRepo.FindByTimweTransactionID(timweTransactionID)
+}
+
+func resolveCampaignRedirectURL(campaign *domain.Campaign) (string, bool) {
+	if campaign == nil {
+		return "", false
+	}
+
+	if len(campaign.TrackingConfig) > 0 {
+		var tracking map[string]interface{}
+		if err := json.Unmarshal(campaign.TrackingConfig, &tracking); err == nil {
+			if redirectURL, ok := extractRedirectURLFromTracking(tracking); ok {
+				return redirectURL, true
+			}
+		}
+	}
+
+	if len(campaign.LandingPageURLs) > 0 {
+		for _, candidate := range campaign.LandingPageURLs {
+			if parsed, err := url.Parse(candidate); err == nil && parsed.Host != "" &&
+				(parsed.Scheme == "https" || parsed.Scheme == "http") {
+				return parsed.String(), true
+			}
+		}
+	}
+
+	return "", false
+}
+
+func extractRedirectURLFromTracking(tracking map[string]interface{}) (string, bool) {
+	if raw, ok := tracking["redirect_url"].(string); ok {
+		if parsed, err := url.Parse(raw); err == nil && parsed.Host != "" &&
+			(parsed.Scheme == "https" || parsed.Scheme == "http") {
+			return parsed.String(), true
+		}
+	}
+
+	if redirectObj, ok := tracking["redirect"].(map[string]interface{}); ok {
+		if raw, ok := redirectObj["url"].(string); ok {
+			if parsed, err := url.Parse(raw); err == nil && parsed.Host != "" &&
+				(parsed.Scheme == "https" || parsed.Scheme == "http") {
+				return parsed.String(), true
+			}
+		}
+	}
+
+	return "", false
+}
+
+func isPendingConfirmStatus(status string) bool {
+	switch status {
+	case "SUCCESS", "OPTIN_WAITING", "WAITING_FOR_CONFIRMATION", "OPTIN_PIN_WAITING":
+		return true
+	default:
+		return false
+	}
 }

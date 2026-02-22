@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"go.uber.org/zap"
 )
@@ -17,11 +18,11 @@ import (
 type ProductRepository struct {
 	db     *sql.DB
 	logger *zap.Logger
-	redis  *redis.Client
+	redis  cached.RedisClient
 	ctx    context.Context
 }
 
-func NewProductRepository(db *sql.DB, logger *zap.Logger, client *redis.Client) *ProductRepository {
+func NewProductRepository(db *sql.DB, logger *zap.Logger, client cached.RedisClient) *ProductRepository {
 	return &ProductRepository{db: db,
 		logger: logger,
 		redis:  client,
@@ -31,7 +32,7 @@ func NewProductRepository(db *sql.DB, logger *zap.Logger, client *redis.Client) 
 
 func (r *ProductRepository) GetProducts() ([]*domain.Product, error) {
 	cacheKey := "__ALL__PRODUCTS__"
-	cachedData, err := r.redis.Get(r.ctx, cacheKey).Result()
+	cachedData, err := r.redis.Get(r.ctx, cacheKey)
 	if err == nil {
 		var listResponse []*domain.Product
 		if err := json.Unmarshal([]byte(cachedData), &listResponse); err == nil {
@@ -67,7 +68,7 @@ func (r *ProductRepository) GetProducts() ([]*domain.Product, error) {
 	// Cache the results for future use
 	data, err := json.Marshal(products)
 	if err == nil {
-		if setErr := r.redis.Set(r.ctx, cacheKey, data, 30*time.Minute).Err(); setErr != nil {
+		if setErr := r.redis.Set(r.ctx, cacheKey, data, 30*time.Minute); setErr != nil {
 			r.logger.Warn("Failed to cache products data", zap.Error(setErr))
 		} else {
 			r.logger.Debug("Successfully cached all products", zap.String("cacheKey", cacheKey), zap.Int("count", len(products)))
@@ -89,7 +90,7 @@ func (r *ProductRepository) GetProductsByIds(productIds []string) ([]*domain.Pro
 
 	// Check cache first
 	cacheKey := fmt.Sprintf("products:ids:%s", strings.Join(productIds, ","))
-	cachedData, err := r.redis.Get(ctx, cacheKey).Result()
+	cachedData, err := r.redis.Get(ctx, cacheKey)
 	if err == nil {
 		// Cache hit - unmarshal and return
 		var products []*domain.Product
@@ -152,7 +153,7 @@ func (r *ProductRepository) GetProductsByIds(productIds []string) ([]*domain.Pro
 	// Cache the results for future use
 	data, err := json.Marshal(products)
 	if err == nil {
-		if setErr := r.redis.Set(r.ctx, cacheKey, data, 30*time.Minute).Err(); setErr != nil {
+		if setErr := r.redis.Set(r.ctx, cacheKey, data, 30*time.Minute); setErr != nil {
 			r.logger.Warn("Failed to cache products data", zap.Error(setErr))
 		} else {
 			r.logger.Debug("Successfully cached products by IDs", zap.String("cacheKey", cacheKey), zap.Strings("productIds", productIds), zap.Int("count", len(products)))

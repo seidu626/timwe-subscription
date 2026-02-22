@@ -62,10 +62,18 @@ ACQUISITION_API_PORT = 8084
 KRAKEND_PORT = 8080
 LANDING_WEB_PORT = 3000
 WEBSPA_ADMIN_PORT = 4200
+SUBSCRIPTION_EXTERNAL_PID_FILE = $(SUBSCRIPTION_EXTERNAL_DIR)/subscription-external.pid
+SUBSCRIPTION_PID_FILE = $(SUBSCRIPTION_DIR)/subscription.pid
+BILLING_PID_FILE = $(BILLING_DIR)/billing.pid
+NOTIFICATION_PID_FILE = $(NOTIFICATION_DIR)/notification.pid
+ACQUISITION_API_PID_FILE = $(ACQUISITION_API_DIR)/acquisition-api.pid
+CADENCE_ENGINE_PID_FILE = $(CADENCE_ENGINE_DIR)/cadence-engine.pid
+LANDING_WEB_PID_FILE = $(LANDING_WEB_DIR)/landing-web.pid
+WEBSPA_ADMIN_PID_FILE = $(WEBSPA_ADMIN_DIR)/webspa-admin.pid
 
 # Development targets
 .PHONY: dev
-dev: dev-subscription dev-notification dev-acquisition-api dev-landing dev-admin
+dev: dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api dev-cadence-engine dev-landing dev-admin
 	@echo ""
 	@echo "🚀 All development services started! (see ports above)"
 
@@ -78,8 +86,18 @@ dev-all: dev-subscription-external dev-subscription dev-billing dev-notification
 .PHONY: dev-subscription-external
 dev-subscription-external: build-local-subscription-external
 	@echo "🚀 Starting Subscription External Service (with Monitoring & Worker)..."
-	@cd $(SUBSCRIPTION_EXTERNAL_DIR) && nohup ./subscription-external > subscription-external.log 2>&1 &
-	@echo "✅ Subscription External Service started on port $(SUBSCRIPTION_EXTERNAL_PORT)"
+	@PORT=$(SUBSCRIPTION_EXTERNAL_PORT); \
+	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
+		PORT=$$((PORT + 1)); \
+	done; \
+	( cd $(SUBSCRIPTION_EXTERNAL_DIR); APP_APPLICATION_PORT=$$PORT nohup ./subscription-external > subscription-external.log 2>&1 & echo $$! > subscription-external.pid ); \
+	sleep 2; \
+	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
+		echo "✅ Subscription External Service started on port $$PORT"; \
+	else \
+		echo "❌ Subscription External Service failed to start (check $(SUBSCRIPTION_EXTERNAL_DIR)/subscription-external.log)"; \
+		tail -5 $(SUBSCRIPTION_EXTERNAL_DIR)/subscription-external.log 2>/dev/null || true; \
+	fi
 
 .PHONY: dev-subscription
 dev-subscription: build-local-subscription
@@ -88,7 +106,7 @@ dev-subscription: build-local-subscription
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	cd $(SUBSCRIPTION_DIR) && APP_APPLICATION_PORT=$$PORT nohup ./subscription > subscription.log 2>&1 & \
+	( cd $(SUBSCRIPTION_DIR); APP_APPLICATION_PORT=$$PORT nohup ./subscription > subscription.log 2>&1 & echo $$! > subscription.pid ); \
 	sleep 2; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Subscription Service started on port $$PORT"; \
@@ -100,9 +118,18 @@ dev-subscription: build-local-subscription
 .PHONY: dev-billing
 dev-billing: build-local-billing
 	@echo "💰 Starting Billing Service..."
-	@cd $(BILLING_DIR) && nohup ./billing > billing.log 2>&1 &
-	@sleep 2
-	@echo "✅ Billing Service started on port $(BILLING_PORT)"
+	@PORT=$(BILLING_PORT); \
+	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
+		PORT=$$((PORT + 1)); \
+	done; \
+	( cd $(BILLING_DIR); APPLICATION_PORT=$$PORT nohup ./billing > billing.log 2>&1 & echo $$! > billing.pid ); \
+	sleep 2; \
+	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
+		echo "✅ Billing Service started on port $$PORT"; \
+	else \
+		echo "❌ Billing Service failed to start (check $(BILLING_DIR)/billing.log)"; \
+		tail -5 $(BILLING_DIR)/billing.log 2>/dev/null || true; \
+	fi
 
 .PHONY: dev-notification
 dev-notification: build-local-notification
@@ -111,7 +138,7 @@ dev-notification: build-local-notification
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	cd $(NOTIFICATION_DIR) && APPLICATION_PORT=$$PORT nohup ./notification > notification.log 2>&1 & \
+	( cd $(NOTIFICATION_DIR); APPLICATION_PORT=$$PORT nohup ./notification > notification.log 2>&1 & echo $$! > notification.pid ); \
 	sleep 2; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Notification Service started on port $$PORT"; \
@@ -137,7 +164,7 @@ dev-acquisition-api: build-local-acquisition-api
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	cd $(ACQUISITION_API_DIR) && APP_APPLICATION_PORT=$$PORT nohup ./acquisition-api > acquisition-api.log 2>&1 & \
+	( cd $(ACQUISITION_API_DIR); APP_APPLICATION_PORT=$$PORT nohup ./acquisition-api > acquisition-api.log 2>&1 & echo $$! > acquisition-api.pid ); \
 	sleep 3; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Acquisition API started on port $$PORT"; \
@@ -149,15 +176,24 @@ dev-acquisition-api: build-local-acquisition-api
 .PHONY: dev-cadence-engine
 dev-cadence-engine: build-local-cadence-engine
 	@echo "⏰ Starting Cadence Engine..."
-	@cd $(CADENCE_ENGINE_DIR) && nohup ./cadence-engine > cadence-engine.log 2>&1 &
-	@sleep 2
-	@echo "✅ Cadence Engine started"
+	@PORT=8091; \
+	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
+		PORT=$$((PORT + 1)); \
+	done; \
+	( cd $(CADENCE_ENGINE_DIR); CADENCE_ADMIN_HTTP_ADDR=:$$PORT nohup ./cadence-engine > cadence-engine.log 2>&1 & echo $$! > cadence-engine.pid ); \
+	sleep 2; \
+	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
+		echo "✅ Cadence Engine started on port $$PORT"; \
+	else \
+		echo "❌ Cadence Engine failed to start (check $(CADENCE_ENGINE_DIR)/cadence-engine.log)"; \
+		tail -5 $(CADENCE_ENGINE_DIR)/cadence-engine.log 2>/dev/null || true; \
+	fi
 
 .PHONY: dev-landing
 dev-landing:
 	@echo "🌐 Starting Landing Web (Next.js)..."
 	@cd $(LANDING_WEB_DIR) && npm install --silent 2>/dev/null || true
-	@cd $(LANDING_WEB_DIR) && nohup npm run dev > landing-web.log 2>&1 &
+	@(cd $(LANDING_WEB_DIR); nohup npm run dev > landing-web.log 2>&1 & echo $$! > landing-web.pid)
 	@sleep 4
 	@LANDING_PORT=$$(grep -oE 'localhost:[0-9]+' $(LANDING_WEB_DIR)/landing-web.log 2>/dev/null | head -1 | grep -oE '[0-9]+$$'); \
 	if [ -n "$$LANDING_PORT" ]; then \
@@ -170,7 +206,13 @@ dev-landing:
 dev-admin:
 	@echo "🖥️  Starting Admin Panel (Angular)..."
 	@cd $(WEBSPA_ADMIN_DIR) && npm install --silent 2>/dev/null || true
-	@cd $(WEBSPA_ADMIN_DIR) && nohup npx ng serve --port 0 > webspa-admin.log 2>&1 &
+	@PORT=$(WEBSPA_ADMIN_PORT); \
+	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
+		echo "❌ Admin Panel port $$PORT is already in use"; \
+		echo "   Free port $$PORT or stop the existing process, then retry."; \
+		exit 1; \
+	fi; \
+	(cd $(WEBSPA_ADMIN_DIR); nohup npx ng serve --port $$PORT > webspa-admin.log 2>&1 & echo $$! > webspa-admin.pid)
 	@echo "   Waiting for Angular to compile..."
 	@for i in 1 2 3 4 5 6 7 8 9 10; do \
 		sleep 2; \
@@ -179,10 +221,12 @@ dev-admin:
 		fi; \
 	done
 	@ADMIN_PORT=$$(grep -oE 'localhost:[0-9]+' $(WEBSPA_ADMIN_DIR)/webspa-admin.log 2>/dev/null | head -1 | grep -oE '[0-9]+$$'); \
-	if [ -n "$$ADMIN_PORT" ]; then \
-		echo "✅ Admin Panel started on port $$ADMIN_PORT"; \
+	if [ "$$ADMIN_PORT" = "$(WEBSPA_ADMIN_PORT)" ]; then \
+		echo "✅ Admin Panel started on port $(WEBSPA_ADMIN_PORT)"; \
 	else \
-		echo "✅ Admin Panel started (check $(WEBSPA_ADMIN_DIR)/webspa-admin.log for port)"; \
+		echo "❌ Admin Panel did not bind to expected port $(WEBSPA_ADMIN_PORT)"; \
+		tail -20 $(WEBSPA_ADMIN_DIR)/webspa-admin.log 2>/dev/null || true; \
+		exit 1; \
 	fi
 
 # Service management targets
@@ -199,7 +243,7 @@ start-all: start-subscription-external start-subscription start-billing start-no
 .PHONY: start-subscription-external
 start-subscription-external:
 	@echo "🚀 Starting Subscription External Service..."
-	@cd $(SUBSCRIPTION_EXTERNAL_DIR) && ./subscription-external &
+	@(cd $(SUBSCRIPTION_EXTERNAL_DIR); nohup ./subscription-external > subscription-external.log 2>&1 & echo $$! > subscription-external.pid)
 	@echo "✅ Subscription External Service started on port $(SUBSCRIPTION_EXTERNAL_PORT)"
 
 .PHONY: start-subscription
@@ -209,7 +253,7 @@ start-subscription:
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	cd $(SUBSCRIPTION_DIR) && APP_APPLICATION_PORT=$$PORT nohup ./subscription > subscription.log 2>&1 & \
+	( cd $(SUBSCRIPTION_DIR); APP_APPLICATION_PORT=$$PORT nohup ./subscription > subscription.log 2>&1 & echo $$! > subscription.pid ); \
 	sleep 2; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Subscription Service started on port $$PORT"; \
@@ -221,7 +265,7 @@ start-subscription:
 .PHONY: start-billing
 start-billing:
 	@echo "💰 Starting Billing Service..."
-	@cd $(BILLING_DIR) && ./billing &
+	@(cd $(BILLING_DIR); nohup ./billing > billing.log 2>&1 & echo $$! > billing.pid)
 	@echo "✅ Billing Service started on port $(BILLING_PORT)"
 
 .PHONY: start-notification
@@ -231,7 +275,7 @@ start-notification:
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	cd $(NOTIFICATION_DIR) && APPLICATION_PORT=$$PORT nohup ./notification > notification.log 2>&1 & \
+	( cd $(NOTIFICATION_DIR); APPLICATION_PORT=$$PORT nohup ./notification > notification.log 2>&1 & echo $$! > notification.pid ); \
 	sleep 2; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Notification Service started on port $$PORT"; \
@@ -257,7 +301,7 @@ start-acquisition-api:
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	cd $(ACQUISITION_API_DIR) && APP_APPLICATION_PORT=$$PORT nohup ./acquisition-api > acquisition-api.log 2>&1 & \
+	( cd $(ACQUISITION_API_DIR); APP_APPLICATION_PORT=$$PORT nohup ./acquisition-api > acquisition-api.log 2>&1 & echo $$! > acquisition-api.pid ); \
 	sleep 3; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Acquisition API started on port $$PORT"; \
@@ -269,53 +313,142 @@ start-acquisition-api:
 .PHONY: start-cadence-engine
 start-cadence-engine:
 	@echo "⏰ Starting Cadence Engine..."
-	@cd $(CADENCE_ENGINE_DIR) && ./cadence-engine &
+	@(cd $(CADENCE_ENGINE_DIR); nohup ./cadence-engine > cadence-engine.log 2>&1 & echo $$! > cadence-engine.pid)
 	@echo "✅ Cadence Engine started on port 8091"
 
 # Stop services
 .PHONY: stop
-stop: stop-subscription stop-notification stop-acquisition-api
+stop: stop-subscription stop-notification stop-acquisition-api stop-landing stop-admin
 	@echo "🛑 All services stopped!"
 
 .PHONY: stop-all
-stop-all: stop-subscription-external stop-subscription stop-billing stop-notification stop-acquisition-api
+stop-all: stop-subscription-external stop-subscription stop-billing stop-notification stop-acquisition-api stop-cadence-engine stop-landing stop-admin
 	@echo "🛑 All services stopped!"
 
 .PHONY: stop-subscription-external
 stop-subscription-external:
 	@echo "🛑 Stopping Subscription External Service..."
-	@pkill -f "./subscription-external$$" || true
+	@if [ -f "$(SUBSCRIPTION_EXTERNAL_PID_FILE)" ]; then \
+		PID=$$(cat "$(SUBSCRIPTION_EXTERNAL_PID_FILE)" 2>/dev/null); \
+		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
+			kill "$$PID" 2>/dev/null || true; \
+		fi; \
+		rm -f "$(SUBSCRIPTION_EXTERNAL_PID_FILE)"; \
+	fi
+	@rm -f subscription-external.pid
+	@pkill -f "[s]ervices/subscription-external/subscription-external$$" 2>/dev/null || true
+	@pkill -f "./subscription-external$$" 2>/dev/null || true
 	@echo "✅ Subscription External Service stopped"
 
 .PHONY: stop-subscription
 stop-subscription:
 	@echo "🛑 Stopping Subscription Service..."
-	@pkill -f "./subscription$$" || true
+	@if [ -f "$(SUBSCRIPTION_PID_FILE)" ]; then \
+		PID=$$(cat "$(SUBSCRIPTION_PID_FILE)" 2>/dev/null); \
+		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
+			kill "$$PID" 2>/dev/null || true; \
+		fi; \
+		rm -f "$(SUBSCRIPTION_PID_FILE)"; \
+	fi
+	@rm -f subscription.pid
+	@pkill -f "[s]ervices/subscription-partner/subscription$$" 2>/dev/null || true
+	@pkill -f "./subscription$$" 2>/dev/null || true
 	@echo "✅ Subscription Service stopped"
 
 .PHONY: stop-billing
 stop-billing:
 	@echo "🛑 Stopping Billing Service..."
-	@pkill -f "./billing$$" || true
+	@if [ -f "$(BILLING_PID_FILE)" ]; then \
+		PID=$$(cat "$(BILLING_PID_FILE)" 2>/dev/null); \
+		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
+			kill "$$PID" 2>/dev/null || true; \
+		fi; \
+		rm -f "$(BILLING_PID_FILE)"; \
+	fi
+	@rm -f billing.pid
+	@pkill -f "[s]ervices/billing/billing$$" 2>/dev/null || true
+	@pkill -f "./billing$$" 2>/dev/null || true
 	@echo "✅ Billing Service stopped"
 
 .PHONY: stop-notification
 stop-notification:
 	@echo "🛑 Stopping Notification Service..."
-	@pkill -f "./notification$$" || true
+	@if [ -f "$(NOTIFICATION_PID_FILE)" ]; then \
+		PID=$$(cat "$(NOTIFICATION_PID_FILE)" 2>/dev/null); \
+		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
+			kill "$$PID" 2>/dev/null || true; \
+		fi; \
+		rm -f "$(NOTIFICATION_PID_FILE)"; \
+	fi
+	@rm -f notification.pid
+	@pkill -f "[s]ervices/notification/notification$$" 2>/dev/null || true
+	@pkill -f "./notification$$" 2>/dev/null || true
 	@echo "✅ Notification Service stopped"
 
 .PHONY: stop-acquisition-api
 stop-acquisition-api:
 	@echo "🛑 Stopping Acquisition API..."
-	@pkill -f "./acquisition-api$$" || true
+	@if [ -f "$(ACQUISITION_API_PID_FILE)" ]; then \
+		PID=$$(cat "$(ACQUISITION_API_PID_FILE)" 2>/dev/null); \
+		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
+			kill "$$PID" 2>/dev/null || true; \
+		fi; \
+		rm -f "$(ACQUISITION_API_PID_FILE)"; \
+	fi
+	@rm -f acquisition-api.pid
+	@pkill -f "[s]ervices/acquisition-api/acquisition-api$$" 2>/dev/null || true
+	@pkill -f "./acquisition-api$$" 2>/dev/null || true
 	@echo "✅ Acquisition API stopped"
 
 .PHONY: stop-cadence-engine
 stop-cadence-engine:
 	@echo "🛑 Stopping Cadence Engine..."
-	@pkill -f "./cadence-engine$$" || true
+	@if [ -f "$(CADENCE_ENGINE_PID_FILE)" ]; then \
+		PID=$$(cat "$(CADENCE_ENGINE_PID_FILE)" 2>/dev/null); \
+		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
+			kill "$$PID" 2>/dev/null || true; \
+		fi; \
+		rm -f "$(CADENCE_ENGINE_PID_FILE)"; \
+	fi
+	@rm -f cadence-engine.pid
+	@pkill -f "[s]ervices/cadence-engine/cadence-engine$$" 2>/dev/null || true
+	@pkill -f "./cadence-engine$$" 2>/dev/null || true
 	@echo "✅ Cadence Engine stopped"
+
+.PHONY: stop-landing
+stop-landing:
+	@echo "🛑 Stopping Landing Web..."
+	@if [ -f "$(LANDING_WEB_PID_FILE)" ]; then \
+		PID=$$(cat "$(LANDING_WEB_PID_FILE)" 2>/dev/null); \
+		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
+			kill "$$PID" 2>/dev/null || true; \
+		fi; \
+		rm -f "$(LANDING_WEB_PID_FILE)"; \
+	fi
+	@rm -f landing-web.pid
+	@pkill -f "[s]ervices/landing-web/node_modules/.bin/next dev" 2>/dev/null || true
+	@echo "✅ Landing Web stopped"
+
+.PHONY: stop-admin
+stop-admin:
+	@echo "🛑 Stopping Admin Panel..."
+	@if [ -f "$(WEBSPA_ADMIN_PID_FILE)" ]; then \
+		PID=$$(cat "$(WEBSPA_ADMIN_PID_FILE)" 2>/dev/null); \
+		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
+			for C in $$(pgrep -P "$$PID" 2>/dev/null); do \
+				pkill -TERM -P "$$C" 2>/dev/null || true; \
+				kill "$$C" 2>/dev/null || true; \
+			done; \
+			pkill -TERM -P "$$PID" 2>/dev/null || true; \
+			kill "$$PID" 2>/dev/null || true; \
+		fi; \
+		rm -f "$(WEBSPA_ADMIN_PID_FILE)"; \
+	fi
+	@rm -f webspa-admin.pid
+	@pkill -f "[n]px ng serve --port $(WEBSPA_ADMIN_PORT)" 2>/dev/null || true
+	@pkill -f "[n]ode ./node_modules/@angular/cli/bin/ng.js serve --port $(WEBSPA_ADMIN_PORT)" 2>/dev/null || true
+	@pkill -f "[f]rontend/webspa-admin/node_modules/@esbuild/" 2>/dev/null || true
+	@echo "✅ Admin Panel stopped"
 
 # Restart services
 .PHONY: restart
@@ -527,10 +660,49 @@ tools: init update_deps
 .PHONY: status
 status:
 	@echo "📊 Service Status:"
-	@echo "Subscription External: $$(pgrep -f subscription-external > /dev/null && echo '🟢 Running' || echo '🔴 Stopped')"
-	@echo "Subscription: $$(pgrep -f subscription > /dev/null && echo '🟢 Running' || echo '🔴 Stopped')"
-	@echo "Billing: $$(pgrep -f billing > /dev/null && echo '🟢 Running' || echo '🔴 Stopped')"
-	@echo "Notification: $$(pgrep -f notification > /dev/null && echo '🟢 Running' || echo '🔴 Stopped')"
+	@# PID-first detection with repo-scoped fallbacks (includes legacy root PID files during transition).
+	@state='🔴 Stopped'; \
+	if [ -f "$(SUBSCRIPTION_EXTERNAL_PID_FILE)" ] && kill -0 $$(cat "$(SUBSCRIPTION_EXTERNAL_PID_FILE)" 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif [ -f "subscription-external.pid" ] && kill -0 $$(cat subscription-external.pid 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[s]ervices/subscription-external/subscription-external$$' > /dev/null || pgrep -f '^\./subscription-external$$' > /dev/null; then state='🟢 Running'; fi; \
+	echo "Subscription External: $$state"
+	@state='🔴 Stopped'; \
+	if [ -f "$(SUBSCRIPTION_PID_FILE)" ] && kill -0 $$(cat "$(SUBSCRIPTION_PID_FILE)" 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif [ -f "subscription.pid" ] && kill -0 $$(cat subscription.pid 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[s]ervices/subscription-partner/subscription$$' > /dev/null || pgrep -f '^\./subscription$$' > /dev/null; then state='🟢 Running'; fi; \
+	echo "Subscription: $$state"
+	@state='🔴 Stopped'; \
+	if [ -f "$(BILLING_PID_FILE)" ] && kill -0 $$(cat "$(BILLING_PID_FILE)" 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif [ -f "billing.pid" ] && kill -0 $$(cat billing.pid 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[s]ervices/billing/billing$$' > /dev/null || pgrep -f '^\./billing$$' > /dev/null; then state='🟢 Running'; fi; \
+	echo "Billing: $$state"
+	@state='🔴 Stopped'; \
+	if [ -f "$(NOTIFICATION_PID_FILE)" ] && kill -0 $$(cat "$(NOTIFICATION_PID_FILE)" 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif [ -f "notification.pid" ] && kill -0 $$(cat notification.pid 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[s]ervices/notification/notification$$' > /dev/null || pgrep -f '^\./notification$$' > /dev/null; then state='🟢 Running'; fi; \
+	echo "Notification: $$state"
+	@state='🔴 Stopped'; \
+	if [ -f "$(ACQUISITION_API_PID_FILE)" ] && kill -0 $$(cat "$(ACQUISITION_API_PID_FILE)" 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif [ -f "acquisition-api.pid" ] && kill -0 $$(cat acquisition-api.pid 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[s]ervices/acquisition-api/acquisition-api$$' > /dev/null || pgrep -f '^\./acquisition-api$$' > /dev/null; then state='🟢 Running'; fi; \
+	echo "Acquisition API: $$state"
+	@state='🔴 Stopped'; \
+	if [ -f "$(CADENCE_ENGINE_PID_FILE)" ] && kill -0 $$(cat "$(CADENCE_ENGINE_PID_FILE)" 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif [ -f "cadence-engine.pid" ] && kill -0 $$(cat cadence-engine.pid 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[s]ervices/cadence-engine/cadence-engine$$' > /dev/null || pgrep -f '^\./cadence-engine$$' > /dev/null; then state='🟢 Running'; fi; \
+	echo "Cadence Engine: $$state"
+	@state='🔴 Stopped'; \
+	if [ -f "$(LANDING_WEB_PID_FILE)" ] && kill -0 $$(cat "$(LANDING_WEB_PID_FILE)" 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif [ -f "landing-web.pid" ] && kill -0 $$(cat landing-web.pid 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[s]ervices/landing-web/node_modules/.bin/next dev' > /dev/null; then state='🟢 Running'; fi; \
+	echo "Landing Web: $$state"
+	@state='🔴 Stopped'; \
+	if [ -f "$(WEBSPA_ADMIN_PID_FILE)" ] && kill -0 $$(cat "$(WEBSPA_ADMIN_PID_FILE)" 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif [ -f "webspa-admin.pid" ] && kill -0 $$(cat webspa-admin.pid 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[n]px ng serve --port $(WEBSPA_ADMIN_PORT)' > /dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[n]ode ./node_modules/@angular/cli/bin/ng.js serve --port $(WEBSPA_ADMIN_PORT)' > /dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[f]rontend/webspa-admin/node_modules/@esbuild/' > /dev/null; then state='🟢 Running'; fi; \
+	echo "Admin Panel: $$state"
 
 # Quick start for development
 .PHONY: quick-start
@@ -1035,6 +1207,10 @@ db-migrate-campaigns: ## Run all campaign-related migrations
 	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/subscription-external/migrations/008_landing_events.sql
 	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/subscription-external/migrations/009_campaign_landing_page_urls.sql
 	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/subscription-external/migrations/010_outbound_clicks.sql
+	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/subscription-external/migrations/012_campaign_tracking_config.sql
+	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/subscription-external/migrations/013_he_tracking.sql
+	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/subscription-external/migrations/014_campaign_lp_copy.sql
+	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/update_ghana_lp_copy_msisdn_format.sql
 	@echo "✅ Campaign migrations complete!"
 
 .PHONY: db-migrate-cadence
@@ -1048,6 +1224,52 @@ db-create-mobplus-campaign: ## Create a new Mobplus campaign with click_id suppo
 	@echo "🚀 Creating Mobplus campaign..."
 	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/create_mobplus_campaign.sql
 	@echo "✅ Mobplus campaign created! Check output above for click_id and URLs."
+
+.PHONY: db-configure-level23-campaign
+db-configure-level23-campaign: ## Configure Level23 campaign postback + share link mapping
+	@echo "🚀 Configuring Level23 campaign..."
+	@if command -v psql >/dev/null 2>&1; then \
+		PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/configure_level23_campaign.sql; \
+	else \
+		echo "ℹ️  psql not found locally, using dockerized postgres client..."; \
+		docker run --rm \
+			-e PGPASSWORD="$$DB_PASSWORD" \
+			-v "$(CURDIR):/work" \
+			-w /work \
+			postgres:16 \
+			psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/configure_level23_campaign.sql; \
+	fi
+	@echo "✅ Level23 campaign configured!"
+
+.PHONY: db-generate-level23-share-info
+db-generate-level23-share-info: ## Generate Level23 campaign sharing details
+	@echo "📋 Generating Level23 share info..."
+	@if command -v psql >/dev/null 2>&1; then \
+		PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/generate_level23_share_info.sql; \
+	else \
+		echo "ℹ️  psql not found locally, using dockerized postgres client..."; \
+		docker run --rm \
+			-e PGPASSWORD="$$DB_PASSWORD" \
+			-v "$(CURDIR):/work" \
+			-w /work \
+			postgres:16 \
+			psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/generate_level23_share_info.sql; \
+	fi
+
+.PHONY: db-update-gh-lp-copy-msisdn-format
+db-update-gh-lp-copy-msisdn-format: ## Update GH campaign lp_copy text for strict 9-digit MSISDN UX
+	@echo "📝 Updating GH lp_copy msisdn text..."
+	@if command -v psql >/dev/null 2>&1; then \
+		PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/update_ghana_lp_copy_msisdn_format.sql; \
+	else \
+		echo "ℹ️  psql not found locally, using dockerized postgres client..."; \
+		docker run --rm \
+			-e PGPASSWORD="$$DB_PASSWORD" \
+			-v "$(CURDIR):/work" \
+			-w /work \
+			postgres:16 \
+			psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/update_ghana_lp_copy_msisdn_format.sql; \
+	fi
 
 .PHONY: db-list-campaigns
 db-list-campaigns: ## List all campaigns in the database
@@ -1099,7 +1321,7 @@ help:
 	@echo "  make start                  - Start all services"
 	@echo "  make stop                   - Stop all services"
 	@echo "  make restart                - Restart all services"
-	@echo "  make status                 - Show service status"
+	@echo "  make status                 - Show repo-scoped, PID-aware service status"
 	@echo ""
 	@echo "🔨 Local Build Commands:"
 	@echo "  make build                  - Build all service binaries"
@@ -1163,6 +1385,9 @@ help:
 	@echo "  make db-migrate-campaigns   - Run all campaign-related migrations"
 	@echo "  make db-migrate-cadence     - Run cadence engine migration"
 	@echo "  make db-create-mobplus-campaign - Create Mobplus campaign with click_id"
+	@echo "  make db-configure-level23-campaign - Configure Level23 campaign/postback"
+	@echo "  make db-generate-level23-share-info - Print Level23 sharing templates"
+	@echo "  make db-update-gh-lp-copy-msisdn-format - Update GH campaign lp_copy text"
 	@echo "  make db-list-campaigns      - List all campaigns"
 	@echo "  make db-campaign-details SLUG=... - Show detailed campaign info"
 	@echo ""
@@ -1181,4 +1406,3 @@ help:
 	@echo "  # Deploy to DigitalOcean droplet:"
 	@echo "  make docker-release-all"
 	@echo "  ssh user@droplet 'cd /app && make compose-do-restart'"
-

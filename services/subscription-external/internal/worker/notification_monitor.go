@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"go.uber.org/zap"
 
 	"sync"
@@ -53,7 +54,7 @@ type NotificationMonitor struct {
 	logger  *zap.Logger
 	repo    repository.SubscriptionRepositoryInterface
 	userSvc *service.SubscriptionService
-	redis   *redis.Client
+	redis   cached.RedisClient
 	cfg     NotificationMonitorConfig
 	ctx     context.Context
 
@@ -67,7 +68,7 @@ type NotificationMonitor struct {
 	mu                     sync.RWMutex // Mutex for thread-safe state updates
 }
 
-func NewNotificationMonitor(logger *zap.Logger, repo repository.SubscriptionRepositoryInterface, userSvc *service.SubscriptionService, redis *redis.Client, cfg NotificationMonitorConfig) *NotificationMonitor {
+func NewNotificationMonitor(logger *zap.Logger, repo repository.SubscriptionRepositoryInterface, userSvc *service.SubscriptionService, redisClient cached.RedisClient, cfg NotificationMonitorConfig) *NotificationMonitor {
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = 1000
 	}
@@ -140,7 +141,7 @@ func NewNotificationMonitor(logger *zap.Logger, repo repository.SubscriptionRepo
 		logger:  logger,
 		repo:    repo,
 		userSvc: userSvc,
-		redis:   redis,
+		redis:   redisClient,
 		cfg:     cfg,
 		ctx:     context.Background(),
 
@@ -199,12 +200,12 @@ func (m *NotificationMonitor) Run() error {
 		}
 
 		// renew lease
-		_ = m.redis.Expire(m.ctx, leaseKey, m.cfg.LeaseTTL/2).Err()
+		_, _ = m.redis.Expire(m.ctx, leaseKey, m.cfg.LeaseTTL/2)
 	}
 }
 
 func (m *NotificationMonitor) tryAcquireLease(key string, ttl time.Duration) (bool, error) {
-	res, err := m.redis.SetNX(m.ctx, key, time.Now().Unix(), ttl).Result()
+	res, err := m.redis.SetNX(m.ctx, key, time.Now().Unix(), ttl)
 	return res, err
 }
 
@@ -235,7 +236,10 @@ func (m *NotificationMonitor) offsetKey(t string) string {
 // - for each: mark subscription inactive (upsert if missing), then attempt optin using configured products and entry channels
 // - Enhanced: Prevent re-processing of already processed opt-outs using composite key tracking
 func (m *NotificationMonitor) processUserOptout() error {
-	lastID, _ := m.redis.Get(m.ctx, m.offsetKey("USER_OPTOUT")).Int64()
+	lastID := int64(0)
+	if rawLastID, err := m.redis.Get(m.ctx, m.offsetKey("USER_OPTOUT")); err == nil {
+		lastID, _ = strconv.ParseInt(rawLastID, 10, 64)
+	}
 
 	cutoff := time.Now().Add(-time.Duration(m.cfg.ScanLookbackDays) * 24 * time.Hour)
 	processedCount := 0
@@ -410,7 +414,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 		}
 
 		// persist offset after batch
-		if err := m.redis.Set(m.ctx, m.offsetKey("USER_OPTOUT"), lastID, 24*time.Hour).Err(); err != nil {
+		if err := m.redis.Set(m.ctx, m.offsetKey("USER_OPTOUT"), lastID, 24*time.Hour); err != nil {
 			m.logger.Error("failed to persist offset", zap.Error(err))
 		}
 
@@ -703,7 +707,7 @@ func (m *NotificationMonitor) shouldSkipOptinAttempt(msisdn, productID, channel 
 	recentFailureKey := fmt.Sprintf("%s:optin_failure:%s:%s:%s",
 		m.cfg.RedisKeyPrefix, msisdn, productID, channel)
 
-	exists, _ := m.redis.Exists(m.ctx, recentFailureKey).Result()
+	exists, _ := m.redis.Exists(m.ctx, recentFailureKey)
 	if exists > 0 {
 		return true
 	}
@@ -759,7 +763,7 @@ func (m *NotificationMonitor) generateOptoutProcessingLockKey(msisdn string, pro
 
 // isOptoutAlreadyProcessed checks if an opt-out has already been processed
 func (m *NotificationMonitor) isOptoutAlreadyProcessed(processingKey string) bool {
-	exists, err := m.redis.Exists(m.ctx, processingKey).Result()
+	exists, err := m.redis.Exists(m.ctx, processingKey)
 	if err != nil {
 		m.logger.Warn("failed to check if opt-out already processed",
 			zap.String("processingKey", processingKey), zap.Error(err))
@@ -775,7 +779,7 @@ func (m *NotificationMonitor) markOptoutAsProcessing(processingKey string) bool 
 
 	// Use SET NX with TTL to prevent race conditions
 	// TTL of 5 minutes should be enough for processing
-	result, err := m.redis.SetNX(m.ctx, lockKey, time.Now().Unix(), 5*time.Minute).Result()
+	result, err := m.redis.SetNX(m.ctx, lockKey, time.Now().Unix(), 5*time.Minute)
 	if err != nil {
 		m.logger.Warn("failed to mark opt-out as processing",
 			zap.String("processingKey", processingKey), zap.Error(err))
@@ -796,7 +800,7 @@ func (m *NotificationMonitor) markOptoutAsProcessed(processingKey string, optinS
 	// Convert to JSON for storage
 	if resultJSON, err := json.Marshal(processingResult); err == nil {
 		// Store with 30-day TTL to allow for monitoring and debugging
-		m.redis.Set(m.ctx, processingKey, resultJSON, 30*24*time.Hour)
+		_ = m.redis.Set(m.ctx, processingKey, resultJSON, 30*24*time.Hour)
 	} else {
 		m.logger.Warn("failed to marshal processing result",
 			zap.String("processingKey", processingKey), zap.Error(err))
@@ -806,18 +810,18 @@ func (m *NotificationMonitor) markOptoutAsProcessed(processingKey string, optinS
 // releaseOptoutProcessing releases the processing lock for an opt-out
 func (m *NotificationMonitor) releaseOptoutProcessing(processingKey string) {
 	lockKey := strings.Replace(processingKey, ":processed:", ":processing:", 1)
-	m.redis.Del(m.ctx, lockKey)
+	_, _ = m.redis.Del(m.ctx, lockKey)
 }
 
 // getOptoutProcessingStats returns statistics about opt-out processing
 func (m *NotificationMonitor) getOptoutProcessingStats() map[string]interface{} {
 	// Count processed opt-outs
 	processedPattern := fmt.Sprintf("%s:optout:processed:*", m.cfg.RedisKeyPrefix)
-	processedKeys, _ := m.redis.Keys(m.ctx, processedPattern).Result()
+	processedKeys, _ := m.redis.Keys(m.ctx, processedPattern)
 
 	// Count currently processing opt-outs
 	processingPattern := fmt.Sprintf("%s:optout:processing:*", m.cfg.RedisKeyPrefix)
-	processingKeys, _ := m.redis.Keys(m.ctx, processingPattern).Result()
+	processingKeys, _ := m.redis.Keys(m.ctx, processingPattern)
 
 	return map[string]interface{}{
 		"total_processed":      len(processedKeys),
@@ -858,7 +862,10 @@ func (m *NotificationMonitor) getCurrentSubscriptionState(msisdn string, product
 // - use RenewalService to process renewals via opt-out/opt-in strategy
 // - track progress with Redis offset for subscription IDs processed
 func (m *NotificationMonitor) processRenewal() error {
-	lastProcessedID, _ := m.redis.Get(m.ctx, m.offsetKey("RENEWAL_SUBS")).Int64()
+	lastProcessedID := int64(0)
+	if rawLastProcessedID, err := m.redis.Get(m.ctx, m.offsetKey("RENEWAL_SUBS")); err == nil {
+		lastProcessedID, _ = strconv.ParseInt(rawLastProcessedID, 10, 64)
+	}
 
 	// Get subscriptions needing renewal using the improved renewal system
 	// Use a reasonable threshold (7 days) and batch size
@@ -892,14 +899,14 @@ func (m *NotificationMonitor) processRenewal() error {
 
 			// Check if this subscription was recently processed to avoid duplicates
 			recentProcessKey := fmt.Sprintf("%s:recent:%s:%d", m.cfg.RedisKeyPrefix, sub.MSISDN, sub.ProductID)
-			exists, _ := m.redis.Exists(m.ctx, recentProcessKey).Result()
+			exists, _ := m.redis.Exists(m.ctx, recentProcessKey)
 			if exists > 0 {
 				// Skip if processed recently (within last 24 hours)
 				continue
 			}
 
 			// Mark as recently processed (24 hour TTL)
-			_ = m.redis.Set(m.ctx, recentProcessKey, time.Now().Unix(), 24*time.Hour).Err()
+			_ = m.redis.Set(m.ctx, recentProcessKey, time.Now().Unix(), 24*time.Hour)
 
 			// Ensure subscription record exists and is active
 			if err := m.repo.UpsertSubscriptionStatus(sub.MSISDN, sub.ProductID, "active"); err != nil {
@@ -931,7 +938,7 @@ func (m *NotificationMonitor) processRenewal() error {
 		}
 
 		// Persist offset after batch
-		_ = m.redis.Set(m.ctx, m.offsetKey("RENEWAL_SUBS"), lastProcessedID, 24*time.Hour).Err()
+		_ = m.redis.Set(m.ctx, m.offsetKey("RENEWAL_SUBS"), lastProcessedID, 24*time.Hour)
 
 		// Add small delay between batches to avoid overwhelming the system
 		time.Sleep(100 * time.Millisecond)
@@ -943,7 +950,10 @@ func (m *NotificationMonitor) processRenewal() error {
 // - for each: attempt to re-opt-in using the configured entry channels
 // - track progress with Redis offset for subscription IDs processed
 func (m *NotificationMonitor) processGhostSubscriptions() error {
-	lastProcessedID, _ := m.redis.Get(m.ctx, m.offsetKey("GHOST_SUBS")).Int64()
+	lastProcessedID := int64(0)
+	if rawLastProcessedID, err := m.redis.Get(m.ctx, m.offsetKey("GHOST_SUBS")); err == nil {
+		lastProcessedID, _ = strconv.ParseInt(rawLastProcessedID, 10, 64)
+	}
 
 	// Get subscriptions that exist but have no opt-in notifications
 	// Use a reasonable threshold (30 days) and batch size
@@ -973,14 +983,14 @@ func (m *NotificationMonitor) processGhostSubscriptions() error {
 
 			// Check if this subscription was recently processed to avoid duplicates
 			recentProcessKey := fmt.Sprintf("%s:recent:%s:%d", m.cfg.RedisKeyPrefix, sub.MSISDN, sub.ProductID)
-			exists, _ := m.redis.Exists(m.ctx, recentProcessKey).Result()
+			exists, _ := m.redis.Exists(m.ctx, recentProcessKey)
 			if exists > 0 {
 				// Skip if processed recently (within last 24 hours)
 				continue
 			}
 
 			// Mark as recently processed (24 hour TTL)
-			_ = m.redis.Set(m.ctx, recentProcessKey, time.Now().Unix(), 24*time.Hour).Err()
+			_ = m.redis.Set(m.ctx, recentProcessKey, time.Now().Unix(), 24*time.Hour)
 
 			// Attempt re-opt-in using the configured entry channels
 			optinSuccess := m.attemptOptinWithConfiguredChannels(sub.MSISDN, sub.ProductID, sub.EntryChannel)
@@ -1011,7 +1021,7 @@ func (m *NotificationMonitor) processGhostSubscriptions() error {
 		}
 
 		// Persist offset after batch
-		_ = m.redis.Set(m.ctx, m.offsetKey("GHOST_SUBS"), lastProcessedID, 24*time.Hour).Err()
+		_ = m.redis.Set(m.ctx, m.offsetKey("GHOST_SUBS"), lastProcessedID, 24*time.Hour)
 
 		// Add small delay between batches to avoid overwhelming the system
 		time.Sleep(100 * time.Millisecond)
@@ -1129,7 +1139,7 @@ func (m *NotificationMonitor) performHealthCheck() {
 	defer m.mu.Unlock()
 
 	// Check Redis connectivity
-	_, err := m.redis.Ping(m.ctx).Result()
+	_, err := m.redis.Ping(m.ctx)
 	if err != nil {
 		m.logger.Error("health check failed: Redis connectivity issue", zap.Error(err))
 		m.recordError("health_check_redis")

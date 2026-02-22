@@ -2,6 +2,8 @@ package service
 
 import (
 	"errors"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
@@ -120,3 +122,123 @@ func TestCampaignService_AdminCRUD_HappyPath(t *testing.T) {
 	}
 }
 
+func TestCampaignService_AdminClone_CopiesConfigurationAndResetsState(t *testing.T) {
+	logger := zap.NewNop()
+
+	operator := "AT"
+	pricepointID := 77
+	partnerRoleID := 12
+	shortCode := "601061"
+	smsKeyword := "JOIN"
+	price := 1.5
+	billingCycle := "daily"
+	termsURL := "https://example.com/terms"
+	inlineTermsText := "terms"
+	consentVersion := "v1"
+	sourceCreatedBy := "source-admin"
+	createdBy := "clone-admin"
+
+	source := &domain.Campaign{
+		Slug:               "source-campaign",
+		Language:           "en",
+		Country:            "GH",
+		Operator:           &operator,
+		OfferProductID:     27188,
+		PricepointID:       &pricepointID,
+		PartnerRoleID:      &partnerRoleID,
+		FlowType:           domain.FlowTypeOTP,
+		ShortCode:          &shortCode,
+		SMSKeyword:         &smsKeyword,
+		Price:              &price,
+		BillingCycle:       &billingCycle,
+		TrialFlags:         []byte(`{"trial_days":1}`),
+		TermsURL:           &termsURL,
+		InlineTermsText:    &inlineTermsText,
+		ConsentRequired:    true,
+		ConsentVersion:     &consentVersion,
+		AttributionMapping: []byte(`{"click_id":"txid"}`),
+		PostbackRules:      []byte(`{"subscribed":{"generic":{"url":"https://example.com"}}}`),
+		Throttles:          []byte(`{"per_msisdn_per_day":3}`),
+		AllowedReferrers:   []string{"https://affiliate.example"},
+		AllowedSources:     []string{"facebook"},
+		LandingPageURLs:    []string{"https://landing.example/lp/source-campaign"},
+		TrackingConfig:     []byte(`{"redirect_url":"https://partner.example/subscribe"}`),
+		LPCopy:             []byte(`{"en":{"heroTitle":"A","heDescription":"B","heCta":"C","heModalTitle":"D","heModalConfirm":"E","msisdnDescription":"F","msisdnPlaceholder":"G","msisdnCta":"H","otpDescription":"I","otpPlaceholder":"J","otpCta":"K","successTitle":"L","successBody":"M","consentPrefix":"N","consentTerms":"O","termsHeading":"P","legal":"Q","phoneRequired":"R","phoneInvalid":"S","otpInvalid":"T","consentRequired":"U"}}`),
+		Enabled:            true,
+		CreatedBy:          &sourceCreatedBy,
+	}
+
+	repo := &fakeCampaignRepo{
+		getAdminBySlugFn: func(slug string) (*domain.Campaign, error) {
+			if slug != "source-campaign" {
+				return nil, errors.New("unexpected source slug")
+			}
+			return source, nil
+		},
+		createFn: func(c *domain.Campaign) (*domain.Campaign, error) {
+			if c.Slug != "copied-campaign" {
+				return nil, errors.New("clone slug mismatch")
+			}
+			if c.Enabled {
+				return nil, errors.New("clone must be disabled")
+			}
+			if c.CreatedBy == nil || *c.CreatedBy != createdBy {
+				return nil, errors.New("created_by must be set from clone request")
+			}
+			if c.UpdatedBy == nil || *c.UpdatedBy != createdBy {
+				return nil, errors.New("updated_by must be set from clone request")
+			}
+			if !reflect.DeepEqual(c.AllowedReferrers, source.AllowedReferrers) {
+				return nil, errors.New("allowed_referrers not copied")
+			}
+			if !reflect.DeepEqual(c.LandingPageURLs, source.LandingPageURLs) {
+				return nil, errors.New("landing_page_urls not copied")
+			}
+			if string(c.TrackingConfig) != string(source.TrackingConfig) {
+				return nil, errors.New("tracking_config not copied")
+			}
+			return c, nil
+		},
+		// not used by this test
+		getBySlugFn:   func(string) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		listEnabledFn: func() ([]*domain.Campaign, error) { return nil, errors.New("unused") },
+		listAllFn:     func(*bool, *string) ([]*domain.Campaign, error) { return nil, errors.New("unused") },
+		updateFn:      func(string, *domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		setEnabledFn:  func(string, bool, *string) (*domain.Campaign, error) { return nil, errors.New("unused") },
+	}
+
+	svc := NewCampaignService(repo, logger)
+	cloned, err := svc.AdminClone("source-campaign", "copied-campaign", &createdBy)
+	if err != nil {
+		t.Fatalf("AdminClone error: %v", err)
+	}
+	if cloned.Slug != "copied-campaign" {
+		t.Fatalf("expected cloned slug copied-campaign, got %q", cloned.Slug)
+	}
+	if cloned.Enabled {
+		t.Fatalf("expected cloned campaign disabled, got enabled=%v", cloned.Enabled)
+	}
+}
+
+func TestCampaignService_AdminClone_SourceNotFound(t *testing.T) {
+	logger := zap.NewNop()
+
+	repo := &fakeCampaignRepo{
+		getAdminBySlugFn: func(slug string) (*domain.Campaign, error) {
+			return nil, errors.New("campaign not found: " + slug)
+		},
+		// not used by this test
+		getBySlugFn:   func(string) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		listEnabledFn: func() ([]*domain.Campaign, error) { return nil, errors.New("unused") },
+		listAllFn:     func(*bool, *string) ([]*domain.Campaign, error) { return nil, errors.New("unused") },
+		createFn:      func(*domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		updateFn:      func(string, *domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		setEnabledFn:  func(string, bool, *string) (*domain.Campaign, error) { return nil, errors.New("unused") },
+	}
+
+	svc := NewCampaignService(repo, logger)
+	_, err := svc.AdminClone("missing-campaign", "copy-campaign", nil)
+	if err == nil || !strings.Contains(err.Error(), "failed to get source campaign") {
+		t.Fatalf("expected source lookup error, got %v", err)
+	}
+}

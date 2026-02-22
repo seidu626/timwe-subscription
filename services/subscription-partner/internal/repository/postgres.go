@@ -4,20 +4,24 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/subscription/internal/domain"
 	"log"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type SubscriptionRepository struct {
 	db    *sql.DB
-	redis *redis.Client
+	redis cached.RedisClient
 	ctx   context.Context
 }
 
-func NewSubscriptionRepository(db *sql.DB, client *redis.Client) *SubscriptionRepository {
+func NewSubscriptionRepository(db *sql.DB, client cached.RedisClient) *SubscriptionRepository {
 	return &SubscriptionRepository{
 		db:    db,
 		redis: client,
@@ -31,17 +35,21 @@ func (r *SubscriptionRepository) GenerateCacheKey(startDate, endDate time.Time, 
 }
 
 func (r *SubscriptionRepository) FetchSubscriptions(startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
+	shortcode = strings.TrimSpace(shortcode)
+	userIdentifier = strings.TrimSpace(userIdentifier)
+	entryChannel = strings.TrimSpace(entryChannel)
+
 	cacheKey := r.GenerateCacheKey(startDate, endDate, productId, shortcode, userIdentifier, entryChannel, page, pageSize)
 
 	log.Printf("Fetching notifications from cache: %s", cacheKey)
 	// Check if cached data exists
-	cachedData, err := r.redis.Get(r.ctx, cacheKey).Result()
+	cachedData, err := r.redis.Get(r.ctx, cacheKey)
 	if err == nil {
 		var listResponse *domain.ListResponse
 		if err := json.Unmarshal([]byte(cachedData), &listResponse); err == nil {
 			return listResponse, nil
 		}
-	} else {
+	} else if !errors.Is(err, redis.Nil) {
 		log.Printf("Failed to find cached data: %+v", err.Error())
 	}
 
@@ -92,21 +100,21 @@ func (r *SubscriptionRepository) FetchSubscriptions(startDate, endDate time.Time
 		argIndex++
 	}
 	if shortcode != "" {
-		query += fmt.Sprintf(" AND mcc = $%d", argIndex)
-		countQuery += fmt.Sprintf(" AND mcc = $%d", argIndex)
-		args = append(args, shortcode)
+		query += fmt.Sprintf(" AND COALESCE(mcc, '') ILIKE $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND COALESCE(mcc, '') ILIKE $%d", argIndex)
+		args = append(args, "%"+shortcode+"%")
 		argIndex++
 	}
 	if userIdentifier != "" {
-		query += fmt.Sprintf(" AND user_identifier = $%d", argIndex)
-		countQuery += fmt.Sprintf(" AND user_identifier = $%d", argIndex)
-		args = append(args, userIdentifier)
+		query += fmt.Sprintf(" AND user_identifier ILIKE $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND user_identifier ILIKE $%d", argIndex)
+		args = append(args, "%"+userIdentifier+"%")
 		argIndex++
 	}
 	if entryChannel != "" {
-		query += fmt.Sprintf(" AND entry_channel = $%d", argIndex)
-		countQuery += fmt.Sprintf(" AND entry_channel = $%d", argIndex)
-		args = append(args, entryChannel)
+		query += fmt.Sprintf(" AND COALESCE(entry_channel, '') ILIKE $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND COALESCE(entry_channel, '') ILIKE $%d", argIndex)
+		args = append(args, "%"+entryChannel+"%")
 		argIndex++
 	}
 
@@ -114,7 +122,7 @@ func (r *SubscriptionRepository) FetchSubscriptions(startDate, endDate time.Time
 	var totalRecords int
 	err = r.db.QueryRow(countQuery, args...).Scan(&totalRecords)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("count subscriptions: %w", err)
 	}
 
 	// Add pagination support
@@ -124,7 +132,7 @@ func (r *SubscriptionRepository) FetchSubscriptions(startDate, endDate time.Time
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query subscriptions: %w", err)
 	}
 
 	defer func(rows *sql.Rows) {
@@ -136,32 +144,14 @@ func (r *SubscriptionRepository) FetchSubscriptions(startDate, endDate time.Time
 
 	var subscriptions []*domain.Subscription
 	for rows.Next() {
-		subscription := &domain.Subscription{}
-		if err := rows.Scan(
-			&subscription.Id,
-			&subscription.UserIdentifier,
-			&subscription.UserIdentifierType,
-			&subscription.ProductId,
-			&subscription.PartnerRoleId,
-			&subscription.CampaignUrl,
-			&subscription.EntryChannel,
-			&subscription.SubKeyword,
-			&subscription.TrackingId,
-			&subscription.LargeAccount,
-			&subscription.Mcc,
-			&subscription.Mnc,
-			&subscription.Status,
-			&subscription.CancelReason,
-			&subscription.CancelSource,
-			&subscription.StartDate,
-			&subscription.EndDate,
-			&subscription.TransactionAuthCode,
-			&subscription.ClientIp,
-			&subscription.CreatedAt,
-		); err != nil {
-			return nil, err
+		subscription, scanErr := scanAndMapSubscription(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan subscription row: %w", scanErr)
 		}
 		subscriptions = append(subscriptions, subscription)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate subscription rows: %w", err)
 	}
 
 	totalPages := (totalRecords + pageSize - 1) / pageSize // to round up
@@ -180,10 +170,116 @@ func (r *SubscriptionRepository) FetchSubscriptions(startDate, endDate time.Time
 
 	data, err := json.Marshal(listResponse)
 	if err == nil {
-		r.redis.Set(r.ctx, cacheKey, data, 30*time.Minute)
+		_ = r.redis.Set(r.ctx, cacheKey, data, 30*time.Minute)
 	}
 
 	return listResponse, nil
+}
+
+type rowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanAndMapSubscription(scanner rowScanner) (*domain.Subscription, error) {
+	var id int
+	var userIdentifier string
+	var userIdentifierType string
+	var productID int
+	var partnerRoleID int
+	var campaignURL sql.NullString
+	var entryChannel sql.NullString
+	var subKeyword sql.NullString
+	var trackingID sql.NullString
+	var largeAccount sql.NullString
+	var mcc sql.NullString
+	var mnc sql.NullString
+	var status sql.NullString
+	var cancelReason sql.NullInt64
+	var cancelSource sql.NullInt64
+	var startDate time.Time
+	var endDate sql.NullTime
+	var transactionAuthCode sql.NullString
+	var clientIP sql.NullString
+	var createdAt time.Time
+
+	if err := scanner.Scan(
+		&id,
+		&userIdentifier,
+		&userIdentifierType,
+		&productID,
+		&partnerRoleID,
+		&campaignURL,
+		&entryChannel,
+		&subKeyword,
+		&trackingID,
+		&largeAccount,
+		&mcc,
+		&mnc,
+		&status,
+		&cancelReason,
+		&cancelSource,
+		&startDate,
+		&endDate,
+		&transactionAuthCode,
+		&clientIP,
+		&createdAt,
+	); err != nil {
+		return nil, err
+	}
+
+	return &domain.Subscription{
+		Id:                  id,
+		PartnerRoleId:       strconv.Itoa(partnerRoleID),
+		UserIdentifier:      userIdentifier,
+		UserIdentifierType:  userIdentifierType,
+		ProductId:           strconv.Itoa(productID),
+		Mcc:                 nullStringToString(mcc),
+		Mnc:                 nullStringToString(mnc),
+		EntryChannel:        nullStringToString(entryChannel),
+		LargeAccount:        nullStringToString(largeAccount),
+		SubKeyword:          nullStringToString(subKeyword),
+		TrackingId:          nullStringToString(trackingID),
+		ClientIp:            nullStringToString(clientIP),
+		CampaignUrl:         nullStringToString(campaignURL),
+		Status:              nullStringToString(status),
+		CancelReason:        nullIntToStringPtr(cancelReason),
+		CancelSource:        nullIntToStringPtr(cancelSource),
+		CreatedAt:           createdAt.Format(time.RFC3339Nano),
+		StartDate:           startDate,
+		EndDate:             nullTimePtr(endDate),
+		TransactionAuthCode: nullStringPtr(transactionAuthCode),
+	}, nil
+}
+
+func nullStringToString(val sql.NullString) string {
+	if val.Valid {
+		return val.String
+	}
+	return ""
+}
+
+func nullStringPtr(val sql.NullString) *string {
+	if !val.Valid {
+		return nil
+	}
+	s := val.String
+	return &s
+}
+
+func nullIntToStringPtr(val sql.NullInt64) *string {
+	if !val.Valid {
+		return nil
+	}
+	s := strconv.FormatInt(val.Int64, 10)
+	return &s
+}
+
+func nullTimePtr(val sql.NullTime) *time.Time {
+	if !val.Valid {
+		return nil
+	}
+	t := val.Time
+	return &t
 }
 
 // CreateSubscription inserts a new subscription record into the database.
@@ -206,9 +302,16 @@ func (r *SubscriptionRepository) ConfirmSubscription(request *domain.Subscriptio
         SET transaction_auth_code = $1
         WHERE partner_role_id = $2 AND user_identifier = $3 AND product_id = $4
     `
-	_, err := r.db.Exec(query, request.TransactionAuthCode, request.PartnerRoleId, request.UserIdentifier, request.ProductId)
+	result, err := r.db.Exec(query, request.TransactionAuthCode, request.PartnerRoleId, request.UserIdentifier, request.ProductId)
 	if err != nil {
 		return fmt.Errorf("failed to confirm subscription: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to read confirm result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("subscription not found for confirmation")
 	}
 	return nil
 }

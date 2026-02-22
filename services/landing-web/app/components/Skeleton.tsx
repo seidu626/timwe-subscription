@@ -75,34 +75,76 @@ export function SkeletonInput({ className = '' }: { className?: string }) {
   )
 }
 
+function MtnShimmer({ width = '100%', height = '1rem', borderRadius = '8px', style = {} }: {
+  width?: string
+  height?: string
+  borderRadius?: string
+  style?: React.CSSProperties
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        width,
+        height,
+        borderRadius,
+        background: 'linear-gradient(90deg, #1a1a2e 25%, #2a2a4a 50%, #1a1a2e 75%)',
+        backgroundSize: '200% 100%',
+        animation: 'shimmer 1.5s ease-in-out infinite',
+        ...style,
+      }}
+    />
+  )
+}
+
 export function LandingPageSkeleton() {
   return (
-    <div className="container" role="status" aria-label="Loading campaign">
-      <div className="header" style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <Skeleton width="60%" height="2.5rem" style={{ margin: '0 auto 1rem' }} />
-        <Skeleton width="40%" height="1.5rem" style={{ margin: '0 auto' }} />
-      </div>
+    <div
+      className="lp-template-shell"
+      role="status"
+      aria-label="Loading campaign"
+      style={{ minHeight: '100vh', padding: '24px 12px 80px', background: '#0a0a1a' }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 560,
+          margin: '0 auto',
+          background: '#ffffff',
+          borderTop: '6px solid #ffcc00',
+          borderRadius: '0 0 16px 16px',
+          padding: '22px 18px',
+          boxShadow: '0 20px 30px rgba(0,0,0,0.25)',
+        }}
+      >
+        {/* Hero title */}
+        <MtnShimmer width="70%" height="2rem" style={{ margin: '0 auto 16px' }} />
 
-      <div style={{ marginBottom: '1.5rem' }}>
-        <SkeletonInput />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          <Skeleton width="1.25rem" height="1.25rem" borderRadius="4px" />
-          <Skeleton width="80%" height="1rem" />
+        {/* Description */}
+        <MtnShimmer width="90%" height="1rem" style={{ margin: '0 auto 8px' }} />
+        <MtnShimmer width="60%" height="1rem" style={{ margin: '0 auto 20px' }} />
+
+        {/* Phone input */}
+        <MtnShimmer width="100%" height="48px" borderRadius="13px" style={{ marginBottom: '12px' }} />
+
+        {/* Consent row */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+          <MtnShimmer width="18px" height="18px" borderRadius="4px" />
+          <MtnShimmer width="80%" height="1rem" />
         </div>
-        <SkeletonButton />
+
+        {/* CTA button */}
+        <MtnShimmer
+          width="100%"
+          height="50px"
+          borderRadius="19px"
+          style={{ background: 'linear-gradient(90deg, #b8960080 25%, #ffcc0040 50%, #b8960080 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s ease-in-out infinite' }}
+        />
+
+        {/* Price */}
+        <MtnShimmer width="40%" height="0.875rem" style={{ margin: '12px auto 0' }} />
       </div>
 
-      <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb' }}>
-        <Skeleton width="50%" height="1.5rem" style={{ marginBottom: '1rem' }} />
-        <SkeletonText lines={4} />
-      </div>
-
-      <style>{`
-        @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-      `}</style>
       <span className="sr-only">Loading campaign details...</span>
     </div>
   )

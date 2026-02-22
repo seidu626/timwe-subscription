@@ -2,7 +2,9 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -10,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lib/pq"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
 	"github.com/valyala/fasthttp"
@@ -18,19 +21,22 @@ import (
 
 // CampaignHandler handles campaign-related HTTP requests
 type CampaignHandler struct {
-	service *service.CampaignService
-	logger  *zap.Logger
+	service      *service.CampaignService
+	assetService *service.CampaignAssetService
+	logger       *zap.Logger
 }
 
 // NewCampaignHandler creates a new campaign handler
-func NewCampaignHandler(campaignService *service.CampaignService, logger *zap.Logger) *CampaignHandler {
+func NewCampaignHandler(campaignService *service.CampaignService, assetService *service.CampaignAssetService, logger *zap.Logger) *CampaignHandler {
 	return &CampaignHandler{
-		service: campaignService,
-		logger:  logger,
+		service:      campaignService,
+		assetService: assetService,
+		logger:       logger,
 	}
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+var themeColorRe = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 
 func extractLastPathSegment(path string) (string, bool) {
 	parts := strings.Split(path, "/")
@@ -131,6 +137,7 @@ type adminCampaignUpsertRequest struct {
 	AllowedSources     []string        `json:"allowed_sources,omitempty"`
 	LandingPageURLs    []string        `json:"landing_page_urls,omitempty"`
 	TrackingConfig     json.RawMessage `json:"tracking_config,omitempty"`
+	LPCopy             json.RawMessage `json:"lp_copy,omitempty"`
 	Enabled            bool            `json:"enabled"`
 	CreatedBy          *string         `json:"created_by,omitempty"`
 	UpdatedBy          *string         `json:"updated_by,omitempty"`
@@ -141,9 +148,17 @@ type adminSetEnabledRequest struct {
 	UpdatedBy *string `json:"updated_by,omitempty"`
 }
 
+type adminCloneCampaignRequest struct {
+	NewSlug   string  `json:"new_slug"`
+	CreatedBy *string `json:"created_by,omitempty"`
+}
+
 type trackingConfig struct {
 	Pixels       *trackingPixels       `json:"pixels,omitempty"`
 	Attribution  *trackingAttribution  `json:"attribution,omitempty"`
+	Visual       *trackingVisual       `json:"visual,omitempty"`
+	RedirectURL  string                `json:"redirect_url,omitempty"`
+	Redirect     *trackingRedirect     `json:"redirect,omitempty"`
 	CustomEvents []trackingCustomEvent `json:"custom_events,omitempty"`
 }
 
@@ -174,10 +189,81 @@ type trackingAttribution struct {
 	WindowDays int    `json:"window_days"`
 }
 
+type trackingVisual struct {
+	BackgroundImageURL string `json:"background_image_url,omitempty"`
+	ThemeColor         string `json:"theme_color,omitempty"`
+}
+
 type trackingCustomEvent struct {
 	Name    string `json:"name"`
 	Trigger string `json:"trigger"`
 }
+
+type trackingRedirect struct {
+	URL string `json:"url"`
+}
+
+type adminPresignBackgroundUploadRequest struct {
+	CampaignSlug string `json:"campaign_slug"`
+	FileName     string `json:"file_name"`
+	ContentType  string `json:"content_type"`
+	SizeBytes    int64  `json:"size_bytes"`
+}
+
+type lpCopyPayload struct {
+	En *lpCopyText `json:"en"`
+	Ar *lpCopyText `json:"ar,omitempty"`
+}
+
+type lpCopyText struct {
+	HeroTitle         string `json:"heroTitle"`
+	HEDescription     string `json:"heDescription"`
+	HECTA             string `json:"heCta"`
+	HEModalTitle      string `json:"heModalTitle"`
+	HEModalConfirm    string `json:"heModalConfirm"`
+	MSISDNDescription string `json:"msisdnDescription"`
+	MSISDNPlaceholder string `json:"msisdnPlaceholder"`
+	MSISDNCTA         string `json:"msisdnCta"`
+	OTPDescription    string `json:"otpDescription"`
+	OTPPlaceholder    string `json:"otpPlaceholder"`
+	OTPCTA            string `json:"otpCta"`
+	SuccessTitle      string `json:"successTitle"`
+	SuccessBody       string `json:"successBody"`
+	ConsentPrefix     string `json:"consentPrefix"`
+	ConsentTerms      string `json:"consentTerms"`
+	TermsHeading      string `json:"termsHeading"`
+	Legal             string `json:"legal"`
+	PhoneRequired     string `json:"phoneRequired"`
+	PhoneInvalid      string `json:"phoneInvalid"`
+	OTPInvalid        string `json:"otpInvalid"`
+	ConsentRequired   string `json:"consentRequired"`
+}
+
+var defaultLPCopy = json.RawMessage(`{
+  "en": {
+    "heroTitle": "Subscribe to unlock premium content.",
+    "heDescription": "To continue, tap Subscribe.",
+    "heCta": "Subscribe",
+    "heModalTitle": "Almost there. Please confirm to continue.",
+    "heModalConfirm": "Confirm",
+    "msisdnDescription": "Enter your mobile number to receive your PIN code.",
+    "msisdnPlaceholder": "Mobile number (9 digits)",
+    "msisdnCta": "Subscribe",
+    "otpDescription": "Enter the 4-digit PIN sent to your phone.",
+    "otpPlaceholder": "4-digit PIN",
+    "otpCta": "Confirm",
+    "successTitle": "Subscription successful",
+    "successBody": "You will receive a text message with your access details.",
+    "consentPrefix": "I agree to the",
+    "consentTerms": "Terms and Conditions",
+    "termsHeading": "Terms and Conditions",
+    "legal": "Your subscription renews automatically until cancelled. You must be 18+ years old or have parental permission to use this service.",
+    "phoneRequired": "Phone number is required.",
+    "phoneInvalid": "Enter a valid 9-digit mobile number.",
+    "otpInvalid": "PIN must be exactly 4 digits.",
+    "consentRequired": "You must accept terms to continue."
+  }
+}`)
 
 // cleanLandingPageURLs trims whitespace, removes empty strings, and deduplicates URLs
 func cleanLandingPageURLs(urls []string) []string {
@@ -239,6 +325,16 @@ func validateAdminUpsert(req *adminCampaignUpsertRequest, requireSlug bool) erro
 	if err := validateTrackingConfig(req.TrackingConfig); err != nil {
 		return err
 	}
+	if req.FlowType == domain.FlowTypeRedirect {
+		if _, err := resolveRedirectURL(req.TrackingConfig, req.LandingPageURLs); err != nil {
+			return fmt.Errorf("redirect flow requires a valid destination: %w", err)
+		}
+	}
+	normalizedLPCopy, err := normalizeAndValidateLPCopy(req.LPCopy)
+	if err != nil {
+		return err
+	}
+	req.LPCopy = normalizedLPCopy
 	// Validate landing page URLs (each must be a valid absolute http(s) URL)
 	for i, lpURL := range req.LandingPageURLs {
 		lpURL = strings.TrimSpace(lpURL)
@@ -254,6 +350,77 @@ func validateAdminUpsert(req *adminCampaignUpsertRequest, requireSlug bool) erro
 		}
 		if u.Host == "" {
 			return fmt.Errorf("landing_page_urls[%d]: URL must have a host", i)
+		}
+	}
+	return nil
+}
+
+func normalizeAndValidateLPCopy(raw json.RawMessage) (json.RawMessage, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		trimmed = defaultLPCopy
+	}
+
+	var payload lpCopyPayload
+	dec := json.NewDecoder(bytes.NewReader(trimmed))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&payload); err != nil {
+		return nil, fmt.Errorf("lp_copy: %w", err)
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		return nil, fmt.Errorf("lp_copy: invalid trailing data")
+	}
+
+	if payload.En == nil {
+		return nil, fmt.Errorf("lp_copy.en is required")
+	}
+	if err := validateLPCopyText("lp_copy.en", payload.En); err != nil {
+		return nil, err
+	}
+	if payload.Ar != nil {
+		if err := validateLPCopyText("lp_copy.ar", payload.Ar); err != nil {
+			return nil, err
+		}
+	}
+
+	normalized, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("lp_copy: failed to normalize: %w", err)
+	}
+	return json.RawMessage(normalized), nil
+}
+
+func validateLPCopyText(path string, copy *lpCopyText) error {
+	required := []struct {
+		field string
+		value string
+	}{
+		{field: "heroTitle", value: copy.HeroTitle},
+		{field: "heDescription", value: copy.HEDescription},
+		{field: "heCta", value: copy.HECTA},
+		{field: "heModalTitle", value: copy.HEModalTitle},
+		{field: "heModalConfirm", value: copy.HEModalConfirm},
+		{field: "msisdnDescription", value: copy.MSISDNDescription},
+		{field: "msisdnPlaceholder", value: copy.MSISDNPlaceholder},
+		{field: "msisdnCta", value: copy.MSISDNCTA},
+		{field: "otpDescription", value: copy.OTPDescription},
+		{field: "otpPlaceholder", value: copy.OTPPlaceholder},
+		{field: "otpCta", value: copy.OTPCTA},
+		{field: "successTitle", value: copy.SuccessTitle},
+		{field: "successBody", value: copy.SuccessBody},
+		{field: "consentPrefix", value: copy.ConsentPrefix},
+		{field: "consentTerms", value: copy.ConsentTerms},
+		{field: "termsHeading", value: copy.TermsHeading},
+		{field: "legal", value: copy.Legal},
+		{field: "phoneRequired", value: copy.PhoneRequired},
+		{field: "phoneInvalid", value: copy.PhoneInvalid},
+		{field: "otpInvalid", value: copy.OTPInvalid},
+		{field: "consentRequired", value: copy.ConsentRequired},
+	}
+
+	for _, entry := range required {
+		if strings.TrimSpace(entry.value) == "" {
+			return fmt.Errorf("%s.%s is required", path, entry.field)
 		}
 	}
 	return nil
@@ -323,6 +490,82 @@ func validateTrackingConfig(raw json.RawMessage) error {
 		}
 	}
 
+	if cfg.Visual != nil {
+		if v := strings.TrimSpace(cfg.Visual.BackgroundImageURL); v != "" {
+			if err := validateBackgroundImageURL(v); err != nil {
+				return fmt.Errorf("tracking_config.visual.background_image_url: %w", err)
+			}
+		}
+		if v := strings.TrimSpace(cfg.Visual.ThemeColor); v != "" {
+			if !themeColorRe.MatchString(v) {
+				return fmt.Errorf("tracking_config.visual.theme_color must be a #RRGGBB color")
+			}
+		}
+	}
+
+	if strings.TrimSpace(cfg.RedirectURL) != "" {
+		if err := validateBackgroundImageURL(strings.TrimSpace(cfg.RedirectURL)); err != nil {
+			return fmt.Errorf("tracking_config.redirect_url: %w", err)
+		}
+	}
+
+	if cfg.Redirect != nil {
+		if strings.TrimSpace(cfg.Redirect.URL) == "" {
+			return fmt.Errorf("tracking_config.redirect.url is required")
+		}
+		if err := validateBackgroundImageURL(strings.TrimSpace(cfg.Redirect.URL)); err != nil {
+			return fmt.Errorf("tracking_config.redirect.url: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func resolveRedirectURL(trackingRaw json.RawMessage, landingPageURLs []string) (string, error) {
+	if len(bytes.TrimSpace(trackingRaw)) > 0 && string(bytes.TrimSpace(trackingRaw)) != "null" {
+		var cfg trackingConfig
+		dec := json.NewDecoder(bytes.NewReader(trackingRaw))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&cfg); err == nil {
+			if v := strings.TrimSpace(cfg.RedirectURL); v != "" {
+				return v, nil
+			}
+			if cfg.Redirect != nil {
+				if v := strings.TrimSpace(cfg.Redirect.URL); v != "" {
+					return v, nil
+				}
+			}
+		}
+	}
+
+	for _, lpURL := range landingPageURLs {
+		v := strings.TrimSpace(lpURL)
+		if v == "" {
+			continue
+		}
+		u, err := url.Parse(v)
+		if err != nil {
+			continue
+		}
+		if (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" {
+			return u.String(), nil
+		}
+	}
+
+	return "", fmt.Errorf("set tracking_config.redirect_url (or tracking_config.redirect.url) or provide landing_page_urls")
+}
+
+func validateBackgroundImageURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("must be an http or https URL")
+	}
+	if strings.TrimSpace(u.Host) == "" {
+		return fmt.Errorf("host is required")
+	}
 	return nil
 }
 
@@ -414,6 +657,7 @@ func (h *CampaignHandler) AdminCreate(ctx *fasthttp.RequestCtx) {
 		AllowedSources:     req.AllowedSources,
 		LandingPageURLs:    cleanLandingPageURLs(req.LandingPageURLs),
 		TrackingConfig:     req.TrackingConfig,
+		LPCopy:             req.LPCopy,
 		Enabled:            req.Enabled,
 		CreatedBy:          req.CreatedBy,
 		UpdatedBy:          req.UpdatedBy,
@@ -471,6 +715,7 @@ func (h *CampaignHandler) AdminUpdate(ctx *fasthttp.RequestCtx) {
 		AllowedSources:     req.AllowedSources,
 		LandingPageURLs:    cleanLandingPageURLs(req.LandingPageURLs),
 		TrackingConfig:     req.TrackingConfig,
+		LPCopy:             req.LPCopy,
 		Enabled:            req.Enabled,
 		UpdatedBy:          req.UpdatedBy,
 	})
@@ -505,4 +750,134 @@ func (h *CampaignHandler) AdminSetEnabled(ctx *fasthttp.RequestCtx) {
 	}
 
 	writeJSON(ctx, fasthttp.StatusOK, updated)
+}
+
+func (h *CampaignHandler) AdminClone(ctx *fasthttp.RequestCtx) {
+	path := string(ctx.Path())
+	sourceSlug, ok := extractCampaignSlugBeforeSuffix(path, "/clone")
+	if !ok {
+		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		return
+	}
+
+	var req adminCloneCampaignRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+
+	if err := validateCloneCampaignRequest(sourceSlug, &req); err != nil {
+		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		return
+	}
+
+	newSlug := strings.TrimSpace(req.NewSlug)
+
+	var createdBy *string
+	if req.CreatedBy != nil {
+		trimmed := strings.TrimSpace(*req.CreatedBy)
+		if trimmed != "" {
+			createdBy = &trimmed
+		}
+	}
+
+	cloned, err := h.service.AdminClone(sourceSlug, newSlug, createdBy)
+	if err != nil {
+		status := mapCampaignCloneErrorStatus(err)
+		if status >= fasthttp.StatusInternalServerError {
+			h.logger.Error("Failed to clone campaign (admin)",
+				zap.String("source_slug", sourceSlug),
+				zap.String("new_slug", newSlug),
+				zap.Error(err),
+			)
+		} else {
+			h.logger.Warn("Campaign clone rejected (admin)",
+				zap.String("source_slug", sourceSlug),
+				zap.String("new_slug", newSlug),
+				zap.Error(err),
+			)
+		}
+		ctx.Error(err.Error(), status)
+		return
+	}
+
+	writeJSON(ctx, fasthttp.StatusCreated, cloned)
+}
+
+func validateCloneCampaignRequest(sourceSlug string, req *adminCloneCampaignRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+
+	newSlug := strings.TrimSpace(req.NewSlug)
+	if newSlug == "" {
+		return fmt.Errorf("new_slug is required")
+	}
+	if !slugRe.MatchString(newSlug) {
+		return fmt.Errorf("new_slug must match %s", slugRe.String())
+	}
+	if strings.EqualFold(sourceSlug, newSlug) {
+		return fmt.Errorf("new_slug must be different from source slug")
+	}
+
+	return nil
+}
+
+func mapCampaignCloneErrorStatus(err error) int {
+	if err == nil {
+		return fasthttp.StatusInternalServerError
+	}
+
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && string(pqErr.Code) == "23505" {
+		return fasthttp.StatusConflict
+	}
+
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "campaign not found"):
+		return fasthttp.StatusNotFound
+	case strings.Contains(msg, "duplicate key value"):
+		return fasthttp.StatusConflict
+	case strings.Contains(msg, "already exists"):
+		return fasthttp.StatusConflict
+	default:
+		return fasthttp.StatusInternalServerError
+	}
+}
+
+func (h *CampaignHandler) AdminPresignBackgroundUpload(ctx *fasthttp.RequestCtx) {
+	if h.assetService == nil || !h.assetService.Enabled() {
+		ctx.Error("Campaign asset upload is not configured", fasthttp.StatusNotImplemented)
+		return
+	}
+
+	var req adminPresignBackgroundUploadRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+
+	slug := strings.TrimSpace(req.CampaignSlug)
+	if slug == "" {
+		ctx.Error("campaign_slug is required", fasthttp.StatusBadRequest)
+		return
+	}
+	if !slugRe.MatchString(slug) {
+		ctx.Error(fmt.Sprintf("campaign_slug must match %s", slugRe.String()), fasthttp.StatusBadRequest)
+		return
+	}
+
+	resp, err := h.assetService.PresignBackgroundUpload(context.Background(), service.CampaignAssetUploadRequest{
+		CampaignSlug: slug,
+		FileName:     req.FileName,
+		ContentType:  req.ContentType,
+		SizeBytes:    req.SizeBytes,
+	})
+	if err != nil {
+		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		return
+	}
+
+	writeJSON(ctx, fasthttp.StatusOK, resp)
 }

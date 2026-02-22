@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"log"
 	"time"
 
@@ -15,11 +16,11 @@ import (
 
 type ProductRepository struct {
 	db    *sql.DB
-	redis *redis.Client
+	redis cached.RedisClient
 	ctx   context.Context
 }
 
-func NewProductRepository(db *sql.DB, client *redis.Client) *ProductRepository {
+func NewProductRepository(db *sql.DB, client cached.RedisClient) *ProductRepository {
 	return &ProductRepository{db: db,
 		redis: client,
 		ctx:   context.Background(),
@@ -37,7 +38,7 @@ func (r *ProductRepository) CreateProduct(product *domain.Product) error {
 
 func (r *ProductRepository) ListProducts(page, pageSize int) (*domain.ListProductResponse, error) {
 	cacheKey := fmt.Sprintf("__ALL_%d_%d_PRODUCTS__", page, pageSize)
-	cachedData, err := r.redis.Get(r.ctx, cacheKey).Result()
+	cachedData, err := r.redis.Get(r.ctx, cacheKey)
 	if err == nil {
 		var listResponse *domain.ListProductResponse
 		if err := json.Unmarshal([]byte(cachedData), &listResponse); err == nil {
@@ -84,7 +85,7 @@ func (r *ProductRepository) ListProducts(page, pageSize int) (*domain.ListProduc
 	// Cache the results for future use
 	data, err := json.Marshal(listResponse)
 	if err == nil {
-		r.redis.Set(r.ctx, cacheKey, data, 30*time.Minute)
+		_ = r.redis.Set(r.ctx, cacheKey, data, 30*time.Minute)
 	}
 
 	return listResponse, nil

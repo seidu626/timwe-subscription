@@ -2,27 +2,36 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"github.com/seidu626/subscription-manager/common/config"
 	"github.com/seidu626/subscription-manager/subscription/internal/domain"
-	"github.com/seidu626/subscription-manager/subscription/internal/repository"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 )
 
 type SubscriptionService struct {
-	repo   *repository.SubscriptionRepository
+	repo   subscriptionRepository
 	config *config.Config
 }
 
-func NewSubscriptionService(repo *repository.SubscriptionRepository, cfg *config.Config) *SubscriptionService {
+type subscriptionRepository interface {
+	FetchSubscriptions(startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error)
+	ConfirmSubscription(request *domain.SubscriptionConfirmationRequest) error
+	CreateSubscription(request *domain.SubscriptionRequest) error
+	OptOutSubscription(request *domain.UnsubscriptionRequest) error
+	GetSubscriptionStatus(request *domain.GetStatusRequest) (*domain.SubscriptionStatus, error)
+}
+
+func NewSubscriptionService(repo subscriptionRepository, cfg *config.Config) *SubscriptionService {
 	return &SubscriptionService{repo: repo, config: cfg}
 }
 
 func (s *SubscriptionService) GetSubscriptions(filters map[string]string) (*domain.ListResponse, error) {
 	// Parse filter values
-	startDate, _ := time.Parse("2006-01-02", filters["startDate"])
-	endDate, _ := time.Parse("2006-01-02", filters["endDate"])
+	startDate := parseFilterDate(filters["startDate"], false)
+	endDate := parseFilterDate(filters["endDate"], true)
 	productId, _ := strconv.Atoi(filters["productId"])
 	shortcode := filters["shortcode"]
 	userIdentifier := filters["userIdentifier"]
@@ -38,7 +47,12 @@ func (s *SubscriptionService) GetSubscriptions(filters map[string]string) (*doma
 	}
 
 	// Pass filters to the repository layer
-	return s.repo.FetchSubscriptions(startDate, endDate, productId, shortcode, userIdentifier, entryChannel, page, pageSize)
+	listResponse, err := s.repo.FetchSubscriptions(startDate, endDate, productId, shortcode, userIdentifier, entryChannel, page, pageSize)
+	if err != nil {
+		return nil, fmt.Errorf("get subscriptions failed (page=%d pageSize=%d): %w", page, pageSize, err)
+	}
+
+	return listResponse, nil
 }
 
 func (s *SubscriptionService) ProcessConfirmation(req *domain.SubscriptionConfirmationRequest) error {
@@ -109,4 +123,28 @@ func (s *SubscriptionService) validateAuthToken(authToken string) bool {
 func (s *SubscriptionService) validateApiKey(apiKey string) bool {
 	// Placeholder: Check if the API key matches what is expected (store these securely in practice)
 	return apiKey == "expected-api-key"
+}
+
+func parseFilterDate(raw string, endOfDay bool) time.Time {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}
+	}
+
+	if len(raw) == len("2006-01-02") {
+		if t, err := time.Parse("2006-01-02", raw); err == nil {
+			if endOfDay {
+				return t.Add(24*time.Hour - time.Nanosecond)
+			}
+			return t
+		}
+	}
+
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339} {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t
+		}
+	}
+
+	return time.Time{}
 }

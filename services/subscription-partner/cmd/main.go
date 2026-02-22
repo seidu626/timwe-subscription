@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/redis/go-redis/v9"
+	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/common/config"
 	"github.com/seidu626/subscription-manager/subscription/internal/handler"
 	"github.com/seidu626/subscription-manager/subscription/internal/middleware"
@@ -22,7 +22,7 @@ func main() {
 	defer func() {
 		_ = logger.Sync() // flushes buffer, if any
 	}()
-	cfg := config.InitConfig(logger, ".", []string{"config.yaml"})
+	cfg := config.InitConfig(logger, ".", []string{"config.yaml", ".env"})
 	// Note: Sensitive config values (passwords, secrets) are NOT logged for security
 	logger.Info("Configuration loaded",
 		zap.String("environment", string(cfg.Application.Environment)),
@@ -56,7 +56,7 @@ func main() {
 	}(db)
 
 	redisOptions := config.GetRedisOptions()
-	redisClient := redis.NewClient(redisOptions)
+	redisClient := cached.NewFailoverRedisClient(redisOptions)
 
 	repo := repository.NewSubscriptionRepository(db, redisClient)
 	svc := service.NewSubscriptionService(repo, cfg)

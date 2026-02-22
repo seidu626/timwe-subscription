@@ -49,6 +49,7 @@ These endpoints require `Authorization: Bearer <access_token>` (see env vars bel
 - `POST /v1/admin/campaigns` - Create campaign
 - `PUT /v1/admin/campaigns/{slug}` - Update campaign (slug immutable)
 - `PATCH /v1/admin/campaigns/{slug}/enabled` - Enable/disable campaign
+- `POST /v1/admin/campaign-assets/background/presign` - Generate presigned upload URL for campaign background image
 
 #### Reporting Endpoints
 
@@ -75,11 +76,53 @@ All reporting endpoints support the following query parameters:
 
 See `config.yaml` for database and application settings.
 
+### Acquisition transaction schema prerequisites
+
+`GET /v1/admin/transactions` selects charge-tracking and HE columns from `acquisition_transactions`.
+Before running admin transaction endpoints against a database, ensure these migrations have been applied:
+
+- `services/subscription-external/migrations/006_web_acquisition_campaigns.sql`
+- `services/subscription-external/migrations/007_add_charge_tracking_columns.sql`
+- `services/subscription-external/migrations/013_he_tracking.sql`
+
+You can verify required columns with:
+
+```sql
+SELECT column_name
+FROM information_schema.columns
+WHERE table_name = 'acquisition_transactions'
+  AND column_name IN (
+    'charged_at',
+    'charge_payout',
+    'conversion_postback_sent',
+    'he_source',
+    'he_msisdn',
+    'he_operator'
+  )
+ORDER BY column_name;
+```
+
 ### Admin configuration (environment variables)
 
 - `ADMIN_AUTH0_DOMAIN` (required): Auth0 tenant domain used to validate JWTs.
 - `ADMIN_AUTH0_AUDIENCE` (required): Auth0 API audience expected in the JWT `aud` claim.
 - `ACQUISITION_ADMIN_CORS_ORIGINS` (optional): comma-separated allowed origins for admin CORS (default: `http://localhost:4200`).
+
+### Campaign background asset storage (optional)
+
+Set these to enable admin background-image uploads with presigned URLs:
+
+- `CAMPAIGN_ASSET_STORAGE_ENABLED=true`
+- `CAMPAIGN_ASSET_STORAGE_ENDPOINT` (S3-compatible endpoint, host or URL)
+- `CAMPAIGN_ASSET_STORAGE_BUCKET`
+- `CAMPAIGN_ASSET_STORAGE_ACCESS_KEY_ID`
+- `CAMPAIGN_ASSET_STORAGE_SECRET_ACCESS_KEY`
+- `CAMPAIGN_ASSET_STORAGE_USE_SSL` (optional, default `true`)
+- `CAMPAIGN_ASSET_STORAGE_REGION` (optional)
+- `CAMPAIGN_ASSET_STORAGE_PUBLIC_BASE_URL` (optional CDN/public base URL used for returned `asset_url`)
+- `CAMPAIGN_ASSET_STORAGE_KEY_PREFIX` (optional, default `campaign-backgrounds`)
+- `CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES` (optional, default `2097152`)
+- `CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY` (optional Go duration, default `10m`)
 
 ## Running
 

@@ -89,11 +89,25 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify(body),
   })
 
-  const data = await response.json()
+  const data = await parseUpstreamResponse(response)
 
   if (!response.ok) {
     return NextResponse.json(data, { status: response.status })
   }
 
   return NextResponse.json(data)
+}
+
+async function parseUpstreamResponse(response: Response): Promise<unknown> {
+  const raw = await response.text()
+
+  if (!raw) {
+    return response.ok ? {} : { error: 'Empty response from acquisition API' }
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return { error: raw }
+  }
 }

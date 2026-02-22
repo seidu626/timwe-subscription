@@ -22,12 +22,18 @@ func (h *NotificationHandler) ListNotifications(ctx *fasthttp.RequestCtx) {
 	log.Println("Processing notification list request")
 
 	// Extract query parameters
+	entryChannel := string(ctx.QueryArgs().Peek("entry_channel"))
+	if entryChannel == "" {
+		entryChannel = string(ctx.QueryArgs().Peek("entryChannel"))
+	}
 	queryParams := map[string]string{
 		"startDate":     string(ctx.QueryArgs().Peek("startDate")),
 		"endDate":       string(ctx.QueryArgs().Peek("endDate")),
 		"partnerRole":   string(ctx.QueryArgs().Peek("partnerRole")),
 		"msisdn":        string(ctx.QueryArgs().Peek("msisdn")),
-		"entry_channel": string(ctx.QueryArgs().Peek("entry_channel")),
+		"type":          string(ctx.QueryArgs().Peek("type")),
+		"entry_channel": entryChannel,
+		"entryChannel":  entryChannel,
 		"page":          string(ctx.QueryArgs().Peek("page")),
 		"pageSize":      string(ctx.QueryArgs().Peek("pageSize")),
 	}
