@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/lib/pq"
@@ -16,6 +17,29 @@ import (
 type CampaignRepository struct {
 	db     *sql.DB
 	logger *zap.Logger
+}
+
+// ValidateOfferProductMapping verifies that the campaign offer_product_id points to a known product.
+// When pricepointID is provided, it must match the mapped product price_point_id.
+func (r *CampaignRepository) ValidateOfferProductMapping(offerProductID int, pricepointID *int) error {
+	if offerProductID <= 0 {
+		return fmt.Errorf("offer_product_id is required")
+	}
+
+	var mappedPricePoint int
+	err := r.db.QueryRow(`SELECT price_point_id FROM products WHERE product_id = $1`, strconv.Itoa(offerProductID)).Scan(&mappedPricePoint)
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("offer_product_id %d is not present in products mapping", offerProductID)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to validate offer_product_id mapping: %w", err)
+	}
+
+	if pricepointID != nil && *pricepointID > 0 && mappedPricePoint != *pricepointID {
+		return fmt.Errorf("pricepoint_id %d does not match mapped product price_point_id %d for offer_product_id %d", *pricepointID, mappedPricePoint, offerProductID)
+	}
+
+	return nil
 }
 
 // NewCampaignRepository creates a new campaign repository

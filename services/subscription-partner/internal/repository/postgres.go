@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/subscription/internal/domain"
@@ -80,19 +81,8 @@ func (r *SubscriptionRepository) FetchSubscriptions(startDate, endDate time.Time
 	var args []interface{}
 	argIndex := 1 // PostgreSQL placeholders start with $1
 
-	// Add filtering conditions dynamically based on provided filters
-	if !startDate.IsZero() {
-		query += fmt.Sprintf(" AND start_date >= $%d", argIndex)
-		countQuery += fmt.Sprintf(" AND start_date >= $%d", argIndex)
-		args = append(args, startDate)
-		argIndex++
-	}
-	if !endDate.IsZero() {
-		query += fmt.Sprintf(" AND end_date <= $%d", argIndex)
-		countQuery += fmt.Sprintf(" AND end_date <= $%d", argIndex)
-		args = append(args, endDate)
-		argIndex++
-	}
+	// startDate/endDate filter by record creation time for list semantics.
+	query, countQuery, args, argIndex = applySubscriptionDateFilters(query, countQuery, args, argIndex, startDate, endDate)
 	if productId > 0 {
 		query += fmt.Sprintf(" AND product_id = $%d", argIndex)
 		countQuery += fmt.Sprintf(" AND product_id = $%d", argIndex)
@@ -174,6 +164,22 @@ func (r *SubscriptionRepository) FetchSubscriptions(startDate, endDate time.Time
 	}
 
 	return listResponse, nil
+}
+
+func applySubscriptionDateFilters(query, countQuery string, args []interface{}, argIndex int, startDate, endDate time.Time) (string, string, []interface{}, int) {
+	if !startDate.IsZero() {
+		query += fmt.Sprintf(" AND created_at >= $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND created_at >= $%d", argIndex)
+		args = append(args, startDate)
+		argIndex++
+	}
+	if !endDate.IsZero() {
+		query += fmt.Sprintf(" AND created_at <= $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND created_at <= $%d", argIndex)
+		args = append(args, endDate)
+		argIndex++
+	}
+	return query, countQuery, args, argIndex
 }
 
 type rowScanner interface {
@@ -291,6 +297,41 @@ func (r *SubscriptionRepository) CreateSubscription(request *domain.Subscription
 	_, err := r.db.Exec(query, request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl)
 	if err != nil {
 		return fmt.Errorf("failed to create subscription: %w", err)
+	}
+	return nil
+}
+
+// CreateNotification inserts an inbound TIMWE notification into the notifications table.
+func (r *SubscriptionRepository) CreateNotification(notification *domain.NotificationRequest) error {
+	query := `
+        INSERT INTO notifications (
+            partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn, large_account, transaction_uuid,
+            entry_channel, message_type, message, mno_delivery_code, tags, type
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9,
+            $10, $11, $12, $13, $14, $15
+        )
+    `
+	_, err := r.db.Exec(
+		query,
+		notification.PartnerRole,
+		notification.ExternalTxID,
+		notification.ProductID,
+		notification.PricepointID,
+		notification.MCC,
+		notification.MNC,
+		notification.MSISDN,
+		notification.LargeAccount,
+		notification.TransactionUUID,
+		notification.EntryChannel,
+		notification.MessageType,
+		notification.Message,
+		notification.MnoDeliveryCode,
+		pq.Array(notification.Tags),
+		notification.Type,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create notification: %w", err)
 	}
 	return nil
 }

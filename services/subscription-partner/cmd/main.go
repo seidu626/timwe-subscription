@@ -61,12 +61,14 @@ func main() {
 	repo := repository.NewSubscriptionRepository(db, redisClient)
 	svc := service.NewSubscriptionService(repo, cfg)
 	h := handler.NewSubscriptionHandler(svc, cfg)
+	acquisitionClient := service.NewAcquisitionClient(logger)
+	notificationWebhookHandler := handler.NewNotificationWebhookHandler(logger, svc, acquisitionClient)
 
 	productRepo := repository.NewProductRepository(db, redisClient)
 	productService := service.NewProductService(productRepo)
 	productHandler := handler.NewProductHandler(productService)
 
-	router := transport.NewRouter(h, productHandler)
+	router := transport.NewRouter(h, productHandler, notificationWebhookHandler)
 	handlerWithCORS := middleware.CORSMiddleware(router, cfg.Application.AllowedOrigins)
 
 	log.Printf("Starting subscription service on port: %d...", cfg.Application.Port)

@@ -10,7 +10,8 @@ import (
 )
 
 type serviceRepoStub struct {
-	fetchFn func(startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error)
+	fetchFn              func(startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error)
+	createNotificationFn func(notification *domain.NotificationRequest) error
 }
 
 func (s *serviceRepoStub) FetchSubscriptions(startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
@@ -25,6 +26,13 @@ func (s *serviceRepoStub) ConfirmSubscription(request *domain.SubscriptionConfir
 }
 
 func (s *serviceRepoStub) CreateSubscription(request *domain.SubscriptionRequest) error {
+	return nil
+}
+
+func (s *serviceRepoStub) CreateNotification(notification *domain.NotificationRequest) error {
+	if s.createNotificationFn != nil {
+		return s.createNotificationFn(notification)
+	}
 	return nil
 }
 
@@ -87,5 +95,33 @@ func TestGetSubscriptions_ParsesDateFilters(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestProcessNotification_ValidatesAndPersists(t *testing.T) {
+	var captured *domain.NotificationRequest
+	svc := NewSubscriptionService(&serviceRepoStub{
+		createNotificationFn: func(notification *domain.NotificationRequest) error {
+			captured = notification
+			return nil
+		},
+	}, nil)
+
+	if err := svc.ProcessNotification(nil); err == nil {
+		t.Fatal("expected error for nil notification")
+	}
+	if err := svc.ProcessNotification(&domain.NotificationRequest{Type: "CHARGE"}); err == nil {
+		t.Fatal("expected error for missing msisdn")
+	}
+
+	req := &domain.NotificationRequest{
+		Type:   "CHARGE",
+		MSISDN: "233241234567",
+	}
+	if err := svc.ProcessNotification(req); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if captured == nil || captured.Type != "CHARGE" {
+		t.Fatalf("expected notification to be persisted, got %+v", captured)
 	}
 }

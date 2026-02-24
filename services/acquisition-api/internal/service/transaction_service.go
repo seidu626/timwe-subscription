@@ -13,6 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const defaultPendingTransactionTTL = 10 * time.Minute
+
 // TransactionService handles acquisition transaction business logic
 type TransactionService struct {
 	txRepo           *repository.TransactionRepository
@@ -22,6 +24,7 @@ type TransactionService struct {
 	postbackTemplate *PostbackTemplateService
 	timweClient      TIMWEClient // Will be implemented to call TIMWE API
 	logger           *zap.Logger
+	pendingTxTTL     time.Duration
 }
 
 // TIMWEClient interface for TIMWE API integration
@@ -57,7 +60,17 @@ func NewTransactionService(
 		postbackTemplate: NewPostbackTemplateService(logger),
 		timweClient:      timweClient,
 		logger:           logger,
+		pendingTxTTL:     defaultPendingTransactionTTL,
 	}
+}
+
+// SetPendingTransactionTTL overrides pending transaction reuse TTL.
+func (s *TransactionService) SetPendingTransactionTTL(ttl time.Duration) {
+	if ttl <= 0 {
+		s.pendingTxTTL = defaultPendingTransactionTTL
+		return
+	}
+	s.pendingTxTTL = ttl
 }
 
 // CreateTransaction creates a new acquisition transaction
@@ -137,6 +150,7 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 
 	// Idempotency by campaign+msisdn: if user already has an active/finished transaction,
 	// return it instead of creating new attempts that consume throttle budget.
+	reuseCutoff := time.Now().Add(-s.pendingTxTTL)
 	existingByMSISDN, err := s.txRepo.FindLatestByCampaignAndMSISDN(
 		campaign.Slug,
 		msisdnToUse,
@@ -144,6 +158,7 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 			domain.StatusConfirmRequired,
 			domain.StatusActionRequired,
 		},
+		reuseCutoff,
 	)
 	if err == nil && existingByMSISDN != nil {
 		s.logger.Info("Returning existing transaction for campaign+msisdn",
@@ -151,6 +166,8 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 			zap.String("msisdn_prefix", msisdnToUse[:min(5, len(msisdnToUse))]),
 			zap.String("status", string(existingByMSISDN.Status)),
 			zap.String("transaction_id", existingByMSISDN.ID.String()),
+			zap.Duration("transaction_age", time.Since(existingByMSISDN.CreatedAt)),
+			zap.Duration("pending_tx_ttl", s.pendingTxTTL),
 		)
 		return s.buildResponse(existingByMSISDN), nil
 	}
@@ -198,6 +215,9 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 		ConsentChecked:  req.ConsentChecked,
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
+		OfferProductID:  &campaign.OfferProductID,
+		PricepointID:    campaign.PricepointID,
+		PartnerRoleID:   campaign.PartnerRoleID,
 		// HE tracking fields
 		HESource:   req.HESource,
 		HEMSISDN:   req.HEMSISDN,
@@ -223,7 +243,7 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 	}
 	timweResp, err := s.timweClient.OptIn(
 		msisdnToUse, // Use HE MSISDN if available, otherwise form MSISDN
-		campaign.OfferProductID,
+		*tx.OfferProductID,
 		"WEB",
 		map[string]string{
 			"click_id": attribution.ClickID,
@@ -359,13 +379,48 @@ func (s *TransactionService) ConfirmTransaction(transactionID uuid.UUID, authCod
 	if err != nil {
 		return nil, fmt.Errorf("campaign not found: %w", err)
 	}
-	partnerRoleID := ""
-	if campaign.PartnerRoleID != nil && *campaign.PartnerRoleID > 0 {
-		partnerRoleID = fmt.Sprintf("%d", *campaign.PartnerRoleID)
+	productID := campaign.OfferProductID
+	if tx.OfferProductID != nil && *tx.OfferProductID > 0 {
+		productID = *tx.OfferProductID
+		if campaign.OfferProductID != *tx.OfferProductID {
+			s.logger.Warn("Confirm product differs from current campaign config; using transaction-scoped product",
+				zap.String("transaction_id", transactionID.String()),
+				zap.String("campaign_slug", tx.CampaignSlug),
+				zap.Int("transaction_offer_product_id", *tx.OfferProductID),
+				zap.Int("campaign_offer_product_id", campaign.OfferProductID),
+			)
+		}
 	}
 
-	timweResp, err := s.timweClient.Confirm(tx.MSISDN, campaign.OfferProductID, "WEB", partnerRoleID, authCode)
+	var roleID int
+	switch {
+	case tx.PartnerRoleID != nil && *tx.PartnerRoleID > 0:
+		roleID = *tx.PartnerRoleID
+	case campaign.PartnerRoleID != nil && *campaign.PartnerRoleID > 0:
+		roleID = *campaign.PartnerRoleID
+	}
+
+	partnerRoleID := ""
+	if roleID > 0 {
+		partnerRoleID = fmt.Sprintf("%d", roleID)
+	}
+
+	s.logger.Info("Confirming transaction with resolved TIMWE context",
+		zap.String("transaction_id", transactionID.String()),
+		zap.String("campaign_slug", tx.CampaignSlug),
+		zap.Int("product_id", productID),
+		zap.Int("partner_role_id", roleID),
+	)
+
+	timweResp, err := s.timweClient.Confirm(tx.MSISDN, productID, "WEB", partnerRoleID, authCode)
 	if err != nil {
+		s.logger.Warn("TIMWE confirm failed",
+			zap.String("transaction_id", transactionID.String()),
+			zap.String("campaign_slug", tx.CampaignSlug),
+			zap.Int("product_id", productID),
+			zap.String("partner_role_id", partnerRoleID),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("TIMWE confirm failed: %w", err)
 	}
 

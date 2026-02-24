@@ -165,7 +165,12 @@ dev-acquisition-api: build-local-acquisition-api
 		PORT=$$((PORT + 1)); \
 	done; \
 	( cd $(ACQUISITION_API_DIR); APP_APPLICATION_PORT=$$PORT nohup ./acquisition-api > acquisition-api.log 2>&1 & echo $$! > acquisition-api.pid ); \
-	sleep 3; \
+	for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
+		if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Acquisition API started on port $$PORT"; \
 	else \
@@ -181,7 +186,12 @@ dev-cadence-engine: build-local-cadence-engine
 		PORT=$$((PORT + 1)); \
 	done; \
 	( cd $(CADENCE_ENGINE_DIR); CADENCE_ADMIN_HTTP_ADDR=:$$PORT nohup ./cadence-engine > cadence-engine.log 2>&1 & echo $$! > cadence-engine.pid ); \
-	sleep 2; \
+	for i in 1 2 3 4 5 6 7 8 9 10; do \
+		if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Cadence Engine started on port $$PORT"; \
 	else \
@@ -208,9 +218,9 @@ dev-admin:
 	@cd $(WEBSPA_ADMIN_DIR) && npm install --silent 2>/dev/null || true
 	@PORT=$(WEBSPA_ADMIN_PORT); \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
-		echo "❌ Admin Panel port $$PORT is already in use"; \
-		echo "   Free port $$PORT or stop the existing process, then retry."; \
-		exit 1; \
+		echo "ℹ️  Admin Panel port $$PORT is already in use; skipping start."; \
+		echo "   Use 'make stop-admin' first if you want to restart it."; \
+		exit 0; \
 	fi; \
 	(cd $(WEBSPA_ADMIN_DIR); nohup npx ng serve --port $$PORT > webspa-admin.log 2>&1 & echo $$! > webspa-admin.pid)
 	@echo "   Waiting for Angular to compile..."
@@ -776,8 +786,12 @@ docker-build-krakend:
 	docker build -t $(KRAKEND_IMAGE):$(VERSION) $(KRAKEND_DIR)
 	@echo "✅ KrakenD image built: $(KRAKEND_IMAGE):$(VERSION)"
 
-.PHONY: krakend-check krakend-check-do
-krakend-check:
+.PHONY: krakend-query-forwarding-check krakend-check krakend-check-do
+krakend-query-forwarding-check:
+	@echo "🔎 Checking KrakenD list query forwarding..."
+	@python3 scripts/check-krakend-query-forwarding.py
+
+krakend-check: krakend-query-forwarding-check
 	@echo "🔎 Validating KrakenD flexible config (local settings)..."
 	docker run --rm \
 		-v "$(PWD)/krakend:/etc/krakend" \
@@ -788,7 +802,7 @@ krakend-check:
 		krakend:latest \
 		krakend check -t -c "/etc/krakend/config/krakend.tmpl"
 
-krakend-check-do:
+krakend-check-do: krakend-query-forwarding-check
 	@echo "🔎 Validating KrakenD flexible config (DO settings)..."
 	docker run --rm \
 		-v "$(PWD)/krakend:/etc/krakend" \
@@ -820,8 +834,15 @@ docker-build-subscription-partner:
 .PHONY: docker-build-subscription-external
 docker-build-subscription-external:
 	@echo "🐳 Building Subscription External image..."
+	@echo "🔄 Refreshing vendored dependencies for Subscription External..."
+	@(cd $(SUBSCRIPTION_EXTERNAL_DIR) && go mod vendor)
 	docker build -t $(SUBSCRIPTION_EXTERNAL_IMAGE):$(VERSION) $(SUBSCRIPTION_EXTERNAL_DIR)
 	@echo "✅ Subscription External image built: $(SUBSCRIPTION_EXTERNAL_IMAGE):$(VERSION)"
+
+.PHONY: vendor-check
+vendor-check:
+	@echo "🔎 Checking vendor sync for services using -mod=vendor..."
+	@./scripts/check-vendor-sync.sh
 
 .PHONY: docker-build-billing
 docker-build-billing:
@@ -1210,6 +1231,8 @@ db-migrate-campaigns: ## Run all campaign-related migrations
 	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/subscription-external/migrations/012_campaign_tracking_config.sql
 	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/subscription-external/migrations/013_he_tracking.sql
 	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/subscription-external/migrations/014_campaign_lp_copy.sql
+	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/add_admin_management_tables.sql
+	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/add_acquisition_transaction_offer_context.sql
 	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/acquisition-api/migrations/update_ghana_lp_copy_msisdn_format.sql
 	@echo "✅ Campaign migrations complete!"
 

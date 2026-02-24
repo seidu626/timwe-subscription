@@ -104,6 +104,8 @@ services:
       - APP_CACHE_REDIS_PORT=6379
       - TIMWE_API_KEY=${TIMWE_API_KEY}
       - TIMWE_PSK=${TIMWE_PSK}
+      - APP_APPLICATION_TIMWE_MA_API_KEY=${TIMWE_API_KEY}
+      - APP_APPLICATION_TIMWE_MA_PSK=${TIMWE_PSK}
       - ACQUISITION_API_URL=http://acquisition-api:8084
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8083/health"]
@@ -247,7 +249,8 @@ services:
       - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
       - TIMWE_API_KEY=${TIMWE_API_KEY}
       - TIMWE_PSK=${TIMWE_PSK}
-      - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN}
+      - SUBSCRIPTION_EXTERNAL_URL=${SUBSCRIPTION_EXTERNAL_URL:-https://api.nouveauricheglobalgroup.com}
+      - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
       - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
       - ACQUISITION_ADMIN_CORS_ORIGINS=${ACQUISITION_ADMIN_CORS_ORIGINS:-*}
       - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
@@ -291,7 +294,7 @@ services:
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
       - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
       - CADENCE_ADMIN_HTTP_ADDR=:8091
-      - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN}
+      - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
       - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
       - CADENCE_ADMIN_CORS_ORIGINS=${CADENCE_ADMIN_CORS_ORIGINS:-*}
     healthcheck:

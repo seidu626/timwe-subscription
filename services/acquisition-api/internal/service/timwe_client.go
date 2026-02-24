@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/seidu626/subscription-manager/acquisition-api/internal/utils"
 	"github.com/sony/gobreaker"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
 
-// TIMWEConfig holds configuration for TIMWE API client
+// TIMWEConfig holds configuration for subscription-external client.
 type TIMWEConfig struct {
 	BaseURL          string
 	APIKey           string
@@ -44,7 +43,7 @@ type TIMWEConfig struct {
 // DefaultTIMWEConfig returns default TIMWE configuration
 func DefaultTIMWEConfig() *TIMWEConfig {
 	return &TIMWEConfig{
-		BaseURL:                "https://tigo.timwe.com/gh/ma/api/external/v1",
+		BaseURL:                "http://localhost:8080",
 		Timeout:                30 * time.Second,
 		MaxConnections:         500,
 		DialTimeout:            10 * time.Second,
@@ -70,23 +69,21 @@ type TIMWEClientImpl struct {
 	logger         *zap.Logger
 }
 
-// MTRequest represents the TIMWE MT (Mobile Terminated) request payload
+// MTRequest represents subscription-external MT request payload.
 type MTRequest struct {
-	ProductID          int    `json:"productId"`
-	PricepointID       int    `json:"pricepointId,omitempty"`
-	MCC                string `json:"mcc"`
-	MNC                string `json:"mnc"`
-	UserIdentifier     string `json:"userIdentifier"`
-	UserIdentifierType string `json:"userIdentifierType"`
-	EntryChannel       string `json:"entryChannel"`
-	SubKeyword         string `json:"subKeyword,omitempty"`
-	LargeAccount       string `json:"largeAccount,omitempty"`
-	CampaignUrl        string `json:"campaignUrl,omitempty"`
-	SendDate           string `json:"sendDate,omitempty"`
-	Priority           string `json:"priority,omitempty"`
-	Timezone           string `json:"timezone,omitempty"`
-	Context            string `json:"context,omitempty"`
-	MoTransactionUUID  string `json:"moTransactionUUID"`
+	ProductID         int    `json:"productId"`
+	PricepointID      int    `json:"pricepointId,omitempty"`
+	MCC               string `json:"mcc"`
+	MNC               string `json:"mnc"`
+	MSISDN            string `json:"msisdn"`
+	SubKeyword        string `json:"subKeyword,omitempty"`
+	LargeAccount      string `json:"largeAccount,omitempty"`
+	CampaignUrl       string `json:"campaignUrl,omitempty"`
+	SendDate          string `json:"sendDate,omitempty"`
+	Priority          string `json:"priority,omitempty"`
+	Timezone          string `json:"timezone,omitempty"`
+	Context           string `json:"context,omitempty"`
+	MoTransactionUUID string `json:"moTransactionUUID"`
 }
 
 // MTResponse represents the TIMWE MT response
@@ -96,6 +93,12 @@ type MTResponse struct {
 	InError      bool                   `json:"inError"`
 	RequestID    string                 `json:"requestId"`
 	Code         string                 `json:"code"`
+}
+
+type outboundRequestMeta struct {
+	Operation string
+	MSISDN    string
+	ProductID int
 }
 
 // ConfirmRequest represents the TIMWE subscription confirmation request
@@ -160,34 +163,27 @@ func NewTIMWEClientWithConfig(config *TIMWEConfig, logger *zap.Logger) *TIMWECli
 	}
 }
 
-// OptIn calls TIMWE opt-in API
-// partnerRoleID overrides config.PartnerRoleID when provided (campaign-specific).
+// OptIn calls subscription-external opt-in endpoint.
 func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel string, trackingFields map[string]string, partnerRoleID string) (*TIMWEResponse, error) {
-	c.logger.Info("TIMWE OptIn called",
+	c.logger.Info("Subscription opt-in called",
 		zap.String("msisdn", msisdn),
 		zap.Int("product_id", productID),
 		zap.String("entry_channel", entryChannel),
 	)
 
-	// Generate authentication key
-	authKey, err := utils.GetCachedAuthKey(c.config.PartnerServiceID, c.config.PSK)
-	if err != nil {
-		c.logger.Error("Failed to generate auth key", zap.Error(err))
-		return nil, fmt.Errorf("failed to generate auth key: %w", err)
-	}
-
-	// Generate transaction UUID
 	txUUID := uuid.New().String()
 
-	// Build request payload
+	if strings.TrimSpace(entryChannel) == "" {
+		entryChannel = "WEB"
+	}
+
+	// Build request payload for subscription-external partner MT endpoint.
 	reqData := MTRequest{
-		ProductID:          productID,
-		MCC:                c.config.MCC,
-		MNC:                c.config.MNC,
-		UserIdentifier:     msisdn,
-		UserIdentifierType: "MSISDN",
-		EntryChannel:       entryChannel,
-		MoTransactionUUID:  txUUID,
+		ProductID:         productID,
+		MCC:               c.config.MCC,
+		MNC:               c.config.MNC,
+		MSISDN:            msisdn,
+		MoTransactionUUID: txUUID,
 	}
 
 	// Add tracking fields as context
@@ -196,12 +192,9 @@ func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel strin
 		reqData.Context = string(contextData)
 	}
 
-	// Build URL (campaign-specific partner role when provided)
-	role := c.config.PartnerRoleID
-	if partnerRoleID != "" {
-		role = partnerRoleID
-	}
-	url := fmt.Sprintf("%s/subscription/optin/%s", c.config.BaseURL, role)
+	// partnerRoleID is intentionally ignored here - subscription-external owns TIMWE role selection.
+	_ = partnerRoleID
+	url := fmt.Sprintf("%s/api/external/v1/%s/mt", strings.TrimRight(c.config.BaseURL, "/"), strings.ToUpper(entryChannel))
 
 	// Marshal request body
 	requestBody, err := json.Marshal(reqData)
@@ -210,20 +203,14 @@ func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel strin
 		return nil, fmt.Errorf("failed to marshal request data: %w", err)
 	}
 
-	// Log full OTP request payload + headers for debugging.
-	// NOTE: this intentionally includes auth headers because explicit full-request logging was requested.
+	// Log outbound request payload for debugging.
 	var requestBodyMap map[string]interface{}
 	_ = json.Unmarshal(requestBody, &requestBodyMap)
-	c.logger.Info("TIMWE OTP full request",
+	c.logger.Info("Subscription opt-in outbound request",
 		zap.String("url", url),
 		zap.String("method", "POST"),
-		zap.Any("headers", map[string]string{
-			"apikey":         c.config.APIKey,
-			"authentication": authKey,
-			"external-tx-id": txUUID,
-			"Content-Type":   "application/json",
-		}),
 		zap.Any("body", requestBodyMap),
+		zap.String("request_tracking_id", txUUID),
 		zap.String("raw_body", string(requestBody)),
 	)
 
@@ -234,8 +221,12 @@ func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel strin
 		return nil, fmt.Errorf("circuit breaker open: %w", cbErr)
 	}
 
-	// Execute request with retries
-	mtResp, err := c.sendMTRequestWithRetry(url, authKey, txUUID, requestBody)
+	// Execute request with retries.
+	mtResp, err := c.sendMTRequestWithRetry(url, requestBody, outboundRequestMeta{
+		Operation: "optin",
+		MSISDN:    msisdn,
+		ProductID: productID,
+	})
 	if err != nil {
 		done(false) // Mark as failure for circuit breaker
 		return nil, err
@@ -277,7 +268,12 @@ func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel strin
 		}
 	}
 
-	c.logger.Info("TIMWE OptIn response",
+	if optInResultRequiresConfirm(mtResp) {
+		response.Success = true
+		response.RequiresConfirm = true
+	}
+
+	c.logger.Info("Subscription opt-in response",
 		zap.String("msisdn", msisdn),
 		zap.String("code", mtResp.Code),
 		zap.Bool("success", response.Success),
@@ -287,27 +283,41 @@ func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel strin
 	return response, nil
 }
 
-// Confirm calls TIMWE confirm API with full transaction details.
-// partnerRoleID overrides config.PartnerRoleID when provided (campaign-specific).
+func optInResultRequiresConfirm(mtResp *MTResponse) bool {
+	if mtResp == nil || mtResp.ResponseData == nil {
+		return false
+	}
+
+	for _, key := range []string{"subscriptionResult", "status", "subscriptionStatus"} {
+		raw, ok := mtResp.ResponseData[key]
+		if !ok {
+			continue
+		}
+
+		value, ok := raw.(string)
+		if !ok {
+			continue
+		}
+
+		switch strings.ToUpper(value) {
+		case "OPTIN_PREACTIVE_WAIT_CONF", "OPTIN_WAITING", "OPTIN_PIN_WAITING", "WAITING_FOR_CONFIRMATION":
+			return true
+		}
+	}
+
+	return false
+}
+
+// Confirm calls subscription-external confirm endpoint.
 func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel string, partnerRoleID string, authCode string) (*TIMWEResponse, error) {
-	c.logger.Info("TIMWE Confirm called",
+	c.logger.Info("Subscription confirm called",
 		zap.String("msisdn", msisdn),
 		zap.Int("product_id", productID),
 	)
 
-	// Generate authentication key
-	authKey, err := utils.GetCachedAuthKey(c.config.PartnerServiceID, c.config.PSK)
-	if err != nil {
-		c.logger.Error("Failed to generate auth key", zap.Error(err))
-		return nil, fmt.Errorf("failed to generate auth key: %w", err)
-	}
-
-	// Build URL (campaign-specific partner role when provided)
-	role := c.config.PartnerRoleID
-	if partnerRoleID != "" {
-		role = partnerRoleID
-	}
-	url := fmt.Sprintf("%s/subscription/optin/confirm/%s", c.config.BaseURL, role)
+	// partnerRoleID is intentionally ignored here - subscription-external owns TIMWE role selection.
+	_ = partnerRoleID
+	url := fmt.Sprintf("%s/api/external/v1/subscription/optin/confirm", strings.TrimRight(c.config.BaseURL, "/"))
 
 	// Build request payload (TIMWE confirm requires MSISDN + productId + authCode)
 	reqData := ConfirmRequest{
@@ -326,8 +336,15 @@ func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel str
 		return nil, fmt.Errorf("failed to marshal confirm request: %w", err)
 	}
 
-	// Generate external transaction ID
-	externalTxID := uuid.New().String()
+	// Log outbound request payload for debugging.
+	var requestBodyMap map[string]interface{}
+	_ = json.Unmarshal(requestBody, &requestBodyMap)
+	c.logger.Info("Subscription confirm outbound request",
+		zap.String("url", url),
+		zap.String("method", "POST"),
+		zap.Any("body", requestBodyMap),
+		zap.String("raw_body", string(requestBody)),
+	)
 
 	// Execute with circuit breaker
 	done, cbErr := c.circuitBreaker.Allow()
@@ -336,8 +353,12 @@ func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel str
 		return nil, fmt.Errorf("circuit breaker open: %w", cbErr)
 	}
 
-	// Execute request with retries
-	mtResp, err := c.sendMTRequestWithRetry(url, authKey, externalTxID, requestBody)
+	// Execute request with retries.
+	mtResp, err := c.sendMTRequestWithRetry(url, requestBody, outboundRequestMeta{
+		Operation: "confirm",
+		MSISDN:    msisdn,
+		ProductID: productID,
+	})
 	if err != nil {
 		done(false)
 		return nil, err
@@ -351,7 +372,7 @@ func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel str
 		Message: mtResp.Message,
 	}
 
-	c.logger.Info("TIMWE Confirm response",
+	c.logger.Info("Subscription confirm response",
 		zap.String("msisdn", msisdn),
 		zap.String("code", mtResp.Code),
 		zap.Bool("success", response.Success),
@@ -360,22 +381,14 @@ func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel str
 	return response, nil
 }
 
-// ConfirmWithDetails calls TIMWE confirm API with full transaction details
+// ConfirmWithDetails calls subscription-external confirm endpoint with fixed WEB channel.
 func (c *TIMWEClientImpl) ConfirmWithDetails(msisdn string, productID int, authCode string) (*TIMWEResponse, error) {
-	c.logger.Info("TIMWE ConfirmWithDetails called",
+	c.logger.Info("Subscription ConfirmWithDetails called",
 		zap.String("msisdn", msisdn),
 		zap.Int("product_id", productID),
 	)
 
-	// Generate authentication key
-	authKeyValue, err := utils.GetCachedAuthKey(c.config.PartnerServiceID, c.config.PSK)
-	if err != nil {
-		c.logger.Error("Failed to generate auth key", zap.Error(err))
-		return nil, fmt.Errorf("failed to generate auth key: %w", err)
-	}
-
-	// Build URL
-	url := fmt.Sprintf("%s/subscription/optin/confirm/%s", c.config.BaseURL, c.config.PartnerRoleID)
+	url := fmt.Sprintf("%s/api/external/v1/subscription/optin/confirm", strings.TrimRight(c.config.BaseURL, "/"))
 
 	// Build request payload
 	reqData := ConfirmRequest{
@@ -394,9 +407,6 @@ func (c *TIMWEClientImpl) ConfirmWithDetails(msisdn string, productID int, authC
 		return nil, fmt.Errorf("failed to marshal confirm request: %w", err)
 	}
 
-	// Generate external transaction ID
-	externalTxID := uuid.New().String()
-
 	// Execute with circuit breaker
 	done, cbErr := c.circuitBreaker.Allow()
 	if cbErr != nil {
@@ -404,8 +414,12 @@ func (c *TIMWEClientImpl) ConfirmWithDetails(msisdn string, productID int, authC
 		return nil, fmt.Errorf("circuit breaker open: %w", cbErr)
 	}
 
-	// Execute request with retries
-	mtResp, err := c.sendMTRequestWithRetry(url, authKeyValue, externalTxID, requestBody)
+	// Execute request with retries.
+	mtResp, err := c.sendMTRequestWithRetry(url, requestBody, outboundRequestMeta{
+		Operation: "confirm_with_details",
+		MSISDN:    msisdn,
+		ProductID: productID,
+	})
 	if err != nil {
 		done(false)
 		return nil, err
@@ -419,7 +433,7 @@ func (c *TIMWEClientImpl) ConfirmWithDetails(msisdn string, productID int, authC
 		Message: mtResp.Message,
 	}
 
-	c.logger.Info("TIMWE ConfirmWithDetails response",
+	c.logger.Info("Subscription ConfirmWithDetails response",
 		zap.String("msisdn", msisdn),
 		zap.String("code", mtResp.Code),
 		zap.Bool("success", response.Success),
@@ -428,24 +442,40 @@ func (c *TIMWEClientImpl) ConfirmWithDetails(msisdn string, productID int, authC
 	return response, nil
 }
 
-// sendMTRequestWithRetry sends an MT request with exponential backoff retry
-func (c *TIMWEClientImpl) sendMTRequestWithRetry(url, authKey, externalTxID string, requestBody []byte) (*MTResponse, error) {
+// sendMTRequestWithRetry sends an outbound subscription request with exponential backoff retry.
+func (c *TIMWEClientImpl) sendMTRequestWithRetry(url string, requestBody []byte, meta outboundRequestMeta) (*MTResponse, error) {
 	baseDelay := c.config.RetryBaseDelay
 	maxRetries := c.config.MaxRetries
 	maxDelay := c.config.RetryMaxDelay
+	seenExternalTxIDs := make(map[string]struct{}, maxRetries)
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		req := fasthttp.AcquireRequest()
 		res := fasthttp.AcquireResponse()
+		externalTxID := uuid.New().String()
+		for {
+			if _, exists := seenExternalTxIDs[externalTxID]; !exists {
+				break
+			}
+			externalTxID = uuid.New().String()
+		}
+		seenExternalTxIDs[externalTxID] = struct{}{}
 
 		// Set up request
 		req.SetRequestURI(url)
 		req.Header.SetMethod("POST")
-		req.Header.Set("apikey", c.config.APIKey)
-		req.Header.Set("authentication", authKey)
 		req.Header.Set("external-tx-id", externalTxID)
 		req.Header.Set("Content-Type", "application/json")
 		req.SetBody(requestBody)
+
+		c.logger.Info("Sending outbound TIMWE request",
+			zap.String("operation", meta.Operation),
+			zap.Int("attempt", attempt),
+			zap.String("external_tx_id", externalTxID),
+			zap.String("url", url),
+			zap.Int("product_id", meta.ProductID),
+			zap.String("msisdn_prefix", msisdnPrefix(meta.MSISDN)),
+		)
 
 		// Execute request
 		err := c.client.Do(req, res)
@@ -475,10 +505,13 @@ func (c *TIMWEClientImpl) sendMTRequestWithRetry(url, authKey, externalTxID stri
 		// Check HTTP status
 		statusCode := res.StatusCode()
 		if statusCode != fasthttp.StatusOK {
+			responseBody := string(res.Body())
+			errorDetails := extractUpstreamErrorDetails(res.Body())
+
 			c.logger.Error("Request failed with non-200 status",
 				zap.Int("attempt", attempt),
 				zap.Int("status_code", statusCode),
-				zap.String("response_body", string(res.Body())),
+				zap.String("response_body", responseBody),
 				zap.String("url", url))
 
 			fasthttp.ReleaseRequest(req)
@@ -486,10 +519,16 @@ func (c *TIMWEClientImpl) sendMTRequestWithRetry(url, authKey, externalTxID stri
 
 			// Don't retry on client errors (4xx)
 			if statusCode >= 400 && statusCode < 500 {
+				if errorDetails != "" {
+					return nil, fmt.Errorf("request failed with status code: %d (%s)", statusCode, errorDetails)
+				}
 				return nil, fmt.Errorf("request failed with status code: %d", statusCode)
 			}
 
 			if attempt == maxRetries {
+				if errorDetails != "" {
+					return nil, fmt.Errorf("request failed with status code %d after %d attempts (%s)", statusCode, maxRetries, errorDetails)
+				}
 				return nil, fmt.Errorf("request failed with status code %d after %d attempts", statusCode, maxRetries)
 			}
 
@@ -547,6 +586,47 @@ func (c *TIMWEClientImpl) sendMTRequestWithRetry(url, authKey, externalTxID stri
 	}
 
 	return nil, fmt.Errorf("exhausted all retry attempts")
+}
+
+func msisdnPrefix(msisdn string) string {
+	if msisdn == "" {
+		return ""
+	}
+	prefixLen := 5
+	if len(msisdn) < prefixLen {
+		prefixLen = len(msisdn)
+	}
+	return msisdn[:prefixLen]
+}
+
+func extractUpstreamErrorDetails(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+
+	var payload struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+		Error   string `json:"error"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+
+	parts := make([]string, 0, 2)
+	if code := strings.TrimSpace(payload.Code); code != "" {
+		parts = append(parts, "code="+code)
+	}
+
+	message := strings.TrimSpace(payload.Message)
+	if message == "" {
+		message = strings.TrimSpace(payload.Error)
+	}
+	if message != "" {
+		parts = append(parts, "message="+message)
+	}
+
+	return strings.Join(parts, " ")
 }
 
 func (c *TIMWEClientImpl) isFinalConfirmSuccess(mtResp *MTResponse) bool {

@@ -247,6 +247,12 @@ func InitConfig(logger *zap.Logger, path string, files []string) *Config {
 	// Bind auth environment variables
 	_ = v.BindEnv("AUTH.JWT_TOKEN.SECRET", "JWT_SECRET")
 
+	// Bind TIMWE environment variables for backward compatibility across services.
+	_ = v.BindEnv("APPLICATION.TIMWE_MA.API_KEY", "APP_APPLICATION_TIMWE_MA_API_KEY", "TIMWE_API_KEY")
+	_ = v.BindEnv("APPLICATION.TIMWE_MA.PSK", "APP_APPLICATION_TIMWE_MA_PSK", "TIMWE_PSK")
+	_ = v.BindEnv("APPLICATION.TIMWE_MA.PARTNER_SERVICE_ID", "APP_APPLICATION_TIMWE_MA_PARTNER_SERVICE_ID", "TIMWE_PARTNER_SERVICE_ID")
+	_ = v.BindEnv("APPLICATION.TIMWE_MA.AUTHENTICATION_KEY", "APP_APPLICATION_TIMWE_MA_AUTHENTICATION_KEY", "TIMWE_AUTHENTICATION_KEY")
+
 	// Load configuration files (YAML/JSON). For .env, load as key=value not YAML.
 	for _, file := range files {
 		if strings.HasSuffix(file, ".env") {

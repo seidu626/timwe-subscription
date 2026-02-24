@@ -36,6 +36,10 @@ func (h *handlerRepoStub) CreateSubscription(request *domain.SubscriptionRequest
 	return nil
 }
 
+func (h *handlerRepoStub) CreateNotification(notification *domain.NotificationRequest) error {
+	return nil
+}
+
 func (h *handlerRepoStub) OptOutSubscription(request *domain.UnsubscriptionRequest) error {
 	return nil
 }

@@ -20,6 +20,7 @@ type subscriptionRepository interface {
 	FetchSubscriptions(startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error)
 	ConfirmSubscription(request *domain.SubscriptionConfirmationRequest) error
 	CreateSubscription(request *domain.SubscriptionRequest) error
+	CreateNotification(notification *domain.NotificationRequest) error
 	OptOutSubscription(request *domain.UnsubscriptionRequest) error
 	GetSubscriptionStatus(request *domain.GetStatusRequest) (*domain.SubscriptionStatus, error)
 }
@@ -111,6 +112,16 @@ func (s *SubscriptionService) ProcessStatus(req *domain.GetStatusRequest) (*doma
 		return nil, err
 	}
 	return status, nil
+}
+
+func (s *SubscriptionService) ProcessNotification(req *domain.NotificationRequest) error {
+	if req == nil || req.Type == "" || req.MSISDN == "" {
+		return errors.New("invalid notification request")
+	}
+	if err := s.repo.CreateNotification(req); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Helper function to validate the authentication token (mock implementation)

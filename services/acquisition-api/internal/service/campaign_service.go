@@ -26,6 +26,10 @@ type CampaignService struct {
 	logger *zap.Logger
 }
 
+type campaignOfferMappingValidator interface {
+	ValidateOfferProductMapping(offerProductID int, pricepointID *int) error
+}
+
 // NewCampaignService creates a new campaign service
 func NewCampaignService(repo CampaignRepo, logger *zap.Logger) *CampaignService {
 	return &CampaignService{
@@ -79,6 +83,10 @@ func (s *CampaignService) AdminList(enabled *bool, country *string) ([]*domain.C
 
 // AdminCreate creates a new campaign.
 func (s *CampaignService) AdminCreate(c *domain.Campaign) (*domain.Campaign, error) {
+	if err := s.validateOfferMapping(c); err != nil {
+		return nil, err
+	}
+
 	created, err := s.repo.Create(c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create campaign: %w", err)
@@ -88,6 +96,10 @@ func (s *CampaignService) AdminCreate(c *domain.Campaign) (*domain.Campaign, err
 
 // AdminUpdate updates an existing campaign by slug (slug is immutable).
 func (s *CampaignService) AdminUpdate(slug string, c *domain.Campaign) (*domain.Campaign, error) {
+	if err := s.validateOfferMapping(c); err != nil {
+		return nil, err
+	}
+
 	updated, err := s.repo.Update(slug, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update campaign: %w", err)
@@ -156,6 +168,10 @@ func (s *CampaignService) AdminClone(sourceSlug, newSlug string, createdBy *stri
 		UpdatedBy:          normalizedCreatedBy,
 	}
 
+	if err := s.validateOfferMapping(clone); err != nil {
+		return nil, err
+	}
+
 	created, err := s.repo.Create(clone)
 	if err != nil {
 		return nil, fmt.Errorf("failed to clone campaign: %w", err)
@@ -199,4 +215,21 @@ func cloneStringSlice(v []string) []string {
 		return nil
 	}
 	return append([]string(nil), v...)
+}
+
+func (s *CampaignService) validateOfferMapping(c *domain.Campaign) error {
+	if c == nil {
+		return fmt.Errorf("campaign payload is required")
+	}
+
+	validator, ok := s.repo.(campaignOfferMappingValidator)
+	if !ok {
+		return nil
+	}
+
+	if err := validator.ValidateOfferProductMapping(c.OfferProductID, c.PricepointID); err != nil {
+		return fmt.Errorf("invalid campaign offer mapping: %w", err)
+	}
+
+	return nil
 }

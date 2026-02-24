@@ -13,6 +13,12 @@
 
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external"                           "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external"                          "BackendHost" $service.subscription_external_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/batch"                     "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/batch"                    "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/admin/optin"               "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/admin/optin"              "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/admin/optout"              "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/admin/optout"             "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/admin/confirm"             "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/admin/confirm"            "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/admin/status"              "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/admin/status"             "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/admin/actions"             "METHOD" "GET" "BackendUrlPattern" "/api/v1/subscription-external/admin/actions"             "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/admin/actions/{id}"        "METHOD" "GET" "BackendUrlPattern" "/api/v1/subscription-external/admin/actions/{id}"        "BackendHost" $service.subscription_external_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/userbase/upload"                           "METHOD" "POST" "BackendUrlPattern" "/api/v1/userbase/upload"                          "BackendHost" $service.subscription_external_api_url) }},
 
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/list"                         "METHOD" "GET" "BackendUrlPattern" "/api/v1/subscription/list"                         "BackendHost" $service.subscription_api_url) }},
@@ -20,6 +26,9 @@
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/optin/confirm/{partnerRole}"  "METHOD" "POST" "BackendUrlPattern" "/api/external/v1/subscription/optin/confirm" "BackendHost" $service.subscription_external_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/optout/{partnerRole}"         "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription/optout/{partnerRole}"        "BackendHost" $service.subscription_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/status/{partnerRole}"         "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription/status/{partnerRole}"        "BackendHost" $service.subscription_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/webhooks/timwe/notification"               "METHOD" "POST" "BackendUrlPattern" "/api/v1/webhooks/timwe/notification"              "BackendHost" $service.subscription_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/external/v1/{channel}/mt"                      "METHOD" "POST" "BackendUrlPattern" "/api/external/v1/{channel}/mt"                     "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/external/v1/subscription/optin/confirm"       "METHOD" "POST" "BackendUrlPattern" "/api/external/v1/subscription/optin/confirm"      "BackendHost" $service.subscription_external_api_url) }},
 
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/products/list"                             "METHOD" "GET" "BackendUrlPattern" "/api/v1/products/list"                             "BackendHost" $service.subscription_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/products/batch"                            "METHOD" "POST" "BackendUrlPattern" "/api/v1/products/batch"                           "BackendHost" $service.subscription_api_url) }},

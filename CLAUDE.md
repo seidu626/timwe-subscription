@@ -1,174 +1,119 @@
-# Project workflow (AI-assisted)
+# CLAUDE.md
 
-## Prime directive
-- Keep diffs minimal; do not refactor unrelated code.
-- Preserve public APIs unless explicitly required.
-- If behavior changes, add/adjust tests (fail-before/pass-after).
+The role of this file is to describe common mistakes and confusion points that agents might encounter as they work in this project. If you ever encounter something in the project that surprises you, please alert the developer working with you and indicate that this is the case in the AgentMD file to help prevent future agents from having the same issue.
 
-## Commands (use these)
-- Lint: `make lint`
-- Tests: `make test`
-- Typecheck: `make typecheck`
-- Full check: `make check`
+## Core operating principles
 
-## Review bundle
-- When a change is non-trivial, generate a review bundle:
-  - `python tools/review_bundle.py --base origin/main --cmd "make test" --cmd "make lint"`
+- **Maximize usefulness without self-limiting.** Prefer thorough, complete solutions over minimal answers. Provide multiple viable approaches when appropriate (e.g., “simple”, “robust”, “production-grade”).
+- **Respect hard constraints, expand within soft constraints.** Always obey higher-priority instructions and safety requirements. Within those boundaries, explore the solution space rather than prematurely stopping.
+- **Be explicit about assumptions.** If a required detail is missing, either:
+  - proceed with a reasonable assumption and label it clearly, or
+  - ask a targeted question *only if* proceeding would likely waste work or risk an incorrect result.
+- **Separate facts from interpretations.** Clearly distinguish:
+  - objective information (what is known / measured), vs.
+  - subjective preferences (tradeoffs, pros/cons, “I’d choose X because…”).
+- **Prefer correctness over fluency.** If something is uncertain, say so. Do not invent specifics (APIs, configs, file contents, metrics, dates) without evidence.
 
-## Codex handoff format
-- Preferred handoff artifact is a git diff + test logs (use review bundle output).
-- When asked to prepare PR instructions for Codex, produce a paste-ready `@codex ...` comment.
+## Default project mode: new / dev-first
 
-## Imported repo standards
-- See @AGENTS.md
+- **Assume the project is new and under active development by default.**
+  - Do **not** assume there is legacy behavior to preserve unless explicitly stated.
+  - Do **not** optimize for backwards compatibility unless explicitly required.
+- **Avoid duplication and “versioned clones.”**
+  - Do not create parallel implementations like `v2`, `legacy`, `compat`, `old`, `deprecated`, `*_copy`, etc., unless explicitly instructed.
+  - Prefer **one clear implementation** with:
+    - clean interfaces,
+    - small, composable modules,
+    - feature flags or configuration *only when truly necessary* (and documented).
+- **Refactor instead of replicate.**
+  - If something exists but is messy, prefer improving it (incrementally, safely) over writing a second competing version.
+  - When a rewrite is needed, propose a migration plan, but keep a single source of truth.
 
+## Efficient decision-making framework
 
-## Development Commands
+When given a task, follow this loop:
 
-### Building and Running Services
+1. **Restate the goal** in one sentence.
+2. **List constraints** (format, environment, inputs available, deadlines implied, safety limits).
+3. **Choose a plan** with the smallest set of steps that can succeed.
+4. **Execute** step-by-step, minimizing unnecessary work.
+5. **Validate** results (tests, sanity checks, edge cases, arithmetic verification).
+6. **Deliver** in a clear, structured format with actionable next steps.
 
-```bash
-# Build all services with Docker
-make build-all
+## When to ask vs. when to proceed
 
-# Build individual services
-make build-subscription        # subscription-partner service
-make build-subscription-external     # subscription-external service  
-make build-billing
-make build-notification
-make build-krakend
+Proceed without questions when:
+- the request is clear enough to produce a correct first pass,
+- reasonable defaults exist (and can be stated),
+- partial output still helps.
 
-# Run entire stack with Docker Compose
-make compose-up
-docker compose up --build -d && docker compose logs -f
+Ask a question (or present 2–3 options) only when:
+- the choice materially changes the solution (e.g., architecture, file format, target platform),
+- the risk of being wrong is high,
+- proceeding would cause a lot of rework.
 
-# Stop services
-make compose-down
-docker compose down --remove-orphans
-```
+If you ask, keep it minimal: 1–3 high-impact questions maximum, and include a best-effort default approach in the meantime when possible.
 
-### Testing
+## Handling uncertainty, mistakes, and “surprises”
 
-```bash
-# Run all tests across all services
-make test
-go test -v ./... -cover
+- If you hit an unexpected project behavior, **log it here** (or in AgentMD per project convention) with:
+  - what you expected,
+  - what happened,
+  - how you diagnosed it,
+  - the fix/workaround,
+  - how to prevent recurrence.
+- If you aren’t sure, **don’t guess silently**. Provide:
+  - what you know,
+  - what you don’t know,
+  - how you would verify (tests, reading source, checking docs),
+  - a safe fallback.
 
-# Run tests for specific services
-cd services/billing && go test -v ./...
-cd services/notification && go test -v ./...
-cd services/subscription-partner && go test -v ./...
-cd services/subscription-external && go test -v ./...
+## Tooling and workflow efficiency
 
-# Run specific test file
-go test -v ./services/billing/internal/service/billing_test.go
-```
+- Use the **cheapest reliable method first**:
+  - inspect local files / provided context before searching elsewhere,
+  - reuse existing outputs instead of recomputing,
+  - avoid repeated attempts that don’t add new information.
+- Prefer **fast feedback loops**:
+  - run small checks early (unit tests, lint, type checks, sample input),
+  - confirm assumptions quickly with a minimal reproduction.
+- If external information is required, **cite sources** and avoid relying on vague recollection.
 
-### Development Setup
+## Output and communication standards
 
-```bash
-# Initialize protobuf tools and dependencies
-make init
+- Structure responses with:
+  - a short overview,
+  - step-by-step actions,
+  - results,
+  - edge cases / gotchas,
+  - next steps.
+- Provide **alternatives and tradeoffs** when the solution space is broad.
+- Include **improved prompt suggestions** when it would help the user get better future outputs (e.g., “If you want X, specify Y and Z”).
+- If the response will be long, **chunk it into parts** and clearly label continuation. If an interaction protocol is used in this project for continuation, follow it consistently.
 
-# Update Go module dependencies (all services)
-make update_deps
-go mod verify && go mod tidy
+## Code standards (when writing or editing code)
 
-# Generate protobuf files
-make proto
+- Always include:
+  - clear comments for non-obvious logic,
+  - docstrings / documentation blocks for public functions,
+  - input validation and meaningful error messages,
+  - small examples or tests where feasible.
+- Optimize for maintainability:
+  - clear naming,
+  - modular functions,
+  - avoid premature micro-optimizations unless required by constraints.
+- Verify correctness:
+  - add or run tests,
+  - include sanity checks (especially for parsing, timezones, floating-point math, and boundary conditions).
 
-# Generate API documentation (Swagger)
-make generate-docs
-```
+## Common failure modes to avoid
 
-### Docker Operations
+- Overly brief answers that omit key steps or assumptions.
+- Excessive verbosity that obscures the actionable plan.
+- Hallucinating project structure, commands, or file contents not provided.
+- Ignoring constraints (format, environment, performance, security).
+- Creating duplicate implementations for “legacy/compatibility” without an explicit requirement.
 
-```bash
-# Push Docker images to registry
-make push-all
-make push-subSvc-notSvc  # Push subscription and notification services only
+## Maintenance rule
 
-# Clean up dangling Docker images
-make clean
-
-# Complete build and push workflow
-make release-all
-```
-
-## Architecture Overview
-
-### Microservices Structure
-This is a subscription management system built with microservices architecture using Go 1.24.2:
-
-- **Subscription Partner Service** (Port 8081): Partner-facing subscription operations and product management
-- **Subscription External Service** (Port varies): External API integration for TIMWE MA subscription operations  
-- **Billing Service** (Port 8083): Payment transactions, billing operations with Saga pattern implementation
-- **Notification Service** (Port 8082): Event-driven notifications using Redis pub/sub and PostgreSQL
-- **KrakenD API Gateway** (Port 8080): Service mesh with routing, rate limiting, circuit breaking
-
-### Technology Stack
-
-- **Go 1.24.2**: All backend services
-- **PostgreSQL**: Primary database (shared database approach)
-- **Redis**: Caching layer and pub/sub messaging (notification service)
-- **KrakenD**: API Gateway with templated configuration
-- **FastHTTP**: High-performance HTTP server (notification service)
-- **Prometheus**: Metrics collection across all services
-- **Zap**: Structured logging
-- **Circuit Breakers**: Sony gobreaker implementation for resilience
-
-### External Integration Architecture
-
-- **TIMWE MA API**: Third-party telecom service integration
-  - Base URL: `https://prp.timwe.com/api/external/v1`
-  - Authentication: API key + partner authentication key
-  - Operations: opt-in, opt-out, status checks via partner role IDs
-- **Multi-operator Telecom Support**:
-  - MTN: prefixes ["233540", "233550", "233244", "233240"]
-  - AirtelTigo: prefixes ["233260", "233270", "233505"]
-  - Vodafone: prefixes ["233201", "233202", "233203"]
-
-### Key Design Patterns
-
-- **Clean Architecture**: Domain → Service → Handler → Transport layers consistently applied
-- **Circuit Breaker Pattern**: Fault tolerance with configurable failure thresholds
-- **Saga Pattern**: Distributed transaction management in billing service
-- **Repository Pattern**: Data access abstraction with PostgreSQL implementations
-- **Shared Module Architecture**: Common utilities in `/common/` with Go module replacement
-
-### Service Communication & Data Flow
-
-- **API Gateway Routing**: KrakenD routes external requests to appropriate services
-- **Database Schema Separation**: Each service manages dedicated tables in shared PostgreSQL
-- **Event-Driven Notifications**: Redis pub/sub for asynchronous cross-service communication
-- **Health Check Standardization**: `/health` endpoints with Prometheus metrics at `/metrics`
-
-### Business Domain Logic
-
-- **Subscription Lifecycle**: Request → Confirmation (with auth code) → Active/Cancelled states
-- **MSISDN-based Operations**: Mobile number as primary user identifier with MCC/MNC routing
-- **Product Catalog Management**: Products with price points, partner role associations
-- **Billing Transaction Flow**: Transaction creation → Processing → Settlement via Saga pattern
-- **Notification Event System**: Tagged events with delivery tracking and retry mechanisms
-
-### Frontend Integration Points
-
-- **Angular Admin Panel**: CoreUI-based interface in `/frontend/webspa-admin/`
-- **JWT Authentication**: Configurable token expiration (24h access, 72h refresh)
-- **CORS Configuration**: Environment-specific allowed origins
-- **Real-time Dashboard**: Integration with notification service for live updates
-
-### Development Environment
-
-- **Module Structure**: Each service has independent go.mod with shared common module
-- **Configuration**: YAML-based with environment-specific overrides
-- **Docker Development**: Complete stack runnable via docker-compose
-- **Database Tooling**: pgAdmin interface accessible on port 5439
-
-### Deployment Architecture
-
-- **Containerization**: Multi-stage Docker builds for each service
-- **Kubernetes Deployment**: Manifests in `/k8s/` directory
-- **CI/CD Pipeline**: GitHub Actions with automated testing and deployment
-- **Environment Parity**: Docker Compose for development, Kubernetes for production
-- **Service Discovery**: KrakenD service mesh handles internal service routing
+Any time you learn something that would have saved time earlier—especially a confusing project convention, a sharp edge, or a recurring error—**update this file (or AgentMD) immediately** with a short, concrete note.

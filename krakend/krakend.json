@@ -96,6 +96,64 @@
       ]
     },
     {
+      "endpoint": "/api/v1/notification/list",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id"
+      ],
+      "input_query_strings": [
+        "*"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/notification/list",
+          "encoding": "json",
+          "sd": "static",
+          "method": "GET",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8082"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id"
+          ]
+        }
+      ]
+    },
+    {
       "endpoint": "/api/v1/notification/mo/{partnerRole}",
       "method": "POST",
       "output_encoding": "no-op",
@@ -437,6 +495,9 @@
       "headers_to_pass": [
         "external-tx-id"
       ],
+      "input_query_strings": [
+        "*"
+      ],
       "backend": [
         {
           "url_pattern": "/api/v1/subscription/list",
@@ -476,6 +537,363 @@
           "disable_host_sanitize": true,
           "headers_to_pass": [
             "external-tx-id"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/admin/optin",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id",
+        "x-admin-request-id",
+        "x-requestid"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/admin/optin",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id",
+            "x-admin-request-id",
+            "x-requestid"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/admin/optout",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id",
+        "x-admin-request-id",
+        "x-requestid"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/admin/optout",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id",
+            "x-admin-request-id",
+            "x-requestid"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/admin/confirm",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id",
+        "x-admin-request-id",
+        "x-requestid"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/admin/confirm",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id",
+            "x-admin-request-id",
+            "x-requestid"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/admin/status",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id",
+        "x-admin-request-id",
+        "x-requestid"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/admin/status",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id",
+            "x-admin-request-id",
+            "x-requestid"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/admin/actions",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id",
+        "x-admin-request-id",
+        "x-requestid"
+      ],
+      "input_query_strings": [
+        "*"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/admin/actions",
+          "encoding": "json",
+          "sd": "static",
+          "method": "GET",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id",
+            "x-admin-request-id",
+            "x-requestid"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/admin/actions/{id}",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id",
+        "x-admin-request-id",
+        "x-requestid"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/admin/actions/{id}",
+          "encoding": "json",
+          "sd": "static",
+          "method": "GET",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id",
+            "x-admin-request-id",
+            "x-requestid"
           ]
         }
       ]
@@ -581,7 +999,117 @@
             }
           },
           "host": [
-            "http://127.0.0.1:8084"
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/external/v1/{channel}/mt",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/external/v1/{channel}/mt",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/external/v1/subscription/optin/confirm",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/external/v1/subscription/optin/confirm",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8083"
           ],
           "disable_host_sanitize": true,
           "headers_to_pass": [
@@ -660,6 +1188,61 @@
       "backend": [
         {
           "url_pattern": "/api/v1/subscription/status/{partnerRole}",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8081"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/webhooks/timwe/notification",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/webhooks/timwe/notification",
           "encoding": "json",
           "sd": "static",
           "method": "POST",

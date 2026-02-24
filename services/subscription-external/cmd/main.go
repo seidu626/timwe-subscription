@@ -63,10 +63,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -330,6 +332,41 @@ func syncMonitorData(monitor *monitoring.ChargingFailureMonitor, repo repository
 	return nil
 }
 
+func validateTIMWEStartupConfig(cfg *config.Config) error {
+	apiKey := strings.TrimSpace(cfg.Application.TIMWE.APIKey)
+	psk := strings.TrimSpace(cfg.Application.TIMWE.Psk)
+	partnerServiceID := strings.TrimSpace(cfg.Application.TIMWE.PartnerServiceID)
+	authKey := strings.TrimSpace(cfg.Application.TIMWE.AuthenticationKey)
+
+	if apiKey == "" {
+		return errors.New("TIMWE API key is missing")
+	}
+
+	// If static authentication key is configured, allow bypassing PSK-based auth key generation.
+	if authKey != "" {
+		return nil
+	}
+
+	if partnerServiceID == "" {
+		return errors.New("TIMWE partner service ID is missing")
+	}
+
+	if !isValidAESKeyLength(psk) {
+		return fmt.Errorf("TIMWE PSK length is invalid: %d", len(psk))
+	}
+
+	return nil
+}
+
+func isValidAESKeyLength(key string) bool {
+	switch len(key) {
+	case 16, 24, 32:
+		return true
+	default:
+		return false
+	}
+}
+
 func main() {
 	// Initialize basic logger first for config loading
 	basicLogger, err := logging.NewZapLogger("")
@@ -365,6 +402,16 @@ func main() {
 	defer func() {
 		_ = logger.Sync() // flushes buffer, if any
 	}()
+
+	if err := validateTIMWEStartupConfig(cfg); err != nil {
+		logger.Fatal("Invalid TIMWE startup configuration",
+			zap.Error(err),
+			zap.Bool("has_api_key", strings.TrimSpace(cfg.Application.TIMWE.APIKey) != ""),
+			zap.Int("psk_length", len(strings.TrimSpace(cfg.Application.TIMWE.Psk))),
+			zap.Bool("has_partner_service_id", strings.TrimSpace(cfg.Application.TIMWE.PartnerServiceID) != ""),
+			zap.Bool("has_authentication_key", strings.TrimSpace(cfg.Application.TIMWE.AuthenticationKey) != ""),
+		)
+	}
 
 	if cfg.Application.Environment == config.PRODUCTION {
 		logger, _ = zap.NewProduction()
@@ -552,14 +599,6 @@ func main() {
 	renewalWorker := worker.NewRenewalWorker(renewalService, repo, productRepo, logger, renewalConfig)
 	renewalHandler := handler.NewRenewalHandler(renewalService, renewalWorker, logger)
 
-	// Create acquisition client for calling acquisition-api on charge success
-	acquisitionClient := service.NewAcquisitionClient(logger)
-
-	// Create notification webhook handler
-	notificationWebhookHandler := handler.NewNotificationWebhookHandler(logger, svc, acquisitionClient)
-	logger.Info("Notification webhook handler initialized",
-		zap.String("acquisition_api_url", os.Getenv("ACQUISITION_API_URL")))
-
 	// Start a goroutine to sync real data with the monitor
 	go func() {
 		// Do initial sync immediately
@@ -586,7 +625,7 @@ func main() {
 		}
 	}()
 
-	router := transport.NewRouter(subscriptionHandler, userBaseHandler, partnerHandler, monitoringHandler, workerHandler, renewalHandler, notificationWebhookHandler)
+	router := transport.NewRouter(subscriptionHandler, userBaseHandler, partnerHandler, monitoringHandler, workerHandler, renewalHandler)
 
 	// Wrap router with panic recovery middleware
 	panicMiddleware := middleware.NewPanicRecoveryMiddleware(logger, utils.GetGlobalPanicHandler())

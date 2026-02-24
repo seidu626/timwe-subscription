@@ -11,7 +11,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler *handler.UserBaseHandler, partnerHandler *handler.PartnerHandler, monitoringHandler *handler.MonitoringHandler, workerHandler *handler.WorkerHandler, renewalHandler *handler.RenewalHandler, notificationWebhookHandler *handler.NotificationWebhookHandler) fasthttp.RequestHandler {
+func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler *handler.UserBaseHandler, partnerHandler *handler.PartnerHandler, monitoringHandler *handler.MonitoringHandler, workerHandler *handler.WorkerHandler, renewalHandler *handler.RenewalHandler) fasthttp.RequestHandler {
 	router := func(ctx *fasthttp.RequestCtx) {
 		path := string(ctx.Path())
 		method := string(ctx.Method())
@@ -54,6 +54,47 @@ func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler
 		case strings.EqualFold(path, "/api/v1/subscription-external"):
 			if method == fasthttp.MethodPost {
 				subscriptionHandler.OptinHandler(ctx)
+			} else {
+				ctx.Error("Method not allowed", fasthttp.StatusMethodNotAllowed)
+			}
+		case strings.EqualFold(path, "/api/v1/subscription-external/admin/optin"):
+			if method == fasthttp.MethodPost {
+				subscriptionHandler.AdminOptinHandler(ctx)
+			} else {
+				ctx.Error("Method not allowed", fasthttp.StatusMethodNotAllowed)
+			}
+		case strings.EqualFold(path, "/api/v1/subscription-external/admin/optout"):
+			if method == fasthttp.MethodPost {
+				subscriptionHandler.AdminOptoutHandler(ctx)
+			} else {
+				ctx.Error("Method not allowed", fasthttp.StatusMethodNotAllowed)
+			}
+		case strings.EqualFold(path, "/api/v1/subscription-external/admin/confirm"):
+			if method == fasthttp.MethodPost {
+				subscriptionHandler.AdminConfirmHandler(ctx)
+			} else {
+				ctx.Error("Method not allowed", fasthttp.StatusMethodNotAllowed)
+			}
+		case strings.EqualFold(path, "/api/v1/subscription-external/admin/status"):
+			if method == fasthttp.MethodPost {
+				subscriptionHandler.AdminStatusHandler(ctx)
+			} else {
+				ctx.Error("Method not allowed", fasthttp.StatusMethodNotAllowed)
+			}
+		case strings.EqualFold(path, "/api/v1/subscription-external/admin/actions"):
+			if method == fasthttp.MethodGet {
+				subscriptionHandler.AdminActionHistoryHandler(ctx)
+			} else {
+				ctx.Error("Method not allowed", fasthttp.StatusMethodNotAllowed)
+			}
+		case strings.HasPrefix(path, "/api/v1/subscription-external/admin/actions/"):
+			if method == fasthttp.MethodGet {
+				id := strings.TrimPrefix(path, "/api/v1/subscription-external/admin/actions/")
+				if id == "" {
+					ctx.Error("action id is required", fasthttp.StatusBadRequest)
+					return
+				}
+				subscriptionHandler.AdminActionDetailHandler(ctx, id)
 			} else {
 				ctx.Error("Method not allowed", fasthttp.StatusMethodNotAllowed)
 			}
@@ -542,20 +583,6 @@ func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler
 				return
 			}
 			partnerHandler.PartnerOptinConfirmHandler(ctx)
-
-		// TIMWE Notification Webhook: /api/v1/webhooks/timwe/notification
-		// Receives CHARGE, USER_RENEWED, USER_OPTIN, USER_OPTOUT notifications from TIMWE
-		case strings.EqualFold(path, "/api/v1/webhooks/timwe/notification"):
-			if method != fasthttp.MethodPost {
-				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
-				return
-			}
-			if notificationWebhookHandler != nil {
-				notificationWebhookHandler.HandleNotificationWebhook(ctx)
-			} else {
-				ctx.Error("Webhook handler not configured", fasthttp.StatusServiceUnavailable)
-			}
-			return
 
 		default:
 			log.Printf("Processing unknown request: %s", ctx.Request.String())

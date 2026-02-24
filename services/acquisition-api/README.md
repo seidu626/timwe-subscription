@@ -76,6 +76,10 @@ All reporting endpoints support the following query parameters:
 
 See `config.yaml` for database and application settings.
 
+### Pending transaction reuse TTL
+
+- `ACQUISITION_PENDING_TRANSACTION_TTL` (optional): Go duration override for reusing `CONFIRM_REQUIRED`/`ACTION_REQUIRED` transactions (default: `10m`).
+
 ### Acquisition transaction schema prerequisites
 
 `GET /v1/admin/transactions` selects charge-tracking and HE columns from `acquisition_transactions`.
@@ -101,6 +105,22 @@ WHERE table_name = 'acquisition_transactions'
   )
 ORDER BY column_name;
 ```
+
+### Admin management schema prerequisites
+
+Admin management endpoints rely on:
+
+- `admin_activity_logs`
+- `userbase_import_jobs`
+- `userbase_import_errors`
+
+On startup, acquisition-api now executes `migrations/add_admin_management_tables.sql` and verifies
+these relations exist. If bootstrap fails (for example, DB role lacks `CREATE TABLE`/`CREATE INDEX`),
+service startup fails fast.
+
+For pre-provisioned environments, include this migration in your DB rollout:
+
+- `services/acquisition-api/migrations/add_admin_management_tables.sql`
 
 ### Admin configuration (environment variables)
 

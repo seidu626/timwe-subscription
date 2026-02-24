@@ -21,6 +21,7 @@ COPY --from=builder /build/acquisition-api .
 
 # Copy config
 COPY config.yaml .
+COPY migrations ./migrations
 
 EXPOSE 8084
 

@@ -34,6 +34,8 @@ services:
       - APP_DATABASE_POSTGRESQL_SSL_MODE=disable
       - TIMWE_API_KEY=${TIMWE_API_KEY}
       - TIMWE_PSK=${TIMWE_PSK}
+      - APP_APPLICATION_TIMWE_MA_API_KEY=${TIMWE_API_KEY}
+      - APP_APPLICATION_TIMWE_MA_PSK=${TIMWE_PSK}
       - ACQUISITION_API_URL=http://acquisition-api:8084
     depends_on:
       - database
@@ -187,6 +189,7 @@ services:
       - APP_DATABASE_POSTGRESQL_SSL_MODE=disable
       - TIMWE_API_KEY=${TIMWE_API_KEY}
       - TIMWE_PSK=${TIMWE_PSK}
+      - SUBSCRIPTION_EXTERNAL_URL=${SUBSCRIPTION_EXTERNAL_URL:-http://krakend:8080}
       - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
       - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN}
       - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}

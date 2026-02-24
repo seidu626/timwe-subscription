@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -75,15 +76,20 @@ func main() {
 	outboundClickRepo := repository.NewOutboundClickRepository(db, logger)
 	adminManagementRepo := repository.NewAdminManagementRepository(db, logger)
 
+	schemaBootstrapStart := time.Now()
+	schemaBootstrapCtx, schemaBootstrapCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer schemaBootstrapCancel()
+	if err := adminManagementRepo.EnsureSchema(schemaBootstrapCtx, ""); err != nil {
+		logger.Fatal("Failed to bootstrap admin management schema", zap.Error(err))
+	}
+	logger.Info("Admin management schema bootstrap completed",
+		zap.Duration("duration", time.Since(schemaBootstrapStart)),
+		zap.String("migration_file", "migrations/add_admin_management_tables.sql"),
+	)
+
 	// Initialize TIMWE client with configuration
 	timweConfig := buildTIMWEConfig(cfg)
-
-	// Validate secrets are configured (fatal if missing in production)
-	if cfg.Application.Environment != "DEVELOPMENT" {
-		validateConfig(timweConfig, logger)
-	} else if timweConfig.APIKey == "" || timweConfig.PSK == "" {
-		logger.Warn("TIMWE secrets not configured - set TIMWE_API_KEY and TIMWE_PSK environment variables")
-	}
+	validateConfig(timweConfig, logger)
 
 	// SECURITY: Fail fast if HE simulation is enabled in production
 	heSimEnabled := os.Getenv("HE_SIMULATION_ENABLED") == "true"
@@ -100,9 +106,8 @@ func main() {
 	}
 
 	timweClient := service.NewTIMWEClientWithConfig(timweConfig, logger)
-	logger.Info("TIMWE client initialized",
+	logger.Info("Subscription-external client initialized",
 		zap.String("base_url", timweConfig.BaseURL),
-		zap.String("partner_role_id", timweConfig.PartnerRoleID),
 	)
 
 	// Initialize services
@@ -125,6 +130,11 @@ func main() {
 		providerRegistry,
 		timweClient,
 		logger,
+	)
+	pendingTransactionTTL := resolvePendingTransactionTTL(logger)
+	transactionService.SetPendingTransactionTTL(pendingTransactionTTL)
+	logger.Info("Configured pending acquisition transaction TTL",
+		zap.Duration("pending_transaction_ttl", pendingTransactionTTL),
 	)
 	adminManagementService := service.NewAdminManagementService(adminManagementRepo, logger)
 
@@ -224,8 +234,11 @@ func main() {
 func buildTIMWEConfig(cfg *config.Config) *service.TIMWEConfig {
 	timweCfg := service.DefaultTIMWEConfig()
 
-	// Override with values from config
-	if cfg.Application.TIMWE.BaseURL != "" {
+	// Prefer explicit subscription-external service URL.
+	if externalURL := strings.TrimSpace(os.Getenv("SUBSCRIPTION_EXTERNAL_URL")); externalURL != "" {
+		timweCfg.BaseURL = externalURL
+	} else if cfg.Application.TIMWE.BaseURL != "" {
+		// Backward-compatible fallback for existing config field.
 		timweCfg.BaseURL = cfg.Application.TIMWE.BaseURL
 	}
 
@@ -300,19 +313,63 @@ func isEnvVarReference(val string) bool {
 
 // validateConfig validates required configuration and secrets are set
 func validateConfig(timweCfg *service.TIMWEConfig, logger *zap.Logger) {
-	missing := []string{}
-
-	if timweCfg.APIKey == "" {
-		missing = append(missing, "TIMWE_API_KEY")
-	}
-	if timweCfg.PSK == "" {
-		missing = append(missing, "TIMWE_PSK")
+	if strings.TrimSpace(timweCfg.BaseURL) == "" {
+		logger.Fatal("Required outbound subscription endpoint not configured",
+			zap.String("required", "SUBSCRIPTION_EXTERNAL_URL"))
 	}
 
-	if len(missing) > 0 {
-		logger.Fatal("Required secrets not configured - set environment variables",
-			zap.Strings("missing", missing))
+	parsedURL, err := url.Parse(strings.TrimSpace(timweCfg.BaseURL))
+	if err != nil {
+		logger.Fatal("Invalid outbound subscription endpoint URL",
+			zap.String("base_url", timweCfg.BaseURL),
+			zap.Error(err))
 	}
+
+	hostname := strings.ToLower(strings.TrimSpace(parsedURL.Hostname()))
+	allowLoopback := strings.EqualFold(strings.TrimSpace(os.Getenv("ALLOW_LOOPBACK_SUBSCRIPTION_EXTERNAL_URL")), "true")
+	if isLoopbackHost(hostname) && runningInContainer() && !allowLoopback {
+		logger.Fatal("Outbound subscription endpoint cannot use loopback inside container",
+			zap.String("base_url", timweCfg.BaseURL),
+			zap.String("required", "SUBSCRIPTION_EXTERNAL_URL"),
+			zap.String("recommended_compose", "http://krakend:8080"),
+			zap.String("recommended_public", "https://api.nouveauricheglobalgroup.com"),
+			zap.String("override", "ALLOW_LOOPBACK_SUBSCRIPTION_EXTERNAL_URL=true"),
+		)
+	}
+}
+
+func isLoopbackHost(hostname string) bool {
+	switch hostname {
+	case "localhost", "127.0.0.1", "::1":
+		return true
+	default:
+		return false
+	}
+}
+
+func runningInContainer() bool {
+	_, err := os.Stat("/.dockerenv")
+	return err == nil
+}
+
+func resolvePendingTransactionTTL(logger *zap.Logger) time.Duration {
+	const defaultTTL = 10 * time.Minute
+	const envName = "ACQUISITION_PENDING_TRANSACTION_TTL"
+
+	if raw := strings.TrimSpace(os.Getenv(envName)); raw != "" {
+		ttl, err := time.ParseDuration(raw)
+		if err != nil || ttl <= 0 {
+			logger.Warn("Invalid pending transaction TTL env override; falling back to config/default",
+				zap.String("env", envName),
+				zap.String("value", raw),
+				zap.Error(err),
+			)
+		} else {
+			return ttl
+		}
+	}
+
+	return defaultTTL
 }
 
 func buildCampaignAssetStorageConfig() service.CampaignAssetStorageConfig {

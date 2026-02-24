@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -105,5 +106,36 @@ func TestScanAndMapSubscription_HandlesNullablesAndErrors(t *testing.T) {
 	_, err = scanAndMapSubscription(errScanner)
 	if !errors.Is(err, expected) {
 		t.Fatalf("expected error propagation, got: %v", err)
+	}
+}
+
+func TestApplySubscriptionDateFilters_UsesCreatedAtWindow(t *testing.T) {
+	startDate := time.Date(2025, time.December, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2025, time.December, 1, 23, 59, 59, 0, time.UTC)
+	query := "SELECT * FROM subscriptions WHERE 1=1"
+	countQuery := "SELECT COUNT(*) FROM subscriptions WHERE 1=1"
+
+	filteredQuery, filteredCountQuery, args, nextArg := applySubscriptionDateFilters(query, countQuery, nil, 1, startDate, endDate)
+
+	if !strings.Contains(filteredQuery, "AND created_at >= $1") || !strings.Contains(filteredQuery, "AND created_at <= $2") {
+		t.Fatalf("expected created_at range in query, got: %s", filteredQuery)
+	}
+	if strings.Contains(filteredQuery, "start_date") || strings.Contains(filteredQuery, "end_date") {
+		t.Fatalf("did not expect lifecycle date columns in query, got: %s", filteredQuery)
+	}
+	if !strings.Contains(filteredCountQuery, "AND created_at >= $1") || !strings.Contains(filteredCountQuery, "AND created_at <= $2") {
+		t.Fatalf("expected created_at range in count query, got: %s", filteredCountQuery)
+	}
+	if len(args) != 2 {
+		t.Fatalf("expected 2 filter args, got %d", len(args))
+	}
+	if got, ok := args[0].(time.Time); !ok || !got.Equal(startDate) {
+		t.Fatalf("unexpected startDate arg: %#v", args[0])
+	}
+	if got, ok := args[1].(time.Time); !ok || !got.Equal(endDate) {
+		t.Fatalf("unexpected endDate arg: %#v", args[1])
+	}
+	if nextArg != 3 {
+		t.Fatalf("expected next arg index 3, got %d", nextArg)
 	}
 }

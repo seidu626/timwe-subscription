@@ -42,40 +42,43 @@ const (
 
 // AcquisitionTransaction represents a web acquisition attempt
 type AcquisitionTransaction struct {
-	ID            uuid.UUID          `json:"id" db:"id"`
-	CorrelationID uuid.UUID          `json:"correlation_id" db:"correlation_id"`
-	
+	ID            uuid.UUID `json:"id" db:"id"`
+	CorrelationID uuid.UUID `json:"correlation_id" db:"correlation_id"`
+
 	// Campaign and user
-	CampaignSlug string              `json:"campaign_slug" db:"campaign_slug"`
-	MSISDN       string              `json:"msisdn" db:"msisdn"`
-	
+	CampaignSlug string `json:"campaign_slug" db:"campaign_slug"`
+	MSISDN       string `json:"msisdn" db:"msisdn"`
+
 	// Status and flow
-	Status           TransactionStatus `json:"status" db:"status"`
-	NextAction       *NextAction       `json:"next_action,omitempty" db:"next_action"`
+	Status            TransactionStatus `json:"status" db:"status"`
+	NextAction        *NextAction       `json:"next_action,omitempty" db:"next_action"`
 	NextActionPayload json.RawMessage   `json:"next_action_payload,omitempty" db:"next_action_payload"`
-	
+
 	// Attribution
-	AdProvider      *string           `json:"ad_provider,omitempty" db:"ad_provider"`
-	ClickID         *string           `json:"click_id,omitempty" db:"click_id"`
-	AttributionData json.RawMessage   `json:"attribution_data" db:"attribution_data"`
-	
+	AdProvider      *string         `json:"ad_provider,omitempty" db:"ad_provider"`
+	ClickID         *string         `json:"click_id,omitempty" db:"click_id"`
+	AttributionData json.RawMessage `json:"attribution_data" db:"attribution_data"`
+
 	// Request metadata
-	IPAddress *string                 `json:"ip_address,omitempty" db:"ip_address"`
-	UserAgent *string                 `json:"user_agent,omitempty" db:"user_agent"`
-	
+	IPAddress *string `json:"ip_address,omitempty" db:"ip_address"`
+	UserAgent *string `json:"user_agent,omitempty" db:"user_agent"`
+
 	// Consent tracking
-	ConsentRequired    bool            `json:"consent_required" db:"consent_required"`
-	ConsentChecked     bool            `json:"consent_checked" db:"consent_checked"`
-	ConsentVersion     *string         `json:"consent_version,omitempty" db:"consent_version"`
-	ConsentTimestamp   *time.Time      `json:"consent_timestamp,omitempty" db:"consent_timestamp"`
-	LandingVersionHash *string         `json:"landing_version_hash,omitempty" db:"landing_version_hash"`
-	
+	ConsentRequired    bool       `json:"consent_required" db:"consent_required"`
+	ConsentChecked     bool       `json:"consent_checked" db:"consent_checked"`
+	ConsentVersion     *string    `json:"consent_version,omitempty" db:"consent_version"`
+	ConsentTimestamp   *time.Time `json:"consent_timestamp,omitempty" db:"consent_timestamp"`
+	LandingVersionHash *string    `json:"landing_version_hash,omitempty" db:"landing_version_hash"`
+
 	// Header Enrichment (HE) tracking
 	HESource   *HESource `json:"he_source,omitempty" db:"he_source"`
 	HEMSISDN   *string   `json:"he_msisdn,omitempty" db:"he_msisdn"`
 	HEOperator *string   `json:"he_operator,omitempty" db:"he_operator"`
 
 	// TIMWE integration
+	OfferProductID      *int    `json:"offer_product_id,omitempty" db:"offer_product_id"`
+	PricepointID        *int    `json:"pricepoint_id,omitempty" db:"pricepoint_id"`
+	PartnerRoleID       *int    `json:"partner_role_id,omitempty" db:"partner_role_id"`
 	TimweTransactionID  *string `json:"timwe_transaction_id,omitempty" db:"timwe_transaction_id"`
 	TransactionAuthCode *string `json:"transaction_auth_code,omitempty" db:"transaction_auth_code"`
 	TimweStatus         *string `json:"timwe_status,omitempty" db:"timwe_status"`
@@ -115,36 +118,36 @@ type CreateTransactionRequest struct {
 
 // CreateTransactionResponse represents the response after creating a transaction
 type CreateTransactionResponse struct {
-	TransactionID uuid.UUID            `json:"transaction_id"`
-	CorrelationID uuid.UUID            `json:"correlation_id"`
-	Status        TransactionStatus     `json:"status"`
-	NextAction    NextAction            `json:"next_action"`
+	TransactionID uuid.UUID              `json:"transaction_id"`
+	CorrelationID uuid.UUID              `json:"correlation_id"`
+	Status        TransactionStatus      `json:"status"`
+	NextAction    NextAction             `json:"next_action"`
 	Payload       map[string]interface{} `json:"payload"`
 }
 
 // ConfirmTransactionRequest represents the request to confirm a transaction (OTP flow)
 type ConfirmTransactionRequest struct {
-	TransactionID uuid.UUID            `json:"transaction_id" binding:"required"`
-	AuthCode      string                `json:"auth_code" binding:"required"`
+	TransactionID uuid.UUID `json:"transaction_id" binding:"required"`
+	AuthCode      string    `json:"auth_code" binding:"required"`
 }
 
 // TransactionStatusResponse represents the current status of a transaction
 type TransactionStatusResponse struct {
-	TransactionID uuid.UUID            `json:"transaction_id"`
-	Status        TransactionStatus     `json:"status"`
-	NextAction    *NextAction          `json:"next_action,omitempty"`
+	TransactionID uuid.UUID              `json:"transaction_id"`
+	Status        TransactionStatus      `json:"status"`
+	NextAction    *NextAction            `json:"next_action,omitempty"`
 	Payload       map[string]interface{} `json:"payload,omitempty"`
 }
 
 // Attribution represents normalized attribution data
 type Attribution struct {
-	Provider      string
-	ClickID       string
-	PubID         string
-	Sub1          string
-	Sub2          string
-	Sub3          string
-	CampaignSlug  string
-	Creative      string
-	Source        string
+	Provider     string
+	ClickID      string
+	PubID        string
+	Sub1         string
+	Sub2         string
+	Sub3         string
+	CampaignSlug string
+	Creative     string
+	Source       string
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"database/sql"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -82,6 +83,36 @@ func (timweConfirmAmbiguousSuccessClient) Confirm(msisdn string, productID int, 
 	}, nil
 }
 
+type capturingConfirmTIMWEClient struct {
+	lastConfirmMSISDN      string
+	lastConfirmProductID   int
+	lastConfirmPartnerRole string
+}
+
+func (c *capturingConfirmTIMWEClient) OptIn(msisdn string, productID int, entryChannel string, trackingFields map[string]string, partnerRoleID string) (*TIMWEResponse, error) {
+	return &TIMWEResponse{Success: true}, nil
+}
+
+func (c *capturingConfirmTIMWEClient) Confirm(msisdn string, productID int, entryChannel string, partnerRoleID string, authCode string) (*TIMWEResponse, error) {
+	c.lastConfirmMSISDN = msisdn
+	c.lastConfirmProductID = productID
+	c.lastConfirmPartnerRole = partnerRoleID
+	return &TIMWEResponse{Success: true}, nil
+}
+
+type fallbackPricepointTIMWEClient struct {
+	confirmProductIDs []int
+}
+
+func (c *fallbackPricepointTIMWEClient) OptIn(msisdn string, productID int, entryChannel string, trackingFields map[string]string, partnerRoleID string) (*TIMWEResponse, error) {
+	return &TIMWEResponse{Success: true}, nil
+}
+
+func (c *fallbackPricepointTIMWEClient) Confirm(msisdn string, productID int, entryChannel string, partnerRoleID string, authCode string) (*TIMWEResponse, error) {
+	c.confirmProductIDs = append(c.confirmProductIDs, productID)
+	return nil, fmt.Errorf("request failed with status code: 400 (code=INTERNAL_ERROR message=MT response error [INVALID_PRICEPOINT_ID]: Invalid PricepointId)")
+}
+
 func campaignColumns() []string {
 	return []string{
 		"id", "slug", "language", "country", "operator", "offer_product_id", "pricepoint_id", "partner_role_id",
@@ -98,6 +129,7 @@ func acquisitionTransactionColumns() []string {
 		"next_action_payload", "ad_provider", "click_id", "attribution_data",
 		"ip_address", "user_agent", "consent_required", "consent_checked",
 		"consent_version", "consent_timestamp", "landing_version_hash",
+		"offer_product_id", "pricepoint_id", "partner_role_id",
 		"timwe_transaction_id", "transaction_auth_code", "timwe_status",
 		"he_source", "he_msisdn", "he_operator",
 		"charged_at", "charge_payout", "conversion_postback_sent",
@@ -107,7 +139,7 @@ func acquisitionTransactionColumns() []string {
 
 func expectNoExistingCampaignMSISDNTransaction(mock sqlmock.Sqlmock, campaignSlug, msisdn string) {
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, correlation_id, campaign_slug, msisdn, status, next_action")).
-		WithArgs(campaignSlug, msisdn, "CONFIRM_REQUIRED", "ACTION_REQUIRED").
+		WithArgs(campaignSlug, msisdn, "CONFIRM_REQUIRED", "ACTION_REQUIRED", sqlmock.AnyArg()).
 		WillReturnError(sql.ErrNoRows)
 }
 
@@ -312,11 +344,12 @@ func TestCreateTransaction_ReturnsExistingCampaignMSISDNTransactionBeforeThrottl
 	existingID := uuid.New()
 	correlationID := uuid.New()
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, correlation_id, campaign_slug, msisdn, status, next_action")).
-		WithArgs(campaignSlug, "233561914461", "CONFIRM_REQUIRED", "ACTION_REQUIRED").
+		WithArgs(campaignSlug, "233561914461", "CONFIRM_REQUIRED", "ACTION_REQUIRED", sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows(acquisitionTransactionColumns()).AddRow(
 			existingID, correlationID, campaignSlug, "233561914461", "CONFIRM_REQUIRED", "OTP",
 			`{"transaction_id":"`+existingID.String()+`","prompt":"Please enter the confirmation code sent to your phone"}`, nil, nil, nil,
 			nil, nil, false, false,
+			nil, nil, nil,
 			nil, nil, nil,
 			nil, nil, nil,
 			nil, nil, nil,
@@ -344,6 +377,62 @@ func TestCreateTransaction_ReturnsExistingCampaignMSISDNTransactionBeforeThrottl
 	}
 	if timweSpy.optInCalled {
 		t.Fatal("expected TIMWE OptIn not to be called when existing transaction is returned")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}
+
+func TestCreateTransaction_StalePendingTransactionTriggersFreshOptIn(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	logger := zap.NewNop()
+	campaignRepo := repository.NewCampaignRepository(db, logger)
+	txRepo := repository.NewTransactionRepository(db, logger)
+	postbackRepo := repository.NewPostbackRepository(db, logger)
+	providerReg := NewProviderRegistry(logger)
+	providerReg.Register(NewGenericProvider(logger))
+
+	timweSpy := &capturingTIMWEClient{}
+	service := NewTransactionService(txRepo, campaignRepo, postbackRepo, providerReg, timweSpy, logger)
+	service.SetPendingTransactionTTL(10 * time.Minute)
+
+	campaignSlug := "test-campaign-stale"
+	now := time.Now()
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
+		WithArgs(campaignSlug).
+		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
+			1, campaignSlug, "en", "GH", nil, 101, nil, nil,
+			"OTP", nil, nil, nil, nil, nil, nil,
+			nil, false, nil, nil, nil,
+			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+			true, now, now, nil, nil,
+		))
+
+	expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, "233561914461")
+
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO acquisition_transactions")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	resp, err := service.CreateTransaction(&domain.CreateTransactionRequest{
+		CampaignSlug:   campaignSlug,
+		MSISDN:         "0561914461",
+		ConsentChecked: true,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if !timweSpy.optInCalled {
+		t.Fatal("expected fresh opt-in call when no reusable pending transaction is found")
+	}
+	if resp.Status != domain.StatusConfirmRequired {
+		t.Fatalf("expected status %s, got %s", domain.StatusConfirmRequired, resp.Status)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -724,6 +813,7 @@ func TestConfirmTransaction_AmbiguousSuccessRemainsConfirmRequired(t *testing.T)
 			`{"transaction_id":"`+transactionID.String()+`"}`, nil, nil, nil,
 			nil, nil, false, false,
 			nil, nil, nil,
+			101, nil, 2117,
 			timweTransactionID, "0000", "OPTIN_WAITING",
 			nil, nil, nil,
 			nil, nil, false,
@@ -753,6 +843,147 @@ func TestConfirmTransaction_AmbiguousSuccessRemainsConfirmRequired(t *testing.T)
 	}
 	if msg, ok := resp.Payload["message"].(string); !ok || msg == "" {
 		t.Fatalf("expected pending confirmation message, got %+v", resp.Payload)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}
+
+func TestConfirmTransaction_UsesTransactionScopedProductWhenCampaignChanges(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	logger := zap.NewNop()
+	campaignRepo := repository.NewCampaignRepository(db, logger)
+	txRepo := repository.NewTransactionRepository(db, logger)
+	postbackRepo := repository.NewPostbackRepository(db, logger)
+	providerReg := NewProviderRegistry(logger)
+	providerReg.Register(NewGenericProvider(logger))
+
+	timweSpy := &capturingConfirmTIMWEClient{}
+	service := NewTransactionService(txRepo, campaignRepo, postbackRepo, providerReg, timweSpy, logger)
+
+	transactionID := uuid.New()
+	correlationID := uuid.New()
+	campaignSlug := "confirm-campaign-drift"
+	timweTransactionID := "timwe-tx-555"
+	now := time.Now()
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, correlation_id, campaign_slug, msisdn, status, next_action")).
+		WithArgs(transactionID).
+		WillReturnRows(sqlmock.NewRows(acquisitionTransactionColumns()).AddRow(
+			transactionID, correlationID, campaignSlug, "233561914461", "CONFIRM_REQUIRED", "OTP",
+			`{"transaction_id":"`+transactionID.String()+`"}`, nil, nil, nil,
+			nil, nil, false, false,
+			nil, nil, nil,
+			8509, nil, 2117,
+			timweTransactionID, "0000", "OPTIN_WAITING",
+			nil, nil, nil,
+			nil, nil, false,
+			now, now,
+		))
+
+	// Simulate campaign product/role drift after opt-in.
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
+		WithArgs(campaignSlug).
+		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
+			1, campaignSlug, "en", "GH", nil, 9999, nil, 3333,
+			"OTP", nil, nil, nil, nil, nil, nil,
+			nil, false, nil, nil, nil,
+			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+			true, now, now, nil, nil,
+		))
+
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE acquisition_transactions")).
+		WithArgs(domain.StatusSubscribed, sqlmock.AnyArg(), sqlmock.AnyArg(), transactionID).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	resp, err := service.ConfirmTransaction(transactionID, "1234")
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if resp.Status != domain.StatusSubscribed {
+		t.Fatalf("expected status %s, got %s", domain.StatusSubscribed, resp.Status)
+	}
+
+	if timweSpy.lastConfirmProductID != 8509 {
+		t.Fatalf("expected confirm productID=8509, got %d", timweSpy.lastConfirmProductID)
+	}
+	if timweSpy.lastConfirmPartnerRole != "2117" {
+		t.Fatalf("expected confirm partnerRoleID=2117, got %s", timweSpy.lastConfirmPartnerRole)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}
+
+func TestConfirmTransaction_DoesNotRetryWithPricepointOnInvalidPricepointID(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	logger := zap.NewNop()
+	campaignRepo := repository.NewCampaignRepository(db, logger)
+	txRepo := repository.NewTransactionRepository(db, logger)
+	postbackRepo := repository.NewPostbackRepository(db, logger)
+	providerReg := NewProviderRegistry(logger)
+	providerReg.Register(NewGenericProvider(logger))
+
+	timweSpy := &fallbackPricepointTIMWEClient{}
+	service := NewTransactionService(txRepo, campaignRepo, postbackRepo, providerReg, timweSpy, logger)
+
+	transactionID := uuid.New()
+	correlationID := uuid.New()
+	campaignSlug := "confirm-campaign-pricepoint"
+	timweTransactionID := "timwe-tx-777"
+	now := time.Now()
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, correlation_id, campaign_slug, msisdn, status, next_action")).
+		WithArgs(transactionID).
+		WillReturnRows(sqlmock.NewRows(acquisitionTransactionColumns()).AddRow(
+			transactionID, correlationID, campaignSlug, "233561914461", "CONFIRM_REQUIRED", "OTP",
+			`{"transaction_id":"`+transactionID.String()+`"}`, nil, nil, nil,
+			nil, nil, false, false,
+			nil, nil, nil,
+			8509, 14397, 2117,
+			timweTransactionID, "0000", "OPTIN_WAITING",
+			nil, nil, nil,
+			nil, nil, false,
+			now, now,
+		))
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
+		WithArgs(campaignSlug).
+		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
+			1, campaignSlug, "en", "GH", nil, 8509, 14397, 2117,
+			"OTP", nil, nil, nil, nil, nil, nil,
+			nil, false, nil, nil, nil,
+			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+			true, now, now, nil, nil,
+		))
+
+	resp, err := service.ConfirmTransaction(transactionID, "1234")
+	if err == nil {
+		t.Fatal("expected confirm to fail for INVALID_PRICEPOINT_ID, got nil error")
+	}
+	if resp != nil {
+		t.Fatalf("expected nil response, got %+v", resp)
+	}
+	if !strings.Contains(err.Error(), "INVALID_PRICEPOINT_ID") {
+		t.Fatalf("expected INVALID_PRICEPOINT_ID error, got %v", err)
+	}
+	if len(timweSpy.confirmProductIDs) != 1 {
+		t.Fatalf("expected 1 confirm attempt, got %d", len(timweSpy.confirmProductIDs))
+	}
+	if timweSpy.confirmProductIDs[0] != 8509 {
+		t.Fatalf("expected confirm attempt with offer product id, got %d", timweSpy.confirmProductIDs[0])
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {

@@ -46,6 +46,7 @@ const (
 const (
 	SubscriptionResultOptinAlreadyActive      = "OPTIN_ALREADY_ACTIVE"
 	SubscriptionResultOptinActiveWaitCharging = "OPTIN_ACTIVE_WAIT_CHARGING"
+	SubscriptionResultOptinPreactiveWaitConf  = "OPTIN_PREACTIVE_WAIT_CONF"
 	SubscriptionResultOptinConfigNotFound     = "OPTIN_CONFIG_NOT_FOUND"
 	SubscriptionResultInvalidMsisdn           = "INVALID_MSISDN"
 	SubscriptionResultInvalidEntryFlowChannel = "INVALID_ENTRY_FLOW_CHANNEL"
@@ -64,6 +65,68 @@ const (
 	SubscriptionErrorOptoutOneSuccess        = "Optout one success"
 	SubscriptionErrorOptoutNonExistent       = "Optout non existent subscription"
 )
+
+const (
+	timweDefaultEntryChannel = "INTERNAL"
+	timweDefaultClientIP     = "INTERNAL"
+	timweDefaultMSISDNType   = "MSISDN"
+)
+
+type timweOptinPayload struct {
+	UserIdentifier     string `json:"userIdentifier"`
+	UserIdentifierType string `json:"userIdentifierType"`
+	ProductID          int    `json:"productId"`
+	MCC                string `json:"mcc"`
+	MNC                string `json:"mnc"`
+	EntryChannel       string `json:"entryChannel"`
+	LargeAccount       string `json:"largeAccount"`
+	SubKeyword         string `json:"subKeyword"`
+	TrackingID         string `json:"trackingId"`
+	ClientIP           string `json:"clientIp"`
+	CampaignURL        string `json:"campaignUrl"`
+}
+
+type timweOptinConfirmPayload struct {
+	UserIdentifier      string `json:"userIdentifier"`
+	UserIdentifierType  string `json:"userIdentifierType"`
+	ProductID           int    `json:"productId"`
+	MCC                 string `json:"mcc"`
+	MNC                 string `json:"mnc"`
+	EntryChannel        string `json:"entryChannel"`
+	ClientIP            string `json:"clientIp"`
+	TransactionAuthCode string `json:"transactionAuthCode"`
+}
+
+type timweOptoutPayload struct {
+	UserIdentifier        string `json:"userIdentifier"`
+	UserIdentifierType    string `json:"userIdentifierType"`
+	ProductID             int    `json:"productId"`
+	MCC                   string `json:"mcc"`
+	MNC                   string `json:"mnc"`
+	EntryChannel          string `json:"entryChannel"`
+	LargeAccount          string `json:"largeAccount"`
+	SubKeyword            string `json:"subKeyword"`
+	TrackingID            string `json:"trackingId"`
+	ClientIP              string `json:"clientIp"`
+	ControlKeyword        string `json:"controlKeyword"`
+	ControlServiceKeyword string `json:"controlServiceKeyword"`
+	SubID                 int    `json:"subId"`
+	CancelReason          int    `json:"cancelReason"`
+	CancelSource          int    `json:"cancelSource"`
+}
+
+type timweStatusPayload struct {
+	UserIdentifier        string `json:"userIdentifier"`
+	UserIdentifierType    string `json:"userIdentifierType"`
+	ProductID             int    `json:"productId"`
+	MCC                   string `json:"mcc"`
+	MNC                   string `json:"mnc"`
+	EntryChannel          string `json:"entryChannel"`
+	ClientIP              string `json:"clientIp"`
+	ControlKeyword        string `json:"controlKeyword"`
+	ControlServiceKeyword string `json:"controlServiceKeyword"`
+	SubID                 int    `json:"subId"`
+}
 
 type SubscriptionService struct {
 	repo               repository.SubscriptionRepositoryInterface
@@ -681,7 +744,13 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 
 	// Build URL and request body
 	url := fmt.Sprintf("%s/subscription/optin/%s", s.config.Application.TIMWE.BaseURL, s.config.Application.TIMWE.PartnerRoleID)
-	requestBody, err := json.Marshal(reqData)
+	payload, err := s.buildTIMWEOptinPayload(reqData)
+	if err != nil {
+		s.logger.Error("Failed to normalize optin payload", zap.Error(err))
+		return nil, err
+	}
+
+	requestBody, err := json.Marshal(payload)
 	if err != nil {
 		s.logger.Error("Failed to marshal request data", zap.Error(err))
 		return nil, fmt.Errorf("failed to marshal request data: %v", err)
@@ -715,9 +784,14 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 		// Retry with SMS entry channel
 		mtReqCopy := reqData
 		mtReqCopy.EntryChannel = "SMS"
+		payload, err = s.buildTIMWEOptinPayload(mtReqCopy)
+		if err != nil {
+			s.logger.Error("Failed to normalize retry optin payload", zap.Error(err))
+			return nil, err
+		}
 
 		// Re-marshal the updated request
-		requestBody, err = json.Marshal(mtReqCopy)
+		requestBody, err = json.Marshal(payload)
 		if err != nil {
 			s.logger.Error("Failed to marshal retry request data", zap.Error(err))
 			return nil, fmt.Errorf("failed to marshal retry request data: %v", err)
@@ -786,6 +860,7 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, aut
 
 		req := fasthttp.AcquireRequest()
 		res := fasthttp.AcquireResponse()
+		externalTxID := uuid.New().String()
 
 		// Ensure cleanup happens regardless of how we exit
 		defer func() {
@@ -798,8 +873,9 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, aut
 		req.Header.SetMethod("POST")
 		req.Header.Set("apikey", s.config.Application.TIMWE.APIKey)
 		req.Header.Set("authentication", authKey)
-		req.Header.Set("external-tx-id", reqData.MoTransactionUUID)
+		req.Header.Set("external-tx-id", externalTxID)
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "*/*")
 		req.SetBody(requestBody)
 
 		// Send request with context timeout
@@ -1023,6 +1099,7 @@ func (s *SubscriptionService) validateMTResponse(response *domain.MTResponse, mt
 			// Success codes for opt-in and opt-out flows
 			if resultStr == SubscriptionResultOptinAlreadyActive ||
 				resultStr == SubscriptionResultOptinActiveWaitCharging ||
+				resultStr == SubscriptionResultOptinPreactiveWaitConf ||
 				resultStr == SubscriptionResultOptoutCanceledOK ||
 				resultStr == SubscriptionResultOptoutNoSub {
 				return nil
@@ -1778,6 +1855,127 @@ func (s *SubscriptionService) CheckChargingStatus(msisdn string, product *domain
 	return nil
 }
 
+func (s *SubscriptionService) buildTIMWEOptinPayload(reqData domain.MTRequest) (timweOptinPayload, error) {
+	userIdentifier := strings.TrimSpace(reqData.UserIdentifier)
+	if userIdentifier == "" {
+		return timweOptinPayload{}, fmt.Errorf("invalid optin payload: userIdentifier is required")
+	}
+	if reqData.ProductID <= 0 {
+		return timweOptinPayload{}, fmt.Errorf("invalid optin payload: productId must be greater than zero")
+	}
+
+	trackingID := defaultIfBlank(reqData.MoTransactionUUID, uuid.New().String())
+	payload := timweOptinPayload{
+		UserIdentifier:     userIdentifier,
+		UserIdentifierType: defaultIfBlank(reqData.UserIdentifierType, timweDefaultMSISDNType),
+		ProductID:          reqData.ProductID,
+		MCC:                defaultIfBlank(reqData.MCC, s.getMCC()),
+		MNC:                defaultIfBlank(reqData.MNC, s.getMNC()),
+		EntryChannel:       defaultIfBlank(reqData.EntryChannel, timweDefaultEntryChannel),
+		LargeAccount:       defaultIfBlank(reqData.LargeAccount, ""),
+		SubKeyword:         defaultIfBlank(reqData.SubKeyword, ""),
+		TrackingID:         trackingID,
+		ClientIP:           timweDefaultClientIP,
+		CampaignURL:        defaultIfBlank(reqData.CampaignUrl, timweDefaultClientIP),
+	}
+	return payload, nil
+}
+
+func (s *SubscriptionService) buildTIMWEOptinConfirmPayload(reqData domain.SubscriptionConfirmationRequest) (timweOptinConfirmPayload, error) {
+	userIdentifier := strings.TrimSpace(reqData.UserIdentifier)
+	if userIdentifier == "" {
+		return timweOptinConfirmPayload{}, fmt.Errorf("invalid optin confirm payload: userIdentifier is required")
+	}
+	if reqData.ProductId <= 0 {
+		return timweOptinConfirmPayload{}, fmt.Errorf("invalid optin confirm payload: productId must be greater than zero")
+	}
+
+	transactionAuthCode := strings.TrimSpace(reqData.TransactionAuthCode)
+	if transactionAuthCode == "" {
+		return timweOptinConfirmPayload{}, fmt.Errorf("invalid optin confirm payload: transactionAuthCode is required")
+	}
+
+	payload := timweOptinConfirmPayload{
+		UserIdentifier:      userIdentifier,
+		UserIdentifierType:  defaultIfBlank(reqData.UserIdentifierType, timweDefaultMSISDNType),
+		ProductID:           reqData.ProductId,
+		MCC:                 defaultFromPointer(reqData.Mcc, s.getMCC()),
+		MNC:                 defaultFromPointer(reqData.Mnc, s.getMNC()),
+		EntryChannel:        defaultFromPointer(reqData.EntryChannel, timweDefaultEntryChannel),
+		ClientIP:            defaultFromPointer(reqData.ClientIp, timweDefaultClientIP),
+		TransactionAuthCode: transactionAuthCode,
+	}
+	return payload, nil
+}
+
+func (s *SubscriptionService) buildTIMWEOptoutPayload(reqData domain.UnsubscriptionRequest) (timweOptoutPayload, error) {
+	userIdentifier := strings.TrimSpace(reqData.UserIdentifier)
+	if userIdentifier == "" {
+		return timweOptoutPayload{}, fmt.Errorf("invalid optout payload: userIdentifier is required")
+	}
+	if reqData.ProductId <= 0 {
+		return timweOptoutPayload{}, fmt.Errorf("invalid optout payload: productId must be greater than zero")
+	}
+
+	payload := timweOptoutPayload{
+		UserIdentifier:        userIdentifier,
+		UserIdentifierType:    defaultIfBlank(reqData.UserIdentifierType, timweDefaultMSISDNType),
+		ProductID:             reqData.ProductId,
+		MCC:                   defaultFromPointer(reqData.Mcc, s.getMCC()),
+		MNC:                   defaultFromPointer(reqData.Mnc, s.getMNC()),
+		EntryChannel:          defaultFromPointer(reqData.EntryChannel, timweDefaultEntryChannel),
+		LargeAccount:          defaultFromPointer(reqData.LargeAccount, ""),
+		SubKeyword:            defaultFromPointer(reqData.SubKeyword, ""),
+		TrackingID:            defaultFromPointer(reqData.TrackingId, uuid.New().String()),
+		ClientIP:              defaultFromPointer(reqData.ClientIp, timweDefaultClientIP),
+		ControlKeyword:        defaultIfBlank(reqData.ControlKeyword, ""),
+		ControlServiceKeyword: defaultIfBlank(reqData.ControlServiceKeyword, ""),
+		SubID:                 reqData.SubId,
+		CancelReason:          reqData.CancelReason,
+		CancelSource:          reqData.CancelSource,
+	}
+	return payload, nil
+}
+
+func (s *SubscriptionService) buildTIMWEStatusPayload(reqData domain.GetStatusRequest) (timweStatusPayload, error) {
+	userIdentifier := strings.TrimSpace(reqData.UserIdentifier)
+	if userIdentifier == "" {
+		return timweStatusPayload{}, fmt.Errorf("invalid status payload: userIdentifier is required")
+	}
+	if reqData.ProductId <= 0 {
+		return timweStatusPayload{}, fmt.Errorf("invalid status payload: productId must be greater than zero")
+	}
+
+	payload := timweStatusPayload{
+		UserIdentifier:        userIdentifier,
+		UserIdentifierType:    defaultIfBlank(reqData.UserIdentifierType, timweDefaultMSISDNType),
+		ProductID:             reqData.ProductId,
+		MCC:                   defaultFromPointer(reqData.Mcc, s.getMCC()),
+		MNC:                   defaultFromPointer(reqData.Mnc, s.getMNC()),
+		EntryChannel:          defaultFromPointer(reqData.EntryChannel, timweDefaultEntryChannel),
+		ClientIP:              defaultFromPointer(reqData.ClientIp, timweDefaultClientIP),
+		ControlKeyword:        defaultIfBlank(reqData.ControlKeyword, ""),
+		ControlServiceKeyword: defaultIfBlank(reqData.ControlServiceKeyword, ""),
+		SubID:                 reqData.SubId,
+	}
+	return payload, nil
+}
+
+func defaultFromPointer(value *string, fallback string) string {
+	if value == nil {
+		return fallback
+	}
+	return defaultIfBlank(*value, fallback)
+}
+
+func defaultIfBlank(value string, fallback string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return fallback
+	}
+	return trimmed
+}
+
 // getMCC returns the configured MCC value with fallback
 func (s *SubscriptionService) getMCC() string {
 	if s.config.Application.TIMWE.MCC != "" {
@@ -2071,7 +2269,13 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 	}
 
 	url := fmt.Sprintf("%s/subscription/status/%d", s.config.Application.TIMWE.BaseURL, partnerRoleID)
-	requestBody, err := json.Marshal(reqData)
+	payload, err := s.buildTIMWEStatusPayload(reqData)
+	if err != nil {
+		s.logger.Error("Failed to normalize status payload", zap.Error(err))
+		return nil, err
+	}
+
+	requestBody, err := json.Marshal(payload)
 	if err != nil {
 		s.logger.Error("Failed to marshal request data", zap.Error(err))
 		return nil, fmt.Errorf("failed to marshal request data: %v", err)
@@ -2090,13 +2294,16 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		req := fasthttp.AcquireRequest()
 		res := fasthttp.AcquireResponse()
+		externalTxID := uuid.New().String()
 
 		// Set up request
 		req.SetRequestURI(url)
 		req.Header.SetMethod("POST")
 		req.Header.Set("apikey", s.config.Application.TIMWE.APIKey)
 		req.Header.Set("authentication", authKey)
+		req.Header.Set("external-tx-id", externalTxID)
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "*/*")
 		req.SetBody(requestBody)
 
 		// Send request
@@ -2258,14 +2465,6 @@ func (s *SubscriptionService) SendOptout(reqData domain.UnsubscriptionRequest, r
 
 // sendOptoutWithRetry handles the actual opt-out request with retry logic similar to status/MT flows
 func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionRequest, realm string) (*domain.MTResponse, error) {
-	// Generate or reuse external transaction id
-	var externalTxID string
-	if reqData.TrackingId != nil && strings.TrimSpace(*reqData.TrackingId) != "" {
-		externalTxID = *reqData.TrackingId
-	} else {
-		externalTxID = uuid.New().String()
-	}
-
 	// Resolve authentication key (cached)
 	authKey := ""
 	if len(s.config.Application.TIMWE.AuthenticationKey) > 10 {
@@ -2286,7 +2485,13 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 	}
 
 	url := fmt.Sprintf("%s/subscription/optout/%d", s.config.Application.TIMWE.BaseURL, partnerRoleID)
-	requestBody, err := json.Marshal(reqData)
+	payload, err := s.buildTIMWEOptoutPayload(reqData)
+	if err != nil {
+		s.logger.Error("Failed to normalize optout payload", zap.Error(err))
+		return nil, err
+	}
+
+	requestBody, err := json.Marshal(payload)
 	if err != nil {
 		s.logger.Error("Failed to marshal unsubscription request", zap.Error(err))
 		return nil, fmt.Errorf("failed to marshal unsubscription request: %w", err)
@@ -2297,6 +2502,7 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		req := fasthttp.AcquireRequest()
 		res := fasthttp.AcquireResponse()
+		externalTxID := uuid.New().String()
 
 		// Prepare request
 		req.SetRequestURI(url)
@@ -2305,6 +2511,7 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 		req.Header.Set("authentication", authKey)
 		req.Header.Set("external-tx-id", externalTxID)
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "*/*")
 		req.SetBody(requestBody)
 
 		// Execute
@@ -2455,9 +2662,6 @@ func (s *SubscriptionService) SendOptinConfirm(reqData domain.SubscriptionConfir
 }
 
 func (s *SubscriptionService) sendOptinConfirmWithRetry(reqData domain.SubscriptionConfirmationRequest, realm string) (*domain.MTResponse, error) {
-	// Generate idempotency token for external-tx-id
-	externalTxID := uuid.New().String()
-
 	// Resolve authentication key (cached)
 	authKey := ""
 	if len(s.config.Application.TIMWE.AuthenticationKey) > 10 {
@@ -2478,7 +2682,13 @@ func (s *SubscriptionService) sendOptinConfirmWithRetry(reqData domain.Subscript
 	}
 
 	url := fmt.Sprintf("%s/subscription/optin/confirm/%d", s.config.Application.TIMWE.BaseURL, partnerRoleID)
-	requestBody, err := json.Marshal(reqData)
+	payload, err := s.buildTIMWEOptinConfirmPayload(reqData)
+	if err != nil {
+		s.logger.Error("Failed to normalize optin confirm payload", zap.Error(err))
+		return nil, err
+	}
+
+	requestBody, err := json.Marshal(payload)
 	if err != nil {
 		s.logger.Error("Failed to marshal confirmation request", zap.Error(err))
 		return nil, fmt.Errorf("failed to marshal confirmation request: %v", err)
@@ -2489,6 +2699,7 @@ func (s *SubscriptionService) sendOptinConfirmWithRetry(reqData domain.Subscript
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		req := fasthttp.AcquireRequest()
 		res := fasthttp.AcquireResponse()
+		externalTxID := uuid.New().String()
 
 		req.SetRequestURI(url)
 		req.Header.SetMethod("POST")
@@ -2496,6 +2707,7 @@ func (s *SubscriptionService) sendOptinConfirmWithRetry(reqData domain.Subscript
 		req.Header.Set("authentication", authKey)
 		req.Header.Set("external-tx-id", externalTxID)
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "*/*")
 		req.SetBody(requestBody)
 
 		if err = s.client.Do(req, res); err != nil {

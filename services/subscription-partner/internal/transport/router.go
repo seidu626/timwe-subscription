@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func NewRouter(handler *handler.SubscriptionHandler, productHandler *handler.ProductHandler) fasthttp.RequestHandler {
+func NewRouter(handler *handler.SubscriptionHandler, productHandler *handler.ProductHandler, notificationWebhookHandler *handler.NotificationWebhookHandler) fasthttp.RequestHandler {
 	router := func(ctx *fasthttp.RequestCtx) {
 		path := string(ctx.Path())
 
@@ -40,19 +40,19 @@ func NewRouter(handler *handler.SubscriptionHandler, productHandler *handler.Pro
 			}
 		case strings.EqualFold(path, "/api/v1/subscription/list"):
 			handler.ListSubscriptions(ctx)
-		case strings.HasPrefix(path, "/api/v1/subscription/optin/"):
-			partnerRoleId := extractPartnerRoleId(path, "/api/v1/subscription/optin/")
-			if partnerRoleId != "" {
-				ctx.SetUserValue("partnerRoleId", partnerRoleId)
-				handler.OptinHandler(ctx)
-			} else {
-				ctx.Error("PartnerRoleId parameter missing", fasthttp.StatusBadRequest)
-			}
 		case strings.HasPrefix(path, "/api/v1/subscription/optin/confirm/"):
 			partnerRoleId := extractPartnerRoleId(path, "/api/v1/subscription/optin/confirm/")
 			if partnerRoleId != "" {
 				ctx.SetUserValue("partnerRoleId", partnerRoleId)
 				handler.ConfirmHandler(ctx)
+			} else {
+				ctx.Error("PartnerRoleId parameter missing", fasthttp.StatusBadRequest)
+			}
+		case strings.HasPrefix(path, "/api/v1/subscription/optin/"):
+			partnerRoleId := extractPartnerRoleId(path, "/api/v1/subscription/optin/")
+			if partnerRoleId != "" {
+				ctx.SetUserValue("partnerRoleId", partnerRoleId)
+				handler.OptinHandler(ctx)
 			} else {
 				ctx.Error("PartnerRoleId parameter missing", fasthttp.StatusBadRequest)
 			}
@@ -72,6 +72,16 @@ func NewRouter(handler *handler.SubscriptionHandler, productHandler *handler.Pro
 			} else {
 				ctx.Error("PartnerRoleId parameter missing", fasthttp.StatusBadRequest)
 			}
+		case strings.EqualFold(path, "/api/v1/webhooks/timwe/notification"):
+			if string(ctx.Method()) != fasthttp.MethodPost {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+				return
+			}
+			if notificationWebhookHandler == nil {
+				ctx.Error("Webhook handler not configured", fasthttp.StatusServiceUnavailable)
+				return
+			}
+			notificationWebhookHandler.HandleNotificationWebhook(ctx)
 		default:
 			log.Printf("Processing unknown request: %s", ctx.Request.String())
 			ctx.Error("Not Found", fasthttp.StatusNotFound)

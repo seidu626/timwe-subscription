@@ -18,6 +18,7 @@ type fakeCampaignRepo struct {
 	createFn         func(*domain.Campaign) (*domain.Campaign, error)
 	updateFn         func(string, *domain.Campaign) (*domain.Campaign, error)
 	setEnabledFn     func(string, bool, *string) (*domain.Campaign, error)
+	validateOfferFn  func(int, *int) error
 }
 
 func (f *fakeCampaignRepo) GetBySlug(slug string) (*domain.Campaign, error) {
@@ -40,6 +41,12 @@ func (f *fakeCampaignRepo) Update(slug string, c *domain.Campaign) (*domain.Camp
 }
 func (f *fakeCampaignRepo) SetEnabled(slug string, enabled bool, updatedBy *string) (*domain.Campaign, error) {
 	return f.setEnabledFn(slug, enabled, updatedBy)
+}
+func (f *fakeCampaignRepo) ValidateOfferProductMapping(offerProductID int, pricepointID *int) error {
+	if f.validateOfferFn == nil {
+		return nil
+	}
+	return f.validateOfferFn(offerProductID, pricepointID)
 }
 
 func TestCampaignService_AdminCRUD_HappyPath(t *testing.T) {
@@ -240,5 +247,39 @@ func TestCampaignService_AdminClone_SourceNotFound(t *testing.T) {
 	_, err := svc.AdminClone("missing-campaign", "copy-campaign", nil)
 	if err == nil || !strings.Contains(err.Error(), "failed to get source campaign") {
 		t.Fatalf("expected source lookup error, got %v", err)
+	}
+}
+
+func TestCampaignService_AdminCreate_RejectsInvalidOfferMapping(t *testing.T) {
+	logger := zap.NewNop()
+	createCalled := false
+
+	repo := &fakeCampaignRepo{
+		validateOfferFn: func(offerProductID int, pricepointID *int) error {
+			return errors.New("offer_product_id 9999 is not present in products mapping")
+		},
+		createFn: func(*domain.Campaign) (*domain.Campaign, error) {
+			createCalled = true
+			return nil, errors.New("should not be called")
+		},
+		// not used by this test
+		getBySlugFn:      func(string) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		listEnabledFn:    func() ([]*domain.Campaign, error) { return nil, errors.New("unused") },
+		getAdminBySlugFn: func(string) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		listAllFn:        func(*bool, *string) ([]*domain.Campaign, error) { return nil, errors.New("unused") },
+		updateFn:         func(string, *domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		setEnabledFn:     func(string, bool, *string) (*domain.Campaign, error) { return nil, errors.New("unused") },
+	}
+
+	svc := NewCampaignService(repo, logger)
+	_, err := svc.AdminCreate(&domain.Campaign{
+		Slug:           "test-campaign",
+		OfferProductID: 9999,
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid campaign offer mapping") {
+		t.Fatalf("expected mapping validation error, got %v", err)
+	}
+	if createCalled {
+		t.Fatal("expected create not to be called when mapping validation fails")
 	}
 }

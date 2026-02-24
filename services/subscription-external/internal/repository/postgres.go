@@ -3,10 +3,12 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -771,6 +773,311 @@ func (r *SubscriptionRepository) GetTotalSubscriptionsCount() (int64, error) {
 // GetDB returns the database connection (for use by trackers and other components)
 func (r *SubscriptionRepository) GetDB() *sql.DB {
 	return r.db
+}
+
+func marshalJSONOrNull(value interface{}) ([]byte, error) {
+	if value == nil {
+		return []byte("null"), nil
+	}
+	out, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return []byte("null"), nil
+	}
+	return out, nil
+}
+
+// CreateAdminActionLog persists a full request/response audit record for admin-triggered TIMWE calls.
+func (r *SubscriptionRepository) CreateAdminActionLog(logEntry *domain.AdminSubscriptionActionLog) error {
+	requestHeadersJSON, err := marshalJSONOrNull(logEntry.RequestHeaders)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request headers: %w", err)
+	}
+	requestBodyJSON, err := marshalJSONOrNull(logEntry.RequestBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	responseHeadersJSON, err := marshalJSONOrNull(logEntry.ResponseHeaders)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response headers: %w", err)
+	}
+	responseBodyJSON, err := marshalJSONOrNull(logEntry.ResponseBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response body: %w", err)
+	}
+	serviceResultJSON, err := marshalJSONOrNull(logEntry.ServiceResult)
+	if err != nil {
+		return fmt.Errorf("failed to marshal service result: %w", err)
+	}
+	errorPayloadJSON, err := marshalJSONOrNull(logEntry.ErrorPayload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal error payload: %w", err)
+	}
+
+	query := `
+		INSERT INTO admin_subscription_action_logs (
+			id,
+			operation,
+			msisdn,
+			product_id,
+			partner_role_id,
+			external_tx_id,
+			admin_request_id,
+			request_method,
+			request_url,
+			request_headers,
+			request_body,
+			request_timestamp,
+			response_status_code,
+			response_headers,
+			response_body,
+			response_timestamp,
+			service_result,
+			error_payload,
+			duration_ms,
+			created_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
+			$11::jsonb, $12, $13, $14::jsonb, $15::jsonb, $16, $17::jsonb,
+			$18::jsonb, $19, $20
+		)
+	`
+
+	_, err = r.db.ExecContext(
+		r.ctx,
+		query,
+		logEntry.ID,
+		string(logEntry.Operation),
+		logEntry.MSISDN,
+		logEntry.ProductID,
+		logEntry.PartnerRoleID,
+		logEntry.ExternalTxID,
+		logEntry.AdminRequestID,
+		logEntry.RequestMethod,
+		logEntry.RequestURL,
+		string(requestHeadersJSON),
+		string(requestBodyJSON),
+		logEntry.RequestTimestamp,
+		logEntry.ResponseStatusCode,
+		string(responseHeadersJSON),
+		string(responseBodyJSON),
+		logEntry.ResponseTimestamp,
+		string(serviceResultJSON),
+		string(errorPayloadJSON),
+		logEntry.DurationMs,
+		logEntry.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create admin action log: %w", err)
+	}
+	return nil
+}
+
+// ListAdminActionLogs returns paginated audit summaries for admin-triggered TIMWE calls.
+func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLogFilter) ([]domain.AdminActionLogSummary, int64, error) {
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.PageSize <= 0 {
+		filter.PageSize = 20
+	}
+	if filter.PageSize > 100 {
+		filter.PageSize = 100
+	}
+
+	var (
+		conditions []string
+		args       []interface{}
+	)
+	if filter.Operation != "" {
+		args = append(args, string(filter.Operation))
+		conditions = append(conditions, fmt.Sprintf("operation = $%d", len(args)))
+	}
+	if filter.MSISDN != "" {
+		args = append(args, filter.MSISDN)
+		conditions = append(conditions, fmt.Sprintf("msisdn = $%d", len(args)))
+	}
+	if filter.ExternalTxID != "" {
+		args = append(args, filter.ExternalTxID)
+		conditions = append(conditions, fmt.Sprintf("external_tx_id = $%d", len(args)))
+	}
+	if filter.AdminRequestID != "" {
+		args = append(args, filter.AdminRequestID)
+		conditions = append(conditions, fmt.Sprintf("admin_request_id = $%d", len(args)))
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	countQuery := "SELECT COUNT(*) FROM admin_subscription_action_logs" + whereClause
+	var totalCount int64
+	if err := r.db.QueryRowContext(r.ctx, countQuery, args...).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count admin action logs: %w", err)
+	}
+
+	offset := (filter.Page - 1) * filter.PageSize
+	args = append(args, filter.PageSize, offset)
+	limitPos := len(args) - 1
+	offsetPos := len(args)
+
+	query := `
+		SELECT
+			id,
+			operation,
+			msisdn,
+			product_id,
+			partner_role_id,
+			external_tx_id,
+			admin_request_id,
+			response_status_code,
+			duration_ms,
+			created_at,
+			error_payload
+		FROM admin_subscription_action_logs
+	` + whereClause + fmt.Sprintf(`
+		ORDER BY created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, limitPos, offsetPos)
+
+	rows, err := r.db.QueryContext(r.ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list admin action logs: %w", err)
+	}
+	defer rows.Close()
+
+	summaries := make([]domain.AdminActionLogSummary, 0)
+	for rows.Next() {
+		var (
+			summary      domain.AdminActionLogSummary
+			operation    string
+			errorPayload []byte
+		)
+		if err := rows.Scan(
+			&summary.ID,
+			&operation,
+			&summary.MSISDN,
+			&summary.ProductID,
+			&summary.PartnerRoleID,
+			&summary.ExternalTxID,
+			&summary.AdminRequestID,
+			&summary.ResponseStatusCode,
+			&summary.DurationMs,
+			&summary.CreatedAt,
+			&errorPayload,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan admin action summary: %w", err)
+		}
+		summary.Operation = domain.AdminActionOperation(operation)
+
+		logEntry := domain.AdminSubscriptionActionLog{ErrorPayload: json.RawMessage(errorPayload)}
+		summary.HasError = logEntry.HasError()
+		summary.ErrorMessage = logEntry.ErrorMessage()
+		summaries = append(summaries, summary)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed iterating admin action summaries: %w", err)
+	}
+
+	return summaries, totalCount, nil
+}
+
+// GetAdminActionLogByID returns a full audit record by its ID.
+func (r *SubscriptionRepository) GetAdminActionLogByID(id string) (*domain.AdminSubscriptionActionLog, error) {
+	query := `
+		SELECT
+			id,
+			operation,
+			msisdn,
+			product_id,
+			partner_role_id,
+			external_tx_id,
+			admin_request_id,
+			request_method,
+			request_url,
+			request_headers,
+			request_body,
+			request_timestamp,
+			response_status_code,
+			response_headers,
+			response_body,
+			response_timestamp,
+			service_result,
+			error_payload,
+			duration_ms,
+			created_at
+		FROM admin_subscription_action_logs
+		WHERE id = $1
+	`
+
+	var (
+		logEntry     domain.AdminSubscriptionActionLog
+		operation    string
+		reqHeaders   []byte
+		reqBody      []byte
+		resHeaders   []byte
+		resBody      []byte
+		serviceJSON  []byte
+		errorJSON    []byte
+		responseTime sql.NullTime
+	)
+
+	err := r.db.QueryRowContext(r.ctx, query, id).Scan(
+		&logEntry.ID,
+		&operation,
+		&logEntry.MSISDN,
+		&logEntry.ProductID,
+		&logEntry.PartnerRoleID,
+		&logEntry.ExternalTxID,
+		&logEntry.AdminRequestID,
+		&logEntry.RequestMethod,
+		&logEntry.RequestURL,
+		&reqHeaders,
+		&reqBody,
+		&logEntry.RequestTimestamp,
+		&logEntry.ResponseStatusCode,
+		&resHeaders,
+		&resBody,
+		&responseTime,
+		&serviceJSON,
+		&errorJSON,
+		&logEntry.DurationMs,
+		&logEntry.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get admin action log: %w", err)
+	}
+
+	logEntry.Operation = domain.AdminActionOperation(operation)
+	logEntry.RequestBody = json.RawMessage(reqBody)
+	logEntry.ResponseBody = json.RawMessage(resBody)
+	logEntry.ServiceResult = json.RawMessage(serviceJSON)
+	logEntry.ErrorPayload = json.RawMessage(errorJSON)
+
+	if responseTime.Valid {
+		logEntry.ResponseTimestamp = &responseTime.Time
+	}
+
+	if len(reqHeaders) > 0 {
+		var headers map[string]string
+		if err := json.Unmarshal(reqHeaders, &headers); err == nil {
+			logEntry.RequestHeaders = headers
+		}
+	}
+	if len(resHeaders) > 0 {
+		var headers map[string]string
+		if err := json.Unmarshal(resHeaders, &headers); err == nil {
+			logEntry.ResponseHeaders = headers
+		}
+	}
+
+	return &logEntry, nil
 }
 
 // AddToPriorityRetryQueue adds an item to the priority retry queue

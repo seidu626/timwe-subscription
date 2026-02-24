@@ -663,6 +663,10 @@ func (h *CampaignHandler) AdminCreate(ctx *fasthttp.RequestCtx) {
 		UpdatedBy:          req.UpdatedBy,
 	})
 	if err != nil {
+		if isCampaignConfigValidationError(err) {
+			ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+			return
+		}
 		h.logger.Error("Failed to create campaign (admin)", zap.String("slug", req.Slug), zap.Error(err))
 		ctx.Error("Failed to create campaign", fasthttp.StatusInternalServerError)
 		return
@@ -720,6 +724,10 @@ func (h *CampaignHandler) AdminUpdate(ctx *fasthttp.RequestCtx) {
 		UpdatedBy:          req.UpdatedBy,
 	})
 	if err != nil {
+		if isCampaignConfigValidationError(err) {
+			ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+			return
+		}
 		h.logger.Error("Failed to update campaign (admin)", zap.String("slug", slug), zap.Error(err))
 		ctx.Error("Failed to update campaign", fasthttp.StatusInternalServerError)
 		return
@@ -844,6 +852,17 @@ func mapCampaignCloneErrorStatus(err error) int {
 	default:
 		return fasthttp.StatusInternalServerError
 	}
+}
+
+func isCampaignConfigValidationError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "invalid campaign offer mapping") ||
+		strings.Contains(msg, "offer_product_id") ||
+		strings.Contains(msg, "pricepoint_id")
 }
 
 func (h *CampaignHandler) AdminPresignBackgroundUpload(ctx *fasthttp.RequestCtx) {

@@ -39,18 +39,20 @@ func (r *TransactionRepository) Create(tx *domain.AcquisitionTransaction) error 
 			next_action_payload, ad_provider, click_id, attribution_data,
 			ip_address, user_agent, consent_required, consent_checked,
 			consent_version, consent_timestamp, landing_version_hash,
+			offer_product_id, pricepoint_id, partner_role_id,
 			timwe_transaction_id, transaction_auth_code, timwe_status,
 			he_source, he_msisdn, he_operator,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-			$15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
+			$15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
 		)
 	`
 
 	var nextAction, adProvider, clickID, ipAddress, userAgent, consentVersion,
 		landingVersionHash, timweTransactionID,
 		transactionAuthCode, timweStatus, heSource, heMSISDN, heOperator sql.NullString
+	var offerProductID, pricepointID, partnerRoleID sql.NullInt64
 	var consentTimestamp sql.NullTime
 	var nextActionPayload sql.NullString
 	var attributionData sql.NullString
@@ -86,6 +88,18 @@ func (r *TransactionRepository) Create(tx *domain.AcquisitionTransaction) error 
 	if tx.LandingVersionHash != nil {
 		landingVersionHash.String = *tx.LandingVersionHash
 		landingVersionHash.Valid = true
+	}
+	if tx.OfferProductID != nil {
+		offerProductID.Int64 = int64(*tx.OfferProductID)
+		offerProductID.Valid = true
+	}
+	if tx.PricepointID != nil {
+		pricepointID.Int64 = int64(*tx.PricepointID)
+		pricepointID.Valid = true
+	}
+	if tx.PartnerRoleID != nil {
+		partnerRoleID.Int64 = int64(*tx.PartnerRoleID)
+		partnerRoleID.Valid = true
 	}
 	if tx.TimweTransactionID != nil {
 		timweTransactionID.String = *tx.TimweTransactionID
@@ -126,6 +140,7 @@ func (r *TransactionRepository) Create(tx *domain.AcquisitionTransaction) error 
 		nextAction, nextActionPayload, adProvider, clickID, attributionData,
 		ipAddress, userAgent, tx.ConsentRequired, tx.ConsentChecked,
 		consentVersion, consentTimestamp, landingVersionHash,
+		offerProductID, pricepointID, partnerRoleID,
 		timweTransactionID, transactionAuthCode, timweStatus,
 		heSource, heMSISDN, heOperator,
 		tx.CreatedAt, tx.UpdatedAt,
@@ -145,6 +160,7 @@ func (r *TransactionRepository) GetByID(id uuid.UUID) (*domain.AcquisitionTransa
 		       next_action_payload, ad_provider, click_id, attribution_data,
 		       ip_address, user_agent, consent_required, consent_checked,
 		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
 		       timwe_transaction_id, transaction_auth_code, timwe_status,
 		       he_source, he_msisdn, he_operator,
 		       charged_at, charge_payout, conversion_postback_sent,
@@ -217,6 +233,7 @@ func (r *TransactionRepository) scanTransaction(query string, args ...interface{
 	var nextAction, adProvider, clickID, ipAddress, userAgent, consentVersion,
 		landingVersionHash, timweTransactionID,
 		transactionAuthCode, timweStatus, heSource, heMSISDN, heOperator, chargePayout sql.NullString
+	var offerProductID, pricepointID, partnerRoleID sql.NullInt64
 	var consentTimestamp, chargedAt sql.NullTime
 	var nextActionPayload, attributionData sql.NullString
 
@@ -225,6 +242,7 @@ func (r *TransactionRepository) scanTransaction(query string, args ...interface{
 		&nextAction, &nextActionPayload, &adProvider, &clickID, &attributionData,
 		&ipAddress, &userAgent, &tx.ConsentRequired, &tx.ConsentChecked,
 		&consentVersion, &consentTimestamp, &landingVersionHash,
+		&offerProductID, &pricepointID, &partnerRoleID,
 		&timweTransactionID, &transactionAuthCode, &timweStatus,
 		&heSource, &heMSISDN, &heOperator,
 		&chargedAt, &chargePayout, &tx.ConversionPostbackSent,
@@ -263,6 +281,18 @@ func (r *TransactionRepository) scanTransaction(query string, args ...interface{
 	}
 	if landingVersionHash.Valid {
 		tx.LandingVersionHash = &landingVersionHash.String
+	}
+	if offerProductID.Valid {
+		val := int(offerProductID.Int64)
+		tx.OfferProductID = &val
+	}
+	if pricepointID.Valid {
+		val := int(pricepointID.Int64)
+		tx.PricepointID = &val
+	}
+	if partnerRoleID.Valid {
+		val := int(partnerRoleID.Int64)
+		tx.PartnerRoleID = &val
 	}
 	if timweTransactionID.Valid {
 		tx.TimweTransactionID = &timweTransactionID.String
@@ -350,6 +380,7 @@ func (r *TransactionRepository) FindByClickID(provider, clickID string) (*domain
 		       next_action_payload, ad_provider, click_id, attribution_data,
 		       ip_address, user_agent, consent_required, consent_checked,
 		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
 		       timwe_transaction_id, transaction_auth_code, timwe_status,
 		       he_source, he_msisdn, he_operator,
 		       charged_at, charge_payout, conversion_postback_sent,
@@ -375,6 +406,7 @@ func (r *TransactionRepository) FindByTimweTransactionID(timweTransactionID stri
 		       next_action_payload, ad_provider, click_id, attribution_data,
 		       ip_address, user_agent, consent_required, consent_checked,
 		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
 		       timwe_transaction_id, transaction_auth_code, timwe_status,
 		       he_source, he_msisdn, he_operator,
 		       charged_at, charge_payout, conversion_postback_sent,
@@ -400,6 +432,7 @@ func (r *TransactionRepository) FindByMSISDNAndStatus(msisdn string, status doma
 		       next_action_payload, ad_provider, click_id, attribution_data,
 		       ip_address, user_agent, consent_required, consent_checked,
 		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
 		       timwe_transaction_id, transaction_auth_code, timwe_status,
 		       he_source, he_msisdn, he_operator,
 		       charged_at, charge_payout, conversion_postback_sent,
@@ -418,26 +451,29 @@ func (r *TransactionRepository) FindByMSISDNAndStatus(msisdn string, status doma
 	return tx, nil
 }
 
-// FindLatestByCampaignAndMSISDN finds the latest transaction for campaign+msisdn across the provided statuses.
-func (r *TransactionRepository) FindLatestByCampaignAndMSISDN(campaignSlug, msisdn string, statuses []domain.TransactionStatus) (*domain.AcquisitionTransaction, error) {
+// FindLatestByCampaignAndMSISDN finds the latest recent transaction for campaign+msisdn across the provided statuses.
+func (r *TransactionRepository) FindLatestByCampaignAndMSISDN(campaignSlug, msisdn string, statuses []domain.TransactionStatus, notOlderThan time.Time) (*domain.AcquisitionTransaction, error) {
 	if len(statuses) == 0 {
 		return nil, fmt.Errorf("statuses are required")
 	}
 
 	placeholders := make([]string, len(statuses))
-	args := make([]interface{}, 0, len(statuses)+2)
+	args := make([]interface{}, 0, len(statuses)+3)
 	args = append(args, campaignSlug, msisdn)
 
 	for i, status := range statuses {
 		placeholders[i] = fmt.Sprintf("$%d", i+3)
 		args = append(args, string(status))
 	}
+	cutoffPlaceholder := fmt.Sprintf("$%d", len(statuses)+3)
+	args = append(args, notOlderThan)
 
 	query := fmt.Sprintf(`
 		SELECT id, correlation_id, campaign_slug, msisdn, status, next_action,
 		       next_action_payload, ad_provider, click_id, attribution_data,
 		       ip_address, user_agent, consent_required, consent_checked,
 		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
 		       timwe_transaction_id, transaction_auth_code, timwe_status,
 		       he_source, he_msisdn, he_operator,
 		       charged_at, charge_payout, conversion_postback_sent,
@@ -445,9 +481,10 @@ func (r *TransactionRepository) FindLatestByCampaignAndMSISDN(campaignSlug, msis
 		FROM acquisition_transactions
 		WHERE campaign_slug = $1 AND msisdn = $2
 		  AND status IN (%s)
+		  AND created_at >= %s
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, strings.Join(placeholders, ", "))
+	`, strings.Join(placeholders, ", "), cutoffPlaceholder)
 
 	tx, err := r.scanTransaction(query, args...)
 	if err != nil {
@@ -584,6 +621,7 @@ func (r *TransactionRepository) ListTransactions(filter *TransactionListFilter) 
 		       next_action_payload, ad_provider, click_id, attribution_data,
 		       ip_address, user_agent, consent_required, consent_checked,
 		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
 		       timwe_transaction_id, transaction_auth_code, timwe_status,
 		       he_source, he_msisdn, he_operator,
 		       charged_at, charge_payout, conversion_postback_sent,
@@ -624,6 +662,7 @@ func (r *TransactionRepository) scanTransactionFromRow(rows *sql.Rows) (*domain.
 	var nextAction, adProvider, clickID, ipAddress, userAgent, consentVersion,
 		landingVersionHash, timweTransactionID,
 		transactionAuthCode, timweStatus, heSource, heMSISDN, heOperator, chargePayout sql.NullString
+	var offerProductID, pricepointID, partnerRoleID sql.NullInt64
 	var consentTimestamp, chargedAt sql.NullTime
 	var nextActionPayload, attributionData sql.NullString
 
@@ -632,6 +671,7 @@ func (r *TransactionRepository) scanTransactionFromRow(rows *sql.Rows) (*domain.
 		&nextAction, &nextActionPayload, &adProvider, &clickID, &attributionData,
 		&ipAddress, &userAgent, &tx.ConsentRequired, &tx.ConsentChecked,
 		&consentVersion, &consentTimestamp, &landingVersionHash,
+		&offerProductID, &pricepointID, &partnerRoleID,
 		&timweTransactionID, &transactionAuthCode, &timweStatus,
 		&heSource, &heMSISDN, &heOperator,
 		&chargedAt, &chargePayout, &tx.ConversionPostbackSent,
@@ -667,6 +707,18 @@ func (r *TransactionRepository) scanTransactionFromRow(rows *sql.Rows) (*domain.
 	}
 	if landingVersionHash.Valid {
 		tx.LandingVersionHash = &landingVersionHash.String
+	}
+	if offerProductID.Valid {
+		val := int(offerProductID.Int64)
+		tx.OfferProductID = &val
+	}
+	if pricepointID.Valid {
+		val := int(pricepointID.Int64)
+		tx.PricepointID = &val
+	}
+	if partnerRoleID.Valid {
+		val := int(partnerRoleID.Int64)
+		tx.PartnerRoleID = &val
 	}
 	if timweTransactionID.Valid {
 		tx.TimweTransactionID = &timweTransactionID.String

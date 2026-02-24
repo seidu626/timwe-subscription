@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -75,11 +76,25 @@ func InitConfig(conf *viper.Viper, logger zap.Logger, path string, files *[]stri
 	conf.SetDefault("REDIS_PORT", "6379")
 	conf.SetDefault("REDIS_PASSWORD", "")
 	conf.SetDefault("POLLING_RATES_INTERVAL", 50*time.Second)
+	conf.SetDefault("APPLICATION.PORT", 8083)
+	conf.SetDefault("DB.POSTGRESQL.HOST", "localhost")
+	conf.SetDefault("DB.POSTGRESQL.PORT", "5432")
+	conf.SetDefault("DB.POSTGRESQL.USER", "sm_admin")
+	conf.SetDefault("DB.POSTGRESQL.DB_NAME", "subscription_manager")
+	conf.SetDefault("DB.POSTGRESQL.SSL_MODE", "disable")
 
 	conf.AddConfigPath(path)
 	for _, file := range *files {
 		conf.SetConfigFile(file)
 	}
+	conf.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	_ = conf.BindEnv("APPLICATION.PORT", "APPLICATION_PORT", "APP_APPLICATION_PORT")
+	_ = conf.BindEnv("DB.POSTGRESQL.HOST", "DB_POSTGRESQL_HOST", "APP_DATABASE_POSTGRESQL_HOST", "DB.POSTGRESQL.HOST")
+	_ = conf.BindEnv("DB.POSTGRESQL.PORT", "DB_POSTGRESQL_PORT", "APP_DATABASE_POSTGRESQL_PORT", "DB.POSTGRESQL.PORT")
+	_ = conf.BindEnv("DB.POSTGRESQL.USER", "DB_POSTGRESQL_USER", "APP_DATABASE_POSTGRESQL_USER", "DB.POSTGRESQL.USER")
+	_ = conf.BindEnv("DB.POSTGRESQL.PASSWORD", "DB_POSTGRESQL_PASSWORD", "APP_DATABASE_POSTGRESQL_PASSWORD", "DB.POSTGRESQL.PASSWORD")
+	_ = conf.BindEnv("DB.POSTGRESQL.DB_NAME", "DB_POSTGRESQL_DB_NAME", "APP_DATABASE_POSTGRESQL_DB_NAME", "DB.POSTGRESQL.DB_NAME")
+	_ = conf.BindEnv("DB.POSTGRESQL.SSL_MODE", "DB_POSTGRESQL_SSL_MODE", "APP_DATABASE_POSTGRESQL_SSL_MODE", "DB.POSTGRESQL.SSL_MODE")
 	// https://dev.to/techschoolguru/load-config-from-file-environment-variables-in-golang-with-viper-2j2d
 	conf.AutomaticEnv()
 	if err := conf.ReadInConfig(); err != nil {

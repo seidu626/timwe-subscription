@@ -108,3 +108,22 @@ type SubscriptionStatus struct {
 	StartDate      string `json:"startDate"`
 	EndDate        string `json:"endDate"`
 }
+
+// NotificationRequest represents inbound TIMWE webhook payload persisted to notifications.
+type NotificationRequest struct {
+	PartnerRole     int      `json:"partnerRole"`
+	ExternalTxID    string   `json:"externalTxId"`
+	ProductID       int      `json:"productId"`
+	PricepointID    int      `json:"pricepointId"`
+	MCC             string   `json:"mcc"`
+	MNC             string   `json:"mnc"`
+	MSISDN          string   `json:"msisdn"`
+	LargeAccount    string   `json:"largeAccount"`
+	TransactionUUID string   `json:"transactionUuid"`
+	EntryChannel    string   `json:"entryChannel"`
+	MessageType     string   `json:"messageType"`
+	Message         string   `json:"message"`
+	MnoDeliveryCode string   `json:"mnoDeliveryCode"`
+	Tags            []string `json:"tags"`
+	Type            string   `json:"type"`
+}
