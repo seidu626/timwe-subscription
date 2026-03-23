@@ -97,3 +97,11 @@
   - Add `offset` support to both the status-list and bulk-requeue admin endpoints.
   - Return the total matching row count and page metadata to the frontend so the DLQ table can paginate and requeue the current visible page.
 - Prevent recurrence: treat status-management actions as contract-sensitive and verify list ordering plus mutation targeting together whenever this admin surface changes.
+
+## 2026-03-23 - Angular router view transitions can throw InvalidStateError in this admin app
+- Expected: route changes in the admin SPA would complete without uncaught browser transition promise errors.
+- Observed: global `withViewTransitions()` in `frontend/webspa-admin/src/app/app.config.ts` can surface `InvalidStateError: Transition was aborted because of invalid state` when navigations are interrupted or reloaded in this hash-routed admin app.
+- Impact: operators see noisy uncaught promise errors even though the navigation itself may still appear to work.
+- Fix/workaround:
+  - Remove global router view transitions for this app; the admin UI does not depend on them.
+- Prevent recurrence: if route animations are revisited later, prefer Angular/component-level animations over the browser View Transitions API unless the navigation flow is explicitly tested for aborted/reloaded routes.
