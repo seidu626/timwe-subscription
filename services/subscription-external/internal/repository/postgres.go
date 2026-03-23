@@ -9,6 +9,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lib/pq"
@@ -22,6 +23,9 @@ type SubscriptionRepository struct {
 	logger *zap.Logger
 	redis  cached.RedisClient
 	ctx    context.Context
+
+	adminActionSchemaOnce sync.Once
+	adminActionSchemaErr  error
 }
 
 type notificationRow struct {
@@ -407,6 +411,41 @@ func (r *SubscriptionRepository) FetchNotificationsWindow(ntype string, since ti
 	return out, rows.Err()
 }
 
+// FetchChargeSuccessNotifications returns CHARGE notifications with transaction_uuid,
+// paginated by id cursor, ordered ascending.
+func (r *SubscriptionRepository) FetchChargeSuccessNotifications(since time.Time, afterID int64, limit int) ([]ChargeSuccessNotificationRow, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+	args := []interface{}{"CHARGE", since}
+	query := `
+		SELECT id, msisdn, product_id, COALESCE(transaction_uuid, ''), created_at
+		FROM notifications
+		WHERE type = $1 AND created_at >= $2`
+	if afterID > 0 {
+		query += " AND id > $3"
+		args = append(args, afterID)
+	}
+	query += " ORDER BY id ASC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, limit)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch charge success notifications: %w", err)
+	}
+	defer rows.Close()
+
+	var out []ChargeSuccessNotificationRow
+	for rows.Next() {
+		var nr ChargeSuccessNotificationRow
+		if err := rows.Scan(&nr.ID, &nr.MSISDN, &nr.ProductID, &nr.TransactionUUID, &nr.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, nr)
+	}
+	return out, rows.Err()
+}
+
 // FetchUnprocessedOptoutNotifications fetches USER_OPTOUT notifications that haven't been processed yet
 // This prevents re-processing of already handled opt-outs by checking against a processing tracking table
 func (r *SubscriptionRepository) FetchUnprocessedOptoutNotifications(since time.Time, afterId int64, limit int) ([]NotificationRow, error) {
@@ -775,6 +814,52 @@ func (r *SubscriptionRepository) GetDB() *sql.DB {
 	return r.db
 }
 
+func (r *SubscriptionRepository) ensureAdminActionAuditSchema() error {
+	r.adminActionSchemaOnce.Do(func() {
+		ddl := []string{
+			`CREATE TABLE IF NOT EXISTS admin_subscription_action_logs (
+				id UUID PRIMARY KEY,
+				operation VARCHAR(20) NOT NULL,
+				msisdn VARCHAR(50) NOT NULL,
+				product_id INTEGER NOT NULL,
+				partner_role_id INTEGER NOT NULL,
+				external_tx_id VARCHAR(255),
+				admin_request_id VARCHAR(255),
+				request_method VARCHAR(10) NOT NULL,
+				request_url TEXT NOT NULL,
+				request_headers JSONB NOT NULL DEFAULT '{}'::jsonb,
+				request_body JSONB,
+				request_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+				response_status_code INTEGER NOT NULL DEFAULT 0,
+				response_headers JSONB NOT NULL DEFAULT '{}'::jsonb,
+				response_body JSONB,
+				response_timestamp TIMESTAMP WITH TIME ZONE,
+				service_result JSONB,
+				error_payload JSONB,
+				duration_ms BIGINT NOT NULL DEFAULT 0,
+				created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_admin_subscription_action_logs_operation_created_at
+				ON admin_subscription_action_logs (operation, created_at DESC)`,
+			`CREATE INDEX IF NOT EXISTS idx_admin_subscription_action_logs_msisdn_created_at
+				ON admin_subscription_action_logs (msisdn, created_at DESC)`,
+			`CREATE INDEX IF NOT EXISTS idx_admin_subscription_action_logs_external_tx_id
+				ON admin_subscription_action_logs (external_tx_id)`,
+			`CREATE INDEX IF NOT EXISTS idx_admin_subscription_action_logs_admin_request_id
+				ON admin_subscription_action_logs (admin_request_id)`,
+		}
+
+		for _, q := range ddl {
+			if _, err := r.db.ExecContext(r.ctx, q); err != nil {
+				r.adminActionSchemaErr = fmt.Errorf("failed to apply admin action audit schema: %w", err)
+				return
+			}
+		}
+	})
+
+	return r.adminActionSchemaErr
+}
+
 func marshalJSONOrNull(value interface{}) ([]byte, error) {
 	if value == nil {
 		return []byte("null"), nil
@@ -791,6 +876,10 @@ func marshalJSONOrNull(value interface{}) ([]byte, error) {
 
 // CreateAdminActionLog persists a full request/response audit record for admin-triggered TIMWE calls.
 func (r *SubscriptionRepository) CreateAdminActionLog(logEntry *domain.AdminSubscriptionActionLog) error {
+	if err := r.ensureAdminActionAuditSchema(); err != nil {
+		return err
+	}
+
 	requestHeadersJSON, err := marshalJSONOrNull(logEntry.RequestHeaders)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request headers: %w", err)
@@ -877,6 +966,10 @@ func (r *SubscriptionRepository) CreateAdminActionLog(logEntry *domain.AdminSubs
 
 // ListAdminActionLogs returns paginated audit summaries for admin-triggered TIMWE calls.
 func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLogFilter) ([]domain.AdminActionLogSummary, int64, error) {
+	if err := r.ensureAdminActionAuditSchema(); err != nil {
+		return nil, 0, err
+	}
+
 	if filter.Page <= 0 {
 		filter.Page = 1
 	}
@@ -987,6 +1080,10 @@ func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLo
 
 // GetAdminActionLogByID returns a full audit record by its ID.
 func (r *SubscriptionRepository) GetAdminActionLogByID(id string) (*domain.AdminSubscriptionActionLog, error) {
+	if err := r.ensureAdminActionAuditSchema(); err != nil {
+		return nil, err
+	}
+
 	query := `
 		SELECT
 			id,
@@ -1138,7 +1235,7 @@ func (r *SubscriptionRepository) GetSubscription(msisdn string, productID string
 func (r *SubscriptionRepository) GetLastSuccessfulPayment(msisdn string, productID string) (*time.Time, error) {
 	query := `
 		SELECT created_at FROM notifications
-		WHERE msisdn = $1 AND product_id = $2 AND type = 'CHARGE_SUCCESS'
+		WHERE msisdn = $1 AND product_id = $2 AND type = 'CHARGE'
 		ORDER BY created_at DESC LIMIT 1`
 
 	productIDInt, _ := strconv.Atoi(productID)

@@ -2,8 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
@@ -54,29 +57,149 @@ func (h *PostbackAdminHandler) GetByTransactionID(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	type outboxWithAttempts struct {
-		Outbox   any   `json:"outbox"`
-		Attempts any   `json:"attempts"`
-	}
-
-	entries := make([]outboxWithAttempts, 0, len(outbox))
-	for _, o := range outbox {
-		entries = append(entries, outboxWithAttempts{
-			Outbox:   o,
-			Attempts: attemptsByOutbox[o.ID],
-		})
+	// Flatten attempts into a single list (admin UI expects this shape)
+	var allAttempts []*domain.PostbackAttempt
+	for _, attempts := range attemptsByOutbox {
+		allAttempts = append(allAttempts, attempts...)
 	}
 
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	_ = json.NewEncoder(ctx).Encode(map[string]any{
 		"transaction_id": txID.String(),
-		"count":          len(entries),
-		"entries":        entries,
+		"postbacks":      outbox,
+		"attempts":       allAttempts,
+	})
+}
+
+// ListByStatus handles:
+// GET /v1/admin/postbacks/status/:status?limit=50&offset=0
+func (h *PostbackAdminHandler) ListByStatus(ctx *fasthttp.RequestCtx) {
+	path := string(ctx.Path())
+	statusStr := strings.TrimPrefix(path, "/v1/admin/postbacks/status/")
+	if statusStr == "" || statusStr == path {
+		ctx.Error("status is required", fasthttp.StatusBadRequest)
+		return
+	}
+
+	status := domain.PostbackStatus(strings.ToUpper(statusStr))
+
+	limit := 50
+	if raw := string(ctx.QueryArgs().Peek("limit")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			limit = v
+		}
+	}
+
+	offset := 0
+	if raw := string(ctx.QueryArgs().Peek("offset")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v >= 0 {
+			offset = v
+		}
+	}
+
+	outbox, totalCount, err := h.repo.GetByStatus(status, limit, offset)
+	if err != nil {
+		h.logger.Error("Failed to fetch postbacks by status", zap.String("status", string(status)), zap.Error(err))
+		ctx.Error("Failed to fetch postbacks", fasthttp.StatusInternalServerError)
+		return
+	}
+
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(map[string]any{
+		"status": status,
+		"count":  totalCount,
+		"limit":  limit,
+		"offset": offset,
+		"items":  outbox,
+	})
+}
+
+// RetryPostback handles:
+// POST /v1/admin/postbacks/:id/retry
+func (h *PostbackAdminHandler) RetryPostback(ctx *fasthttp.RequestCtx) {
+	path := string(ctx.Path())
+	// Extract ID from /v1/admin/postbacks/<id>/retry
+	trimmed := strings.TrimPrefix(path, "/v1/admin/postbacks/")
+	idStr := strings.TrimSuffix(trimmed, "/retry")
+
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		ctx.Error("id must be a valid UUID", fasthttp.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.ResetForRetry(id); err != nil {
+		h.logger.Error("Failed to retry postback", zap.String("id", id.String()), zap.Error(err))
+		ctx.Error("Failed to retry postback: "+err.Error(), fasthttp.StatusUnprocessableEntity)
+		return
+	}
+
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(map[string]any{
+		"id":     id.String(),
+		"status": "PENDING",
+	})
+}
+
+// BulkRequeueDLQ handles:
+// POST /v1/admin/postbacks/requeue-dlq?limit=100&offset=0
+func (h *PostbackAdminHandler) BulkRequeueDLQ(ctx *fasthttp.RequestCtx) {
+	limit := 100
+	if raw := string(ctx.QueryArgs().Peek("limit")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			limit = v
+		}
+	}
+
+	offset := 0
+	if raw := string(ctx.QueryArgs().Peek("offset")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v >= 0 {
+			offset = v
+		}
+	}
+
+	count, err := h.repo.BulkResetDLQ(limit, offset)
+	if err != nil {
+		h.logger.Error("Failed to bulk requeue DLQ postbacks", zap.Error(err))
+		ctx.Error("Failed to requeue DLQ postbacks", fasthttp.StatusInternalServerError)
+		return
+	}
+
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(map[string]any{
+		"requeued": count,
+		"limit":    limit,
+		"offset":   offset,
+	})
+}
+
+// GetStats handles:
+// GET /v1/admin/postbacks/stats
+func (h *PostbackAdminHandler) GetStats(ctx *fasthttp.RequestCtx) {
+	stats, err := h.repo.GetPostbackStats()
+	if err != nil {
+		h.logger.Error("Failed to fetch postback stats", zap.Error(err))
+		ctx.Error("Failed to fetch postback stats", fasthttp.StatusInternalServerError)
+		return
+	}
+
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(map[string]any{
+		"pending":    stats.Pending,
+		"processing": stats.Processing,
+		"success":    stats.Success,
+		"failed":     stats.Failed,
+		"dlq":        stats.DLQ,
+		"total":      stats.Total,
+		"alert":      stats.DLQ > 0,
 	})
 }
 
 func (h *PostbackAdminHandler) String() string {
 	return "PostbackAdminHandler"
 }
-

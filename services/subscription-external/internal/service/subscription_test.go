@@ -106,6 +106,10 @@ func (m *MockSubscriptionRepository) FetchUnprocessedOptoutNotifications(since t
 	return []repository.NotificationRow{}, nil
 }
 
+func (m *MockSubscriptionRepository) FetchChargeSuccessNotifications(since time.Time, afterID int64, limit int) ([]repository.ChargeSuccessNotificationRow, error) {
+	return []repository.ChargeSuccessNotificationRow{}, nil
+}
+
 func (m *MockSubscriptionRepository) GetSubscriptionByMSISDNAndProduct(msisdn string, productID int) (*domain.Subscription, error) {
 	return nil, nil
 }

@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM golang:1.24-alpine AS builder
+FROM docker.io/library/golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo -o subscription-external ./cmd
 
 # Stage 2: Run
-FROM alpine:latest
+FROM docker.io/library/alpine:latest
 
 # Install CA certificates for HTTPS calls, timezone data, and wget for health checks
 RUN apk --no-cache add ca-certificates tzdata wget

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"net/http"
 	"strings"
 	"time"
 
@@ -15,24 +16,29 @@ import (
 
 // CallbackHandler handles telco callback requests
 type CallbackHandler struct {
-	txRepo        *repository.TransactionRepository
-	postbackRepo  *repository.PostbackRepository
-	providerReg   *service.ProviderRegistry
-	logger        *zap.Logger
+	txRepo           *repository.TransactionRepository
+	campaignRepo     *repository.CampaignRepository
+	postbackRepo     *repository.PostbackRepository
+	providerReg      *service.ProviderRegistry
+	postbackTemplate *service.PostbackTemplateService
+	logger           *zap.Logger
 }
 
 // NewCallbackHandler creates a new callback handler
 func NewCallbackHandler(
 	txRepo *repository.TransactionRepository,
+	campaignRepo *repository.CampaignRepository,
 	postbackRepo *repository.PostbackRepository,
 	providerReg *service.ProviderRegistry,
 	logger *zap.Logger,
 ) *CallbackHandler {
 	return &CallbackHandler{
-		txRepo:      txRepo,
-		postbackRepo: postbackRepo,
-		providerReg: providerReg,
-		logger:      logger,
+		txRepo:           txRepo,
+		campaignRepo:     campaignRepo,
+		postbackRepo:     postbackRepo,
+		providerReg:      providerReg,
+		postbackTemplate: service.NewPostbackTemplateService(logger),
+		logger:           logger,
 	}
 }
 
@@ -133,30 +139,83 @@ func (h *CallbackHandler) findTransactionByMSISDN(msisdn string) (*domain.Acquis
 	return h.txRepo.ScanTransaction(query, msisdn)
 }
 
-// enqueuePostback enqueues a postback (similar to transaction service)
+// enqueuePostback enqueues a postback using campaign templates with legacy fallback
 func (h *CallbackHandler) enqueuePostback(tx *domain.AcquisitionTransaction, event domain.PostbackEvent, attribution *domain.Attribution) {
-	if attribution.Provider == "" {
+	if attribution == nil || attribution.Provider == "" {
+		h.logger.Debug("Skipping postback: no provider")
 		return
 	}
-	
-	provider, err := h.providerReg.Get(attribution.Provider)
-	if err != nil {
-		h.logger.Warn("Provider not found for postback", zap.String("provider", attribution.Provider))
-		return
+
+	// Build postback context
+	pbCtx := domain.NewPostbackContext(tx, attribution)
+
+	// Add payout if available
+	if tx.ChargePayout != nil {
+		pbCtx.Payout = *tx.ChargePayout
 	}
-	
-	outcome := map[string]interface{}{
-		"transaction_id": tx.ID.String(),
-		"status":          string(tx.Status),
-		"msisdn":          tx.MSISDN,
+
+	var req *http.Request
+	var err error
+
+	// Try template-driven postback first (preferred)
+	campaign, campaignErr := h.campaignRepo.GetBySlug(tx.CampaignSlug)
+	if campaignErr != nil {
+		h.logger.Warn("Could not load campaign for postback template lookup",
+			zap.String("campaign_slug", tx.CampaignSlug),
+			zap.Error(campaignErr),
+		)
 	}
-	
-	req, err := provider.BuildPostback(event, attribution, outcome)
-	if err != nil {
-		h.logger.Error("Failed to build postback", zap.Error(err))
-		return
+	if campaign != nil && len(campaign.PostbackRules) > 0 {
+		rules, parseErr := h.postbackTemplate.ParsePostbackRules(campaign.PostbackRules)
+		if parseErr == nil && rules != nil {
+			// Try exact provider match first, then wildcard "*"
+			template, found := h.postbackTemplate.GetTemplateForEvent(rules, event, attribution.Provider)
+			if !found {
+				template, found = h.postbackTemplate.GetTemplateForEvent(rules, event, "*")
+			}
+			if found {
+				req, err = h.postbackTemplate.BuildPostbackFromTemplate(template, pbCtx)
+				if err != nil {
+					h.logger.Error("Failed to build postback from template",
+						zap.String("event", string(event)),
+						zap.String("provider", attribution.Provider),
+						zap.Error(err))
+					return
+				}
+			}
+		}
 	}
-	
+
+	// Fallback to legacy provider-based postback if no template found
+	if req == nil {
+		provider, providerErr := h.providerReg.Get(attribution.Provider)
+		if providerErr != nil {
+			h.logger.Warn("No postback template or provider found, skipping postback",
+				zap.String("provider", attribution.Provider),
+				zap.String("event", string(event)),
+				zap.String("campaign_slug", tx.CampaignSlug),
+			)
+			return
+		}
+
+		outcome := map[string]interface{}{
+			"transaction_id": tx.ID.String(),
+			"status":         string(tx.Status),
+			"msisdn":         tx.MSISDN,
+		}
+
+		req, err = provider.BuildPostback(event, attribution, outcome)
+		if err != nil {
+			h.logger.Warn("Legacy provider postback failed, ensure campaign has postback_rules configured",
+				zap.String("provider", attribution.Provider),
+				zap.String("event", string(event)),
+				zap.String("campaign_slug", tx.CampaignSlug),
+				zap.Error(err),
+			)
+			return
+		}
+	}
+
 	outbox := &domain.PostbackOutbox{
 		ID:                  uuid.New(),
 		TransactionID:       tx.ID,
@@ -170,10 +229,10 @@ func (h *CallbackHandler) enqueuePostback(tx *domain.AcquisitionTransaction, eve
 		CreatedAt:           time.Now(),
 		UpdatedAt:           time.Now(),
 	}
-	
+
 	headersJSON, _ := json.Marshal(req.Header)
 	outbox.Headers = string(headersJSON)
-	
+
 	err = h.postbackRepo.CreateOutbox(outbox)
 	if err != nil {
 		h.logger.Error("Failed to enqueue postback", zap.Error(err))

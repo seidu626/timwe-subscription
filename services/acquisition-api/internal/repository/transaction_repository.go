@@ -401,6 +401,19 @@ func (r *TransactionRepository) FindByClickID(provider, clickID string) (*domain
 
 // FindByTimweTransactionID finds a transaction by TIMWE transaction ID
 func (r *TransactionRepository) FindByTimweTransactionID(timweTransactionID string) (*domain.AcquisitionTransaction, error) {
+	// Check for duplicate rows sharing the same timwe_transaction_id
+	var count int
+	countErr := r.db.QueryRow(
+		`SELECT COUNT(*) FROM acquisition_transactions WHERE timwe_transaction_id = $1`,
+		timweTransactionID,
+	).Scan(&count)
+	if countErr == nil && count > 1 {
+		r.logger.Warn("duplicate timwe_transaction_id detected, returning newest",
+			zap.String("timwe_transaction_id", timweTransactionID),
+			zap.Int("count", count),
+		)
+	}
+
 	query := `
 		SELECT id, correlation_id, campaign_slug, msisdn, status, next_action,
 		       next_action_payload, ad_provider, click_id, attribution_data,
@@ -449,6 +462,40 @@ func (r *TransactionRepository) FindByMSISDNAndStatus(msisdn string, status doma
 	}
 
 	return tx, nil
+}
+
+// FindByMSISDNAndStatuses finds the latest transaction by MSISDN matching any of the given statuses
+func (r *TransactionRepository) FindByMSISDNAndStatuses(msisdn string, statuses []domain.TransactionStatus) (*domain.AcquisitionTransaction, error) {
+	if len(statuses) == 0 {
+		return nil, fmt.Errorf("statuses are required")
+	}
+
+	placeholders := make([]string, len(statuses))
+	args := make([]interface{}, 0, len(statuses)+1)
+	args = append(args, msisdn)
+
+	for i, status := range statuses {
+		placeholders[i] = fmt.Sprintf("$%d", i+2)
+		args = append(args, string(status))
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, correlation_id, campaign_slug, msisdn, status, next_action,
+		       next_action_payload, ad_provider, click_id, attribution_data,
+		       ip_address, user_agent, consent_required, consent_checked,
+		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
+		       timwe_transaction_id, transaction_auth_code, timwe_status,
+		       he_source, he_msisdn, he_operator,
+		       charged_at, charge_payout, conversion_postback_sent,
+		       created_at, updated_at
+		FROM acquisition_transactions
+		WHERE msisdn = $1 AND status IN (%s)
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, strings.Join(placeholders, ", "))
+
+	return r.scanTransaction(query, args...)
 }
 
 // FindLatestByCampaignAndMSISDN finds the latest recent transaction for campaign+msisdn across the provided statuses.

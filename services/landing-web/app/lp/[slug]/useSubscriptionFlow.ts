@@ -245,9 +245,9 @@ export function useSubscriptionFlow({
         return
       }
 
-      setError(data.payload?.message || 'Subscription could not be completed.')
+      setError(normalizeServerMessage(data.payload?.message, 'Subscription could not be completed.'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
+      setError(normalizeServerMessage(err instanceof Error ? err.message : '', 'An unknown error occurred'))
     } finally {
       setLoading(false)
     }
@@ -301,18 +301,20 @@ export function useSubscriptionFlow({
           currency: campaign?.currency || 'USD',
         })
         setStep('SUCCESS')
+      } else if (data.status === 'CONFIRM_REQUIRED') {
+        // Confirmation is still pending - let user retry OTP
+        setOtpCode('')
+        setError(normalizeServerMessage(data.payload?.message, 'Confirmation is still processing. Please re-enter your PIN.'))
+        // Don't reset transaction or step - keep user on OTP_ENTRY
       } else {
         setTransaction(null)
         setOtpCode('')
         setStep('MSISDN_ENTRY')
-        setError(data.payload?.message || 'PIN validation failed. Please try again.')
+        setError(normalizeServerMessage(data.payload?.message, 'PIN validation failed. Please try again.'))
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'An unknown error occurred'
-      if (
-        message.toLowerCase().includes('confirm_required') ||
-        message.toLowerCase().includes('not in confirm_required')
-      ) {
+      const message = normalizeServerMessage(err instanceof Error ? err.message : '', 'An unknown error occurred')
+      if (message.toLowerCase().includes('not in confirm_required')) {
         setTransaction(null)
         setOtpCode('')
         setStep('MSISDN_ENTRY')
@@ -435,14 +437,38 @@ async function parseApiResponse<T>(response: Response, fallbackMessage: string):
 function extractErrorMessage(parsed: unknown, raw: string, fallbackMessage: string): string {
   if (parsed && typeof parsed === 'object') {
     const candidate = parsed as Record<string, unknown>
-    if (typeof candidate.error === 'string' && candidate.error.trim()) return candidate.error
-    if (typeof candidate.message === 'string' && candidate.message.trim()) return candidate.message
+    if (typeof candidate.error === 'string') {
+      const message = normalizeServerMessage(candidate.error, '')
+      if (message) return message
+    }
+    if (typeof candidate.message === 'string') {
+      const message = normalizeServerMessage(candidate.message, '')
+      if (message) return message
+    }
     if (candidate.payload && typeof candidate.payload === 'object') {
       const payload = candidate.payload as Record<string, unknown>
-      if (typeof payload.message === 'string' && payload.message.trim()) return payload.message
+      if (typeof payload.message === 'string') {
+        const message = normalizeServerMessage(payload.message, '')
+        if (message) return message
+      }
     }
   }
-  return raw || fallbackMessage
+  return normalizeServerMessage(raw, fallbackMessage)
+}
+
+function normalizeServerMessage(raw: unknown, fallbackMessage: string): string {
+  if (typeof raw !== 'string') return fallbackMessage
+  const trimmed = raw.trim()
+  if (!trimmed) return fallbackMessage
+
+  switch (trimmed.toLowerCase()) {
+    case 'null':
+    case 'nil':
+    case 'undefined':
+      return fallbackMessage
+    default:
+      return trimmed
+  }
 }
 
 async function sendAnalyticsEvent(

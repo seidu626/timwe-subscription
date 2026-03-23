@@ -125,6 +125,40 @@ func NewRouter(
 			}
 			return
 
+		// Admin postback stats (health check)
+		case strings.EqualFold(path, "/v1/admin/postbacks/stats"):
+			if method == fasthttp.MethodGet {
+				postbackAdminHandler.GetStats(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		// Admin postback DLQ management
+		case strings.EqualFold(path, "/v1/admin/postbacks/requeue-dlq"):
+			if method == fasthttp.MethodPost {
+				postbackAdminHandler.BulkRequeueDLQ(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/postbacks/status/"):
+			if method == fasthttp.MethodGet {
+				postbackAdminHandler.ListByStatus(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/postbacks/") && strings.HasSuffix(path, "/retry"):
+			if method == fasthttp.MethodPost {
+				postbackAdminHandler.RetryPostback(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		// Admin postback diagnostics
 		case strings.EqualFold(path, "/v1/admin/postbacks"):
 			if method == fasthttp.MethodGet {
@@ -231,11 +265,31 @@ func NewRouter(
 			}
 			return
 
+		// Admin trigger postback for a transaction
+		case strings.HasPrefix(path, "/v1/admin/transactions/") && strings.HasSuffix(path, "/trigger-postback"):
+			if method == fasthttp.MethodPost {
+				transactionAdminHandler.TriggerPostback(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		// Admin transaction detail
 		case strings.HasPrefix(path, "/v1/admin/transactions/"):
 			if method == fasthttp.MethodGet {
 				transactionAdminHandler.GetTransaction(ctx)
 			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/campaigns/") && strings.HasSuffix(path, "/postback-rules"):
+			switch method {
+			case fasthttp.MethodGet:
+				campaignHandler.AdminGetPostbackRules(ctx)
+			case fasthttp.MethodPut:
+				campaignHandler.AdminUpdatePostbackRules(ctx)
+			default:
 				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
 			}
 			return

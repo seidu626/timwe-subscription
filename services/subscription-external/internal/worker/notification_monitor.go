@@ -51,12 +51,13 @@ type NotificationMonitorConfig struct {
 // NotificationMonitor scans notifications and reconciles subscription state.
 // It is idempotent and safe to run multiple instances with Redis locks and offsets.
 type NotificationMonitor struct {
-	logger  *zap.Logger
-	repo    repository.SubscriptionRepositoryInterface
-	userSvc *service.SubscriptionService
-	redis   cached.RedisClient
-	cfg     NotificationMonitorConfig
-	ctx     context.Context
+	logger            *zap.Logger
+	repo              repository.SubscriptionRepositoryInterface
+	userSvc           *service.SubscriptionService
+	redis             cached.RedisClient
+	cfg               NotificationMonitorConfig
+	ctx               context.Context
+	acquisitionClient *service.AcquisitionClient // optional; nil disables charge-success processing
 
 	// Enhanced: Resilience and recovery state
 	circuitBreakerState    string       // "CLOSED", "OPEN", "HALF_OPEN"
@@ -156,6 +157,12 @@ func NewNotificationMonitor(logger *zap.Logger, repo repository.SubscriptionRepo
 	}
 }
 
+// WithAcquisitionClient sets the optional acquisition client for charge-success processing.
+func (m *NotificationMonitor) WithAcquisitionClient(c *service.AcquisitionClient) *NotificationMonitor {
+	m.acquisitionClient = c
+	return m
+}
+
 // Run starts the monitor loop. It acquires a lease to avoid multi-instance duplication.
 func (m *NotificationMonitor) Run() error {
 	leaseKey := fmt.Sprintf("%s:lease", m.cfg.RedisKeyPrefix)
@@ -220,6 +227,13 @@ func (m *NotificationMonitor) processCycle() error {
 		m.logger.Error("processGhostSubscriptions failed", zap.Error(err))
 	}
 
+	// process CHARGE postbacks (only when acquisition client is configured)
+	if m.acquisitionClient != nil {
+		if err := m.processChargeSuccess(); err != nil {
+			m.logger.Error("processChargeSuccess failed", zap.Error(err))
+		}
+	}
+
 	// process RENEWAL
 	// if err := m.processRenewal(); err != nil {
 	// 	m.logger.Error("processRenewal failed", zap.Error(err))
@@ -229,6 +243,74 @@ func (m *NotificationMonitor) processCycle() error {
 
 func (m *NotificationMonitor) offsetKey(t string) string {
 	return fmt.Sprintf("%s:offset:%s", m.cfg.RedisKeyPrefix, t)
+}
+
+// processChargeSuccess scans CHARGE notifications and forwards each to
+// the acquisition-api so it can fire conversion postbacks.
+// Note: TIMWE uses notification type "CHARGE" (not "CHARGE_SUCCESS") for successful charges.
+func (m *NotificationMonitor) processChargeSuccess() error {
+	lastID := int64(0)
+	if raw, err := m.redis.Get(m.ctx, m.offsetKey("CHARGE")); err == nil {
+		lastID, _ = strconv.ParseInt(raw, 10, 64)
+	}
+
+	since := time.Now().Add(-time.Duration(m.cfg.ScanLookbackDays) * 24 * time.Hour)
+	processedCount := 0
+	skippedCount := 0
+
+	for {
+		rows, err := m.repo.FetchChargeSuccessNotifications(since, lastID, m.cfg.BatchSize)
+		if err != nil {
+			incError("CHARGE", "fetch_notifications")
+			return fmt.Errorf("failed to fetch charge notifications: %w", err)
+		}
+		if len(rows) == 0 {
+			break
+		}
+
+		for _, n := range rows {
+			incProcessed("CHARGE")
+
+			// Skip rows without a transaction UUID — nothing to post back
+			if n.TransactionUUID == "" {
+				skippedCount++
+				lastID = int64(n.ID)
+				continue
+			}
+
+			// Redis dedup: prevent re-processing across restarts
+			dedupKey := fmt.Sprintf("%s:charge_processed:%d", m.cfg.RedisKeyPrefix, n.ID)
+			if exists, _ := m.redis.Exists(m.ctx, dedupKey); exists > 0 {
+				skippedCount++
+				lastID = int64(n.ID)
+				continue
+			}
+
+			m.acquisitionClient.NotifyChargeSuccessAsync(&service.ChargeSuccessRequest{
+				TimweTransactionID: n.TransactionUUID,
+				MSISDN:             n.MSISDN,
+				ProductID:          n.ProductID,
+				ChargedAt:          n.CreatedAt.UTC().Format(time.RFC3339),
+			})
+
+			// Mark as processed with 30-day TTL
+			_ = m.redis.Set(m.ctx, dedupKey, time.Now().Unix(), 30*24*time.Hour)
+			processedCount++
+			lastID = int64(n.ID)
+		}
+
+		// Persist offset after each batch
+		if err := m.redis.Set(m.ctx, m.offsetKey("CHARGE"), lastID, 7*24*time.Hour); err != nil {
+			m.logger.Error("failed to persist CHARGE offset", zap.Error(err))
+		}
+	}
+
+	if processedCount > 0 || skippedCount > 0 {
+		m.logger.Info("processChargeSuccess cycle complete",
+			zap.Int("processed", processedCount),
+			zap.Int("skipped", skippedCount))
+	}
+	return nil
 }
 
 // processUserOptout logic:

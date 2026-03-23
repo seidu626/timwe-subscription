@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM golang:1.24-alpine AS builder
+FROM docker.io/library/golang:1.24-alpine AS builder
 WORKDIR /app
 
 # Copy everything including vendor
@@ -9,7 +9,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o cadence-engine ./cmd/cadence-engine
 
 # Stage 2: Run
-FROM alpine:latest
+FROM docker.io/library/alpine:latest
 RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /app
 COPY --from=builder /app/cadence-engine .

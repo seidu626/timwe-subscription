@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -429,7 +430,7 @@ func (s *TransactionService) ConfirmTransaction(transactionID uuid.UUID, authCod
 			if timweResp.Status != "" {
 				s.txRepo.UpdateTIMWEData(transactionID, *tx.TimweTransactionID, authCode, timweResp.Status)
 			}
-			message := timweResp.Message
+			message := normalizeProviderMessage(timweResp.Message)
 			if message == "" {
 				message = "Confirmation not finalized yet. Please retry."
 			}
@@ -529,7 +530,11 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 	if campaign != nil && len(campaign.PostbackRules) > 0 {
 		rules, parseErr := s.postbackTemplate.ParsePostbackRules(campaign.PostbackRules)
 		if parseErr == nil && rules != nil {
+			// Try exact provider match first, then wildcard "*"
 			template, found := s.postbackTemplate.GetTemplateForEvent(rules, event, attribution.Provider)
+			if !found {
+				template, found = s.postbackTemplate.GetTemplateForEvent(rules, event, "*")
+			}
 			if found {
 				req, err = s.postbackTemplate.BuildPostbackFromTemplate(template, ctx)
 				if err != nil {
@@ -547,7 +552,11 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 	if req == nil {
 		provider, providerErr := s.providerReg.Get(attribution.Provider)
 		if providerErr != nil {
-			s.logger.Warn("Provider not found for postback", zap.String("provider", attribution.Provider))
+			s.logger.Warn("No postback template or provider found, skipping postback",
+				zap.String("provider", attribution.Provider),
+				zap.String("event", string(event)),
+				zap.String("campaign_slug", tx.CampaignSlug),
+			)
 			return
 		}
 
@@ -559,7 +568,12 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 
 		req, err = provider.BuildPostback(event, attribution, outcome)
 		if err != nil {
-			s.logger.Error("Failed to build postback", zap.Error(err))
+			s.logger.Warn("Legacy provider postback failed, ensure campaign has postback_rules configured",
+				zap.String("provider", attribution.Provider),
+				zap.String("event", string(event)),
+				zap.String("campaign_slug", tx.CampaignSlug),
+				zap.Error(err),
+			)
 			return
 		}
 	}
@@ -614,15 +628,34 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 	// Find transaction by TIMWE transaction ID
 	tx, err := s.txRepo.FindByTimweTransactionID(req.TimweTransactionID)
 	if err != nil {
-		// Fallback: try by MSISDN if provided
+		// Fallback: try by MSISDN if provided, searching across statuses that
+		// may exist due to the confirm bug (transactions stuck in CONFIRM_REQUIRED
+		// or ACTION_REQUIRED even though TIMWE processed the subscription).
 		if req.MSISDN != "" {
-			tx, err = s.txRepo.FindByMSISDNAndStatus(req.MSISDN, domain.StatusSubscribed)
+			tx, err = s.txRepo.FindByMSISDNAndStatuses(req.MSISDN, []domain.TransactionStatus{
+				domain.StatusSubscribed,
+				domain.StatusConfirmRequired,
+				domain.StatusActionRequired,
+			})
 			if err != nil {
 				return fmt.Errorf("transaction not found for timwe_transaction_id=%s: %w", req.TimweTransactionID, err)
 			}
 		} else {
 			return fmt.Errorf("transaction not found for timwe_transaction_id=%s: %w", req.TimweTransactionID, err)
 		}
+	}
+
+	// If the transaction is in a pre-SUBSCRIBED state, advance it to SUBSCRIBED first.
+	// A charge success proves the subscription succeeded on TIMWE's side.
+	if tx.Status == domain.StatusConfirmRequired || tx.Status == domain.StatusActionRequired {
+		s.logger.Info("Advancing transaction from pre-subscribed state on charge success",
+			zap.String("transaction_id", tx.ID.String()),
+			zap.String("previous_status", string(tx.Status)),
+		)
+		if err := s.txRepo.UpdateStatus(tx.ID, domain.StatusSubscribed, nil, nil); err != nil {
+			return fmt.Errorf("failed to advance transaction to SUBSCRIBED: %w", err)
+		}
+		tx.Status = domain.StatusSubscribed
 	}
 
 	// Check if already processed (idempotency)
@@ -688,6 +721,42 @@ func (s *TransactionService) GetTransactionByTimweID(timweTransactionID string) 
 	return s.txRepo.FindByTimweTransactionID(timweTransactionID)
 }
 
+// TriggerPostback manually enqueues a postback for a transaction. This is used by
+// the admin API to recover from pipeline failures or to manually fire postbacks.
+func (s *TransactionService) TriggerPostback(transactionID uuid.UUID, event domain.PostbackEvent) error {
+	tx, err := s.txRepo.GetByID(transactionID)
+	if err != nil {
+		return fmt.Errorf("transaction not found: %w", err)
+	}
+
+	// Parse attribution data
+	var attribution domain.Attribution
+	if len(tx.AttributionData) > 0 {
+		if err := json.Unmarshal(tx.AttributionData, &attribution); err != nil {
+			return fmt.Errorf("failed to parse attribution data: %w", err)
+		}
+	}
+
+	// Get campaign for postback rules
+	campaign, err := s.campaignRepo.GetBySlug(tx.CampaignSlug)
+	if err != nil {
+		s.logger.Warn("Campaign not found for manual postback, will use provider fallback",
+			zap.String("campaign_slug", tx.CampaignSlug),
+			zap.Error(err))
+	}
+
+	s.enqueuePostback(tx, event, &attribution, campaign)
+
+	s.logger.Info("Manual postback triggered",
+		zap.String("transaction_id", transactionID.String()),
+		zap.String("event", string(event)),
+		zap.String("provider", attribution.Provider),
+		zap.String("click_id", attribution.ClickID),
+	)
+
+	return nil
+}
+
 func resolveCampaignRedirectURL(campaign *domain.Campaign) (string, bool) {
 	if campaign == nil {
 		return "", false
@@ -736,9 +805,17 @@ func extractRedirectURLFromTracking(tracking map[string]interface{}) (string, bo
 
 func isPendingConfirmStatus(status string) bool {
 	switch status {
-	case "SUCCESS", "OPTIN_WAITING", "WAITING_FOR_CONFIRMATION", "OPTIN_PIN_WAITING":
+	case "OPTIN_WAITING", "WAITING_FOR_CONFIRMATION", "OPTIN_PIN_WAITING", "OPTIN_PREACTIVE_WAIT_CONF", "SUCCESS":
 		return true
 	default:
 		return false
 	}
+}
+
+func normalizeProviderMessage(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || strings.EqualFold(trimmed, "null") || strings.EqualFold(trimmed, "nil") {
+		return ""
+	}
+	return trimmed
 }

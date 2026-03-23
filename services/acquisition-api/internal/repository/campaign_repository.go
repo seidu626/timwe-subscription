@@ -564,6 +564,30 @@ func (r *CampaignRepository) SetEnabled(slug string, enabled bool, updatedBy *st
 	return r.GetAdminBySlug(outSlug)
 }
 
+// UpdatePostbackRules updates only the postback_rules JSON column for a campaign.
+func (r *CampaignRepository) UpdatePostbackRules(slug string, rules json.RawMessage) error {
+	if strings.TrimSpace(slug) == "" {
+		return errors.New("slug is required")
+	}
+	query := `
+		UPDATE campaigns
+		SET postback_rules = $1, updated_at = NOW()
+		WHERE slug = $2
+	`
+	res, err := r.db.Exec(query, toNullJSON(rules), slug)
+	if err != nil {
+		return fmt.Errorf("failed to update postback_rules: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("campaign not found: %s", slug)
+	}
+	return nil
+}
+
 // scanCampaign scans a campaign from database rows
 func (r *CampaignRepository) scanCampaign(rows *sql.Rows) (*domain.Campaign, error) {
 	var campaign domain.Campaign

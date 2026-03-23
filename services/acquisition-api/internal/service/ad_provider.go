@@ -114,7 +114,11 @@ func (s *PostbackTemplateService) BuildPostbackFromTemplate(template *domain.Pos
 	}
 
 	if ctx.ClickID == "" {
-		return nil, fmt.Errorf("click_id is required for postback")
+		if strings.Contains(template.URL, "{click_id}") || strings.Contains(template.URL, "{txid}") {
+			s.logger.Warn("click_id is empty but URL template contains click_id placeholder",
+				zap.String("template_url", template.URL),
+			)
+		}
 	}
 
 	// Render the URL template

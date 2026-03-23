@@ -900,3 +900,74 @@ func (h *CampaignHandler) AdminPresignBackgroundUpload(ctx *fasthttp.RequestCtx)
 
 	writeJSON(ctx, fasthttp.StatusOK, resp)
 }
+
+// AdminGetPostbackRules handles GET /v1/admin/campaigns/:slug/postback-rules
+func (h *CampaignHandler) AdminGetPostbackRules(ctx *fasthttp.RequestCtx) {
+	path := string(ctx.Path())
+	slug, ok := extractCampaignSlugBeforeSuffix(path, "/postback-rules")
+	if !ok {
+		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		return
+	}
+
+	rules, err := h.service.AdminGetPostbackRules(slug)
+	if err != nil {
+		h.logger.Error("Failed to get postback rules", zap.String("slug", slug), zap.Error(err))
+		if strings.Contains(err.Error(), "campaign not found") {
+			ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+		} else {
+			ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	ctx.Write(rules)
+}
+
+// AdminUpdatePostbackRules handles PUT /v1/admin/campaigns/:slug/postback-rules
+func (h *CampaignHandler) AdminUpdatePostbackRules(ctx *fasthttp.RequestCtx) {
+	path := string(ctx.Path())
+	slug, ok := extractCampaignSlugBeforeSuffix(path, "/postback-rules")
+	if !ok {
+		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		return
+	}
+
+	body := ctx.PostBody()
+	if len(body) == 0 {
+		ctx.Error("Request body is required", fasthttp.StatusBadRequest)
+		return
+	}
+
+	// Validate it's valid JSON
+	if !json.Valid(body) {
+		ctx.Error("Invalid JSON body", fasthttp.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.AdminUpdatePostbackRules(slug, body); err != nil {
+		h.logger.Error("Failed to update postback rules", zap.String("slug", slug), zap.Error(err))
+		if strings.Contains(err.Error(), "invalid postback_rules") {
+			ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		} else if strings.Contains(err.Error(), "campaign not found") {
+			ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+		} else {
+			ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Return the updated rules
+	rules, err := h.service.AdminGetPostbackRules(slug)
+	if err != nil {
+		h.logger.Error("Failed to fetch updated postback rules", zap.String("slug", slug), zap.Error(err))
+		ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
+		return
+	}
+
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	ctx.Write(rules)
+}

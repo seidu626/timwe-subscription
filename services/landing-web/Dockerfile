@@ -1,5 +1,5 @@
 # Dependency stage (cached unless lockfile changes)
-FROM node:20-alpine AS deps
+FROM docker.io/library/node:20-alpine AS deps
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund
 
 # Build stage
-FROM node:20-alpine AS builder
+FROM docker.io/library/node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ ENV BUILD_ID=${BUILD_ID}
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine AS runner
+FROM docker.io/library/node:20-alpine AS runner
 
 WORKDIR /app
 

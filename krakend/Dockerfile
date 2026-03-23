@@ -1,5 +1,5 @@
 # Use the official KrakenD base image (official Docker library image)
-FROM krakend:latest
+FROM docker.io/library/krakend:latest
 
 USER root
 

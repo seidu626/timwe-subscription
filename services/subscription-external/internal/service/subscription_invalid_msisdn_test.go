@@ -89,6 +89,11 @@ func (m *MockSubscriptionRepositoryForInvalidMSISDN) FetchUnprocessedOptoutNotif
 	return args.Get(0).([]repository.NotificationRow), args.Error(1)
 }
 
+func (m *MockSubscriptionRepositoryForInvalidMSISDN) FetchChargeSuccessNotifications(since time.Time, afterID int64, limit int) ([]repository.ChargeSuccessNotificationRow, error) {
+	args := m.Called(since, afterID, limit)
+	return args.Get(0).([]repository.ChargeSuccessNotificationRow), args.Error(1)
+}
+
 func (m *MockSubscriptionRepositoryForInvalidMSISDN) GetSubscriptionByMSISDNAndProduct(msisdn string, productID int) (*domain.Subscription, error) {
 	args := m.Called(msisdn, productID)
 	if args.Get(0) == nil {

@@ -54,7 +54,7 @@ func TestTIMWEClient_OptInUsesSubscriptionExternalEndpoint(t *testing.T) {
 	}
 }
 
-func TestTIMWEClient_ConfirmTreatsPlainSuccessAsNonFinal(t *testing.T) {
+func TestTIMWEClient_ConfirmTreatsPendingSuccessAsNonFinal(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/external/v1/subscription/optin/confirm" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -78,6 +78,122 @@ func TestTIMWEClient_ConfirmTreatsPlainSuccessAsNonFinal(t *testing.T) {
 	}
 	if resp.Success {
 		t.Fatalf("expected non-final SUCCESS to be treated as not confirmed, got %+v", resp)
+	}
+}
+
+func TestTIMWEClient_ConfirmTreatsSuccessWithoutPendingHintsAsFinal(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/external/v1/subscription/optin/confirm" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{},
+			"message":      "null",
+			"inError":      false,
+			"requestId":    "req-2b",
+			"code":         "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	resp, err := client.Confirm("233241234567", 8509, "WEB", "2117", "1234")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !resp.Success {
+		t.Fatalf("expected SUCCESS without pending indicators to be final, got %+v", resp)
+	}
+	if resp.Message != "" {
+		t.Fatalf("expected \"null\" message to be sanitized to empty, got %q", resp.Message)
+	}
+}
+
+func TestTIMWEClient_ConfirmTreatsExplicitPendingStatusAsNonFinal(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/external/v1/subscription/optin/confirm" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{
+				"status": "OPTIN_WAITING",
+			},
+			"message":   "ok",
+			"inError":   false,
+			"requestId": "req-2c",
+			"code":      "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	resp, err := client.Confirm("233241234567", 8509, "WEB", "2117", "1234")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if resp.Success {
+		t.Fatalf("expected explicit pending response status to remain non-final, got %+v", resp)
+	}
+}
+
+func TestTIMWEClient_ConfirmTreatsInnerSuccessStatusAsFinal(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/external/v1/subscription/optin/confirm" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{
+				"subscriptionResult": "SUCCESS",
+			},
+			"message":   "",
+			"inError":   false,
+			"requestId": "req-2d",
+			"code":      "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	resp, err := client.Confirm("233241234567", 8509, "WEB", "2117", "1234")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !resp.Success {
+		t.Fatalf("expected inner SUCCESS subscriptionResult to be treated as final, got %+v", resp)
+	}
+	if resp.Status != "SUCCESS" {
+		t.Fatalf("expected status to reflect inner subscriptionResult, got %q", resp.Status)
+	}
+}
+
+func TestTIMWEClient_ConfirmPropagatesInnerStatusToResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{
+				"status": "OPTIN_WAITING",
+			},
+			"message":   "ok",
+			"inError":   false,
+			"requestId": "req-2e",
+			"code":      "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	resp, err := client.Confirm("233241234567", 8509, "WEB", "2117", "1234")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if resp.Status != "OPTIN_WAITING" {
+		t.Fatalf("expected inner status OPTIN_WAITING to be propagated, got %q", resp.Status)
 	}
 }
 

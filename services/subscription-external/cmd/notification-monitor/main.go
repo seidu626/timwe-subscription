@@ -135,6 +135,10 @@ func main() {
 
 	mon := worker.NewNotificationMonitor(logger, repo, svc, redisClient, *monitorConfig)
 
+	// Wire acquisition client for charge-success postback pipeline
+	acquisitionClient := service.NewAcquisitionClient(logger)
+	mon.WithAcquisitionClient(acquisitionClient)
+
 	if err := mon.Run(); err != nil {
 		log.Fatalf("monitor exited with error: %v", err)
 	}

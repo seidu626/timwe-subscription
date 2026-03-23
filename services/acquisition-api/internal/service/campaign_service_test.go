@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -18,7 +19,8 @@ type fakeCampaignRepo struct {
 	createFn         func(*domain.Campaign) (*domain.Campaign, error)
 	updateFn         func(string, *domain.Campaign) (*domain.Campaign, error)
 	setEnabledFn     func(string, bool, *string) (*domain.Campaign, error)
-	validateOfferFn  func(int, *int) error
+	validateOfferFn      func(int, *int) error
+	updatePostbackRulesFn func(string, json.RawMessage) error
 }
 
 func (f *fakeCampaignRepo) GetBySlug(slug string) (*domain.Campaign, error) {
@@ -41,6 +43,12 @@ func (f *fakeCampaignRepo) Update(slug string, c *domain.Campaign) (*domain.Camp
 }
 func (f *fakeCampaignRepo) SetEnabled(slug string, enabled bool, updatedBy *string) (*domain.Campaign, error) {
 	return f.setEnabledFn(slug, enabled, updatedBy)
+}
+func (f *fakeCampaignRepo) UpdatePostbackRules(slug string, rules json.RawMessage) error {
+	if f.updatePostbackRulesFn != nil {
+		return f.updatePostbackRulesFn(slug, rules)
+	}
+	return nil
 }
 func (f *fakeCampaignRepo) ValidateOfferProductMapping(offerProductID int, pricepointID *int) error {
 	if f.validateOfferFn == nil {

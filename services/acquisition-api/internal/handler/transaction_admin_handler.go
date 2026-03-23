@@ -5,21 +5,25 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
 
 // TransactionAdminHandler handles admin transaction-related HTTP requests
 type TransactionAdminHandler struct {
-	txRepo *repository.TransactionRepository
-	logger *zap.Logger
+	txRepo  *repository.TransactionRepository
+	txSvc   *service.TransactionService
+	logger  *zap.Logger
 }
 
 // NewTransactionAdminHandler creates a new transaction admin handler
-func NewTransactionAdminHandler(txRepo *repository.TransactionRepository, logger *zap.Logger) *TransactionAdminHandler {
+func NewTransactionAdminHandler(txRepo *repository.TransactionRepository, txSvc *service.TransactionService, logger *zap.Logger) *TransactionAdminHandler {
 	return &TransactionAdminHandler{
 		txRepo: txRepo,
+		txSvc:  txSvc,
 		logger: logger,
 	}
 }
@@ -252,6 +256,48 @@ func splitPathParts(path string) []string {
 		parts = append(parts, current)
 	}
 	return parts
+}
+
+// TriggerPostback handles POST /v1/admin/transactions/:id/trigger-postback
+// Manually enqueues a postback for a transaction that never had one fired.
+func (h *TransactionAdminHandler) TriggerPostback(ctx *fasthttp.RequestCtx) {
+	path := string(ctx.Path())
+	parts := splitPathParts(path)
+	// /v1/admin/transactions/{id}/trigger-postback => [v1, admin, transactions, {id}, trigger-postback]
+	if len(parts) < 5 {
+		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		return
+	}
+
+	txIDStr := parts[len(parts)-2]
+	txID, err := parseTransactionUUID(txIDStr)
+	if err != nil {
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid transaction ID")
+		return
+	}
+
+	// Default to conversion event; allow override via query param
+	event := domain.PostbackEventConversion
+	if e := string(ctx.QueryArgs().Peek("event")); e != "" {
+		event = domain.PostbackEvent(e)
+	}
+
+	if err := h.txSvc.TriggerPostback(txID, event); err != nil {
+		h.logger.Error("Failed to trigger postback",
+			zap.String("transaction_id", txIDStr),
+			zap.Error(err))
+		writeJSONError(ctx, fasthttp.StatusInternalServerError, err.Error())
+		return
+	}
+
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	json.NewEncoder(ctx).Encode(map[string]interface{}{
+		"status":         "ok",
+		"transaction_id": txID.String(),
+		"event":          string(event),
+		"message":        "Postback enqueued successfully",
+	})
 }
 
 // Helper to parse UUID string

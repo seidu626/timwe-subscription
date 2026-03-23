@@ -113,6 +113,28 @@ func (c *fallbackPricepointTIMWEClient) Confirm(msisdn string, productID int, en
 	return nil, fmt.Errorf("request failed with status code: 400 (code=INTERNAL_ERROR message=MT response error [INVALID_PRICEPOINT_ID]: Invalid PricepointId)")
 }
 
+func TestNormalizeProviderMessage(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "empty", input: "", want: ""},
+		{name: "whitespace", input: "   ", want: ""},
+		{name: "null literal", input: "null", want: ""},
+		{name: "nil literal", input: "nil", want: ""},
+		{name: "normal text", input: "Confirmation pending", want: "Confirmation pending"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normalizeProviderMessage(tc.input); got != tc.want {
+				t.Fatalf("unexpected normalized message: got=%q want=%q", got, tc.want)
+			}
+		})
+	}
+}
+
 func campaignColumns() []string {
 	return []string{
 		"id", "slug", "language", "country", "operator", "offer_product_id", "pricepoint_id", "partner_role_id",

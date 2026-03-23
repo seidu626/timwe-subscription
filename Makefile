@@ -25,8 +25,11 @@ TIMEOUT  				:= 60s
 #GIT_BRANCH  			:= $(shell git rev-parse --abbrev-ref HEAD)
 
 # Variables
-DOCKER_USER = xper626
-VERSION = latest
+DOCKER_USER ?= xper626
+VERSION ?= latest
+DOCKER_PUSH_REGISTRY ?= docker.io
+PUSH_RETRIES ?= 4
+PUSH_RETRY_DELAY_SECONDS ?= 5
 
 # Directories
 SUBSCRIPTION_DIR = services/subscription-partner
@@ -55,8 +58,8 @@ GOPATH := $(shell go env GOPATH)
 
 # Service ports
 SUBSCRIPTION_EXTERNAL_PORT = 8083
-SUBSCRIPTION_PORT = 8081
-BILLING_PORT = 8083
+SUBSCRIPTION_PORT = 8087
+BILLING_PORT = 8085
 NOTIFICATION_PORT = 8082
 ACQUISITION_API_PORT = 8084
 KRAKEND_PORT = 8080
@@ -799,7 +802,7 @@ krakend-check: krakend-query-forwarding-check
 		-e FC_SETTINGS="/etc/krakend/config/settings" \
 		-e FC_PARTIALS="/etc/krakend/config/partials" \
 		-e FC_TEMPLATES="/etc/krakend/config/templates" \
-		krakend:latest \
+		docker.io/library/krakend:latest \
 		krakend check -t -c "/etc/krakend/config/krakend.tmpl"
 
 krakend-check-do: krakend-query-forwarding-check
@@ -810,7 +813,7 @@ krakend-check-do: krakend-query-forwarding-check
 		-e FC_SETTINGS="/etc/krakend/config/settings/do" \
 		-e FC_PARTIALS="/etc/krakend/config/partials" \
 		-e FC_TEMPLATES="/etc/krakend/config/templates" \
-		krakend:latest \
+		docker.io/library/krakend:latest \
 		krakend check -t -c "/etc/krakend/config/krakend.tmpl"
 
 .PHONY: krakend-debug-do
@@ -822,7 +825,7 @@ krakend-debug-do:
 		-e FC_SETTINGS="/etc/krakend/config/settings/do" \
 		-e FC_PARTIALS="/etc/krakend/config/partials" \
 		-e FC_TEMPLATES="/etc/krakend/config/templates" \
-		krakend:latest \
+		docker.io/library/krakend:latest \
 		krakend check -d -c "/etc/krakend/config/krakend.tmpl"
 
 .PHONY: docker-build-subscription-partner
@@ -925,65 +928,95 @@ build-all: docker-build-all
 # Docker Push Targets
 # =============================================================================
 
+# Keep local build tags short to match compose/k8s manifests, but push fully
+# qualified refs so Podman does not rely on implicit Docker Hub resolution.
+define push_image
+	@docker tag $(1):$(VERSION) $(DOCKER_PUSH_REGISTRY)/$(1):$(VERSION)
+	@attempt=1; \
+	while [ $$attempt -le $(PUSH_RETRIES) ]; do \
+		if docker push $(DOCKER_PUSH_REGISTRY)/$(1):$(VERSION); then \
+			break; \
+		fi; \
+		if [ $$attempt -eq $(PUSH_RETRIES) ]; then \
+			echo "❌ Push failed after $(PUSH_RETRIES) attempts: $(DOCKER_PUSH_REGISTRY)/$(1):$(VERSION)"; \
+			exit 1; \
+		fi; \
+		echo "⚠️ Push attempt $$attempt failed for $(DOCKER_PUSH_REGISTRY)/$(1):$(VERSION); retrying in $(PUSH_RETRY_DELAY_SECONDS)s..."; \
+		attempt=$$((attempt + 1)); \
+		sleep $(PUSH_RETRY_DELAY_SECONDS); \
+	done
+endef
+
+.PHONY: docker-login-check
+docker-login-check:
+	@logged_in_user="$$(docker login --get-login $(DOCKER_PUSH_REGISTRY) 2>/dev/null || true)"; \
+	if [ -z "$$logged_in_user" ]; then \
+		echo "❌ Not logged into $(DOCKER_PUSH_REGISTRY). Run: docker login $(DOCKER_PUSH_REGISTRY)"; \
+		echo "   If you need a different namespace, override DOCKER_USER, for example:"; \
+		echo "   make DOCKER_USER=<your-dockerhub-namespace> docker-push-subscription-external"; \
+		exit 1; \
+	fi; \
+	echo "🔐 Logged into $(DOCKER_PUSH_REGISTRY) as $$logged_in_user"
+
 .PHONY: docker-push-krakend
-docker-push-krakend:
+docker-push-krakend: docker-login-check
 	@echo "📤 Pushing KrakenD image..."
-	docker push $(KRAKEND_IMAGE):$(VERSION)
-	@echo "✅ KrakenD image pushed: $(KRAKEND_IMAGE):$(VERSION)"
+	$(call push_image,$(KRAKEND_IMAGE))
+	@echo "✅ KrakenD image pushed: $(DOCKER_PUSH_REGISTRY)/$(KRAKEND_IMAGE):$(VERSION)"
 
 .PHONY: docker-push-subscription-partner
-docker-push-subscription-partner:
+docker-push-subscription-partner: docker-login-check
 	@echo "📤 Pushing Subscription Partner image..."
-	docker push $(SUBSCRIPTION_PARTNER_IMAGE):$(VERSION)
-	@echo "✅ Subscription Partner image pushed: $(SUBSCRIPTION_PARTNER_IMAGE):$(VERSION)"
+	$(call push_image,$(SUBSCRIPTION_PARTNER_IMAGE))
+	@echo "✅ Subscription Partner image pushed: $(DOCKER_PUSH_REGISTRY)/$(SUBSCRIPTION_PARTNER_IMAGE):$(VERSION)"
 
 .PHONY: docker-push-subscription-external
-docker-push-subscription-external:
+docker-push-subscription-external: docker-login-check
 	@echo "📤 Pushing Subscription External image..."
-	docker push $(SUBSCRIPTION_EXTERNAL_IMAGE):$(VERSION)
-	@echo "✅ Subscription External image pushed: $(SUBSCRIPTION_EXTERNAL_IMAGE):$(VERSION)"
+	$(call push_image,$(SUBSCRIPTION_EXTERNAL_IMAGE))
+	@echo "✅ Subscription External image pushed: $(DOCKER_PUSH_REGISTRY)/$(SUBSCRIPTION_EXTERNAL_IMAGE):$(VERSION)"
 
 .PHONY: docker-push-billing
-docker-push-billing:
+docker-push-billing: docker-login-check
 	@echo "📤 Pushing Billing image..."
-	docker push $(BILLING_IMAGE):$(VERSION)
-	@echo "✅ Billing image pushed: $(BILLING_IMAGE):$(VERSION)"
+	$(call push_image,$(BILLING_IMAGE))
+	@echo "✅ Billing image pushed: $(DOCKER_PUSH_REGISTRY)/$(BILLING_IMAGE):$(VERSION)"
 
 .PHONY: docker-push-notification
-docker-push-notification:
+docker-push-notification: docker-login-check
 	@echo "📤 Pushing Notification image..."
-	docker push $(NOTIFICATION_IMAGE):$(VERSION)
-	@echo "✅ Notification image pushed: $(NOTIFICATION_IMAGE):$(VERSION)"
+	$(call push_image,$(NOTIFICATION_IMAGE))
+	@echo "✅ Notification image pushed: $(DOCKER_PUSH_REGISTRY)/$(NOTIFICATION_IMAGE):$(VERSION)"
 
 .PHONY: docker-push-acquisition-api
-docker-push-acquisition-api:
+docker-push-acquisition-api: docker-login-check
 	@echo "📤 Pushing Acquisition API image..."
-	docker push $(ACQUISITION_API_IMAGE):$(VERSION)
-	@echo "✅ Acquisition API image pushed: $(ACQUISITION_API_IMAGE):$(VERSION)"
+	$(call push_image,$(ACQUISITION_API_IMAGE))
+	@echo "✅ Acquisition API image pushed: $(DOCKER_PUSH_REGISTRY)/$(ACQUISITION_API_IMAGE):$(VERSION)"
 
 .PHONY: docker-push-postback-dispatcher
-docker-push-postback-dispatcher:
+docker-push-postback-dispatcher: docker-login-check
 	@echo "📤 Pushing Postback Dispatcher image..."
-	docker push $(POSTBACK_DISPATCHER_IMAGE):$(VERSION)
-	@echo "✅ Postback Dispatcher image pushed: $(POSTBACK_DISPATCHER_IMAGE):$(VERSION)"
+	$(call push_image,$(POSTBACK_DISPATCHER_IMAGE))
+	@echo "✅ Postback Dispatcher image pushed: $(DOCKER_PUSH_REGISTRY)/$(POSTBACK_DISPATCHER_IMAGE):$(VERSION)"
 
 .PHONY: docker-push-landing-web
-docker-push-landing-web:
+docker-push-landing-web: docker-login-check
 	@echo "📤 Pushing Landing Web image..."
-	docker push $(LANDING_WEB_IMAGE):$(VERSION)
-	@echo "✅ Landing Web image pushed: $(LANDING_WEB_IMAGE):$(VERSION)"
+	$(call push_image,$(LANDING_WEB_IMAGE))
+	@echo "✅ Landing Web image pushed: $(DOCKER_PUSH_REGISTRY)/$(LANDING_WEB_IMAGE):$(VERSION)"
 
 .PHONY: docker-push-webspa-admin
-docker-push-webspa-admin:
+docker-push-webspa-admin: docker-login-check
 	@echo "📤 Pushing WebSPA Admin image..."
-	docker push $(WEBSPA_ADMIN_IMAGE):$(VERSION)
-	@echo "✅ WebSPA Admin image pushed: $(WEBSPA_ADMIN_IMAGE):$(VERSION)"
+	$(call push_image,$(WEBSPA_ADMIN_IMAGE))
+	@echo "✅ WebSPA Admin image pushed: $(DOCKER_PUSH_REGISTRY)/$(WEBSPA_ADMIN_IMAGE):$(VERSION)"
 
 .PHONY: docker-push-cadence-engine
-docker-push-cadence-engine:
+docker-push-cadence-engine: docker-login-check
 	@echo "📤 Pushing Cadence Engine image..."
-	docker push $(CADENCE_ENGINE_IMAGE):$(VERSION)
-	@echo "✅ Cadence Engine image pushed: $(CADENCE_ENGINE_IMAGE):$(VERSION)"
+	$(call push_image,$(CADENCE_ENGINE_IMAGE))
+	@echo "✅ Cadence Engine image pushed: $(DOCKER_PUSH_REGISTRY)/$(CADENCE_ENGINE_IMAGE):$(VERSION)"
 
 # Push core services
 .PHONY: docker-push-core
@@ -1073,6 +1106,71 @@ docker-release-core: docker-build-core docker-push-core
 .PHONY: docker-release-all
 docker-release-all: docker-build-all docker-push-all
 	@echo "🚀 All services released successfully!"
+
+# =============================================================================
+# Deploy Targets (Build + Push + Remote Deploy)
+# =============================================================================
+# Runs build, push, then SSH into the server to pull & restart the service.
+# Override DEPLOY_SSH_HOST to change the target server.
+
+DEPLOY_SSH_HOST ?= do-sa-user
+DEPLOY_SCRIPT ?= ~/services/nouveauricheglobalgroup/deploy.sh
+
+define deploy_service
+	@echo "🚀 Deploying $(1) to $(DEPLOY_SSH_HOST)..."
+	ssh $(DEPLOY_SSH_HOST) "$(DEPLOY_SCRIPT) $(1)"
+	@echo "✅ $(1) deployed successfully!"
+endef
+
+.PHONY: deploy-krakend
+deploy-krakend: docker-release-krakend
+	$(call deploy_service,krakend)
+
+.PHONY: deploy-subscription-partner
+deploy-subscription-partner: docker-release-subscription-partner
+	$(call deploy_service,subscription-partner)
+
+.PHONY: deploy-subscription-external
+deploy-subscription-external: docker-release-subscription-external
+	$(call deploy_service,subscription-external)
+
+.PHONY: deploy-billing
+deploy-billing: docker-release-billing
+	$(call deploy_service,billing)
+
+.PHONY: deploy-notification
+deploy-notification: docker-release-notification
+	$(call deploy_service,notification)
+
+.PHONY: deploy-acquisition-api
+deploy-acquisition-api: docker-release-acquisition-api
+	$(call deploy_service,acquisition-api)
+
+.PHONY: deploy-postback-dispatcher
+deploy-postback-dispatcher: docker-release-postback-dispatcher
+	$(call deploy_service,postback-dispatcher)
+
+.PHONY: deploy-landing-web
+deploy-landing-web: docker-release-landing-web
+	$(call deploy_service,landing-web)
+
+.PHONY: deploy-webspa-admin
+deploy-webspa-admin: docker-release-webspa-admin
+	$(call deploy_service,webspa-admin)
+
+.PHONY: deploy-cadence-engine
+deploy-cadence-engine: docker-release-cadence-engine
+	$(call deploy_service,cadence-engine)
+
+.PHONY: deploy-core
+deploy-core: docker-release-core
+	$(call deploy_service,subscription-partner subscription-external notification acquisition-api cadence-engine)
+
+.PHONY: deploy-all
+deploy-all: docker-release-all
+	@echo "🚀 Deploying all services to $(DEPLOY_SSH_HOST)..."
+	ssh $(DEPLOY_SSH_HOST) "$(DEPLOY_SCRIPT)"
+	@echo "✅ All services deployed successfully!"
 
 # Legacy aliases (backward compatibility)
 release-subscription: docker-release-subscription-partner

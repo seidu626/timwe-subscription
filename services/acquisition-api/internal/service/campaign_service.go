@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -18,6 +19,7 @@ type CampaignRepo interface {
 	Create(c *domain.Campaign) (*domain.Campaign, error)
 	Update(slug string, c *domain.Campaign) (*domain.Campaign, error)
 	SetEnabled(slug string, enabled bool, updatedBy *string) (*domain.Campaign, error)
+	UpdatePostbackRules(slug string, rules json.RawMessage) error
 }
 
 // CampaignService handles campaign business logic
@@ -114,6 +116,32 @@ func (s *CampaignService) AdminSetEnabled(slug string, enabled bool, updatedBy *
 		return nil, fmt.Errorf("failed to set enabled: %w", err)
 	}
 	return updated, nil
+}
+
+// AdminGetPostbackRules returns the current postback_rules for a campaign.
+func (s *CampaignService) AdminGetPostbackRules(slug string) (json.RawMessage, error) {
+	campaign, err := s.repo.GetAdminBySlug(slug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get campaign: %w", err)
+	}
+	if len(campaign.PostbackRules) == 0 {
+		return json.RawMessage("{}"), nil
+	}
+	return campaign.PostbackRules, nil
+}
+
+// AdminUpdatePostbackRules validates and updates the postback_rules for a campaign.
+func (s *CampaignService) AdminUpdatePostbackRules(slug string, rules json.RawMessage) error {
+	// Validate that the JSON parses as domain.PostbackRules
+	var parsed domain.PostbackRules
+	if err := json.Unmarshal(rules, &parsed); err != nil {
+		return fmt.Errorf("invalid postback_rules: %w", err)
+	}
+
+	if err := s.repo.UpdatePostbackRules(slug, rules); err != nil {
+		return fmt.Errorf("failed to update postback_rules: %w", err)
+	}
+	return nil
 }
 
 // AdminClone creates a new campaign by cloning an existing one with a new slug.

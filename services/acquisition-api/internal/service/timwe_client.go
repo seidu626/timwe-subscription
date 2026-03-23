@@ -238,7 +238,7 @@ func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel strin
 		Success:       !mtResp.InError,
 		TransactionID: txUUID,
 		Status:        mtResp.Code,
-		Message:       mtResp.Message,
+		Message:       sanitizeTIMWEMessage(mtResp.Message),
 	}
 
 	// Extract transaction auth code if present in response data
@@ -365,16 +365,26 @@ func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel str
 	}
 	done(true)
 
-	// Convert to TIMWEResponse
+	// Prefer the inner subscription status from ResponseData over the top-level code,
+	// since the top-level code may just indicate the API call succeeded (e.g. "SUCCESS")
+	// while the inner status reflects the actual subscription state.
+	confirmStatus := mtResp.Code
+	if innerStatus, ok := extractConfirmResultStatus(mtResp); ok {
+		confirmStatus = innerStatus
+	}
+
 	response := &TIMWEResponse{
 		Success: c.isFinalConfirmSuccess(mtResp),
-		Status:  mtResp.Code,
-		Message: mtResp.Message,
+		Status:  confirmStatus,
+		Message: sanitizeTIMWEMessage(mtResp.Message),
 	}
 
 	c.logger.Info("Subscription confirm response",
 		zap.String("msisdn", msisdn),
 		zap.String("code", mtResp.Code),
+		zap.String("message", mtResp.Message),
+		zap.Bool("in_error", mtResp.InError),
+		zap.Any("response_data", mtResp.ResponseData),
 		zap.Bool("success", response.Success),
 	)
 
@@ -426,11 +436,16 @@ func (c *TIMWEClientImpl) ConfirmWithDetails(msisdn string, productID int, authC
 	}
 	done(true)
 
-	// Convert to TIMWEResponse
+	// Prefer inner subscription status from ResponseData over top-level code.
+	confirmWithDetailsStatus := mtResp.Code
+	if innerStatus, ok := extractConfirmResultStatus(mtResp); ok {
+		confirmWithDetailsStatus = innerStatus
+	}
+
 	response := &TIMWEResponse{
 		Success: c.isFinalConfirmSuccess(mtResp),
-		Status:  mtResp.Code,
-		Message: mtResp.Message,
+		Status:  confirmWithDetailsStatus,
+		Message: sanitizeTIMWEMessage(mtResp.Message),
 	}
 
 	c.logger.Info("Subscription ConfirmWithDetails response",
@@ -634,27 +649,75 @@ func (c *TIMWEClientImpl) isFinalConfirmSuccess(mtResp *MTResponse) bool {
 		return false
 	}
 
-	switch strings.ToUpper(mtResp.Code) {
-	case "SUBSCRIBED", "CONFIRMED", "OPTIN_SUCCESS":
-		return true
+	if status, ok := extractConfirmResultStatus(mtResp); ok {
+		c.logger.Debug("Confirm inner status extracted",
+			zap.String("inner_status", status),
+			zap.String("top_level_code", mtResp.Code),
+			zap.String("message", mtResp.Message),
+		)
+		switch status {
+		case "OPTIN_PREACTIVE_WAIT_CONF", "OPTIN_WAITING", "OPTIN_PIN_WAITING", "WAITING_FOR_CONFIRMATION":
+			return false
+		case "SUBSCRIBED", "CONFIRMED", "OPTIN_SUCCESS", "SUCCESS":
+			return true
+		}
 	}
 
-	if mtResp.ResponseData != nil {
-		for _, key := range []string{"subscriptionResult", "status", "subscriptionStatus"} {
-			raw, ok := mtResp.ResponseData[key]
-			if !ok {
-				continue
-			}
-			value, ok := raw.(string)
-			if !ok {
-				continue
-			}
-			switch strings.ToUpper(value) {
-			case "SUBSCRIBED", "CONFIRMED", "OPTIN_SUCCESS":
-				return true
-			}
+	switch strings.ToUpper(strings.TrimSpace(mtResp.Code)) {
+	case "SUBSCRIBED", "CONFIRMED", "OPTIN_SUCCESS":
+		return true
+	case "SUCCESS":
+		// Some partners return SUCCESS without a terminal subscriptionResult.
+		// Treat it as final unless the message explicitly indicates pending state.
+		return !confirmMessageIndicatesPending(mtResp.Message)
+	}
+
+	return false
+}
+
+func extractConfirmResultStatus(mtResp *MTResponse) (string, bool) {
+	if mtResp == nil || mtResp.ResponseData == nil {
+		return "", false
+	}
+
+	for _, key := range []string{"subscriptionResult", "status", "subscriptionStatus"} {
+		raw, ok := mtResp.ResponseData[key]
+		if !ok {
+			continue
+		}
+		value, ok := raw.(string)
+		if !ok {
+			continue
+		}
+		normalized := strings.ToUpper(strings.TrimSpace(value))
+		if normalized == "" {
+			continue
+		}
+		return normalized, true
+	}
+
+	return "", false
+}
+
+func confirmMessageIndicatesPending(raw string) bool {
+	message := strings.ToLower(strings.TrimSpace(raw))
+	if message == "" {
+		return false
+	}
+
+	for _, keyword := range []string{"pending", "wait", "waiting", "not finalized", "processing"} {
+		if strings.Contains(message, keyword) {
+			return true
 		}
 	}
 
 	return false
+}
+
+func sanitizeTIMWEMessage(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || strings.EqualFold(trimmed, "null") || strings.EqualFold(trimmed, "nil") {
+		return ""
+	}
+	return trimmed
 }

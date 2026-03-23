@@ -19,6 +19,7 @@ import (
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/transport"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/worker"
 	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/common/config"
 	"github.com/valyala/fasthttp"
@@ -141,12 +142,12 @@ func main() {
 	// Initialize handlers
 	campaignHandler := handler.NewCampaignHandler(campaignService, campaignAssetService, logger)
 	transactionHandler := handler.NewTransactionHandler(transactionService, logger)
-	callbackHandler := handler.NewCallbackHandler(transactionRepo, postbackRepo, providerRegistry, logger)
+	callbackHandler := handler.NewCallbackHandler(transactionRepo, campaignRepo, postbackRepo, providerRegistry, logger)
 	internalHandler := handler.NewInternalHandler(transactionService, logger)
 	analyticsHandler := handler.NewAnalyticsHandler(landingEventRepo, logger)
 	reportsHandler := handler.NewReportsHandler(reportsRepo, logger)
 	postbackAdminHandler := handler.NewPostbackAdminHandler(postbackRepo, logger)
-	transactionAdminHandler := handler.NewTransactionAdminHandler(transactionRepo, logger)
+	transactionAdminHandler := handler.NewTransactionAdminHandler(transactionRepo, transactionService, logger)
 	adminManagementHandler := handler.NewAdminManagementHandler(adminManagementService, logger)
 
 	// Initialize click-out handler (optional, configured via environment)
@@ -207,6 +208,12 @@ func main() {
 
 	logger.Info("Starting acquisition API service", zap.Int("port", port))
 
+	// Start postback dispatcher worker
+	dispatcherCtx, dispatcherCancel := context.WithCancel(context.Background())
+	dispatcher := worker.NewPostbackDispatcher(postbackRepo, logger, worker.PostbackDispatcherConfig{})
+	go dispatcher.Start(dispatcherCtx)
+	logger.Info("Postback dispatcher started")
+
 	// Set up signal handling for graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -219,6 +226,7 @@ func main() {
 
 	<-quit
 	log.Println("Shutting down server...")
+	dispatcherCancel()
 
 	// Create shutdown context with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

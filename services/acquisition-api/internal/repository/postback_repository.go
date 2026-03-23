@@ -318,6 +318,164 @@ func (r *PostbackRepository) scanPostbackOutbox(rows *sql.Rows) (*domain.Postbac
 	return &pb, nil
 }
 
+// ResetStaleProcessing resets PROCESSING records older than the given duration back to PENDING.
+// This recovers postbacks stuck due to dispatcher crashes.
+func (r *PostbackRepository) ResetStaleProcessing(olderThan time.Duration) (int64, error) {
+	query := `
+		UPDATE postback_outbox
+		SET status = 'PENDING', updated_at = CURRENT_TIMESTAMP
+		WHERE status = 'PROCESSING'
+		  AND updated_at < CURRENT_TIMESTAMP - $1::interval
+	`
+
+	result, err := r.db.Exec(query, olderThan.String())
+	if err != nil {
+		return 0, fmt.Errorf("failed to reset stale processing postbacks: %w", err)
+	}
+
+	return result.RowsAffected()
+}
+
+// GetByStatus returns postback outbox records filtered by status with paging metadata.
+func (r *PostbackRepository) GetByStatus(status domain.PostbackStatus, limit int, offset int) ([]*domain.PostbackOutbox, int64, error) {
+	countQuery := `
+		SELECT COUNT(*)
+		FROM postback_outbox
+		WHERE status = $1
+	`
+
+	var totalCount int64
+	if err := r.db.QueryRow(countQuery, status).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count postback outbox by status: %w", err)
+	}
+
+	orderDirection := "DESC"
+	if status == domain.PostbackStatusDLQ {
+		orderDirection = "ASC"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, transaction_id, event, provider, url_template_rendered,
+		       http_method, headers, body, attempt_count, max_attempts,
+		       next_retry_at, status, created_at, updated_at
+		FROM postback_outbox
+		WHERE status = $1
+		ORDER BY created_at %s
+		LIMIT $2 OFFSET $3
+	`, orderDirection)
+
+	rows, err := r.db.Query(query, status, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query postback outbox by status: %w", err)
+	}
+	defer rows.Close()
+
+	var outbox []*domain.PostbackOutbox
+	for rows.Next() {
+		pb, err := r.scanPostbackOutbox(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan postback outbox: %w", err)
+		}
+		outbox = append(outbox, pb)
+	}
+	return outbox, totalCount, nil
+}
+
+// ResetForRetry resets a single postback to PENDING with attempt_count=0 and next_retry_at=NULL.
+func (r *PostbackRepository) ResetForRetry(id uuid.UUID) error {
+	query := `
+		UPDATE postback_outbox
+		SET status = 'PENDING', attempt_count = 0, next_retry_at = NULL, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1 AND status IN ('DLQ', 'FAILED')
+	`
+
+	result, err := r.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("failed to reset postback for retry: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("postback not found or not in DLQ/FAILED status")
+	}
+
+	return nil
+}
+
+// BulkResetDLQ resets a page of DLQ postbacks back to PENDING. Returns count of updated rows.
+func (r *PostbackRepository) BulkResetDLQ(limit int, offset int) (int64, error) {
+	query := `
+		UPDATE postback_outbox
+		SET status = 'PENDING', attempt_count = 0, next_retry_at = NULL, updated_at = CURRENT_TIMESTAMP
+		WHERE id IN (
+			SELECT id FROM postback_outbox
+			WHERE status = 'DLQ'
+			ORDER BY created_at ASC
+			LIMIT $1 OFFSET $2
+		)
+	`
+
+	result, err := r.db.Exec(query, limit, offset)
+	if err != nil {
+		return 0, fmt.Errorf("failed to bulk reset DLQ postbacks: %w", err)
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to check rows affected: %w", err)
+	}
+
+	return count, nil
+}
+
+// PostbackStats holds aggregate counts of postback outbox records by status.
+type PostbackStats struct {
+	Pending    int64 `json:"pending"`
+	Processing int64 `json:"processing"`
+	Success    int64 `json:"success"`
+	Failed     int64 `json:"failed"`
+	DLQ        int64 `json:"dlq"`
+	Total      int64 `json:"total"`
+}
+
+// GetPostbackStats returns aggregate counts by status from the postback outbox.
+func (r *PostbackRepository) GetPostbackStats() (*PostbackStats, error) {
+	query := `SELECT status, COUNT(*) as count FROM postback_outbox GROUP BY status`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query postback stats: %w", err)
+	}
+	defer rows.Close()
+
+	stats := &PostbackStats{}
+	for rows.Next() {
+		var status string
+		var count int64
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan postback stats: %w", err)
+		}
+		stats.Total += count
+		switch status {
+		case "PENDING":
+			stats.Pending = count
+		case "PROCESSING":
+			stats.Processing = count
+		case "SUCCESS":
+			stats.Success = count
+		case "FAILED":
+			stats.Failed = count
+		case "DLQ":
+			stats.DLQ = count
+		}
+	}
+
+	return stats, nil
+}
+
 // GetOutboxByTransactionID returns all postback outbox records for a transaction.
 func (r *PostbackRepository) GetOutboxByTransactionID(transactionID uuid.UUID) ([]*domain.PostbackOutbox, error) {
 	query := `

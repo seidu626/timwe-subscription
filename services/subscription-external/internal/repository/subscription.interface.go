@@ -44,6 +44,9 @@ type SubscriptionRepositoryInterface interface {
 	// Enhanced: Fetch ghost subscriptions (subscriptions without opt-in notifications)
 	FetchGhostSubscriptions(cutoff time.Time, afterId int64, limit int) ([]NotificationRow, error)
 
+	// Charge success notifications (includes transaction_uuid for postback pipeline)
+	FetchChargeSuccessNotifications(since time.Time, afterID int64, limit int) ([]ChargeSuccessNotificationRow, error)
+
 	// Charging failure methods using notifications-based approach
 	FetchChargingFailedSubscriptions(filter ChargingFailureFilter) ([]ChargingFailedSubscription, error)
 	GetChargingFailureCount(filter ChargingFailureFilter) (int64, error)
@@ -81,4 +84,14 @@ type NotificationRow struct {
 	EntryChannel string
 	CreatedAt    time.Time
 	Type         string
+}
+
+// ChargeSuccessNotificationRow extends NotificationRow with TransactionUUID
+// needed for the charge-success postback pipeline.
+type ChargeSuccessNotificationRow struct {
+	ID              int
+	MSISDN          string
+	ProductID       int
+	TransactionUUID string
+	CreatedAt       time.Time
 }
