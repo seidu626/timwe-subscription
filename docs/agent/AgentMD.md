@@ -105,3 +105,11 @@
 - Fix/workaround:
   - Remove global router view transitions for this app; the admin UI does not depend on them.
 - Prevent recurrence: if route animations are revisited later, prefer Angular/component-level animations over the browser View Transitions API unless the navigation flow is explicitly tested for aborted/reloaded routes.
+
+## 2026-03-24 - Headless UI verification of admin routes stops at Auth0 login without an authenticated session
+- Expected: local browser automation against `frontend/webspa-admin` could open deep admin routes directly for visual verification.
+- Observed: the app redirects headless local sessions to `#/login`, and Auth0 protection blocks direct rendering of routes like `/campaign/edit/:slug` unless the browser already has a valid authenticated session.
+- Impact: automated local screenshots can verify the login page and build health, but not protected admin screens, unless auth is stubbed or a signed-in browser context is reused.
+- Fix/workaround:
+  - For visual QA on protected admin pages, use an already-authenticated browser session or provide a dev-only auth bypass/stub before relying on headless checks.
+- Prevent recurrence: treat admin UI verification as auth-dependent when planning automation work; do not assume local Playwright can reach protected routes unauthenticated.

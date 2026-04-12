@@ -92,7 +92,8 @@ export async function POST(request: NextRequest) {
   const data = await parseUpstreamResponse(response)
 
   if (!response.ok) {
-    return NextResponse.json(data, { status: response.status })
+    console.error('Upstream transaction error:', JSON.stringify(data))
+    return NextResponse.json(sanitizeErrorResponse(data), { status: response.status })
   }
 
   return NextResponse.json(data)
@@ -102,7 +103,7 @@ async function parseUpstreamResponse(response: Response): Promise<unknown> {
   const raw = await response.text()
 
   if (!raw) {
-    return response.ok ? {} : { error: 'Empty response from acquisition API' }
+    return response.ok ? {} : { error: 'Something went wrong. Please try again.' }
   }
 
   try {
@@ -110,4 +111,41 @@ async function parseUpstreamResponse(response: Response): Promise<unknown> {
   } catch {
     return { error: raw }
   }
+}
+
+function sanitizeErrorResponse(data: unknown): Record<string, unknown> {
+  const safe: Record<string, unknown> = { error: 'Something went wrong. Please try again.' }
+
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+    if (typeof obj.transaction_id === 'string') safe.transaction_id = obj.transaction_id
+    if (typeof obj.status === 'string') safe.status = obj.status
+
+    const msg = typeof obj.error === 'string' ? obj.error
+              : typeof obj.message === 'string' ? obj.message
+              : null
+    if (msg && !isInternalMessage(msg)) {
+      safe.error = msg
+    }
+  }
+
+  return safe
+}
+
+function isInternalMessage(msg: string): boolean {
+  const lower = msg.toLowerCase()
+  return (
+    lower.includes('internal_error') ||
+    lower.includes('internal server error') ||
+    lower.includes('generic_error_code') ||
+    lower.includes('status code:') ||
+    lower.includes('mt response') ||
+    lower.includes('timwe') ||
+    lower.includes('circuit breaker') ||
+    lower.includes('request failed') ||
+    lower.includes('marshal') ||
+    lower.includes('auth key') ||
+    lower.includes('partnerrole') ||
+    lower.includes('acquisition api')
+  )
 }

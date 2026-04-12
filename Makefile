@@ -1115,6 +1115,8 @@ docker-release-all: docker-build-all docker-push-all
 
 DEPLOY_SSH_HOST ?= do-sa-user
 DEPLOY_SCRIPT ?= ~/services/nouveauricheglobalgroup/deploy.sh
+KRAKEND_REMOTE_CONFIG ?= /etc/krakend/config
+KRAKEND_LOCAL_CONFIG = krakend/config
 
 define deploy_service
 	@echo "🚀 Deploying $(1) to $(DEPLOY_SSH_HOST)..."
@@ -1122,9 +1124,27 @@ define deploy_service
 	@echo "✅ $(1) deployed successfully!"
 endef
 
+# KraKend config: validate locally, sync to server, restart systemd service
+.PHONY: krakend-sync
+krakend-sync: krakend-check-do
+	@echo "🚀 Syncing KraKend config to $(DEPLOY_SSH_HOST)..."
+	rsync -av --delete \
+		$(KRAKEND_LOCAL_CONFIG)/templates/ \
+		$(DEPLOY_SSH_HOST):$(KRAKEND_REMOTE_CONFIG)/templates/
+	rsync -av --delete \
+		$(KRAKEND_LOCAL_CONFIG)/partials/ \
+		$(DEPLOY_SSH_HOST):$(KRAKEND_REMOTE_CONFIG)/partials/
+	rsync -av \
+		$(KRAKEND_LOCAL_CONFIG)/settings/ \
+		$(DEPLOY_SSH_HOST):$(KRAKEND_REMOTE_CONFIG)/settings/
+	rsync -av \
+		$(KRAKEND_LOCAL_CONFIG)/krakend.tmpl \
+		$(DEPLOY_SSH_HOST):$(KRAKEND_REMOTE_CONFIG)/krakend.tmpl
+	@echo "✅ Config synced. Restarting KraKend..."
+	ssh $(DEPLOY_SSH_HOST) "$(DEPLOY_SCRIPT) --krakend"
+
 .PHONY: deploy-krakend
-deploy-krakend: docker-release-krakend
-	$(call deploy_service,krakend)
+deploy-krakend: krakend-sync
 
 .PHONY: deploy-subscription-partner
 deploy-subscription-partner: docker-release-subscription-partner
@@ -1167,8 +1187,8 @@ deploy-core: docker-release-core
 	$(call deploy_service,subscription-partner subscription-external notification acquisition-api cadence-engine)
 
 .PHONY: deploy-all
-deploy-all: docker-release-all
-	@echo "🚀 Deploying all services to $(DEPLOY_SSH_HOST)..."
+deploy-all: docker-release-all krakend-sync
+	@echo "🚀 Deploying all docker services to $(DEPLOY_SSH_HOST)..."
 	ssh $(DEPLOY_SSH_HOST) "$(DEPLOY_SCRIPT)"
 	@echo "✅ All services deployed successfully!"
 

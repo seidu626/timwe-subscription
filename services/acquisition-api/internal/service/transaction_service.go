@@ -509,10 +509,10 @@ func (s *TransactionService) buildResponse(tx *domain.AcquisitionTransaction) *d
 }
 
 // enqueuePostback enqueues a postback for async delivery using campaign templates
-func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, event domain.PostbackEvent, attribution *domain.Attribution, campaign *domain.Campaign) {
+func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, event domain.PostbackEvent, attribution *domain.Attribution, campaign *domain.Campaign) error {
 	if attribution == nil || attribution.Provider == "" {
 		s.logger.Debug("Skipping postback: no provider")
-		return
+		return fmt.Errorf("no provider in attribution data")
 	}
 
 	// Build postback context
@@ -542,7 +542,7 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 						zap.String("event", string(event)),
 						zap.String("provider", attribution.Provider),
 						zap.Error(err))
-					return
+					return fmt.Errorf("failed to build postback from template: %w", err)
 				}
 			}
 		}
@@ -557,7 +557,7 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 				zap.String("event", string(event)),
 				zap.String("campaign_slug", tx.CampaignSlug),
 			)
-			return
+			return fmt.Errorf("no postback_rules configured for campaign %q and no registered provider %q", tx.CampaignSlug, attribution.Provider)
 		}
 
 		outcome := map[string]interface{}{
@@ -574,7 +574,7 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 				zap.String("campaign_slug", tx.CampaignSlug),
 				zap.Error(err),
 			)
-			return
+			return fmt.Errorf("failed to build postback for provider %q: %w", attribution.Provider, err)
 		}
 	}
 
@@ -600,14 +600,16 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 	err = s.postbackRepo.CreateOutbox(outbox)
 	if err != nil {
 		s.logger.Error("Failed to enqueue postback", zap.Error(err))
-	} else {
-		s.logger.Info("Postback enqueued",
-			zap.String("transaction_id", tx.ID.String()),
-			zap.String("event", string(event)),
-			zap.String("provider", attribution.Provider),
-			zap.String("url", req.URL.String()),
-		)
+		return fmt.Errorf("failed to save postback to outbox: %w", err)
 	}
+
+	s.logger.Info("Postback enqueued",
+		zap.String("transaction_id", tx.ID.String()),
+		zap.String("event", string(event)),
+		zap.String("provider", attribution.Provider),
+		zap.String("url", req.URL.String()),
+	)
+	return nil
 }
 
 // ChargeSuccessRequest represents the request from subscription-external on charge success
@@ -698,7 +700,9 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 	}
 
 	// Enqueue conversion postback (Mobplus requirement: fire on charge success)
-	s.enqueuePostback(tx, domain.PostbackEventConversion, &attribution, campaign)
+	if err := s.enqueuePostback(tx, domain.PostbackEventConversion, &attribution, campaign); err != nil {
+		s.logger.Warn("Failed to enqueue conversion postback", zap.String("transaction_id", tx.ID.String()), zap.Error(err))
+	}
 
 	// Mark conversion postback as sent
 	if err := s.txRepo.MarkConversionPostbackSent(tx.ID); err != nil {
@@ -721,40 +725,101 @@ func (s *TransactionService) GetTransactionByTimweID(timweTransactionID string) 
 	return s.txRepo.FindByTimweTransactionID(timweTransactionID)
 }
 
-// TriggerPostback manually enqueues a postback for a transaction. This is used by
-// the admin API to recover from pipeline failures or to manually fire postbacks.
-func (s *TransactionService) TriggerPostback(transactionID uuid.UUID, event domain.PostbackEvent) error {
+// TriggerPostbackResult represents the outcome of a single provider postback enqueue.
+type TriggerPostbackResult struct {
+	Provider string `json:"provider"`
+	Status   string `json:"status"`
+	Error    string `json:"error,omitempty"`
+}
+
+// TriggerPostback manually enqueues postbacks for a transaction. If providerOverride
+// is set, only that provider is tried. Otherwise, all providers configured in the
+// campaign's postback_rules for the given event are tried.
+func (s *TransactionService) TriggerPostback(transactionID uuid.UUID, event domain.PostbackEvent, providerOverride string) ([]TriggerPostbackResult, error) {
 	tx, err := s.txRepo.GetByID(transactionID)
 	if err != nil {
-		return fmt.Errorf("transaction not found: %w", err)
+		return nil, fmt.Errorf("transaction not found: %w", err)
 	}
 
 	// Parse attribution data
 	var attribution domain.Attribution
 	if len(tx.AttributionData) > 0 {
 		if err := json.Unmarshal(tx.AttributionData, &attribution); err != nil {
-			return fmt.Errorf("failed to parse attribution data: %w", err)
+			return nil, fmt.Errorf("failed to parse attribution data: %w", err)
 		}
 	}
 
 	// Get campaign for postback rules
 	campaign, err := s.campaignRepo.GetBySlug(tx.CampaignSlug)
 	if err != nil {
-		s.logger.Warn("Campaign not found for manual postback, will use provider fallback",
+		s.logger.Warn("Campaign not found for manual postback",
 			zap.String("campaign_slug", tx.CampaignSlug),
 			zap.Error(err))
 	}
 
-	s.enqueuePostback(tx, event, &attribution, campaign)
+	// Determine which providers to fire postbacks for
+	providers := []string{}
+	if providerOverride != "" {
+		providers = append(providers, providerOverride)
+	} else if campaign != nil && len(campaign.PostbackRules) > 0 {
+		// Try all providers configured for this event in the campaign rules
+		rules, parseErr := s.postbackTemplate.ParsePostbackRules(campaign.PostbackRules)
+		if parseErr == nil && rules != nil {
+			if eventRules, exists := rules[string(event)]; exists {
+				for provider := range eventRules {
+					providers = append(providers, provider)
+				}
+			}
+		}
+	}
+
+	// If no providers found from rules, fall back to the transaction's ad_provider
+	if len(providers) == 0 {
+		if attribution.Provider != "" {
+			providers = append(providers, attribution.Provider)
+		} else {
+			return nil, fmt.Errorf("no providers found: campaign %q has no postback_rules for event %q and transaction has no ad_provider", tx.CampaignSlug, event)
+		}
+	}
+
+	// Enqueue a postback for each provider
+	var results []TriggerPostbackResult
+	for _, provider := range providers {
+		attrCopy := attribution
+		attrCopy.Provider = provider
+		if err := s.enqueuePostback(tx, event, &attrCopy, campaign); err != nil {
+			results = append(results, TriggerPostbackResult{
+				Provider: provider,
+				Status:   "failed",
+				Error:    err.Error(),
+			})
+		} else {
+			results = append(results, TriggerPostbackResult{
+				Provider: provider,
+				Status:   "enqueued",
+			})
+		}
+	}
+
+	// If all failed, return error
+	allFailed := true
+	for _, r := range results {
+		if r.Status == "enqueued" {
+			allFailed = false
+			break
+		}
+	}
+	if allFailed {
+		return results, fmt.Errorf("all postback providers failed for transaction %s", transactionID)
+	}
 
 	s.logger.Info("Manual postback triggered",
 		zap.String("transaction_id", transactionID.String()),
 		zap.String("event", string(event)),
-		zap.String("provider", attribution.Provider),
-		zap.String("click_id", attribution.ClickID),
+		zap.Int("providers_attempted", len(providers)),
 	)
 
-	return nil
+	return results, nil
 }
 
 func resolveCampaignRedirectURL(campaign *domain.Campaign) (string, bool) {

@@ -461,14 +461,32 @@ function normalizeServerMessage(raw: unknown, fallbackMessage: string): string {
   const trimmed = raw.trim()
   if (!trimmed) return fallbackMessage
 
-  switch (trimmed.toLowerCase()) {
-    case 'null':
-    case 'nil':
-    case 'undefined':
-      return fallbackMessage
-    default:
-      return trimmed
+  const lower = trimmed.toLowerCase()
+
+  // Filter out empty-ish values
+  if (lower === 'null' || lower === 'nil' || lower === 'undefined') {
+    return fallbackMessage
   }
+
+  // Filter out internal/technical error messages that should never reach the user
+  if (
+    lower.includes('internal_error') ||
+    lower.includes('internal server error') ||
+    lower.includes('generic_error_code') ||
+    lower.includes('status code:') ||
+    lower.includes('mt response') ||
+    lower.includes('timwe') ||
+    lower.includes('circuit breaker') ||
+    lower.includes('request failed') ||
+    lower.includes('marshal') ||
+    lower.includes('auth key') ||
+    lower.includes('partnerrole') ||
+    lower.includes('acquisition api')
+  ) {
+    return fallbackMessage
+  }
+
+  return trimmed
 }
 
 async function sendAnalyticsEvent(

@@ -2766,6 +2766,32 @@ func (s *SubscriptionService) sendOptinConfirmWithRetry(reqData domain.Subscript
 			zap.String("requestId", mtResponse.RequestID),
 			zap.Any("responseData", mtResponse.ResponseData))
 
+		// Check for INTERNAL_ERROR and retry if needed
+		if mtResponse.Code == ResponseCodeInternalError {
+			s.logger.Warn("Optin confirm failed with INTERNAL_ERROR, retrying",
+				zap.Int("attempt", attempt),
+				zap.String("userIdentifier", reqData.UserIdentifier),
+				zap.String("requestId", mtResponse.RequestID))
+
+			fasthttp.ReleaseRequest(req)
+			fasthttp.ReleaseResponse(res)
+
+			if attempt == maxRetries {
+				s.logger.Error("Optin confirm failed with INTERNAL_ERROR after all retries",
+					zap.String("userIdentifier", reqData.UserIdentifier),
+					zap.String("requestId", mtResponse.RequestID))
+				return nil, fmt.Errorf("optin confirm failed with internal error after %d attempts: requestId=%s", maxRetries, mtResponse.RequestID)
+			}
+
+			delay := time.Duration(math.Pow(2, float64(attempt-1))) * baseDelay
+			s.logger.Info("Retrying optin confirm after INTERNAL_ERROR",
+				zap.Int("attempt", attempt+1),
+				zap.Duration("delay", delay),
+				zap.String("userIdentifier", reqData.UserIdentifier))
+			time.Sleep(delay)
+			continue
+		}
+
 		if err := s.validateMTResponse(&mtResponse, domain.MTRequest{UserIdentifier: reqData.UserIdentifier}); err != nil {
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(res)

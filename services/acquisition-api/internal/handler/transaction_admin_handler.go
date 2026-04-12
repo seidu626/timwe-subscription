@@ -14,17 +14,19 @@ import (
 
 // TransactionAdminHandler handles admin transaction-related HTTP requests
 type TransactionAdminHandler struct {
-	txRepo  *repository.TransactionRepository
-	txSvc   *service.TransactionService
-	logger  *zap.Logger
+	txRepo       *repository.TransactionRepository
+	postbackRepo *repository.PostbackRepository
+	txSvc        *service.TransactionService
+	logger       *zap.Logger
 }
 
 // NewTransactionAdminHandler creates a new transaction admin handler
-func NewTransactionAdminHandler(txRepo *repository.TransactionRepository, txSvc *service.TransactionService, logger *zap.Logger) *TransactionAdminHandler {
+func NewTransactionAdminHandler(txRepo *repository.TransactionRepository, postbackRepo *repository.PostbackRepository, txSvc *service.TransactionService, logger *zap.Logger) *TransactionAdminHandler {
 	return &TransactionAdminHandler{
-		txRepo: txRepo,
-		txSvc:  txSvc,
-		logger: logger,
+		txRepo:       txRepo,
+		postbackRepo: postbackRepo,
+		txSvc:        txSvc,
+		logger:       logger,
 	}
 }
 
@@ -48,6 +50,7 @@ type TransactionSummary struct {
 	TimweTransactionID     *string    `json:"timwe_transaction_id,omitempty"`
 	TimweStatus            *string    `json:"timwe_status,omitempty"`
 	ConversionPostbackSent bool       `json:"conversion_postback_sent"`
+	PostbackStatus         *string    `json:"postback_status,omitempty"`
 	ChargedAt              *time.Time `json:"charged_at,omitempty"`
 	CreatedAt              time.Time  `json:"created_at"`
 	UpdatedAt              time.Time  `json:"updated_at"`
@@ -104,6 +107,13 @@ func (h *TransactionAdminHandler) ListTransactions(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	// Batch-lookup postback statuses for all transactions in this page
+	txIDs := make([]uuid.UUID, 0, len(result.Transactions))
+	for _, tx := range result.Transactions {
+		txIDs = append(txIDs, tx.ID)
+	}
+	postbackStatuses, _ := h.postbackRepo.GetLatestStatusByTransactionIDs(txIDs)
+
 	// Build response
 	transactions := make([]TransactionSummary, 0, len(result.Transactions))
 	for _, tx := range result.Transactions {
@@ -121,6 +131,10 @@ func (h *TransactionAdminHandler) ListTransactions(ctx *fasthttp.RequestCtx) {
 			ChargedAt:              tx.ChargedAt,
 			CreatedAt:              tx.CreatedAt,
 			UpdatedAt:              tx.UpdatedAt,
+		}
+		if ps, ok := postbackStatuses[tx.ID]; ok {
+			s := string(ps)
+			summary.PostbackStatus = &s
 		}
 		transactions = append(transactions, summary)
 	}
@@ -282,11 +296,21 @@ func (h *TransactionAdminHandler) TriggerPostback(ctx *fasthttp.RequestCtx) {
 		event = domain.PostbackEvent(e)
 	}
 
-	if err := h.txSvc.TriggerPostback(txID, event); err != nil {
+	// Optional provider override — if empty, tries all providers in campaign rules
+	providerOverride := string(ctx.QueryArgs().Peek("provider"))
+
+	results, err := h.txSvc.TriggerPostback(txID, event, providerOverride)
+	if err != nil {
 		h.logger.Error("Failed to trigger postback",
 			zap.String("transaction_id", txIDStr),
 			zap.Error(err))
-		writeJSONError(ctx, fasthttp.StatusInternalServerError, err.Error())
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		json.NewEncoder(ctx).Encode(map[string]interface{}{
+			"error":          err.Error(),
+			"transaction_id": txID.String(),
+			"results":        results,
+		})
 		return
 	}
 
@@ -296,7 +320,7 @@ func (h *TransactionAdminHandler) TriggerPostback(ctx *fasthttp.RequestCtx) {
 		"status":         "ok",
 		"transaction_id": txID.String(),
 		"event":          string(event),
-		"message":        "Postback enqueued successfully",
+		"enqueued":       results,
 	})
 }
 

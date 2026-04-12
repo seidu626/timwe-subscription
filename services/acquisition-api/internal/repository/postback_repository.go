@@ -504,6 +504,38 @@ func (r *PostbackRepository) GetOutboxByTransactionID(transactionID uuid.UUID) (
 	return outbox, nil
 }
 
+// GetLatestStatusByTransactionIDs returns the latest postback status for each transaction ID.
+// If a transaction has multiple postbacks, the most recently created one wins.
+func (r *PostbackRepository) GetLatestStatusByTransactionIDs(txIDs []uuid.UUID) (map[uuid.UUID]domain.PostbackStatus, error) {
+	if len(txIDs) == 0 {
+		return nil, nil
+	}
+
+	query := `
+		SELECT DISTINCT ON (transaction_id) transaction_id, status
+		FROM postback_outbox
+		WHERE transaction_id = ANY($1)
+		ORDER BY transaction_id, created_at DESC
+	`
+
+	rows, err := r.db.Query(query, pq.Array(txIDs))
+	if err != nil {
+		return nil, fmt.Errorf("failed to query postback statuses: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID]domain.PostbackStatus, len(txIDs))
+	for rows.Next() {
+		var txID uuid.UUID
+		var status domain.PostbackStatus
+		if err := rows.Scan(&txID, &status); err != nil {
+			return nil, fmt.Errorf("failed to scan postback status: %w", err)
+		}
+		result[txID] = status
+	}
+	return result, nil
+}
+
 // GetAttemptsByOutboxIDs returns all attempts grouped by outbox_id.
 func (r *PostbackRepository) GetAttemptsByOutboxIDs(outboxIDs []uuid.UUID) (map[uuid.UUID][]*domain.PostbackAttempt, error) {
 	result := make(map[uuid.UUID][]*domain.PostbackAttempt)

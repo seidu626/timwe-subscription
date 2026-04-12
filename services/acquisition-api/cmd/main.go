@@ -147,7 +147,7 @@ func main() {
 	analyticsHandler := handler.NewAnalyticsHandler(landingEventRepo, logger)
 	reportsHandler := handler.NewReportsHandler(reportsRepo, logger)
 	postbackAdminHandler := handler.NewPostbackAdminHandler(postbackRepo, logger)
-	transactionAdminHandler := handler.NewTransactionAdminHandler(transactionRepo, transactionService, logger)
+	transactionAdminHandler := handler.NewTransactionAdminHandler(transactionRepo, postbackRepo, transactionService, logger)
 	adminManagementHandler := handler.NewAdminManagementHandler(adminManagementService, logger)
 
 	// Initialize click-out handler (optional, configured via environment)
