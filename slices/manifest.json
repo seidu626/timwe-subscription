@@ -18,7 +18,7 @@
       "id": "TMP-001",
       "name": "tenant-context-walking-skeleton",
       "description": "Platform operator creates a tenant and authenticated requests carry tenant context through one protected admin endpoint.",
-      "state": "planned",
+      "state": "done",
       "priority": "P0",
       "depends_on": ["TMP-018"],
       "actor": "platform-operator",

@@ -25,6 +25,7 @@ func TestEnsureSchema_Success(t *testing.T) {
 CREATE TABLE IF NOT EXISTS admin_activity_logs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_jobs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenants (id UUID PRIMARY KEY);
 `
 	file := writeTempMigration(t, migrationSQL)
 
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
 	mock.ExpectExec(regexp.QuoteMeta(strings.TrimSpace(migrationSQL))).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
+	expectRelationExists(mock, "public.tenants")
 	expectRelationExists(mock, "public.admin_activity_logs")
 	expectRelationExists(mock, "public.userbase_import_jobs")
 	expectRelationExists(mock, "public.userbase_import_errors")
@@ -58,6 +60,7 @@ func TestEnsureSchema_MissingRelationFails(t *testing.T) {
 CREATE TABLE IF NOT EXISTS admin_activity_logs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_jobs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenants (id UUID PRIMARY KEY);
 `
 	file := writeTempMigration(t, migrationSQL)
 
@@ -65,6 +68,7 @@ CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
 	mock.ExpectExec(regexp.QuoteMeta(strings.TrimSpace(migrationSQL))).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
+	expectRelationExists(mock, "public.tenants")
 	expectRelationExists(mock, "public.admin_activity_logs")
 	expectRelationMissing(mock, "public.userbase_import_jobs")
 	expectRelationExists(mock, "public.userbase_import_errors")

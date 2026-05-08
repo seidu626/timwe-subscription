@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"go.uber.org/zap"
 )
@@ -15,6 +16,8 @@ import (
 var (
 	// ErrAdminNotFound is returned when an admin-managed resource does not exist.
 	ErrAdminNotFound = errors.New("admin resource not found")
+	// ErrAdminConflict is returned when an admin-managed resource violates uniqueness.
+	ErrAdminConflict = errors.New("admin resource conflict")
 )
 
 // AdminManagementRepository handles products/userbase/admin activity data access.
@@ -25,6 +28,87 @@ type AdminManagementRepository struct {
 
 func NewAdminManagementRepository(db *sql.DB, logger *zap.Logger) *AdminManagementRepository {
 	return &AdminManagementRepository{db: db, logger: logger}
+}
+
+func (r *AdminManagementRepository) CreateTenantWithActivityLog(input *domain.TenantCreateInput, entry *domain.AdminActivityLog) (*domain.AdminTenant, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin tenant create tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	tenantID := uuid.NewString()
+	query := `
+		INSERT INTO tenants (id, tenant_key, name, status, default_country, metadata_json)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at
+	`
+	tenant, err := scanTenant(tx.QueryRow(
+		query,
+		tenantID,
+		input.TenantKey,
+		input.Name,
+		input.Status,
+		input.DefaultCountry,
+		tenantMetadataJSON(input.Metadata),
+	))
+	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrAdminConflict
+		}
+		return nil, fmt.Errorf("failed to create tenant: %w", err)
+	}
+
+	if entry != nil {
+		entry.EntityType = "tenant"
+		entry.EntityID = tenant.ID
+		if err := createActivityLog(tx, entry); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit tenant create tx: %w", err)
+	}
+	committed = true
+	return tenant, nil
+}
+
+func (r *AdminManagementRepository) GetTenantByID(id string) (*domain.AdminTenant, error) {
+	query := `
+		SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at
+		FROM tenants
+		WHERE id = $1
+	`
+	tenant, err := scanTenant(r.db.QueryRow(query, id))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, fmt.Errorf("failed to get tenant by id: %w", err)
+	}
+	return tenant, nil
+}
+
+func (r *AdminManagementRepository) GetTenantByKey(key string) (*domain.AdminTenant, error) {
+	query := `
+		SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at
+		FROM tenants
+		WHERE tenant_key = $1
+	`
+	tenant, err := scanTenant(r.db.QueryRow(query, key))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, fmt.Errorf("failed to get tenant by key: %w", err)
+	}
+	return tenant, nil
 }
 
 func (r *AdminManagementRepository) ListProducts(filter *domain.ProductListFilter) ([]*domain.AdminProduct, int, error) {
@@ -522,6 +606,17 @@ func (r *AdminManagementRepository) ListUserbaseImportErrors(jobID string, limit
 }
 
 func (r *AdminManagementRepository) CreateActivityLog(entry *domain.AdminActivityLog) error {
+	if err := createActivityLog(r.db, entry); err != nil {
+		return err
+	}
+	return nil
+}
+
+type activityLogExecer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+func createActivityLog(exec activityLogExecer, entry *domain.AdminActivityLog) error {
 	query := `
 		INSERT INTO admin_activity_logs (
 			id, entity_type, entity_id, action, actor, request_id, before_json, after_json, metadata_json, created_at
@@ -533,7 +628,7 @@ func (r *AdminManagementRepository) CreateActivityLog(entry *domain.AdminActivit
 	if entry.CreatedAt.IsZero() {
 		entry.CreatedAt = time.Now().UTC()
 	}
-	_, err := r.db.Exec(query,
+	_, err := exec.Exec(query,
 		entry.ID,
 		entry.EntityType,
 		entry.EntityID,
@@ -667,4 +762,47 @@ func nullableJSON(data []byte) any {
 		return nil
 	}
 	return string(data)
+}
+
+func tenantMetadataJSON(data []byte) string {
+	if len(data) == 0 {
+		return "{}"
+	}
+	return string(data)
+}
+
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanTenant(row rowScanner) (*domain.AdminTenant, error) {
+	var (
+		tenant   domain.AdminTenant
+		metadata []byte
+	)
+	if err := row.Scan(
+		&tenant.ID,
+		&tenant.TenantKey,
+		&tenant.Name,
+		&tenant.Status,
+		&tenant.DefaultCountry,
+		&metadata,
+		&tenant.CreatedAt,
+		&tenant.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+	if len(metadata) == 0 {
+		metadata = []byte("{}")
+	}
+	tenant.Metadata = metadata
+	return &tenant, nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && string(pqErr.Code) == "23505" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "duplicate key value")
 }

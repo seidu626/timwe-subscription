@@ -5,6 +5,34 @@ import (
 	"time"
 )
 
+type TenantStatus string
+
+const (
+	TenantStatusActive   TenantStatus = "ACTIVE"
+	TenantStatusInactive TenantStatus = "INACTIVE"
+)
+
+// AdminTenant represents a tenant managed via platform admin APIs.
+type AdminTenant struct {
+	ID             string          `json:"id"`
+	TenantKey      string          `json:"tenant_key"`
+	Name           string          `json:"name"`
+	Status         TenantStatus    `json:"status"`
+	DefaultCountry string          `json:"default_country"`
+	Metadata       json.RawMessage `json:"metadata,omitempty"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+// TenantCreateInput contains the validated tenant create payload.
+type TenantCreateInput struct {
+	TenantKey      string
+	Name           string
+	Status         TenantStatus
+	DefaultCountry string
+	Metadata       json.RawMessage
+}
+
 // AdminProduct represents a product managed via admin APIs.
 type AdminProduct struct {
 	ID              int       `json:"id"`

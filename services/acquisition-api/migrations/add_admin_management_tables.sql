@@ -1,5 +1,22 @@
 -- Admin management audit and import history tables
 
+CREATE TABLE IF NOT EXISTS tenants (
+    id UUID PRIMARY KEY,
+    tenant_key VARCHAR(100) NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+    default_country VARCHAR(2) NOT NULL,
+    metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_tenants_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    CONSTRAINT chk_tenants_key_format CHECK (tenant_key ~ '^[a-z0-9][a-z0-9_-]{1,98}[a-z0-9]$'),
+    CONSTRAINT chk_tenants_default_country CHECK (default_country ~ '^[A-Z]{2}$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_tenants_status
+    ON tenants (status, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS admin_activity_logs (
     id UUID PRIMARY KEY,
     entity_type VARCHAR(100) NOT NULL,

@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"go.uber.org/zap"
 )
 
@@ -18,6 +20,19 @@ var (
 	ErrInvalidInput = errors.New("invalid input")
 	// ErrAdminNotFound indicates an admin-managed resource was not found.
 	ErrAdminNotFound = errors.New("admin resource not found")
+	// ErrAdminConflict indicates an admin-managed resource conflicts with an existing resource.
+	ErrAdminConflict = errors.New("admin resource conflict")
+	// ErrAdminForbidden indicates the authenticated admin cannot perform the action.
+	ErrAdminForbidden = errors.New("admin action forbidden")
+	// ErrTenantContextMissing indicates a protected request has no accepted tenant context.
+	ErrTenantContextMissing = errors.New("tenant context missing")
+	// ErrTenantUnavailable hides inactive and unknown tenant details from tenant-scoped callers.
+	ErrTenantUnavailable = errors.New("tenant unavailable")
+)
+
+var (
+	tenantKeyRe     = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,98}[a-z0-9]$`)
+	tenantCountryRe = regexp.MustCompile(`^[A-Z]{2}$`)
 )
 
 // ProductDependencyError indicates a product cannot be deleted because it is still referenced.
@@ -37,6 +52,67 @@ type AdminManagementService struct {
 
 func NewAdminManagementService(repo *repository.AdminManagementRepository, logger *zap.Logger) *AdminManagementService {
 	return &AdminManagementService{repo: repo, logger: logger}
+}
+
+func (s *AdminManagementService) CreateTenant(input *domain.TenantCreateInput, identity tenantctx.Identity, actor, requestID *string) (*domain.AdminTenant, string, error) {
+	if !identity.PlatformScoped {
+		return nil, "", ErrAdminForbidden
+	}
+	if err := validateTenantCreateInput(input); err != nil {
+		return nil, "", err
+	}
+
+	auditID := uuid.NewString()
+	entry := &domain.AdminActivityLog{
+		ID:        auditID,
+		Action:    "create",
+		Actor:     actor,
+		RequestID: requestID,
+		AfterJSON: mustJSON(input),
+		Metadata: mustJSON(map[string]any{
+			"tenant_key": input.TenantKey,
+		}),
+		CreatedAt: time.Now().UTC(),
+	}
+
+	tenant, err := s.repo.CreateTenantWithActivityLog(input, entry)
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminConflict) {
+			return nil, "", ErrAdminConflict
+		}
+		return nil, "", err
+	}
+	return tenant, auditID, nil
+}
+
+func (s *AdminManagementService) ResolveCurrentTenant(identity tenantctx.Identity) (*domain.AdminTenant, error) {
+	if !identity.HasTenant() {
+		return nil, ErrTenantContextMissing
+	}
+
+	var (
+		tenant *domain.AdminTenant
+		err    error
+	)
+	if id := strings.TrimSpace(identity.TenantID); id != "" {
+		tenant, err = s.repo.GetTenantByID(id)
+	} else {
+		key := normalizeTenantKey(identity.TenantKey)
+		if key == "" {
+			return nil, ErrTenantContextMissing
+		}
+		tenant, err = s.repo.GetTenantByKey(key)
+	}
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return nil, ErrTenantUnavailable
+		}
+		return nil, err
+	}
+	if tenant.Status != domain.TenantStatusActive {
+		return nil, ErrTenantUnavailable
+	}
+	return tenant, nil
 }
 
 func (s *AdminManagementService) ListProducts(filter *domain.ProductListFilter) ([]*domain.AdminProduct, int, error) {
@@ -369,6 +445,58 @@ func validateProductInput(input *domain.AdminProduct) error {
 		return fmt.Errorf("%w: short_code is required", ErrInvalidInput)
 	}
 	return nil
+}
+
+func validateTenantCreateInput(input *domain.TenantCreateInput) error {
+	if input == nil {
+		return fmt.Errorf("%w: tenant payload is required", ErrInvalidInput)
+	}
+	input.TenantKey = normalizeTenantKey(input.TenantKey)
+	input.Name = strings.TrimSpace(input.Name)
+	input.DefaultCountry = strings.ToUpper(strings.TrimSpace(input.DefaultCountry))
+	input.Status = domain.TenantStatus(strings.ToUpper(strings.TrimSpace(string(input.Status))))
+	if input.Status == "" {
+		input.Status = domain.TenantStatusActive
+	}
+	if len(input.Metadata) == 0 {
+		input.Metadata = []byte("{}")
+	}
+
+	if !tenantKeyRe.MatchString(input.TenantKey) {
+		return fmt.Errorf("%w: tenant_key must be 3-100 lowercase letters, numbers, hyphen, or underscore", ErrInvalidInput)
+	}
+	if input.Name == "" {
+		return fmt.Errorf("%w: name is required", ErrInvalidInput)
+	}
+	if input.Status != domain.TenantStatusActive && input.Status != domain.TenantStatusInactive {
+		return fmt.Errorf("%w: status must be ACTIVE or INACTIVE", ErrInvalidInput)
+	}
+	if !tenantCountryRe.MatchString(input.DefaultCountry) {
+		return fmt.Errorf("%w: default_country must be an ISO 3166-1 alpha-2 code", ErrInvalidInput)
+	}
+	if len(input.Metadata) > 8192 {
+		return fmt.Errorf("%w: metadata must be 8192 bytes or less", ErrInvalidInput)
+	}
+	var metadata map[string]any
+	if err := json.Unmarshal(input.Metadata, &metadata); err != nil {
+		return fmt.Errorf("%w: metadata must be a JSON object", ErrInvalidInput)
+	}
+	if metadata == nil {
+		return fmt.Errorf("%w: metadata must be a JSON object", ErrInvalidInput)
+	}
+	return nil
+}
+
+func normalizeTenantKey(key string) string {
+	return strings.ToLower(strings.TrimSpace(key))
+}
+
+func mustJSON(v any) json.RawMessage {
+	bytes, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	return bytes
 }
 
 func normalizeUserbaseInput(msisdn, userType string) (string, string, error) {

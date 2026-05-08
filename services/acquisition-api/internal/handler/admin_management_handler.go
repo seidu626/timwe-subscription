@@ -13,6 +13,7 @@ import (
 
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/valyala/fasthttp"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
@@ -46,6 +47,69 @@ type productPayload struct {
 type batchProductPayload struct {
 	Products    []productPayload `json:"products"`
 	PerformedBy string           `json:"performed_by,omitempty"`
+}
+
+type tenantCreatePayload struct {
+	TenantKey      string          `json:"tenant_key"`
+	Name           string          `json:"name"`
+	Status         string          `json:"status"`
+	DefaultCountry string          `json:"default_country"`
+	Metadata       json.RawMessage `json:"metadata,omitempty"`
+	PerformedBy    string          `json:"performed_by,omitempty"`
+}
+
+type tenantCreateResponse struct {
+	*domain.AdminTenant
+	AuditLogID string `json:"audit_log_id"`
+}
+
+func (h *AdminManagementHandler) CreateTenant(ctx *fasthttp.RequestCtx) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+
+	var req tenantCreatePayload
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+
+	input := &domain.TenantCreateInput{
+		TenantKey:      req.TenantKey,
+		Name:           req.Name,
+		Status:         domain.TenantStatus(req.Status),
+		DefaultCountry: req.DefaultCountry,
+		Metadata:       req.Metadata,
+	}
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
+	requestID := requestIDFromHeader(ctx)
+	tenant, auditLogID, err := h.service.CreateTenant(input, identity, actor, requestID)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+
+	writeJSON(ctx, fasthttp.StatusCreated, tenantCreateResponse{
+		AdminTenant: tenant,
+		AuditLogID:  auditLogID,
+	})
+}
+
+func (h *AdminManagementHandler) GetCurrentTenant(ctx *fasthttp.RequestCtx) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+
+	tenant, err := h.service.ResolveCurrentTenant(identity)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, tenant)
 }
 
 func (h *AdminManagementHandler) ListProducts(ctx *fasthttp.RequestCtx) {
@@ -354,6 +418,14 @@ func (h *AdminManagementHandler) ListActivityLogs(ctx *fasthttp.RequestCtx) {
 func (h *AdminManagementHandler) handleServiceError(ctx *fasthttp.RequestCtx, err error) {
 	var depErr *service.ProductDependencyError
 	switch {
+	case errors.Is(err, service.ErrAdminForbidden):
+		ctx.Error("Forbidden", fasthttp.StatusForbidden)
+	case errors.Is(err, service.ErrAdminConflict):
+		ctx.Error("Resource already exists", fasthttp.StatusConflict)
+	case errors.Is(err, service.ErrTenantContextMissing):
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+	case errors.Is(err, service.ErrTenantUnavailable):
+		ctx.Error("Tenant not available", fasthttp.StatusForbidden)
 	case errors.Is(err, service.ErrAdminNotFound):
 		ctx.Error("Resource not found", fasthttp.StatusNotFound)
 	case errors.Is(err, service.ErrInvalidInput):
@@ -434,11 +506,28 @@ func actorFromPayloadOrRequest(performedBy string, ctx *fasthttp.RequestCtx) *st
 	return actorFromHeader(ctx)
 }
 
+func actorFromPayloadIdentityOrRequest(performedBy string, identity tenantctx.Identity, ctx *fasthttp.RequestCtx) *string {
+	performedBy = strings.TrimSpace(performedBy)
+	if performedBy != "" {
+		return &performedBy
+	}
+	if subject := strings.TrimSpace(identity.Subject); subject != "" {
+		return &subject
+	}
+	return actorFromHeader(ctx)
+}
+
 func actorFromHeader(ctx *fasthttp.RequestCtx) *string {
 	if actor := strings.TrimSpace(string(ctx.Request.Header.Peek("X-Admin-User"))); actor != "" {
 		return &actor
 	}
 	return nil
+}
+
+func tenantIdentityFromRequest(ctx *fasthttp.RequestCtx) (tenantctx.Identity, bool) {
+	value := ctx.UserValue(tenantctx.FastHTTPUserValueKey)
+	identity, ok := value.(tenantctx.Identity)
+	return identity, ok
 }
 
 func requestIDFromHeader(ctx *fasthttp.RequestCtx) *string {

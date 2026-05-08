@@ -186,6 +186,23 @@ func NewRouter(
 			}
 			return
 
+		// Admin tenant context endpoints
+		case strings.EqualFold(path, "/v1/admin/tenants"):
+			if method == fasthttp.MethodPost {
+				adminManagementHandler.CreateTenant(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.EqualFold(path, "/v1/admin/tenants/current"):
+			if method == fasthttp.MethodGet {
+				adminManagementHandler.GetCurrentTenant(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		// Admin products management
 		case strings.EqualFold(path, "/v1/admin/products"):
 			switch method {

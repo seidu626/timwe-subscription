@@ -11,6 +11,7 @@ import (
 const defaultAdminManagementSchemaPath = "migrations/add_admin_management_tables.sql"
 
 var requiredAdminManagementRelations = []string{
+	"public.tenants",
 	"public.admin_activity_logs",
 	"public.userbase_import_jobs",
 	"public.userbase_import_errors",

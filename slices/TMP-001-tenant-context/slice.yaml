@@ -15,18 +15,23 @@ entrypoints:
 acceptance_criteria:
   happy:
     - scenario: "Create tenant"
-      given: ["platform operator has a valid admin JWT", "tenant key is unique"]
+      given: ["platform operator has a valid platform-scoped admin JWT", "tenant key is unique"]
       when: "operator posts tenant name, key, status, default country, and metadata"
       then: "API returns 201 with tenant_id, tenant_key, status, and audit log reference"
-      evidence: "handler/service/repository tests assert response body and persisted row"
+      evidence: "handler/service/repository tests assert response body, persisted row, and same-transaction audit log"
     - scenario: "Resolve current tenant"
-      given: ["request contains a valid tenant claim or header accepted by gateway policy"]
+      given: ["request contains a valid tenant claim already accepted by admin auth middleware"]
       when: "operator calls GET /v1/admin/tenants/current"
       then: "API returns the resolved tenant and no unrelated tenants"
       evidence: "route test asserts tenant_id and no secret/config leakage"
   failures:
+    - scenario: "Tenant admin cannot create tenants"
+      given: ["tenant admin has a valid tenant-scoped admin JWT"]
+      when: "actor posts a tenant create request"
+      then: "API returns 403 and no tenant row or audit row is created"
+      evidence: "handler/service test asserts platform scope is required"
     - scenario: "Missing tenant context"
-      given: ["protected request lacks tenant claim/header"]
+      given: ["protected request lacks tenant claim and raw tenant headers are not trusted by direct service"]
       when: "actor calls current tenant endpoint"
       then: "API returns 401 or 403 and performs no lookup fallback"
       evidence: "test asserts status and no default tenant use"
@@ -44,13 +49,13 @@ acceptance_criteria:
     - scenario: "Inactive tenant"
       given: ["tenant exists but status is inactive"]
       when: "tenant admin calls protected API"
-      then: "API rejects with tenant_inactive"
-      evidence: "service test asserts error code"
+      then: "API rejects with the same external response shape used for unknown tenants"
+      evidence: "service/handler test asserts inactive and unknown tenant-scoped responses do not disclose which tenant exists"
   invariants:
     - rule: "Admin mutations must be authenticated and auditable"
-      preserved_by: "tenant create records actor, request id, before/after metadata"
+      preserved_by: "tenant create records actor, request id, before/after metadata in the same transaction"
       violated_when: "tenant row exists with no activity log"
-      test: "assert tenant row and admin_activity_logs row in same success path"
+      test: "assert tenant row and admin_activity_logs row in same success path and rollback on audit failure"
     - rule: "No global fallback tenant behavior in protected paths"
       preserved_by: "tenant resolver returns error on missing or unknown context"
       violated_when: "request without tenant receives data"
@@ -73,4 +78,3 @@ size_check:
 value_gate:
   required_verdict: "PASS before implementation handoff"
   report_path: "slices/TMP-001-tenant-context/value-gate-report.md"
-
