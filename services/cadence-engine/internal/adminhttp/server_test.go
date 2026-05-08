@@ -1,8 +1,12 @@
 package adminhttp
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 func TestParseCSVImport_MissingHeader(t *testing.T) {
@@ -73,3 +77,23 @@ partner_role_id,product_id,series_name,mode,content_version,seq_no,message_text,
 	}
 }
 
+func TestHandleSeriesReturnsErrWhenTenantMissing(t *testing.T) {
+	const ErrTenantScope = "tenant context required"
+
+	s := &Server{
+		logger: zap.NewNop(),
+		access: &access{staticToken: "secret-token"},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/v1/admin/cadence/series", nil)
+	req.Header.Set("X-Admin-Token", "secret-token")
+	rr := httptest.NewRecorder()
+
+	s.handleSeries(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("expected error 403 without tenant scope, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), ErrTenantScope) {
+		t.Fatalf("unexpected body: %s", rr.Body.String())
+	}
+}

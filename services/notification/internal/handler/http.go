@@ -4,11 +4,15 @@ import (
 	"encoding/json"
 	"log"
 	"strconv"
+	"strings"
 
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
 	"github.com/seidu626/subscription-manager/notification/internal/service"
 	"github.com/valyala/fasthttp"
 )
+
+const tenantIDHeader = "X-Tenant-Id"
 
 type NotificationHandler struct {
 	service *service.NotificationService
@@ -20,15 +24,23 @@ func NewNotificationHandler(service *service.NotificationService) *NotificationH
 
 func (h *NotificationHandler) ListNotifications(ctx *fasthttp.RequestCtx) {
 	log.Println("Processing notification list request")
+	tenantID := tenantIDForAdminRead(ctx)
+	if tenantID == "" {
+		ctx.Error("tenant context required", fasthttp.StatusForbidden)
+		return
+	}
 
 	// Extract query parameters
 	entryChannel := string(ctx.QueryArgs().Peek("entry_channel"))
 	if entryChannel == "" {
 		entryChannel = string(ctx.QueryArgs().Peek("entryChannel"))
 	}
+	channelID := firstQuery(ctx, "channel_id", "channelId")
 	queryParams := map[string]string{
 		"startDate":     string(ctx.QueryArgs().Peek("startDate")),
 		"endDate":       string(ctx.QueryArgs().Peek("endDate")),
+		"tenantId":      tenantID,
+		"channelId":     channelID,
 		"partnerRole":   string(ctx.QueryArgs().Peek("partnerRole")),
 		"msisdn":        string(ctx.QueryArgs().Peek("msisdn")),
 		"type":          string(ctx.QueryArgs().Peek("type")),
@@ -85,6 +97,49 @@ func (h *NotificationHandler) ListNotifications(ctx *fasthttp.RequestCtx) {
 	ctx.SetBody(response)
 }
 
+func tenantIDForAdminRead(ctx *fasthttp.RequestCtx) string {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		return ""
+	}
+	if tenantID := strings.TrimSpace(identity.TenantID); tenantID != "" {
+		return tenantID
+	}
+	if identity.PlatformScoped {
+		return headerOrQueryTenantID(ctx)
+	}
+	return ""
+}
+
+func tenantIdentityFromRequest(ctx *fasthttp.RequestCtx) (tenantctx.Identity, bool) {
+	value := ctx.UserValue(tenantctx.FastHTTPUserValueKey)
+	identity, ok := value.(tenantctx.Identity)
+	return identity, ok
+}
+
+func tenantIDFromRequest(ctx *fasthttp.RequestCtx) string {
+	if tenantID := tenantIDForAdminRead(ctx); tenantID != "" {
+		return tenantID
+	}
+	return headerOrQueryTenantID(ctx)
+}
+
+func headerOrQueryTenantID(ctx *fasthttp.RequestCtx) string {
+	if value := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantIDHeader))); value != "" {
+		return value
+	}
+	return strings.TrimSpace(firstQuery(ctx, "tenant_id", "tenantId"))
+}
+
+func firstQuery(ctx *fasthttp.RequestCtx, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(string(ctx.QueryArgs().Peek(key))); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notificationType string) {
 	log.Printf("Processing request: %s", ctx.Request.String())
 
@@ -118,6 +173,12 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 
 	notification.PartnerRole = partnerRole
 	notification.Type = notificationType
+	if tenantID := tenantIDFromRequest(ctx); tenantID != "" {
+		notification.TenantID = &tenantID
+	}
+	if channelID := channelIDFromRequest(ctx); channelID != "" {
+		notification.ChannelID = &channelID
+	}
 	if err := h.service.ProcessNotification(&notification); err != nil {
 		log.Printf("Error processing notification: %v", err)
 		ctx.Error(`{"message": "Error processing notification", "code": "FAILURE", "inError": "true"}`, fasthttp.StatusInternalServerError)
@@ -126,6 +187,16 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	ctx.SetBody([]byte(`{"message": "NotificationRequest processed successfully", "code": "SUCCESS", "inError": "false"}`))
+}
+
+func channelIDFromRequest(ctx *fasthttp.RequestCtx) string {
+	if value := strings.TrimSpace(string(ctx.Request.Header.Peek("X-Tenant-Channel-Id"))); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(string(ctx.Request.Header.Peek("X-Channel-Id"))); value != "" {
+		return value
+	}
+	return strings.TrimSpace(firstQuery(ctx, "channel_id", "channelId"))
 }
 
 // Endpoint handlers

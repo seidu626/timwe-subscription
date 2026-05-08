@@ -99,7 +99,11 @@ func (p *Planner) planForState(ctx context.Context, tx *sql.Tx, state domain.Due
 	}
 
 	jobID := uuid.New().String()
-	idempotencyKey := fmt.Sprintf("%d:%d:%d:%d:%d",
+	tenantID := firstStringPtr(state.TenantID, subscription.TenantID, series.TenantID)
+	channelID := firstStringPtr(state.ChannelID, subscription.ChannelID, series.ChannelID)
+	idempotencyKey := fmt.Sprintf("%s:%s:%d:%d:%d:%d:%d",
+		idempotencyPart(tenantID),
+		idempotencyPart(channelID),
 		subscription.PartnerRoleID,
 		subscription.ID,
 		series.ID,
@@ -110,6 +114,8 @@ func (p *Planner) planForState(ctx context.Context, tx *sql.Tx, state domain.Due
 	job := domain.OutboxJob{
 		JobID:          jobID,
 		IdempotencyKey: idempotencyKey,
+		TenantID:       tenantID,
+		ChannelID:      channelID,
 		SubscriptionID: subscription.ID,
 		SeriesID:       series.ID,
 		ContentItemID:  item.ID,
@@ -129,4 +135,21 @@ func (p *Planner) planForState(ctx context.Context, tx *sql.Tx, state domain.Due
 	}
 
 	return p.repo.UpdateInflightTx(ctx, tx, subscription.ID, series.ID, nil, inflightUntil)
+}
+
+func firstStringPtr(values ...*string) *string {
+	for _, value := range values {
+		if value != nil && *value != "" {
+			v := *value
+			return &v
+		}
+	}
+	return nil
+}
+
+func idempotencyPart(value *string) string {
+	if value == nil || *value == "" {
+		return "legacy"
+	}
+	return *value
 }

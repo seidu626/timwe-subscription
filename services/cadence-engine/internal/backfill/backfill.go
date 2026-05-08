@@ -64,7 +64,7 @@ func (b *Backfill) processBatch(ctx context.Context) error {
 			continue
 		}
 
-		if err := b.repo.InsertState(ctx, item.SubscriptionID, item.SeriesID, nextSendAt); err != nil {
+		if err := b.repo.InsertState(ctx, item.TenantID, item.ChannelID, item.SubscriptionID, item.SeriesID, nextSendAt); err != nil {
 			b.logger.Error("backfill insert failed",
 				zap.Int64("subscription_id", item.SubscriptionID),
 				zap.Int64("series_id", item.SeriesID),

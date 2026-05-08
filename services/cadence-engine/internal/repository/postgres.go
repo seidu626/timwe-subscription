@@ -28,19 +28,25 @@ func (r *CadenceRepository) BeginTx(ctx context.Context) (*sql.Tx, error) {
 func (r *CadenceRepository) ClaimDueStatesTx(ctx context.Context, tx *sql.Tx, limit int) ([]domain.DueState, error) {
 	query := `
 		WITH due AS (
-			SELECT sms.subscription_id, sms.series_id, sms.cursor_seq, sms.next_send_at
+			SELECT sms.subscription_id, sms.tenant_id::text, sms.channel_id::text,
+			       sms.series_id, sms.cursor_seq, sms.next_send_at
 			FROM subscription_message_state sms
 			JOIN subscriptions s ON s.id = sms.subscription_id
+			JOIN product_message_series pms ON pms.id = sms.series_id
 			WHERE sms.status = 'ACTIVE'
 			  AND sms.next_send_at <= NOW()
 			  AND (sms.inflight_until IS NULL OR sms.inflight_until < NOW())
 			  AND s.status = 'active'
 			  AND s.renewal_status = 'active'
+			  AND (sms.tenant_id IS NULL OR s.tenant_id IS NULL OR sms.tenant_id = s.tenant_id)
+			  AND (pms.tenant_id IS NULL OR s.tenant_id IS NULL OR pms.tenant_id = s.tenant_id)
+			  AND (sms.channel_id IS NULL OR s.channel_id IS NULL OR sms.channel_id = s.channel_id)
+			  AND (pms.channel_id IS NULL OR s.channel_id IS NULL OR pms.channel_id = s.channel_id)
 			ORDER BY sms.next_send_at
 			LIMIT $1
 			FOR UPDATE SKIP LOCKED
 		)
-		SELECT subscription_id, series_id, cursor_seq, next_send_at FROM due;
+		SELECT subscription_id, tenant_id, channel_id, series_id, cursor_seq, next_send_at FROM due;
 	`
 
 	rows, err := tx.QueryContext(ctx, query, limit)
@@ -52,9 +58,12 @@ func (r *CadenceRepository) ClaimDueStatesTx(ctx context.Context, tx *sql.Tx, li
 	var results []domain.DueState
 	for rows.Next() {
 		var row domain.DueState
-		if err := rows.Scan(&row.SubscriptionID, &row.SeriesID, &row.CursorSeq, &row.NextSendAt); err != nil {
+		var tenantID, channelID sql.NullString
+		if err := rows.Scan(&row.SubscriptionID, &tenantID, &channelID, &row.SeriesID, &row.CursorSeq, &row.NextSendAt); err != nil {
 			return nil, err
 		}
+		row.TenantID = nullStringPtr(tenantID)
+		row.ChannelID = nullStringPtr(channelID)
 		results = append(results, row)
 	}
 	return results, rows.Err()
@@ -62,14 +71,17 @@ func (r *CadenceRepository) ClaimDueStatesTx(ctx context.Context, tx *sql.Tx, li
 
 func (r *CadenceRepository) GetSeriesTx(ctx context.Context, tx *sql.Tx, seriesID int64) (*domain.MessageSeries, error) {
 	query := `
-		SELECT id, partner_role_id, product_id, name, mode, content_version, is_active, created_at
+		SELECT id, tenant_id::text, channel_id::text, partner_role_id, product_id, name, mode, content_version, is_active, created_at
 		FROM product_message_series
 		WHERE id = $1
 	`
 	row := tx.QueryRowContext(ctx, query, seriesID)
 	series := &domain.MessageSeries{}
+	var tenantID, channelID sql.NullString
 	if err := row.Scan(
 		&series.ID,
+		&tenantID,
+		&channelID,
 		&series.PartnerRoleID,
 		&series.ProductID,
 		&series.Name,
@@ -80,6 +92,8 @@ func (r *CadenceRepository) GetSeriesTx(ctx context.Context, tx *sql.Tx, seriesI
 	); err != nil {
 		return nil, err
 	}
+	series.TenantID = nullStringPtr(tenantID)
+	series.ChannelID = nullStringPtr(channelID)
 	return series, nil
 }
 
@@ -111,15 +125,18 @@ func (r *CadenceRepository) GetScheduleRuleTx(ctx context.Context, tx *sql.Tx, s
 
 func (r *CadenceRepository) GetSubscriptionTx(ctx context.Context, tx *sql.Tx, subscriptionID int64) (*domain.Subscription, error) {
 	query := `
-		SELECT id, partner_role_id, product_id, user_identifier, user_identifier_type,
+		SELECT id, tenant_id::text, channel_id::text, partner_role_id, product_id, user_identifier, user_identifier_type,
 		       COALESCE(entry_channel, ''), start_date
 		FROM subscriptions
 		WHERE id = $1
 	`
 	row := tx.QueryRowContext(ctx, query, subscriptionID)
 	sub := &domain.Subscription{}
+	var tenantID, channelID sql.NullString
 	if err := row.Scan(
 		&sub.ID,
+		&tenantID,
+		&channelID,
 		&sub.PartnerRoleID,
 		&sub.ProductID,
 		&sub.UserIdentifier,
@@ -129,26 +146,31 @@ func (r *CadenceRepository) GetSubscriptionTx(ctx context.Context, tx *sql.Tx, s
 	); err != nil {
 		return nil, err
 	}
+	sub.TenantID = nullStringPtr(tenantID)
+	sub.ChannelID = nullStringPtr(channelID)
 	return sub, nil
 }
 
 func (r *CadenceRepository) GetSequentialContentItemTx(ctx context.Context, tx *sql.Tx, seriesID int64, contentVersion int, seqNo int) (*domain.ContentItem, error) {
 	query := `
-		SELECT id, series_id, content_version, seq_no, message_text, is_active, created_at
+		SELECT id, tenant_id::text, channel_id::text, series_id, content_version, seq_no, message_text, is_active, created_at
 		FROM message_content_items
 		WHERE series_id = $1 AND content_version = $2 AND seq_no = $3 AND is_active = TRUE
 	`
 	row := tx.QueryRowContext(ctx, query, seriesID, contentVersion, seqNo)
 	item := &domain.ContentItem{}
-	if err := row.Scan(&item.ID, &item.SeriesID, &item.ContentVersion, &item.SeqNo, &item.MessageText, &item.IsActive, &item.CreatedAt); err != nil {
+	var tenantID, channelID sql.NullString
+	if err := row.Scan(&item.ID, &tenantID, &channelID, &item.SeriesID, &item.ContentVersion, &item.SeqNo, &item.MessageText, &item.IsActive, &item.CreatedAt); err != nil {
 		return nil, err
 	}
+	item.TenantID = nullStringPtr(tenantID)
+	item.ChannelID = nullStringPtr(channelID)
 	return item, nil
 }
 
 func (r *CadenceRepository) GetPoolContentItemTx(ctx context.Context, tx *sql.Tx, seriesID int64, contentVersion int) (*domain.ContentItem, error) {
 	query := `
-		SELECT id, series_id, content_version, COALESCE(seq_no, 0), message_text, is_active, created_at
+		SELECT id, tenant_id::text, channel_id::text, series_id, content_version, COALESCE(seq_no, 0), message_text, is_active, created_at
 		FROM message_content_items
 		WHERE series_id = $1 AND content_version = $2 AND is_active = TRUE
 		ORDER BY RANDOM()
@@ -156,18 +178,33 @@ func (r *CadenceRepository) GetPoolContentItemTx(ctx context.Context, tx *sql.Tx
 	`
 	row := tx.QueryRowContext(ctx, query, seriesID, contentVersion)
 	item := &domain.ContentItem{}
-	if err := row.Scan(&item.ID, &item.SeriesID, &item.ContentVersion, &item.SeqNo, &item.MessageText, &item.IsActive, &item.CreatedAt); err != nil {
+	var tenantID, channelID sql.NullString
+	if err := row.Scan(&item.ID, &tenantID, &channelID, &item.SeriesID, &item.ContentVersion, &item.SeqNo, &item.MessageText, &item.IsActive, &item.CreatedAt); err != nil {
 		return nil, err
 	}
+	item.TenantID = nullStringPtr(tenantID)
+	item.ChannelID = nullStringPtr(channelID)
 	return item, nil
 }
 
 // ---- Admin repository helpers (series / rules / content) ----
 
-func (r *CadenceRepository) ListSeries(ctx context.Context, partnerRoleID *int, productID *int, onlyActive *bool, limit int) ([]domain.MessageSeries, error) {
-	where := []string{"1=1"}
-	args := make([]any, 0, 4)
-	argN := 1
+func (r *CadenceRepository) ListSeries(ctx context.Context, tenantID, channelID string, partnerRoleID *int, productID *int, onlyActive *bool, limit int) ([]domain.MessageSeries, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	channelID = strings.TrimSpace(channelID)
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required")
+	}
+	where := []string{"tenant_id::text = $1"}
+	args := make([]any, 0, 6)
+	args = append(args, tenantID)
+	argN := 2
+
+	if channelID != "" {
+		where = append(where, fmt.Sprintf("channel_id::text = $%d", argN))
+		args = append(args, channelID)
+		argN++
+	}
 
 	if partnerRoleID != nil {
 		where = append(where, fmt.Sprintf("partner_role_id = $%d", argN))
@@ -190,7 +227,7 @@ func (r *CadenceRepository) ListSeries(ctx context.Context, partnerRoleID *int, 
 	}
 	whereSQL := strings.Join(where, " AND ")
 	query := fmt.Sprintf(`
-		SELECT id, partner_role_id, product_id, name, mode, content_version, is_active, created_at
+		SELECT id, tenant_id::text, channel_id::text, partner_role_id, product_id, name, mode, content_version, is_active, created_at
 		FROM product_message_series
 		WHERE %s
 		ORDER BY created_at DESC
@@ -206,15 +243,22 @@ func (r *CadenceRepository) ListSeries(ctx context.Context, partnerRoleID *int, 
 	var res []domain.MessageSeries
 	for rows.Next() {
 		var s domain.MessageSeries
-		if err := rows.Scan(&s.ID, &s.PartnerRoleID, &s.ProductID, &s.Name, &s.Mode, &s.ContentVersion, &s.IsActive, &s.CreatedAt); err != nil {
+		var rowTenantID, rowChannelID sql.NullString
+		if err := rows.Scan(&s.ID, &rowTenantID, &rowChannelID, &s.PartnerRoleID, &s.ProductID, &s.Name, &s.Mode, &s.ContentVersion, &s.IsActive, &s.CreatedAt); err != nil {
 			return nil, err
 		}
+		s.TenantID = nullStringPtr(rowTenantID)
+		s.ChannelID = nullStringPtr(rowChannelID)
 		res = append(res, s)
 	}
 	return res, rows.Err()
 }
 
-func (r *CadenceRepository) UpsertSeries(ctx context.Context, partnerRoleID int, productID int, name string, mode string, contentVersion int, isActive bool) (*domain.MessageSeries, error) {
+func (r *CadenceRepository) UpsertSeries(ctx context.Context, tenantID, channelID string, partnerRoleID int, productID int, name string, mode string, contentVersion int, isActive bool) (*domain.MessageSeries, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required")
+	}
 	if contentVersion <= 0 {
 		contentVersion = 1
 	}
@@ -222,47 +266,74 @@ func (r *CadenceRepository) UpsertSeries(ctx context.Context, partnerRoleID int,
 		mode = "SEQUENTIAL"
 	}
 	query := `
-		INSERT INTO product_message_series (partner_role_id, product_id, name, mode, content_version, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (partner_role_id, product_id, name)
+		INSERT INTO product_message_series (tenant_id, channel_id, partner_role_id, product_id, name, mode, content_version, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (tenant_id, partner_role_id, product_id, name) WHERE tenant_id IS NOT NULL
 		DO UPDATE SET mode = EXCLUDED.mode,
+		              channel_id = EXCLUDED.channel_id,
 		              content_version = EXCLUDED.content_version,
 		              is_active = EXCLUDED.is_active
-		RETURNING id, partner_role_id, product_id, name, mode, content_version, is_active, created_at
+		RETURNING id, tenant_id::text, channel_id::text, partner_role_id, product_id, name, mode, content_version, is_active, created_at
 	`
-	row := r.db.QueryRowContext(ctx, query, partnerRoleID, productID, name, mode, contentVersion, isActive)
+	row := r.db.QueryRowContext(ctx, query, tenantID, nullStringFromString(channelID), partnerRoleID, productID, name, mode, contentVersion, isActive)
 	var s domain.MessageSeries
-	if err := row.Scan(&s.ID, &s.PartnerRoleID, &s.ProductID, &s.Name, &s.Mode, &s.ContentVersion, &s.IsActive, &s.CreatedAt); err != nil {
+	var rowTenantID, rowChannelID sql.NullString
+	if err := row.Scan(&s.ID, &rowTenantID, &rowChannelID, &s.PartnerRoleID, &s.ProductID, &s.Name, &s.Mode, &s.ContentVersion, &s.IsActive, &s.CreatedAt); err != nil {
 		return nil, err
 	}
+	s.TenantID = nullStringPtr(rowTenantID)
+	s.ChannelID = nullStringPtr(rowChannelID)
 	return &s, nil
 }
 
 func (r *CadenceRepository) GetSeries(ctx context.Context, seriesID int64) (*domain.MessageSeries, error) {
 	query := `
-		SELECT id, partner_role_id, product_id, name, mode, content_version, is_active, created_at
+		SELECT id, tenant_id::text, channel_id::text, partner_role_id, product_id, name, mode, content_version, is_active, created_at
 		FROM product_message_series
 		WHERE id = $1
 	`
 	row := r.db.QueryRowContext(ctx, query, seriesID)
 	var s domain.MessageSeries
-	if err := row.Scan(&s.ID, &s.PartnerRoleID, &s.ProductID, &s.Name, &s.Mode, &s.ContentVersion, &s.IsActive, &s.CreatedAt); err != nil {
+	var tenantID, channelID sql.NullString
+	if err := row.Scan(&s.ID, &tenantID, &channelID, &s.PartnerRoleID, &s.ProductID, &s.Name, &s.Mode, &s.ContentVersion, &s.IsActive, &s.CreatedAt); err != nil {
 		return nil, err
 	}
+	s.TenantID = nullStringPtr(tenantID)
+	s.ChannelID = nullStringPtr(channelID)
 	return &s, nil
 }
 
-func (r *CadenceRepository) GetSeriesByKey(ctx context.Context, partnerRoleID int, productID int, name string) (*domain.MessageSeries, error) {
+func (r *CadenceRepository) GetSeriesForTenant(ctx context.Context, tenantID string, seriesID int64) (*domain.MessageSeries, error) {
 	query := `
-		SELECT id, partner_role_id, product_id, name, mode, content_version, is_active, created_at
+		SELECT id, tenant_id::text, channel_id::text, partner_role_id, product_id, name, mode, content_version, is_active, created_at
 		FROM product_message_series
-		WHERE partner_role_id = $1 AND product_id = $2 AND name = $3
+		WHERE tenant_id::text = $1 AND id = $2
 	`
-	row := r.db.QueryRowContext(ctx, query, partnerRoleID, productID, name)
+	row := r.db.QueryRowContext(ctx, query, strings.TrimSpace(tenantID), seriesID)
 	var s domain.MessageSeries
-	if err := row.Scan(&s.ID, &s.PartnerRoleID, &s.ProductID, &s.Name, &s.Mode, &s.ContentVersion, &s.IsActive, &s.CreatedAt); err != nil {
+	var rowTenantID, rowChannelID sql.NullString
+	if err := row.Scan(&s.ID, &rowTenantID, &rowChannelID, &s.PartnerRoleID, &s.ProductID, &s.Name, &s.Mode, &s.ContentVersion, &s.IsActive, &s.CreatedAt); err != nil {
 		return nil, err
 	}
+	s.TenantID = nullStringPtr(rowTenantID)
+	s.ChannelID = nullStringPtr(rowChannelID)
+	return &s, nil
+}
+
+func (r *CadenceRepository) GetSeriesByKey(ctx context.Context, tenantID string, partnerRoleID int, productID int, name string) (*domain.MessageSeries, error) {
+	query := `
+		SELECT id, tenant_id::text, channel_id::text, partner_role_id, product_id, name, mode, content_version, is_active, created_at
+		FROM product_message_series
+		WHERE tenant_id::text = $1 AND partner_role_id = $2 AND product_id = $3 AND name = $4
+	`
+	row := r.db.QueryRowContext(ctx, query, strings.TrimSpace(tenantID), partnerRoleID, productID, name)
+	var s domain.MessageSeries
+	var rowTenantID, rowChannelID sql.NullString
+	if err := row.Scan(&s.ID, &rowTenantID, &rowChannelID, &s.PartnerRoleID, &s.ProductID, &s.Name, &s.Mode, &s.ContentVersion, &s.IsActive, &s.CreatedAt); err != nil {
+		return nil, err
+	}
+	s.TenantID = nullStringPtr(rowTenantID)
+	s.ChannelID = nullStringPtr(rowChannelID)
 	return &s, nil
 }
 
@@ -375,7 +446,7 @@ func (r *CadenceRepository) ListContentItems(ctx context.Context, seriesID int64
 		limit = 500
 	}
 	query := fmt.Sprintf(`
-		SELECT id, series_id, content_version, COALESCE(seq_no, 0), message_text, is_active, created_at
+		SELECT id, tenant_id::text, channel_id::text, series_id, content_version, COALESCE(seq_no, 0), message_text, is_active, created_at
 		FROM message_content_items
 		WHERE %s
 		ORDER BY content_version DESC, COALESCE(seq_no, 0) ASC, created_at ASC
@@ -391,15 +462,18 @@ func (r *CadenceRepository) ListContentItems(ctx context.Context, seriesID int64
 	var res []domain.ContentItem
 	for rows.Next() {
 		var c domain.ContentItem
-		if err := rows.Scan(&c.ID, &c.SeriesID, &c.ContentVersion, &c.SeqNo, &c.MessageText, &c.IsActive, &c.CreatedAt); err != nil {
+		var tenantID, channelID sql.NullString
+		if err := rows.Scan(&c.ID, &tenantID, &channelID, &c.SeriesID, &c.ContentVersion, &c.SeqNo, &c.MessageText, &c.IsActive, &c.CreatedAt); err != nil {
 			return nil, err
 		}
+		c.TenantID = nullStringPtr(tenantID)
+		c.ChannelID = nullStringPtr(channelID)
 		res = append(res, c)
 	}
 	return res, rows.Err()
 }
 
-func (r *CadenceRepository) UpsertContentItemTx(ctx context.Context, tx *sql.Tx, seriesID int64, contentVersion int, seqNo int, messageText string, isActive bool) (int64, error) {
+func (r *CadenceRepository) UpsertContentItemTx(ctx context.Context, tx *sql.Tx, tenantID, channelID string, seriesID int64, contentVersion int, seqNo int, messageText string, isActive bool) (int64, error) {
 	if contentVersion <= 0 {
 		return 0, fmt.Errorf("content_version must be > 0")
 	}
@@ -407,15 +481,17 @@ func (r *CadenceRepository) UpsertContentItemTx(ctx context.Context, tx *sql.Tx,
 		return 0, fmt.Errorf("seq_no must be > 0")
 	}
 	query := `
-		INSERT INTO message_content_items (series_id, content_version, seq_no, message_text, is_active)
-		VALUES ($1,$2,$3,$4,$5)
+		INSERT INTO message_content_items (tenant_id, channel_id, series_id, content_version, seq_no, message_text, is_active)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)
 		ON CONFLICT (series_id, content_version, seq_no) DO UPDATE SET
+			tenant_id = EXCLUDED.tenant_id,
+			channel_id = EXCLUDED.channel_id,
 			message_text = EXCLUDED.message_text,
 			is_active = EXCLUDED.is_active
 		RETURNING id
 	`
 	var id int64
-	if err := tx.QueryRowContext(ctx, query, seriesID, contentVersion, seqNo, messageText, isActive).Scan(&id); err != nil {
+	if err := tx.QueryRowContext(ctx, query, nullStringFromString(tenantID), nullStringFromString(channelID), seriesID, contentVersion, seqNo, messageText, isActive).Scan(&id); err != nil {
 		return 0, err
 	}
 	return id, nil
@@ -455,14 +531,16 @@ func (r *CadenceRepository) DeactivateMissingContentItemsTx(ctx context.Context,
 func (r *CadenceRepository) InsertOutboxTx(ctx context.Context, tx *sql.Tx, job domain.OutboxJob) (bool, error) {
 	query := `
 		INSERT INTO message_outbox (
-			job_id, idempotency_key, subscription_id, series_id, content_item_id,
+			job_id, idempotency_key, tenant_id, channel_id, subscription_id, series_id, content_item_id,
 			planned_send_at, status, attempt
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (idempotency_key) DO NOTHING
 	`
 	res, err := tx.ExecContext(ctx, query,
 		job.JobID,
 		job.IdempotencyKey,
+		nullStringPtrValue(job.TenantID),
+		nullStringPtrValue(job.ChannelID),
 		job.SubscriptionID,
 		job.SeriesID,
 		job.ContentItemID,
@@ -528,13 +606,15 @@ func (r *CadenceRepository) AdvanceStateTx(ctx context.Context, tx *sql.Tx, subs
 
 func (r *CadenceRepository) ListMissingStates(ctx context.Context, limit int) ([]domain.MissingState, error) {
 	query := `
-		SELECT s.id, pms.id, s.start_date,
+		SELECT s.id, pms.tenant_id::text, pms.channel_id::text, pms.id, s.start_date,
 		       msr.rule_kind, msr.preferred_time, COALESCE(msr.days_of_week, 0), COALESCE(msr.n_days, 0),
 		       msr.send_start_time, msr.send_end_time, msr.timezone, msr.max_per_day, msr.catchup_mode
 		FROM subscriptions s
 		JOIN product_message_series pms
 			ON pms.partner_role_id = s.partner_role_id
 		   AND pms.product_id = s.product_id
+		   AND (pms.tenant_id IS NULL OR s.tenant_id IS NULL OR pms.tenant_id = s.tenant_id)
+		   AND (pms.channel_id IS NULL OR s.channel_id IS NULL OR pms.channel_id = s.channel_id)
 		   AND pms.is_active = TRUE
 		JOIN message_schedule_rules msr
 			ON msr.series_id = pms.id
@@ -554,8 +634,11 @@ func (r *CadenceRepository) ListMissingStates(ctx context.Context, limit int) ([
 	var results []domain.MissingState
 	for rows.Next() {
 		var item domain.MissingState
+		var tenantID, channelID sql.NullString
 		if err := rows.Scan(
 			&item.SubscriptionID,
+			&tenantID,
+			&channelID,
 			&item.SeriesID,
 			&item.StartDate,
 			&item.Rule.RuleKind,
@@ -570,25 +653,27 @@ func (r *CadenceRepository) ListMissingStates(ctx context.Context, limit int) ([
 		); err != nil {
 			return nil, err
 		}
+		item.TenantID = nullStringPtr(tenantID)
+		item.ChannelID = nullStringPtr(channelID)
 		item.Rule.SeriesID = item.SeriesID
 		results = append(results, item)
 	}
 	return results, rows.Err()
 }
 
-func (r *CadenceRepository) InsertState(ctx context.Context, subscriptionID int64, seriesID int64, nextSendAt time.Time) error {
+func (r *CadenceRepository) InsertState(ctx context.Context, tenantID, channelID *string, subscriptionID int64, seriesID int64, nextSendAt time.Time) error {
 	query := `
-		INSERT INTO subscription_message_state (subscription_id, series_id, status, cursor_seq, next_send_at)
-		VALUES ($1, $2, 'ACTIVE', 1, $3)
+		INSERT INTO subscription_message_state (tenant_id, channel_id, subscription_id, series_id, status, cursor_seq, next_send_at)
+		VALUES ($1, $2, $3, $4, 'ACTIVE', 1, $5)
 		ON CONFLICT DO NOTHING
 	`
-	_, err := r.db.ExecContext(ctx, query, subscriptionID, seriesID, nextSendAt)
+	_, err := r.db.ExecContext(ctx, query, nullStringPtrValue(tenantID), nullStringPtrValue(channelID), subscriptionID, seriesID, nextSendAt)
 	return err
 }
 
 func (r *CadenceRepository) ClaimSentOutboxTx(ctx context.Context, tx *sql.Tx, limit int) ([]domain.OutboxJob, error) {
 	query := `
-		SELECT job_id, subscription_id, series_id, planned_send_at, sent_at
+		SELECT job_id, tenant_id::text, channel_id::text, subscription_id, series_id, planned_send_at, sent_at
 		FROM message_outbox
 		WHERE status = 'SENT' AND processed_at IS NULL
 		ORDER BY planned_send_at
@@ -605,9 +690,12 @@ func (r *CadenceRepository) ClaimSentOutboxTx(ctx context.Context, tx *sql.Tx, l
 	for rows.Next() {
 		var job domain.OutboxJob
 		var sentAt sql.NullTime
-		if err := rows.Scan(&job.JobID, &job.SubscriptionID, &job.SeriesID, &job.PlannedSendAt, &sentAt); err != nil {
+		var tenantID, channelID sql.NullString
+		if err := rows.Scan(&job.JobID, &tenantID, &channelID, &job.SubscriptionID, &job.SeriesID, &job.PlannedSendAt, &sentAt); err != nil {
 			return nil, err
 		}
+		job.TenantID = nullStringPtr(tenantID)
+		job.ChannelID = nullStringPtr(channelID)
 		if sentAt.Valid {
 			job.SentAt = &sentAt.Time
 		}
@@ -624,4 +712,27 @@ func (r *CadenceRepository) MarkOutboxProcessedTx(ctx context.Context, tx *sql.T
 	`
 	_, err := tx.ExecContext(ctx, query, jobID)
 	return err
+}
+
+func nullStringPtr(val sql.NullString) *string {
+	if !val.Valid || strings.TrimSpace(val.String) == "" {
+		return nil
+	}
+	s := strings.TrimSpace(val.String)
+	return &s
+}
+
+func nullStringFromString(value string) sql.NullString {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: value, Valid: true}
+}
+
+func nullStringPtrValue(value *string) sql.NullString {
+	if value == nil {
+		return sql.NullString{}
+	}
+	return nullStringFromString(*value)
 }

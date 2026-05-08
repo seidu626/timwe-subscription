@@ -1,15 +1,20 @@
 package transport
 
 import (
+	"context"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/seidu626/subscription-manager/common/auth/auth0jwt"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/seidu626/subscription-manager/notification/internal/handler"
 	"github.com/valyala/fasthttp"
 )
 
 func NewRouter(handler *handler.NotificationHandler) fasthttp.RequestHandler {
+	admin := newAdminAccess()
 	router := func(ctx *fasthttp.RequestCtx) {
 		path := string(ctx.Path())
 
@@ -21,6 +26,9 @@ func NewRouter(handler *handler.NotificationHandler) fasthttp.RequestHandler {
 			ctx.WriteString(`{"status":"healthy","service":"notification"}`)
 			return
 		case strings.EqualFold(path, "/api/v1/notification/list"):
+			if !admin.require(ctx) {
+				return
+			}
 			handler.ListNotifications(ctx)
 		case strings.HasPrefix(path, "/api/v1/notification/mo/"):
 			partnerRole := extractPartnerRole(path, "/api/v1/notification/mo/")
@@ -89,4 +97,31 @@ func extractPartnerRole(path, prefix string) string {
 		}
 	}
 	return ""
+}
+
+type adminAccess struct {
+	validator *auth0jwt.Validator
+}
+
+func newAdminAccess() *adminAccess {
+	validator, err := auth0jwt.New(os.Getenv("ADMIN_AUTH0_DOMAIN"), os.Getenv("ADMIN_AUTH0_AUDIENCE"))
+	if err != nil {
+		validator = nil
+	}
+	return &adminAccess{validator: validator}
+}
+
+func (a *adminAccess) require(ctx *fasthttp.RequestCtx) bool {
+	if a.validator == nil {
+		ctx.Error("Admin access not configured", fasthttp.StatusServiceUnavailable)
+		return false
+	}
+	claims, err := a.validator.ValidateBearer(context.Background(), string(ctx.Request.Header.Peek("Authorization")))
+	if err != nil {
+		log.Printf("admin auth failed (notification): remote_ip=%s err=%v", ctx.RemoteIP(), err)
+		ctx.Error("Unauthorized", fasthttp.StatusUnauthorized)
+		return false
+	}
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, claims.Identity())
+	return true
 }

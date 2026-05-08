@@ -38,10 +38,11 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 			WHERE mo.job_id = claimed.job_id
 			RETURNING mo.job_id, mo.subscription_id, mo.content_item_id, mo.attempt, mo.planned_send_at
 		)
-		SELECT u.job_id, u.subscription_id, u.content_item_id, u.attempt, u.planned_send_at,
+		SELECT u.job_id, mo.tenant_id::text, mo.channel_id::text, u.subscription_id, u.content_item_id, u.attempt, u.planned_send_at,
 		       s.partner_role_id, s.product_id, s.user_identifier, COALESCE(s.entry_channel, ''),
 		       ci.message_text
 		FROM updated u
+		JOIN message_outbox mo ON mo.job_id = u.job_id
 		JOIN subscriptions s ON s.id = u.subscription_id
 		JOIN message_content_items ci ON ci.id = u.content_item_id
 	`
@@ -55,8 +56,11 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 	var jobs []domain.OutboxJob
 	for rows.Next() {
 		var job domain.OutboxJob
+		var tenantID, channelID sql.NullString
 		if err := rows.Scan(
 			&job.JobID,
+			&tenantID,
+			&channelID,
 			&job.SubscriptionID,
 			&job.ContentItemID,
 			&job.Attempt,
@@ -69,6 +73,8 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 		); err != nil {
 			return nil, err
 		}
+		job.TenantID = outboxNullStringPtr(tenantID)
+		job.ChannelID = outboxNullStringPtr(channelID)
 		jobs = append(jobs, job)
 	}
 	return jobs, rows.Err()
@@ -84,6 +90,14 @@ func (r *OutboxRepository) MarkSent(ctx context.Context, jobID string) error {
 	`
 	_, err := r.db.ExecContext(ctx, query, jobID)
 	return err
+}
+
+func outboxNullStringPtr(val sql.NullString) *string {
+	if !val.Valid || val.String == "" {
+		return nil
+	}
+	s := val.String
+	return &s
 }
 
 func (r *OutboxRepository) ScheduleRetry(ctx context.Context, jobID string, nextTime time.Time, errMsg string) error {

@@ -4,6 +4,8 @@ import "time"
 
 type MessageSeries struct {
 	ID             int64     `json:"id"`
+	TenantID       *string   `json:"tenant_id,omitempty"`
+	ChannelID      *string   `json:"channel_id,omitempty"`
 	PartnerRoleID  int       `json:"partner_role_id"`
 	ProductID      int       `json:"product_id"`
 	Name           string    `json:"name"`
@@ -28,6 +30,8 @@ type ScheduleRule struct {
 
 type ContentItem struct {
 	ID             int64     `json:"id"`
+	TenantID       *string   `json:"tenant_id,omitempty"`
+	ChannelID      *string   `json:"channel_id,omitempty"`
 	SeriesID       int64     `json:"series_id"`
 	ContentVersion int       `json:"content_version"`
 	SeqNo          int       `json:"seq_no"`
@@ -38,6 +42,8 @@ type ContentItem struct {
 
 type Subscription struct {
 	ID                 int64
+	TenantID           *string
+	ChannelID          *string
 	PartnerRoleID      int
 	ProductID          int
 	UserIdentifier     string
@@ -48,6 +54,8 @@ type Subscription struct {
 
 type SubscriptionMessageState struct {
 	SubscriptionID int64
+	TenantID       *string
+	ChannelID      *string
 	SeriesID       int64
 	CursorSeq      int
 	NextSendAt     time.Time
@@ -57,6 +65,8 @@ type SubscriptionMessageState struct {
 type OutboxJob struct {
 	JobID          string
 	IdempotencyKey string
+	TenantID       *string
+	ChannelID      *string
 	SubscriptionID int64
 	SeriesID       int64
 	ContentItemID  int64
@@ -70,6 +80,8 @@ type OutboxJob struct {
 
 type MissingState struct {
 	SubscriptionID int64
+	TenantID       *string
+	ChannelID      *string
 	SeriesID       int64
 	StartDate      time.Time
 	Rule           ScheduleRule
@@ -77,6 +89,8 @@ type MissingState struct {
 
 type DueState struct {
 	SubscriptionID int64
+	TenantID       *string
+	ChannelID      *string
 	SeriesID       int64
 	CursorSeq      int
 	NextSendAt     time.Time

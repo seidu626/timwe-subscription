@@ -10,12 +10,12 @@ import (
 )
 
 type serviceRepoStub struct {
-	fetchFn func(startDate, endDate time.Time, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error)
+	fetchFn func(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error)
 }
 
-func (s *serviceRepoStub) FetchNotifications(startDate, endDate time.Time, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+func (s *serviceRepoStub) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
 	if s.fetchFn != nil {
-		return s.fetchFn(startDate, endDate, partnerRole, msisdn, entryChannel, notificationType, page, pageSize)
+		return s.fetchFn(startDate, endDate, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, page, pageSize)
 	}
 	return &domain.ListResponse{}, nil
 }
@@ -27,7 +27,7 @@ func (s *serviceRepoStub) Save(notification *domain.NotificationRequest) error {
 func TestGetNotifications_DefaultPaginationAndErrorContext(t *testing.T) {
 	rootErr := errors.New("db offline")
 	stub := &serviceRepoStub{
-		fetchFn: func(startDate, endDate time.Time, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+		fetchFn: func(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
 			if page != 1 || pageSize != 10 {
 				t.Fatalf("expected default page=1 pageSize=10, got page=%d pageSize=%d", page, pageSize)
 			}
@@ -53,7 +53,7 @@ func TestGetNotifications_DefaultPaginationAndErrorContext(t *testing.T) {
 
 func TestGetNotifications_ParsesDateAndTypeFilters(t *testing.T) {
 	stub := &serviceRepoStub{
-		fetchFn: func(startDate, endDate time.Time, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+		fetchFn: func(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
 			if startDate.IsZero() {
 				t.Fatalf("expected parsed startDate")
 			}
@@ -66,6 +66,9 @@ func TestGetNotifications_ParsesDateAndTypeFilters(t *testing.T) {
 			if entryChannel != "WEB" {
 				t.Fatalf("expected entryChannel WEB, got %q", entryChannel)
 			}
+			if tenantID != "tenant-1" || channelID != "channel-1" {
+				t.Fatalf("expected tenant/channel filters, got tenant=%q channel=%q", tenantID, channelID)
+			}
 			return &domain.ListResponse{}, nil
 		},
 	}
@@ -74,6 +77,8 @@ func TestGetNotifications_ParsesDateAndTypeFilters(t *testing.T) {
 	_, err := svc.GetNotifications(map[string]string{
 		"startDate":    "2026-02-20T00:00:00Z",
 		"endDate":      "2026-02-20",
+		"tenantId":     "tenant-1",
+		"channelId":    "channel-1",
 		"type":         "USER_OPTIN",
 		"entryChannel": "WEB",
 	})
