@@ -133,6 +133,38 @@ func TestParseJSONImportRowsAcceptsTenantNeutralRows(t *testing.T) {
 	}
 }
 
+func TestCreateChannelRejectsUnsupportedCapability(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs("tenant-a").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow("22222222-2222-2222-2222-222222222222", "tenant-a", "Tenant A", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "tenant-a",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetBodyString(`{"provider":"timwe","country":"GH","capabilities":["optin","fax"]}`)
+
+	h.CreateChannel(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusBadRequest || !strings.Contains(string(ctx.Response.Body()), "invalid_capability") {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func currentTenantResponseFor(t *testing.T, expect func(sqlmock.Sqlmock, time.Time)) (int, []byte) {
 	t.Helper()
 	db, mock, err := sqlmock.New()

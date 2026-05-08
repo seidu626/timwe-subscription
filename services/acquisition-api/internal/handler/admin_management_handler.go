@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -47,6 +48,28 @@ type productPayload struct {
 type batchProductPayload struct {
 	Products    []productPayload `json:"products"`
 	PerformedBy string           `json:"performed_by,omitempty"`
+}
+
+type listChannelsResponse struct {
+	Channels   []*domain.AdminChannel `json:"channels"`
+	TotalCount int                    `json:"total_count"`
+	Page       int                    `json:"page"`
+	PageSize   int                    `json:"page_size"`
+}
+
+type channelPayload struct {
+	ChannelKey   string   `json:"channel_key,omitempty"`
+	Provider     string   `json:"provider"`
+	Country      string   `json:"country"`
+	Operator     *string  `json:"operator,omitempty"`
+	Capabilities []string `json:"capabilities"`
+	Enabled      *bool    `json:"enabled,omitempty"`
+	PerformedBy  string   `json:"performed_by,omitempty"`
+}
+
+type channelEnabledPayload struct {
+	Enabled     *bool  `json:"enabled"`
+	PerformedBy string `json:"performed_by,omitempty"`
 }
 
 type tenantCreatePayload struct {
@@ -260,6 +283,104 @@ func (h *AdminManagementHandler) BatchUpsertProducts(ctx *fasthttp.RequestCtx) {
 		"message": "Batch upsert completed",
 		"count":   count,
 	})
+}
+
+func (h *AdminManagementHandler) ListChannels(ctx *fasthttp.RequestCtx) {
+	tenant, _, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	page, pageSize := parsePageArgs(ctx, 20, 200)
+	filter := &domain.ChannelListFilter{
+		TenantID: tenant.ID,
+		Limit:    pageSize,
+		Offset:   (page - 1) * pageSize,
+		Provider: strings.TrimSpace(string(ctx.QueryArgs().Peek("provider"))),
+		Country:  strings.TrimSpace(string(ctx.QueryArgs().Peek("country"))),
+	}
+	if enabledRaw := strings.TrimSpace(string(ctx.QueryArgs().Peek("enabled"))); enabledRaw != "" {
+		enabled, parseErr := strconv.ParseBool(enabledRaw)
+		if parseErr != nil {
+			ctx.Error("enabled must be true or false", fasthttp.StatusBadRequest)
+			return
+		}
+		filter.Enabled = &enabled
+	}
+
+	channels, total, err := h.service.ListChannels(filter)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, listChannelsResponse{
+		Channels:   channels,
+		TotalCount: total,
+		Page:       page,
+		PageSize:   pageSize,
+	})
+}
+
+func (h *AdminManagementHandler) CreateChannel(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	var req channelPayload
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
+	requestID := requestIDFromHeader(ctx)
+	created, err := h.service.CreateChannel(tenant.ID, &domain.ChannelCreateInput{
+		ChannelKey:   req.ChannelKey,
+		Provider:     req.Provider,
+		Country:      req.Country,
+		Operator:     req.Operator,
+		Capabilities: req.Capabilities,
+		Enabled:      req.Enabled,
+	}, actor, requestID)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusCreated, created)
+}
+
+func (h *AdminManagementHandler) SetChannelEnabled(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	channelID, err := parseChannelIDFromEnabledPath(string(ctx.Path()))
+	if err != nil {
+		ctx.Error("Invalid channel id", fasthttp.StatusBadRequest)
+		return
+	}
+	var req channelEnabledPayload
+	decoder := json.NewDecoder(bytes.NewReader(ctx.PostBody()))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+	if req.Enabled == nil {
+		ctx.Error("enabled is required", fasthttp.StatusBadRequest)
+		return
+	}
+
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
+	requestID := requestIDFromHeader(ctx)
+	channel, err := h.service.SetChannelEnabled(tenant.ID, channelID, *req.Enabled, actor, requestID)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, channel)
 }
 
 type listUserbaseResponse struct {
@@ -569,6 +690,18 @@ func parseImportIDFromPath(path string) (string, error) {
 	id := strings.TrimSpace(parts[len(parts)-1])
 	if id == "" {
 		return "", errors.New("missing import id")
+	}
+	return id, nil
+}
+
+func parseChannelIDFromEnabledPath(path string) (string, error) {
+	parts := splitPathParts(path)
+	if len(parts) < 5 || parts[len(parts)-1] != "enabled" {
+		return "", errors.New("invalid path")
+	}
+	id := strings.TrimSpace(parts[len(parts)-2])
+	if id == "" {
+		return "", errors.New("missing channel id")
 	}
 	return id, nil
 }

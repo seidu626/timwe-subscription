@@ -46,7 +46,7 @@
       "id": "TMP-003",
       "name": "channel-catalog-capabilities",
       "description": "Tenant admin creates channel definitions with provider, country/operator scope, and supported capabilities.",
-      "state": "planned",
+      "state": "done",
       "priority": "P0",
       "depends_on": ["TMP-001"],
       "actor": "tenant-admin",

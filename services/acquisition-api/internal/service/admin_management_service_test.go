@@ -78,3 +78,48 @@ func TestResolveCurrentTenantHidesInactiveTenant(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
+
+func TestNormalizeChannelCreateInputCanonicalizesCapabilitiesAndKey(t *testing.T) {
+	enabled := true
+	operator := " AirtelTigo "
+	input := &domain.ChannelCreateInput{
+		Provider:     " TIMWE ",
+		Country:      "gh",
+		Operator:     &operator,
+		Capabilities: []string{"mt", "optin", "MT", "confirm"},
+		Enabled:      &enabled,
+	}
+
+	out, err := normalizeChannelCreateInput(input)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if out.ChannelKey != "timwe-gh-airteltigo" || out.Provider != "timwe" || out.Country != "GH" {
+		t.Fatalf("unexpected normalization: %#v", out)
+	}
+	if got := strings.Join(out.Capabilities, ","); got != "confirm,mt,optin" {
+		t.Fatalf("unexpected capabilities: %s", got)
+	}
+}
+
+func TestNormalizeChannelCreateInputRejectsInvalidCapability(t *testing.T) {
+	_, err := normalizeChannelCreateInput(&domain.ChannelCreateInput{
+		Provider:     "timwe",
+		Country:      "GH",
+		Capabilities: []string{"optin", "fax"},
+	})
+	if !errors.Is(err, ErrInvalidInput) || !strings.Contains(err.Error(), "invalid_capability") {
+		t.Fatalf("expected invalid_capability error, got %v", err)
+	}
+}
+
+func TestNormalizeChannelCreateInputRejectsChargeWithoutMT(t *testing.T) {
+	_, err := normalizeChannelCreateInput(&domain.ChannelCreateInput{
+		Provider:     "timwe",
+		Country:      "GH",
+		Capabilities: []string{"charge"},
+	})
+	if !errors.Is(err, ErrInvalidInput) || !strings.Contains(err.Error(), "charge requires mt") {
+		t.Fatalf("expected charge dependency error, got %v", err)
+	}
+}

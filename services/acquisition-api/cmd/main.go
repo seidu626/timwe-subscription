@@ -85,7 +85,7 @@ func main() {
 	}
 	logger.Info("Admin management schema bootstrap completed",
 		zap.Duration("duration", time.Since(schemaBootstrapStart)),
-		zap.String("migration_file", "migrations/add_admin_management_tables.sql"),
+		zap.String("migration_set", "admin_management"),
 	)
 
 	// Initialize TIMWE client with configuration

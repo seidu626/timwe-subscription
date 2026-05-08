@@ -223,6 +223,26 @@ func NewRouter(
 			}
 			return
 
+		// Admin channel catalog
+		case strings.EqualFold(path, "/v1/admin/channels"):
+			switch method {
+			case fasthttp.MethodGet:
+				adminManagementHandler.ListChannels(ctx)
+			case fasthttp.MethodPost:
+				adminManagementHandler.CreateChannel(ctx)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/channels/") && strings.HasSuffix(path, "/enabled"):
+			if method == fasthttp.MethodPatch {
+				adminManagementHandler.SetChannelEnabled(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		case strings.HasPrefix(path, "/v1/admin/products/"):
 			switch method {
 			case fasthttp.MethodPut:

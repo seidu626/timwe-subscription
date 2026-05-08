@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS admin_activity_logs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_jobs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS tenants (id UUID PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenant_channels (id UUID PRIMARY KEY);
 `
 	file := writeTempMigration(t, migrationSQL)
 
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS tenants (id UUID PRIMARY KEY);
 	expectRelationExists(mock, "public.admin_activity_logs")
 	expectRelationExists(mock, "public.userbase_import_jobs")
 	expectRelationExists(mock, "public.userbase_import_errors")
+	expectRelationExists(mock, "public.tenant_channels")
 
 	if err := repo.EnsureSchema(context.Background(), file); err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -61,6 +63,7 @@ CREATE TABLE IF NOT EXISTS admin_activity_logs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_jobs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS tenants (id UUID PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenant_channels (id UUID PRIMARY KEY);
 `
 	file := writeTempMigration(t, migrationSQL)
 
@@ -72,6 +75,7 @@ CREATE TABLE IF NOT EXISTS tenants (id UUID PRIMARY KEY);
 	expectRelationExists(mock, "public.admin_activity_logs")
 	expectRelationMissing(mock, "public.userbase_import_jobs")
 	expectRelationExists(mock, "public.userbase_import_errors")
+	expectRelationExists(mock, "public.tenant_channels")
 
 	err = repo.EnsureSchema(context.Background(), file)
 	if err == nil {
@@ -125,6 +129,31 @@ func TestAdminManagementMigrationAddsTenantScopedAdminTables(t *testing.T) {
 		"ON products (tenant_id, product_id)",
 		"CREATE UNIQUE INDEX IF NOT EXISTS idx_userbase_tenant_msisdn",
 		"ON userbase (tenant_id, msisdn)",
+	}
+	for _, want := range required {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("migration missing %q", want)
+		}
+	}
+}
+
+func TestTenantChannelsMigrationDefinesCapabilityCatalog(t *testing.T) {
+	migrationPath := filepath.Join("..", "..", "migrations", "add_tenant_channels.sql")
+	body, err := os.ReadFile(migrationPath)
+	if err != nil {
+		t.Fatalf("failed to read migration: %v", err)
+	}
+	sql := string(body)
+
+	required := []string{
+		"CREATE TABLE IF NOT EXISTS tenant_channels",
+		"tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT",
+		"capabilities TEXT[] NOT NULL",
+		"CONSTRAINT chk_tenant_channels_capabilities_allowed",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_tenant_channels_tenant_key",
+		"ON tenant_channels (tenant_id, channel_key)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_tenant_channels_tenant_provider_scope",
+		"COALESCE(operator, '')",
 	}
 	for _, want := range required {
 		if !strings.Contains(sql, want) {

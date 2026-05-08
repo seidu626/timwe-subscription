@@ -63,10 +63,20 @@ out_of_scope:
   - "campaign binding"
 
 size_check:
-  files_touched: 15
+  files_touched: 13
   migrations: 1
   endpoints: 3
 
 value_gate:
   required_verdict: "PASS before implementation handoff"
   report_path: "slices/TMP-003-channel-catalog/value-gate-report.md"
+
+implementation_evidence:
+  domain_brief: "slices/TMP-003-channel-catalog/domain-brief.md"
+  claude_gate: "Claude critique applied: no credential metadata, deterministic capabilities, tenant-scoped single-update PATCH, and 404 cross-tenant behavior."
+  parallel_reviews:
+    - "schema/repository explorer recommended tenant_channels with scoped uniqueness and TEXT[] capabilities"
+    - "handler/service explorer recommended existing admin tenant resolver and route/error taxonomy"
+  tests:
+    - "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler ./internal/transport"
+    - "cd services/acquisition-api && go test ./..."

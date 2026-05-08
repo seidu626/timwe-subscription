@@ -60,6 +60,52 @@ type ProductDependencyCounts struct {
 	SubscriptionCount int `json:"subscription_count"`
 }
 
+type ChannelStatus string
+
+const (
+	ChannelStatusActive   ChannelStatus = "ACTIVE"
+	ChannelStatusInactive ChannelStatus = "INACTIVE"
+)
+
+// AdminChannel represents a tenant-owned channel catalog entry.
+type AdminChannel struct {
+	ID           string        `json:"channel_id"`
+	TenantID     string        `json:"tenant_id"`
+	ChannelKey   string        `json:"channel_key"`
+	Provider     string        `json:"provider"`
+	Country      string        `json:"country"`
+	Operator     *string       `json:"operator,omitempty"`
+	Capabilities []string      `json:"capabilities"`
+	Status       ChannelStatus `json:"status"`
+	Enabled      bool          `json:"enabled"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
+}
+
+func (c *AdminChannel) IsRoutable() bool {
+	return c != nil && c.Status == ChannelStatusActive && len(c.Capabilities) > 0
+}
+
+// ChannelCreateInput contains normalized channel create data.
+type ChannelCreateInput struct {
+	ChannelKey   string
+	Provider     string
+	Country      string
+	Operator     *string
+	Capabilities []string
+	Enabled      *bool
+}
+
+// ChannelListFilter is used to filter and paginate tenant channels.
+type ChannelListFilter struct {
+	TenantID string
+	Limit    int
+	Offset   int
+	Provider string
+	Country  string
+	Enabled  *bool
+}
+
 // UserbaseRecord represents a row in userbase.
 type UserbaseRecord struct {
 	ID       int    `json:"id"`

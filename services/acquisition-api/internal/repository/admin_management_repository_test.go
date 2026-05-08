@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"database/sql"
 	"errors"
 	"regexp"
 	"testing"
@@ -148,6 +149,78 @@ func TestUpsertUserbaseUsesTenantScopedKey(t *testing.T) {
 	}
 	if record.TenantID != tenantID || record.MSISDN != "233201234567" {
 		t.Fatalf("unexpected record: %#v", record)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListChannelsRequiresTenantScope(t *testing.T) {
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	_, _, err = repo.ListChannels(&domain.ChannelListFilter{})
+	if err == nil || !regexp.MustCompile(`tenant_id is required`).MatchString(err.Error()) {
+		t.Fatalf("expected tenant_id error, got %v", err)
+	}
+}
+
+func TestCreateChannelWithActivityLogMapsDuplicateKeyConflict(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO tenant_channels")).
+		WillReturnError(&pq.Error{Code: "23505"})
+	mock.ExpectRollback()
+
+	_, err = repo.CreateChannelWithActivityLog(&domain.AdminChannel{
+		ID:           "33333333-3333-3333-3333-333333333333",
+		TenantID:     "22222222-2222-2222-2222-222222222222",
+		ChannelKey:   "timwe-gh-airteltigo",
+		Provider:     "timwe",
+		Country:      "GH",
+		Capabilities: []string{"confirm", "mt", "optin"},
+		Status:       domain.ChannelStatusActive,
+	}, nil)
+	if !errors.Is(err, ErrAdminConflict) {
+		t.Fatalf("expected ErrAdminConflict, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestSetChannelStatusWithActivityLogUsesTenantScopedUpdate(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("UPDATE tenant_channels")).
+		WithArgs("22222222-2222-2222-2222-222222222222", "33333333-3333-3333-3333-333333333333", domain.ChannelStatusInactive).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectRollback()
+
+	_, err = repo.SetChannelStatusWithActivityLog(
+		"22222222-2222-2222-2222-222222222222",
+		"33333333-3333-3333-3333-333333333333",
+		domain.ChannelStatusInactive,
+		nil,
+	)
+	if !errors.Is(err, ErrAdminNotFound) {
+		t.Fatalf("expected ErrAdminNotFound, got %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

@@ -323,6 +323,187 @@ func (r *AdminManagementRepository) CountProductDependencies(productID string) (
 	return counts, nil
 }
 
+func (r *AdminManagementRepository) ListChannels(filter *domain.ChannelListFilter) ([]*domain.AdminChannel, int, error) {
+	if filter == nil {
+		filter = &domain.ChannelListFilter{Limit: 20}
+	}
+	tenantID := strings.TrimSpace(filter.TenantID)
+	if tenantID == "" {
+		return nil, 0, fmt.Errorf("tenant_id is required")
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+
+	where := []string{"tenant_id = $1"}
+	args := []any{tenantID}
+	argN := 2
+	if provider := strings.TrimSpace(filter.Provider); provider != "" {
+		where = append(where, fmt.Sprintf("provider = $%d", argN))
+		args = append(args, provider)
+		argN++
+	}
+	if country := strings.TrimSpace(filter.Country); country != "" {
+		where = append(where, fmt.Sprintf("country = $%d", argN))
+		args = append(args, country)
+		argN++
+	}
+	if filter.Enabled != nil {
+		status := domain.ChannelStatusInactive
+		if *filter.Enabled {
+			status = domain.ChannelStatusActive
+		}
+		where = append(where, fmt.Sprintf("status = $%d", argN))
+		args = append(args, status)
+		argN++
+	}
+
+	whereSQL := strings.Join(where, " AND ")
+	var total int
+	if err := r.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM tenant_channels WHERE %s`, whereSQL), args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count tenant channels: %w", err)
+	}
+
+	args = append(args, filter.Limit, filter.Offset)
+	rows, err := r.db.Query(fmt.Sprintf(`
+		SELECT id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at
+		FROM tenant_channels
+		WHERE %s
+		ORDER BY created_at DESC, id DESC
+		LIMIT $%d OFFSET $%d
+	`, whereSQL, argN, argN+1), args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list tenant channels: %w", err)
+	}
+	defer rows.Close()
+
+	channels := make([]*domain.AdminChannel, 0)
+	for rows.Next() {
+		channel, err := scanChannel(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan tenant channel: %w", err)
+		}
+		channels = append(channels, channel)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed to iterate tenant channels: %w", err)
+	}
+	return channels, total, nil
+}
+
+func (r *AdminManagementRepository) GetChannelByID(tenantID, id string) (*domain.AdminChannel, error) {
+	query := `
+		SELECT id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at
+		FROM tenant_channels
+		WHERE tenant_id = $1 AND id = $2
+	`
+	channel, err := scanChannel(r.db.QueryRow(query, tenantID, id))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, fmt.Errorf("failed to get tenant channel: %w", err)
+	}
+	return channel, nil
+}
+
+func (r *AdminManagementRepository) CreateChannelWithActivityLog(channel *domain.AdminChannel, entry *domain.AdminActivityLog) (*domain.AdminChannel, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin channel create tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	channel.ID = uuid.NewString()
+	query := `
+		INSERT INTO tenant_channels (id, tenant_id, channel_key, provider, country, operator, capabilities, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at
+	`
+	created, err := scanChannel(tx.QueryRow(
+		query,
+		channel.ID,
+		channel.TenantID,
+		channel.ChannelKey,
+		channel.Provider,
+		channel.Country,
+		nullableStringPtr(channel.Operator),
+		pq.StringArray(channel.Capabilities),
+		channel.Status,
+	))
+	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrAdminConflict
+		}
+		return nil, fmt.Errorf("failed to create tenant channel: %w", err)
+	}
+
+	if entry != nil {
+		entry.TenantID = created.TenantID
+		entry.EntityType = "tenant_channel"
+		entry.EntityID = created.ID
+		if err := createActivityLog(tx, entry); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit channel create tx: %w", err)
+	}
+	committed = true
+	return created, nil
+}
+
+func (r *AdminManagementRepository) SetChannelStatusWithActivityLog(tenantID, id string, status domain.ChannelStatus, entry *domain.AdminActivityLog) (*domain.AdminChannel, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin channel status tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	query := `
+		UPDATE tenant_channels
+		SET status = $3, updated_at = NOW()
+		WHERE tenant_id = $1 AND id = $2
+		RETURNING id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at
+	`
+	channel, err := scanChannel(tx.QueryRow(query, tenantID, id, status))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, fmt.Errorf("failed to set tenant channel status: %w", err)
+	}
+
+	if entry != nil {
+		entry.TenantID = channel.TenantID
+		entry.EntityType = "tenant_channel"
+		entry.EntityID = channel.ID
+		if err := createActivityLog(tx, entry); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit channel status tx: %w", err)
+	}
+	committed = true
+	return channel, nil
+}
+
 func (r *AdminManagementRepository) ListUserbase(filter *domain.UserbaseListFilter) ([]*domain.UserbaseRecord, int, error) {
 	if filter == nil {
 		filter = &domain.UserbaseListFilter{Limit: 20}
@@ -800,6 +981,13 @@ func nullableString(value string) any {
 	return value
 }
 
+func nullableStringPtr(value *string) any {
+	if value == nil {
+		return nil
+	}
+	return nullableString(*value)
+}
+
 func tenantMetadataJSON(data []byte) string {
 	if len(data) == 0 {
 		return "{}"
@@ -833,6 +1021,34 @@ func scanTenant(row rowScanner) (*domain.AdminTenant, error) {
 	}
 	tenant.Metadata = metadata
 	return &tenant, nil
+}
+
+func scanChannel(row rowScanner) (*domain.AdminChannel, error) {
+	var (
+		channel      domain.AdminChannel
+		operator     sql.NullString
+		capabilities pq.StringArray
+	)
+	if err := row.Scan(
+		&channel.ID,
+		&channel.TenantID,
+		&channel.ChannelKey,
+		&channel.Provider,
+		&channel.Country,
+		&operator,
+		&capabilities,
+		&channel.Status,
+		&channel.CreatedAt,
+		&channel.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+	if operator.Valid {
+		channel.Operator = &operator.String
+	}
+	channel.Capabilities = []string(capabilities)
+	channel.Enabled = channel.Status == domain.ChannelStatusActive
+	return &channel, nil
 }
 
 func isUniqueViolation(err error) bool {
