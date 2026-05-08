@@ -141,7 +141,7 @@ func firstQuery(ctx *fasthttp.RequestCtx, keys ...string) string {
 }
 
 func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notificationType string) {
-	log.Printf("Processing request: %s", ctx.Request.String())
+	log.Printf("Processing notification request: method=%s path=%s type=%s", ctx.Method(), ctx.Path(), notificationType)
 
 	if notificationType == "DEFAULT" {
 		ctx.SetStatusCode(fasthttp.StatusOK)

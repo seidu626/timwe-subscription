@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/lib/pq"
 	"github.com/seidu626/subscription-manager/notification/internal/config"
 	"github.com/seidu626/subscription-manager/notification/internal/dispatcher"
 	"github.com/seidu626/subscription-manager/notification/internal/repository"
-	_ "github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -36,6 +36,7 @@ func main() {
 
 	repo := repository.NewOutboxRepository(db, logger)
 	workerCfg := loadWorkerConfig()
+	dispatcher.RegisterMetrics()
 	worker := dispatcher.NewDispatcher(repo, logger, workerCfg)
 
 	ctx, cancel := context.WithCancel(context.Background())

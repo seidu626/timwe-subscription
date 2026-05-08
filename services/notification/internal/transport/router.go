@@ -23,7 +23,7 @@ func NewRouter(handler *handler.NotificationHandler) fasthttp.RequestHandler {
 		case strings.EqualFold(path, "/health"):
 			ctx.SetContentType("application/json")
 			ctx.SetStatusCode(fasthttp.StatusOK)
-			ctx.WriteString(`{"status":"healthy","service":"notification"}`)
+			ctx.WriteString(`{"status":"healthy","service":"notification","observability":{"tenant_labels":"enabled","pii_labels":"rejected"}}`)
 			return
 		case strings.EqualFold(path, "/api/v1/notification/list"):
 			if !admin.require(ctx) {
@@ -79,7 +79,7 @@ func NewRouter(handler *handler.NotificationHandler) fasthttp.RequestHandler {
 				ctx.Error("PartnerRole parameter missing", fasthttp.StatusBadRequest)
 			}
 		default:
-			log.Printf("Processing unknown request: %s", ctx.Request.String())
+			log.Printf("Processing unknown request: method=%s path=%s", ctx.Method(), ctx.Path())
 			ctx.Error("Not Found", fasthttp.StatusNotFound)
 		}
 	}
