@@ -90,6 +90,8 @@ type NotificationRow struct {
 // needed for the charge-success postback pipeline.
 type ChargeSuccessNotificationRow struct {
 	ID              int
+	TenantID        *string
+	ChannelID       *string
 	MSISDN          string
 	ProductID       int
 	TransactionUUID string

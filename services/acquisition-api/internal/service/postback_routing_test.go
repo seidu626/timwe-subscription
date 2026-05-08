@@ -199,3 +199,25 @@ func TestCampaignChannelIDTrimsBlankValues(t *testing.T) {
 		t.Fatalf("expected trimmed channel id, got %#v", got)
 	}
 }
+
+func TestVerifyChargeSuccessTenantRejectsMismatch(t *testing.T) {
+	txTenantID := "11111111-1111-1111-1111-111111111111"
+	err := (&TransactionService{}).verifyChargeSuccessTenant(
+		&domain.AcquisitionTransaction{ID: uuid.New(), TenantID: &txTenantID},
+		&ChargeSuccessRequest{TenantID: "22222222-2222-2222-2222-222222222222"},
+	)
+	if err == nil || !strings.Contains(err.Error(), "tenant mismatch") {
+		t.Fatalf("expected tenant mismatch error, got %v", err)
+	}
+}
+
+func TestVerifyChargeSuccessTenantAllowsMatchingTenant(t *testing.T) {
+	txTenantID := "11111111-1111-1111-1111-111111111111"
+	err := (&TransactionService{}).verifyChargeSuccessTenant(
+		&domain.AcquisitionTransaction{ID: uuid.New(), TenantID: &txTenantID},
+		&ChargeSuccessRequest{TenantID: txTenantID},
+	)
+	if err != nil {
+		t.Fatalf("expected matching tenant accepted, got %v", err)
+	}
+}

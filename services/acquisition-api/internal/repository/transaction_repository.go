@@ -528,6 +528,36 @@ func (r *TransactionRepository) FindByTimweTransactionID(timweTransactionID stri
 	return tx, nil
 }
 
+// FindByTenantAndTimweTransactionID finds a transaction by tenant and TIMWE transaction ID.
+func (r *TransactionRepository) FindByTenantAndTimweTransactionID(tenantID, timweTransactionID string) (*domain.AcquisitionTransaction, error) {
+	query := `
+		SELECT id, correlation_id, campaign_slug, msisdn, status, next_action,
+		       next_action_payload, ad_provider, click_id, attribution_data,
+		       ip_address, user_agent, consent_required, consent_checked,
+		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
+		       timwe_transaction_id, transaction_auth_code, timwe_status,
+		       he_source, he_msisdn, he_operator,
+		       charged_at, charge_payout, conversion_postback_sent,
+		       created_at, updated_at
+		FROM acquisition_transactions
+		WHERE tenant_id = $1 AND timwe_transaction_id = $2
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	tx, err := r.scanTransaction(query, tenantID, timweTransactionID)
+	if err != nil {
+		return nil, err
+	}
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID != "" {
+		tx.TenantID = &tenantID
+	}
+
+	return tx, nil
+}
+
 // FindByMSISDNAndStatus finds a transaction by MSISDN and status
 func (r *TransactionRepository) FindByMSISDNAndStatus(msisdn string, status domain.TransactionStatus) (*domain.AcquisitionTransaction, error) {
 	query := `

@@ -721,6 +721,7 @@ func campaignChannelID(campaign *domain.Campaign) *string {
 type ChargeSuccessRequest struct {
 	TimweTransactionID string `json:"timwe_transaction_id"`
 	TenantID           string `json:"tenant_id,omitempty"`
+	ChannelID          string `json:"channel_id,omitempty"`
 	MSISDN             string `json:"msisdn,omitempty"`
 	ProductID          int    `json:"product_id,omitempty"`
 	ChargedAt          string `json:"charged_at,omitempty"`
@@ -733,14 +734,20 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 		return fmt.Errorf("timwe_transaction_id is required")
 	}
 
-	// Find transaction by TIMWE transaction ID
-	tx, err := s.txRepo.FindByTimweTransactionID(req.TimweTransactionID)
+	tenantID := strings.TrimSpace(req.TenantID)
+	var tx *domain.AcquisitionTransaction
+	var err error
+	if tenantID != "" {
+		tx, err = s.txRepo.FindByTenantAndTimweTransactionID(tenantID, req.TimweTransactionID)
+	} else {
+		tx, err = s.txRepo.FindByTimweTransactionID(req.TimweTransactionID)
+	}
 	if err != nil {
 		// Fallback: try by MSISDN if provided, searching across statuses that
 		// may exist due to the confirm bug (transactions stuck in CONFIRM_REQUIRED
 		// or ACTION_REQUIRED even though TIMWE processed the subscription).
-		if req.MSISDN != "" && strings.TrimSpace(req.TenantID) != "" {
-			tx, err = s.txRepo.FindByTenantMSISDNAndStatuses(strings.TrimSpace(req.TenantID), req.MSISDN, []domain.TransactionStatus{
+		if req.MSISDN != "" && tenantID != "" {
+			tx, err = s.txRepo.FindByTenantMSISDNAndStatuses(tenantID, req.MSISDN, []domain.TransactionStatus{
 				domain.StatusSubscribed,
 				domain.StatusConfirmRequired,
 				domain.StatusActionRequired,
@@ -751,6 +758,9 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 		} else {
 			return fmt.Errorf("transaction not found for timwe_transaction_id=%s: %w", req.TimweTransactionID, err)
 		}
+	}
+	if err := s.verifyChargeSuccessTenant(tx, req); err != nil {
+		return err
 	}
 
 	// If the transaction is in a pre-SUBSCRIBED state, advance it to SUBSCRIBED first.
@@ -832,6 +842,34 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 		zap.String("click_id", attribution.ClickID),
 	)
 
+	return nil
+}
+
+func (s *TransactionService) verifyChargeSuccessTenant(tx *domain.AcquisitionTransaction, req *ChargeSuccessRequest) error {
+	if tx == nil || req == nil {
+		return fmt.Errorf("transaction and charge success request are required")
+	}
+	requestTenantID := strings.TrimSpace(req.TenantID)
+	if requestTenantID == "" {
+		return nil
+	}
+	transactionTenantID := ""
+	if tx.TenantID != nil {
+		transactionTenantID = strings.TrimSpace(*tx.TenantID)
+	}
+	if transactionTenantID == "" {
+		resolved, err := s.txRepo.GetTenantIDByID(tx.ID)
+		if err != nil {
+			return fmt.Errorf("failed to verify transaction tenant: %w", err)
+		}
+		transactionTenantID = strings.TrimSpace(resolved)
+		if transactionTenantID != "" {
+			tx.TenantID = &transactionTenantID
+		}
+	}
+	if transactionTenantID == "" || transactionTenantID != requestTenantID {
+		return fmt.Errorf("charge success tenant mismatch")
+	}
 	return nil
 }
 

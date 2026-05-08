@@ -288,6 +288,8 @@ func (m *NotificationMonitor) processChargeSuccess() error {
 
 			m.acquisitionClient.NotifyChargeSuccessAsync(&service.ChargeSuccessRequest{
 				TimweTransactionID: n.TransactionUUID,
+				TenantID:           stringPtrValue(n.TenantID),
+				ChannelID:          stringPtrValue(n.ChannelID),
 				MSISDN:             n.MSISDN,
 				ProductID:          n.ProductID,
 				ChargedAt:          n.CreatedAt.UTC().Format(time.RFC3339),
@@ -311,6 +313,13 @@ func (m *NotificationMonitor) processChargeSuccess() error {
 			zap.Int("skipped", skippedCount))
 	}
 	return nil
+}
+
+func stringPtrValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 // processUserOptout logic:
