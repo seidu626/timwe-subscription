@@ -1,0 +1,73 @@
+story:
+  id: "TMP-005"
+  title: "Tenant admin creates campaigns bound to compatible channels"
+  actor: "campaign-operator"
+  action: "create and retrieve a tenant-scoped campaign with channel binding"
+  outcome: "public acquisition can resolve the correct tenant campaign and channel"
+  as_a: "campaign-operator"
+  i_want_to: "bind campaigns to tenant products and channels"
+  so_that: "landing and acquisition flows use the right tenant offer and provider path"
+
+entrypoints:
+  - "POST /v1/admin/campaigns"
+  - "GET /v1/admin/campaigns/{slug}"
+  - "GET /v1/campaigns/{tenant_or_slug}/{slug}"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Create compatible campaign"
+      given: ["tenant has product and channel supporting OTP"]
+      when: "operator creates OTP campaign bound to the channel"
+      then: "API returns campaign with tenant_id, channel_id, flow_type, product mapping, and enabled status"
+      evidence: "handler/service test asserts persisted row"
+    - scenario: "Public campaign resolve"
+      given: ["campaign is enabled and public route includes tenant context"]
+      when: "landing runtime fetches campaign"
+      then: "public response excludes internal config but includes public copy, flow, price, terms, and tracking"
+      evidence: "route test asserts public DTO fields"
+  failures:
+    - scenario: "Duplicate slug inside tenant"
+      given: ["tenant already has campaign slug daily"]
+      when: "operator creates slug daily again"
+      then: "API returns 409"
+      evidence: "DB/service conflict test"
+    - scenario: "Channel capability mismatch"
+      given: ["channel supports REDIRECT only"]
+      when: "operator creates OTP campaign"
+      then: "API returns 422 channel_capability_mismatch"
+      evidence: "service validation test"
+    - scenario: "Disabled campaign public access"
+      given: ["campaign is disabled"]
+      when: "public endpoint requests campaign"
+      then: "API returns 404"
+      evidence: "public handler test"
+  edges:
+    - scenario: "Same slug in two tenants"
+      given: ["tenant A and tenant B both use slug daily"]
+      when: "public route includes tenant context"
+      then: "each route resolves only its own campaign"
+      evidence: "repository test"
+  invariants:
+    - rule: "Campaign uniqueness is scoped by tenant"
+      preserved_by: "unique tenant_id + slug constraint"
+      violated_when: "two rows in same tenant share slug"
+      test: "constraint test"
+    - rule: "Public campaign response hides internal config"
+      preserved_by: "ToPublic-style DTO excludes secrets and admin-only fields"
+      violated_when: "postback rules or credentials leak publicly"
+      test: "public response assertion"
+
+out_of_scope:
+  - "transaction creation"
+  - "real subscription routing"
+  - "admin frontend editor changes"
+
+size_check:
+  files_touched: 15
+  migrations: 1
+  endpoints: 3
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-005-tenant-campaigns/value-gate-report.md"
+

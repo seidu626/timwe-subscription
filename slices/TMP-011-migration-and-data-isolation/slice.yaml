@@ -1,0 +1,70 @@
+story:
+  id: "TMP-011"
+  title: "Platform operator migrates legacy global data into tenant isolation"
+  actor: "platform-operator"
+  action: "backfill existing global tables into a default tenant and enforce tenant constraints"
+  outcome: "production data remains usable while the platform becomes multi-tenant safe"
+  as_a: "platform-operator"
+  i_want_to: "migrate legacy data into a default tenant safely"
+  so_that: "multi-tenant constraints can be enforced without data loss"
+
+entrypoints:
+  - "make db-migrate-tenant-platform"
+  - "SQL verification queries in migration runbook"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Backfill default tenant"
+      given: ["existing global campaigns, products, subscriptions, notifications, postbacks, cadence rows"]
+      when: "operator runs migration"
+      then: "all legacy rows receive default tenant_id and verification queries show zero unmapped rows"
+      evidence: "migration test or dry-run SQL verification"
+    - scenario: "Enforce tenant constraints"
+      given: ["backfill completed"]
+      when: "operator applies not-null and scoped uniqueness constraints"
+      then: "constraints apply without violating existing data"
+      evidence: "migration validation script"
+  failures:
+    - scenario: "Unmapped legacy row"
+      given: ["row cannot be assigned to default tenant"]
+      when: "migration dry-run executes"
+      then: "migration stops before enforcing constraints and lists offending table/count"
+      evidence: "SQL dry-run test"
+    - scenario: "Constraint violation"
+      given: ["duplicate slug/product state conflicts under default tenant"]
+      when: "migration validates uniqueness"
+      then: "migration reports conflict and does not proceed to not-null enforcement"
+      evidence: "fixture migration test"
+    - scenario: "Rollback required"
+      given: ["post-deploy smoke fails"]
+      when: "operator runs rollback notes"
+      then: "rollback preserves original data and disables tenant enforcement safely"
+      evidence: "documented rollback script review"
+  edges:
+    - scenario: "Large table lock risk"
+      given: ["subscriptions/notifications tables are large"]
+      when: "migration runs"
+      then: "migration uses batched backfill or explicitly documents lock window"
+      evidence: "runbook and SQL review"
+  invariants:
+    - rule: "Existing single-tenant behavior remains compatible"
+      preserved_by: "default tenant mapping and compatibility query paths during transition"
+      violated_when: "existing campaign or subscription flow breaks after migration"
+      test: "smoke test old campaign path"
+    - rule: "No tenant_id nulls after enforcement"
+      preserved_by: "verification query before adding not-null constraints"
+      violated_when: "any migrated table has null tenant_id"
+      test: "SQL assertion"
+
+out_of_scope:
+  - "new feature behavior beyond migration"
+  - "schema-per-tenant or database-per-tenant split"
+
+size_check:
+  files_touched: 15
+  migrations: 3
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-011-migration-and-data-isolation/value-gate-report.md"
