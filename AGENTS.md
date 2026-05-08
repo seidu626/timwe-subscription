@@ -1,1 +1,1 @@
-/home/xper626/dev/agent-policies/AGENTS.md
+/home/xper626/.agents/agent-policies/AGENTS.md

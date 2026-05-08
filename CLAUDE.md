@@ -1,1 +1,1 @@
-/home/xper626/dev/agent-policies/CLAUDE.md
+/home/xper626/.agents/agent-policies/CLAUDE.md
