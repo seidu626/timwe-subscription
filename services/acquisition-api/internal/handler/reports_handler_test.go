@@ -5,12 +5,14 @@ import (
 	"time"
 
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/valyala/fasthttp"
 )
 
 func TestParseFilters_Defaults(t *testing.T) {
 	h := &ReportsHandler{}
 	ctx := &fasthttp.RequestCtx{}
+	setReportTenant(ctx)
 
 	filters, err := h.parseFilters(ctx)
 	if err != nil {
@@ -38,6 +40,7 @@ func TestParseFilters_Defaults(t *testing.T) {
 func TestParseFilters_WithParams(t *testing.T) {
 	h := &ReportsHandler{}
 	ctx := &fasthttp.RequestCtx{}
+	setReportTenant(ctx)
 	ctx.QueryArgs().Set("startDate", "2026-01-01")
 	ctx.QueryArgs().Set("endDate", "2026-01-15")
 	ctx.QueryArgs().Set("campaignSlug", "gh-test")
@@ -70,7 +73,7 @@ func TestParseFilters_WithParams(t *testing.T) {
 
 func TestParseFilters_InvalidDates(t *testing.T) {
 	h := &ReportsHandler{}
-	
+
 	tests := []struct {
 		name       string
 		startDate  string
@@ -86,6 +89,7 @@ func TestParseFilters_InvalidDates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := &fasthttp.RequestCtx{}
+			setReportTenant(ctx)
 			if tt.startDate != "" {
 				ctx.QueryArgs().Set("startDate", tt.startDate)
 			}
@@ -94,7 +98,7 @@ func TestParseFilters_InvalidDates(t *testing.T) {
 			}
 
 			_, err := h.parseFilters(ctx)
-			
+
 			if tt.shouldFail {
 				if err == nil {
 					t.Error("expected error, got nil")
@@ -110,4 +114,70 @@ func TestParseFilters_InvalidDates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseFilters_RejectsUnauthorizedAllTenants(t *testing.T) {
+	h := &ReportsHandler{}
+	ctx := &fasthttp.RequestCtx{}
+	setReportTenant(ctx)
+	ctx.QueryArgs().Set("all_tenants", "true")
+
+	_, err := h.parseFilters(ctx)
+	if err == nil {
+		t.Fatal("expected all_tenants to be rejected for tenant admin")
+	}
+	filterErr, ok := err.(reportFilterError)
+	if !ok {
+		t.Fatalf("expected reportFilterError, got %T", err)
+	}
+	if filterErr.status != fasthttp.StatusForbidden || filterErr.code != "tenant_aggregation_forbidden" {
+		t.Fatalf("unexpected error: %#v", filterErr)
+	}
+}
+
+func TestParseFilters_AllowsPlatformAllTenants(t *testing.T) {
+	h := &ReportsHandler{}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		PlatformScoped: true,
+		TrustSource:    tenantctx.TrustSourceJWT,
+	})
+	ctx.QueryArgs().Set("all_tenants", "true")
+
+	filters, err := h.parseFilters(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !filters.AllTenants {
+		t.Fatal("expected all_tenants filter")
+	}
+	if filters.TenantID != nil {
+		t.Fatalf("platform all_tenants should not force tenant id, got %v", *filters.TenantID)
+	}
+}
+
+func TestParseFilters_InvalidChannelSyntax(t *testing.T) {
+	h := &ReportsHandler{}
+	ctx := &fasthttp.RequestCtx{}
+	setReportTenant(ctx)
+	ctx.QueryArgs().Set("channel_id", "unknown-channel")
+
+	_, err := h.parseFilters(ctx)
+	if err == nil {
+		t.Fatal("expected invalid channel error")
+	}
+	filterErr, ok := err.(reportFilterError)
+	if !ok {
+		t.Fatalf("expected reportFilterError, got %T", err)
+	}
+	if filterErr.status != fasthttp.StatusBadRequest || filterErr.code != "invalid_channel" {
+		t.Fatalf("unexpected error: %#v", filterErr)
+	}
+}
+
+func setReportTenant(ctx *fasthttp.RequestCtx) {
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantID:    "11111111-1111-1111-1111-111111111111",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
 }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/seidu626/subscription-manager/common/config"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/monitoring"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
@@ -18,16 +19,22 @@ type MonitoringHandler struct {
 	monitor         *monitoring.ChargingFailureMonitor
 	realTimeMonitor *monitoring.RealTimeMonitor
 	logger          *zap.Logger
+	cfg             *config.Config
 }
 
 // NewMonitoringHandler creates a new monitoring handler
-func NewMonitoringHandler(monitor *monitoring.ChargingFailureMonitor, logger *zap.Logger) *MonitoringHandler {
+func NewMonitoringHandler(monitor *monitoring.ChargingFailureMonitor, logger *zap.Logger, cfg ...*config.Config) *MonitoringHandler {
 	realTimeMonitor := monitoring.NewRealTimeMonitor(monitor, logger)
+	var c *config.Config
+	if len(cfg) > 0 {
+		c = cfg[0]
+	}
 
 	return &MonitoringHandler{
 		monitor:         monitor,
 		realTimeMonitor: realTimeMonitor,
 		logger:          logger,
+		cfg:             c,
 	}
 }
 
@@ -96,14 +103,31 @@ func (w *responseWriterAdapter) WriteHeader(statusCode int) {
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /api/v1/subscription-external/monitoring/dashboard [get]
 func (h *MonitoringHandler) GetDashboardDataHandler(ctx *fasthttp.RequestCtx) {
-	dashboardData := h.monitor.GetDashboardData()
+	route, err := tenantRouteFromRequest(ctx, h.cfg, true, "", "")
+	if err != nil {
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(tenantRouteStatus(err))
+		_ = json.NewEncoder(ctx).Encode(map[string]interface{}{
+			"status":  "error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	dashboardData := h.monitor.GetDashboardDataForScope(route.TenantID, route.ChannelID)
 
 	// Log the dashboard data being returned
 	h.logger.Info("Returning dashboard data",
-		zap.Any("dashboard_data", dashboardData))
+		zap.String("tenant_id", route.TenantID),
+		zap.String("channel_id", route.ChannelID),
+		zap.Bool("degraded", dashboardDataDegraded(dashboardData)))
 
+	status := "success"
+	if dashboardDataDegraded(dashboardData) {
+		status = "degraded"
+	}
 	response := map[string]interface{}{
-		"status":    "success",
+		"status":    status,
 		"message":   "Dashboard data retrieved successfully",
 		"timestamp": time.Now().Format(time.RFC3339),
 		"data":      dashboardData,
@@ -117,6 +141,19 @@ func (h *MonitoringHandler) GetDashboardDataHandler(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(http.StatusInternalServerError)
 		ctx.WriteString(`{"status":"error","message":"Failed to encode response"}`)
 	}
+}
+
+func dashboardDataDegraded(data map[string]interface{}) bool {
+	status, ok := data["status"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	scope, ok := status["scope"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	degraded, _ := scope["degraded"].(bool)
+	return degraded
 }
 
 // GetMetricsHandler returns current metrics

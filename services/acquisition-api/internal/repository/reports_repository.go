@@ -9,13 +9,13 @@ import (
 	"go.uber.org/zap"
 )
 
-// ReportsRepository handles reporting data aggregation
+// ReportsRepository handles reporting data aggregation.
 type ReportsRepository struct {
 	db     *sql.DB
 	logger *zap.Logger
 }
 
-// NewReportsRepository creates a new reports repository
+// NewReportsRepository creates a new reports repository.
 func NewReportsRepository(db *sql.DB, logger *zap.Logger) *ReportsRepository {
 	return &ReportsRepository{
 		db:     db,
@@ -23,111 +23,46 @@ func NewReportsRepository(db *sql.DB, logger *zap.Logger) *ReportsRepository {
 	}
 }
 
-// GetKPIs retrieves aggregated KPIs for the given filters
+// ChannelBelongsToTenant verifies that a channel is available in the tenant's catalog.
+func (r *ReportsRepository) ChannelBelongsToTenant(tenantID, channelID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM tenant_channels
+			WHERE tenant_id = $1::uuid
+			  AND id = $2::uuid
+			  AND status = 'ACTIVE'
+		)
+	`, tenantID, channelID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to validate tenant channel: %w", err)
+	}
+	return exists, nil
+}
+
+// GetKPIs retrieves aggregated KPIs for the given filters.
 func (r *ReportsRepository) GetKPIs(filters domain.ReportFilters) (*domain.KPIsResponse, error) {
-	kpis := &domain.KPIsResponse{
-		Filters: filters,
-	}
+	kpis := &domain.KPIsResponse{Filters: filters}
 
-	// Get landing event counts
-	landingQuery := `
-		SELECT 
-			COALESCE(SUM(CASE WHEN event_type = 'landing_view' THEN 1 ELSE 0 END), 0) as views,
-			COALESCE(SUM(CASE WHEN event_type = 'landing_click' THEN 1 ELSE 0 END), 0) as clicks
-		FROM landing_events
-		WHERE created_at >= $1 AND created_at < $2
-	`
-	args := []interface{}{filters.StartDate, filters.EndDate}
-	argIdx := 3
-
-	if filters.CampaignSlug != nil {
-		landingQuery = `
-			SELECT 
-				COALESCE(SUM(CASE WHEN event_type = 'landing_view' THEN 1 ELSE 0 END), 0) as views,
-				COALESCE(SUM(CASE WHEN event_type = 'landing_click' THEN 1 ELSE 0 END), 0) as clicks
-			FROM landing_events
-			WHERE created_at >= $1 AND created_at < $2 AND campaign_slug = $3
-		`
-		args = append(args, *filters.CampaignSlug)
-		argIdx++
-	}
-
-	err := r.db.QueryRow(landingQuery, args...).Scan(&kpis.LandingViews, &kpis.LandingClicks)
-	if err != nil && err != sql.ErrNoRows {
+	landingQuery, landingArgs := buildLandingAggregateQuery(filters)
+	if err := r.db.QueryRow(landingQuery, landingArgs...).Scan(&kpis.LandingViews, &kpis.LandingClicks); err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to get landing events: %w", err)
 	}
 
-	// Get transaction counts
-	txQuery := `
-		SELECT 
-			COUNT(*) as total,
-			COALESCE(SUM(CASE WHEN status = 'SUBSCRIBED' THEN 1 ELSE 0 END), 0) as subscribed,
-			COALESCE(SUM(CASE WHEN status = 'CHARGED' THEN 1 ELSE 0 END), 0) as charged
-		FROM acquisition_transactions
-		WHERE created_at >= $1 AND created_at < $2
-	`
-	txArgs := []interface{}{filters.StartDate, filters.EndDate}
-
-	if filters.CampaignSlug != nil {
-		txQuery = `
-			SELECT 
-				COUNT(*) as total,
-				COALESCE(SUM(CASE WHEN status = 'SUBSCRIBED' THEN 1 ELSE 0 END), 0) as subscribed,
-				COALESCE(SUM(CASE WHEN status = 'CHARGED' THEN 1 ELSE 0 END), 0) as charged
-			FROM acquisition_transactions
-			WHERE created_at >= $1 AND created_at < $2 AND campaign_slug = $3
-		`
-		txArgs = append(txArgs, *filters.CampaignSlug)
-	}
-
-	err = r.db.QueryRow(txQuery, txArgs...).Scan(&kpis.Transactions, &kpis.Subscribed, &kpis.Charged)
-	if err != nil && err != sql.ErrNoRows {
+	txQuery, txArgs := buildTransactionAggregateQuery(filters)
+	if err := r.db.QueryRow(txQuery, txArgs...).Scan(&kpis.Transactions, &kpis.Subscribed, &kpis.Charged); err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to get transaction counts: %w", err)
 	}
 
-	// Get estimated revenue
-	revenueQuery := `
-		SELECT COALESCE(SUM(
-			CASE 
-				WHEN at.charge_payout > 0 
-				THEN at.charge_payout
-				ELSE COALESCE(c.price, 0)
-			END
-		), 0) as revenue
-		FROM acquisition_transactions at
-		LEFT JOIN campaigns c ON at.campaign_slug = c.slug
-		WHERE at.status = 'CHARGED'
-		  AND at.created_at >= $1 AND at.created_at < $2
-	`
-	revenueArgs := []interface{}{filters.StartDate, filters.EndDate}
-
-	if filters.CampaignSlug != nil {
-		revenueQuery = `
-			SELECT COALESCE(SUM(
-				CASE 
-					WHEN at.charge_payout > 0 
-					THEN at.charge_payout
-					ELSE COALESCE(c.price, 0)
-				END
-			), 0) as revenue
-			FROM acquisition_transactions at
-			LEFT JOIN campaigns c ON at.campaign_slug = c.slug
-			WHERE at.status = 'CHARGED'
-			  AND at.created_at >= $1 AND at.created_at < $2
-			  AND at.campaign_slug = $3
-		`
-		revenueArgs = append(revenueArgs, *filters.CampaignSlug)
+	revenueQuery, revenueArgs := buildRevenueAggregateQuery(filters)
+	if err := r.db.QueryRow(revenueQuery, revenueArgs...).Scan(&kpis.EstimatedRevenue); err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to calculate revenue: %w", err)
 	}
 
-	err = r.db.QueryRow(revenueQuery, revenueArgs...).Scan(&kpis.EstimatedRevenue)
-	if err != nil && err != sql.ErrNoRows {
-		r.logger.Warn("Failed to calculate revenue, using 0", zap.Error(err))
-		kpis.EstimatedRevenue = 0
-	}
-
-	// Calculate conversion rates
 	if kpis.LandingViews > 0 {
 		kpis.ViewToClickRate = float64(kpis.LandingClicks) / float64(kpis.LandingViews) * 100
+		kpis.OverallConversionRate = float64(kpis.Charged) / float64(kpis.LandingViews) * 100
 	}
 	if kpis.LandingClicks > 0 {
 		kpis.ClickToTransactionRate = float64(kpis.Transactions) / float64(kpis.LandingClicks) * 100
@@ -138,14 +73,11 @@ func (r *ReportsRepository) GetKPIs(filters domain.ReportFilters) (*domain.KPIsR
 	if kpis.Subscribed > 0 {
 		kpis.SubToChargedRate = float64(kpis.Charged) / float64(kpis.Subscribed) * 100
 	}
-	if kpis.LandingViews > 0 {
-		kpis.OverallConversionRate = float64(kpis.Charged) / float64(kpis.LandingViews) * 100
-	}
 
 	return kpis, nil
 }
 
-// GetAcquisitionFunnel retrieves funnel data
+// GetAcquisitionFunnel retrieves funnel data.
 func (r *ReportsRepository) GetAcquisitionFunnel(filters domain.ReportFilters) (*domain.AcquisitionFunnelResponse, error) {
 	kpis, err := r.GetKPIs(filters)
 	if err != nil {
@@ -173,60 +105,69 @@ func calcDropoff(prev, curr int64) float64 {
 	return float64(prev-curr) / float64(prev) * 100
 }
 
-// GetCampaignPerformance retrieves per-campaign performance metrics
+// GetCampaignPerformance retrieves per-campaign performance metrics.
 func (r *ReportsRepository) GetCampaignPerformance(filters domain.ReportFilters) (*domain.CampaignPerformanceResponse, error) {
-	query := `
-		WITH landing_stats AS (
-			SELECT 
-				campaign_slug,
-				COUNT(*) FILTER (WHERE event_type = 'landing_view') as views
-			FROM landing_events
-			WHERE created_at >= $1 AND created_at < $2
-			GROUP BY campaign_slug
-		),
-		tx_stats AS (
-			SELECT 
-				campaign_slug,
-				COUNT(*) as transactions,
-				COUNT(*) FILTER (WHERE status IN ('SUBSCRIBED', 'CHARGED')) as subscribed,
-				COUNT(*) FILTER (WHERE status = 'CHARGED') as charged
-			FROM acquisition_transactions
-			WHERE created_at >= $1 AND created_at < $2
-			GROUP BY campaign_slug
-		),
-		revenue_stats AS (
-			SELECT 
-				at.campaign_slug,
-				COALESCE(SUM(
-					CASE 
-						WHEN at.charge_payout > 0 
-						THEN at.charge_payout
-						ELSE COALESCE(c.price, 0)
-					END
-				), 0) as revenue
-			FROM acquisition_transactions at
-			LEFT JOIN campaigns c ON at.campaign_slug = c.slug
-			WHERE at.status = 'CHARGED'
-			  AND at.created_at >= $1 AND at.created_at < $2
-			GROUP BY at.campaign_slug
-		)
-		SELECT 
+	args := []interface{}{filters.StartDate, filters.EndDate}
+	campaignWhere := []string{"c.enabled = true"}
+	addCampaignFilters(&campaignWhere, &args, filters, "c")
+
+	query := fmt.Sprintf(`
+		SELECT
 			c.slug,
 			c.country,
-			COALESCE(ls.views, 0) as views,
-			COALESCE(ts.transactions, 0) as transactions,
-			COALESCE(ts.subscribed, 0) as subscribed,
-			COALESCE(ts.charged, 0) as charged,
-			COALESCE(rs.revenue, 0) as revenue
+			COALESCE((
+				SELECT COUNT(*)
+				FROM landing_events le
+				WHERE le.campaign_slug = c.slug
+				  AND le.created_at >= $1 AND le.created_at < $2
+				  AND (%s)
+			), 0) AS views,
+			COALESCE((
+				SELECT COUNT(*)
+				FROM acquisition_transactions at
+				WHERE at.campaign_slug = c.slug
+				  AND at.created_at >= $1 AND at.created_at < $2
+				  AND (%s)
+			), 0) AS transactions,
+			COALESCE((
+				SELECT COUNT(*)
+				FROM acquisition_transactions at
+				WHERE at.campaign_slug = c.slug
+				  AND at.status IN ('SUBSCRIBED', 'CHARGED')
+				  AND at.created_at >= $1 AND at.created_at < $2
+				  AND (%s)
+			), 0) AS subscribed,
+			COALESCE((
+				SELECT COUNT(*)
+				FROM acquisition_transactions at
+				WHERE at.campaign_slug = c.slug
+				  AND at.status = 'CHARGED'
+				  AND at.created_at >= $1 AND at.created_at < $2
+				  AND (%s)
+			), 0) AS charged,
+			COALESCE((
+				SELECT SUM(
+					CASE
+						WHEN at.charge_payout IS NOT NULL
+						  AND at.charge_payout <> ''
+						  AND at.charge_payout ~ '^[0-9]+(\.[0-9]+)?$'
+						  AND at.charge_payout::numeric > 0
+						THEN at.charge_payout::numeric
+						ELSE COALESCE(c.price, 0)
+					END
+				)
+				FROM acquisition_transactions at
+				WHERE at.campaign_slug = c.slug
+				  AND at.status = 'CHARGED'
+				  AND at.created_at >= $1 AND at.created_at < $2
+				  AND (%s)
+			), 0) AS revenue
 		FROM campaigns c
-		LEFT JOIN landing_stats ls ON c.slug = ls.campaign_slug
-		LEFT JOIN tx_stats ts ON c.slug = ts.campaign_slug
-		LEFT JOIN revenue_stats rs ON c.slug = rs.campaign_slug
-		WHERE c.enabled = true
-		ORDER BY COALESCE(ls.views, 0) DESC
-	`
+		WHERE %s
+		ORDER BY views DESC
+	`, campaignJoinPredicate("c", "le"), transactionCampaignPredicate("c", "at"), transactionCampaignPredicate("c", "at"), transactionCampaignPredicate("c", "at"), transactionCampaignPredicate("c", "at"), joinConditions(campaignWhere, " AND "))
 
-	rows, err := r.db.Query(query, filters.StartDate, filters.EndDate)
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get campaign performance: %w", err)
 	}
@@ -251,6 +192,9 @@ func (r *ReportsRepository) GetCampaignPerformance(filters domain.ReportFilters)
 		}
 		campaigns = append(campaigns, cp)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read campaign performance: %w", err)
+	}
 
 	return &domain.CampaignPerformanceResponse{
 		Filters:   filters,
@@ -258,62 +202,14 @@ func (r *ReportsRepository) GetCampaignPerformance(filters domain.ReportFilters)
 	}, nil
 }
 
-// GetTimeSeries retrieves time series data
+// GetTimeSeries retrieves time series data.
 func (r *ReportsRepository) GetTimeSeries(filters domain.ReportFilters, interval string) (*domain.TimeSeriesResponse, error) {
-	// Determine date truncation based on interval
 	truncFunc := "day"
 	if interval == "hourly" {
 		truncFunc = "hour"
 	}
 
-	// Get landing events time series
-	landingQuery := fmt.Sprintf(`
-		SELECT 
-			date_trunc('%s', created_at) as ts,
-			COUNT(*) FILTER (WHERE event_type = 'landing_view') as views
-		FROM landing_events
-		WHERE created_at >= $1 AND created_at < $2
-	`, truncFunc)
-	
-	if filters.CampaignSlug != nil {
-		landingQuery += ` AND campaign_slug = $3`
-	}
-	landingQuery += fmt.Sprintf(` GROUP BY date_trunc('%s', created_at) ORDER BY ts`, truncFunc)
-
-	landingArgs := []interface{}{filters.StartDate, filters.EndDate}
-	if filters.CampaignSlug != nil {
-		landingArgs = append(landingArgs, *filters.CampaignSlug)
-	}
-
-	// Get transaction time series
-	txQuery := fmt.Sprintf(`
-		SELECT 
-			date_trunc('%s', created_at) as ts,
-			COUNT(*) as transactions,
-			COUNT(*) FILTER (WHERE status IN ('SUBSCRIBED', 'CHARGED')) as subscribed,
-			COUNT(*) FILTER (WHERE status = 'CHARGED') as charged,
-			COALESCE(SUM(
-				CASE 
-					WHEN status = 'CHARGED' AND charge_payout > 0 
-					THEN charge_payout
-					ELSE 0
-				END
-			), 0) as revenue
-		FROM acquisition_transactions
-		WHERE created_at >= $1 AND created_at < $2
-	`, truncFunc)
-
-	if filters.CampaignSlug != nil {
-		txQuery += ` AND campaign_slug = $3`
-	}
-	txQuery += fmt.Sprintf(` GROUP BY date_trunc('%s', created_at) ORDER BY ts`, truncFunc)
-
-	txArgs := []interface{}{filters.StartDate, filters.EndDate}
-	if filters.CampaignSlug != nil {
-		txArgs = append(txArgs, *filters.CampaignSlug)
-	}
-
-	// Execute landing events query
+	landingQuery, landingArgs := buildLandingTimeSeriesQuery(filters, truncFunc)
 	landingRows, err := r.db.Query(landingQuery, landingArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get landing time series: %w", err)
@@ -329,15 +225,17 @@ func (r *ReportsRepository) GetTimeSeries(filters domain.ReportFilters, interval
 		}
 		landingData[ts] = views
 	}
+	if err := landingRows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read landing time series: %w", err)
+	}
 
-	// Execute transactions query
+	txQuery, txArgs := buildTransactionTimeSeriesQuery(filters, truncFunc)
 	txRows, err := r.db.Query(txQuery, txArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transaction time series: %w", err)
 	}
 	defer txRows.Close()
 
-	// Merge data
 	dataMap := make(map[time.Time]*domain.TimeSeriesPoint)
 	for txRows.Next() {
 		var ts time.Time
@@ -354,26 +252,22 @@ func (r *ReportsRepository) GetTimeSeries(filters domain.ReportFilters, interval
 			EstimatedRevenue: revenue,
 		}
 	}
+	if err := txRows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read transaction time series: %w", err)
+	}
 
-	// Merge landing data
 	for ts, views := range landingData {
 		if pt, ok := dataMap[ts]; ok {
 			pt.LandingViews = views
 		} else {
-			dataMap[ts] = &domain.TimeSeriesPoint{
-				Timestamp:    ts,
-				LandingViews: views,
-			}
+			dataMap[ts] = &domain.TimeSeriesPoint{Timestamp: ts, LandingViews: views}
 		}
 	}
 
-	// Convert to slice and sort
 	var dataPoints []domain.TimeSeriesPoint
 	for _, pt := range dataMap {
 		dataPoints = append(dataPoints, *pt)
 	}
-
-	// Sort by timestamp
 	for i := 0; i < len(dataPoints); i++ {
 		for j := i + 1; j < len(dataPoints); j++ {
 			if dataPoints[i].Timestamp.After(dataPoints[j].Timestamp) {
@@ -387,4 +281,160 @@ func (r *ReportsRepository) GetTimeSeries(filters domain.ReportFilters, interval
 		Interval:   interval,
 		DataPoints: dataPoints,
 	}, nil
+}
+
+func buildLandingAggregateQuery(filters domain.ReportFilters) (string, []interface{}) {
+	args := []interface{}{filters.StartDate, filters.EndDate}
+	where := []string{"le.created_at >= $1", "le.created_at < $2"}
+	addLandingFilters(&where, &args, filters, "le")
+	return fmt.Sprintf(`
+		SELECT
+			COALESCE(SUM(CASE WHEN le.event_type = 'landing_view' THEN 1 ELSE 0 END), 0) AS views,
+			COALESCE(SUM(CASE WHEN le.event_type = 'landing_click' THEN 1 ELSE 0 END), 0) AS clicks
+		FROM landing_events le
+		WHERE %s
+	`, joinConditions(where, " AND ")), args
+}
+
+func buildTransactionAggregateQuery(filters domain.ReportFilters) (string, []interface{}) {
+	args := []interface{}{filters.StartDate, filters.EndDate}
+	where := []string{"at.created_at >= $1", "at.created_at < $2"}
+	addTransactionFilters(&where, &args, filters, "at")
+	return fmt.Sprintf(`
+		SELECT
+			COUNT(*) AS total,
+			COALESCE(SUM(CASE WHEN at.status = 'SUBSCRIBED' THEN 1 ELSE 0 END), 0) AS subscribed,
+			COALESCE(SUM(CASE WHEN at.status = 'CHARGED' THEN 1 ELSE 0 END), 0) AS charged
+		FROM acquisition_transactions at
+		WHERE %s
+	`, joinConditions(where, " AND ")), args
+}
+
+func buildRevenueAggregateQuery(filters domain.ReportFilters) (string, []interface{}) {
+	args := []interface{}{filters.StartDate, filters.EndDate}
+	where := []string{"at.status = 'CHARGED'", "at.created_at >= $1", "at.created_at < $2"}
+	addTransactionFilters(&where, &args, filters, "at")
+	return fmt.Sprintf(`
+		SELECT COALESCE(SUM(
+			CASE
+				WHEN at.charge_payout IS NOT NULL
+				  AND at.charge_payout <> ''
+				  AND at.charge_payout ~ '^[0-9]+(\.[0-9]+)?$'
+				  AND at.charge_payout::numeric > 0
+				THEN at.charge_payout::numeric
+				ELSE COALESCE(c.price, 0)
+			END
+		), 0) AS revenue
+		FROM acquisition_transactions at
+		LEFT JOIN campaigns c ON %s
+		WHERE %s
+	`, transactionCampaignPredicate("c", "at"), joinConditions(where, " AND ")), args
+}
+
+func buildLandingTimeSeriesQuery(filters domain.ReportFilters, truncFunc string) (string, []interface{}) {
+	args := []interface{}{filters.StartDate, filters.EndDate}
+	where := []string{"le.created_at >= $1", "le.created_at < $2"}
+	addLandingFilters(&where, &args, filters, "le")
+	return fmt.Sprintf(`
+		SELECT
+			date_trunc('%s', le.created_at) AS ts,
+			COUNT(*) FILTER (WHERE le.event_type = 'landing_view') AS views
+		FROM landing_events le
+		WHERE %s
+		GROUP BY date_trunc('%s', le.created_at)
+		ORDER BY ts
+	`, truncFunc, joinConditions(where, " AND "), truncFunc), args
+}
+
+func buildTransactionTimeSeriesQuery(filters domain.ReportFilters, truncFunc string) (string, []interface{}) {
+	args := []interface{}{filters.StartDate, filters.EndDate}
+	where := []string{"at.created_at >= $1", "at.created_at < $2"}
+	addTransactionFilters(&where, &args, filters, "at")
+	return fmt.Sprintf(`
+		SELECT
+			date_trunc('%s', at.created_at) AS ts,
+			COUNT(*) AS transactions,
+			COUNT(*) FILTER (WHERE at.status IN ('SUBSCRIBED', 'CHARGED')) AS subscribed,
+			COUNT(*) FILTER (WHERE at.status = 'CHARGED') AS charged,
+			COALESCE(SUM(
+				CASE
+					WHEN at.status = 'CHARGED'
+					  AND at.charge_payout IS NOT NULL
+					  AND at.charge_payout <> ''
+					  AND at.charge_payout ~ '^[0-9]+(\.[0-9]+)?$'
+					THEN at.charge_payout::numeric
+					ELSE 0
+				END
+			), 0) AS revenue
+		FROM acquisition_transactions at
+		WHERE %s
+		GROUP BY date_trunc('%s', at.created_at)
+		ORDER BY ts
+	`, truncFunc, joinConditions(where, " AND "), truncFunc), args
+}
+
+func addLandingFilters(where *[]string, args *[]interface{}, filters domain.ReportFilters, landingAlias string) {
+	if filters.CampaignSlug != nil {
+		*args = append(*args, *filters.CampaignSlug)
+		*where = append(*where, fmt.Sprintf("%s.campaign_slug = $%d", landingAlias, len(*args)))
+	}
+	if filters.TenantID != nil || filters.ChannelID != nil || filters.Country != nil {
+		campaignWhere := []string{campaignJoinPredicate("c", landingAlias)}
+		addCampaignFilters(&campaignWhere, args, filters, "c")
+		*where = append(*where, fmt.Sprintf("EXISTS (SELECT 1 FROM campaigns c WHERE %s)", joinConditions(campaignWhere, " AND ")))
+	}
+}
+
+func addTransactionFilters(where *[]string, args *[]interface{}, filters domain.ReportFilters, txAlias string) {
+	if filters.TenantID != nil {
+		*args = append(*args, *filters.TenantID)
+		*where = append(*where, fmt.Sprintf("%s.tenant_id = $%d::uuid", txAlias, len(*args)))
+	}
+	if filters.CampaignSlug != nil {
+		*args = append(*args, *filters.CampaignSlug)
+		*where = append(*where, fmt.Sprintf("%s.campaign_slug = $%d", txAlias, len(*args)))
+	}
+	if filters.ChannelID != nil || filters.Country != nil {
+		campaignWhere := []string{transactionCampaignPredicate("c", txAlias)}
+		addCampaignFilters(&campaignWhere, args, filters, "c")
+		*where = append(*where, fmt.Sprintf("EXISTS (SELECT 1 FROM campaigns c WHERE %s)", joinConditions(campaignWhere, " AND ")))
+	}
+}
+
+func addCampaignFilters(where *[]string, args *[]interface{}, filters domain.ReportFilters, campaignAlias string) {
+	if filters.TenantID != nil {
+		*args = append(*args, *filters.TenantID)
+		*where = append(*where, fmt.Sprintf("%s.tenant_id = $%d::uuid", campaignAlias, len(*args)))
+	}
+	if filters.ChannelID != nil {
+		*args = append(*args, *filters.ChannelID)
+		*where = append(*where, fmt.Sprintf("%s.channel_id = $%d::uuid", campaignAlias, len(*args)))
+	}
+	if filters.CampaignSlug != nil {
+		*args = append(*args, *filters.CampaignSlug)
+		*where = append(*where, fmt.Sprintf("%s.slug = $%d", campaignAlias, len(*args)))
+	}
+	if filters.Country != nil {
+		*args = append(*args, *filters.Country)
+		*where = append(*where, fmt.Sprintf("%s.country = $%d", campaignAlias, len(*args)))
+	}
+}
+
+func campaignJoinPredicate(campaignAlias, landingAlias string) string {
+	return fmt.Sprintf("%s.slug = %s.campaign_slug", campaignAlias, landingAlias)
+}
+
+func transactionCampaignPredicate(campaignAlias, txAlias string) string {
+	return fmt.Sprintf("%s.slug = %s.campaign_slug AND (%s.tenant_id IS NULL OR %s.tenant_id = %s.tenant_id)", campaignAlias, txAlias, campaignAlias, campaignAlias, txAlias)
+}
+
+func joinConditions(conditions []string, sep string) string {
+	if len(conditions) == 0 {
+		return "1=1"
+	}
+	out := conditions[0]
+	for i := 1; i < len(conditions); i++ {
+		out += sep + conditions[i]
+	}
+	return out
 }

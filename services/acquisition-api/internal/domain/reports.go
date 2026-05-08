@@ -6,8 +6,11 @@ import "time"
 type ReportFilters struct {
 	StartDate    time.Time `json:"start_date"`
 	EndDate      time.Time `json:"end_date"`
+	TenantID     *string   `json:"tenant_id,omitempty"`
+	ChannelID    *string   `json:"channel_id,omitempty"`
 	CampaignSlug *string   `json:"campaign_slug,omitempty"`
 	Country      *string   `json:"country,omitempty"`
+	AllTenants   bool      `json:"all_tenants,omitempty"`
 }
 
 // KPIsResponse represents the KPIs response
