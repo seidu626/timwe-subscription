@@ -9,7 +9,10 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/valyala/fasthttp"
+	"go.uber.org/zap"
 )
 
 func TestValidateTrackingConfig(t *testing.T) {
@@ -201,6 +204,42 @@ func TestValidateAdminUpsert_RedirectFlowRequiresDestination(t *testing.T) {
 	}
 }
 
+func TestAdminPresignBackgroundUploadRequiresTenantContext(t *testing.T) {
+	h := newCampaignAssetTestHandler(t)
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetBodyString(`{"campaign_slug":"gh-campaign","file_name":"background.png","content_type":"image/png","size_bytes":1024}`)
+
+	h.AdminPresignBackgroundUpload(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if !strings.Contains(string(ctx.Response.Body()), "Tenant context required") {
+		t.Fatalf("expected tenant context error, got %q", ctx.Response.Body())
+	}
+}
+
+func TestAdminPresignBackgroundUploadRejectsPathTraversalFileName(t *testing.T) {
+	h := newCampaignAssetTestHandler(t)
+	var ctx fasthttp.RequestCtx
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantID:    "22222222-2222-2222-2222-222222222222",
+		TenantKey:   "tenant-a",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetBodyString(`{"campaign_slug":"gh-campaign","file_name":"../background.png","content_type":"image/png","size_bytes":1024}`)
+
+	h.AdminPresignBackgroundUpload(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusBadRequest {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if !strings.Contains(string(ctx.Response.Body()), "simple file name") {
+		t.Fatalf("expected file name validation error, got %q", ctx.Response.Body())
+	}
+}
+
 func TestValidateCloneCampaignRequest(t *testing.T) {
 	t.Run("valid request", func(t *testing.T) {
 		req := &adminCloneCampaignRequest{NewSlug: "gh-new-campaign-v2"}
@@ -224,6 +263,24 @@ func TestValidateCloneCampaignRequest(t *testing.T) {
 			t.Fatalf("expected same slug validation error, got %v", err)
 		}
 	})
+}
+
+func newCampaignAssetTestHandler(t *testing.T) *CampaignHandler {
+	t.Helper()
+
+	assetSvc, err := service.NewCampaignAssetService(service.CampaignAssetStorageConfig{
+		Enabled:            true,
+		Endpoint:           "s3.example.com",
+		Bucket:             "campaign-assets",
+		AccessKeyID:        "access-key",
+		SecretAccessKey:    "secret-key",
+		PublicBaseURL:      "https://cdn.example.com/assets",
+		MaxUploadSizeBytes: 2 * 1024 * 1024,
+	}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("failed to create campaign asset service: %v", err)
+	}
+	return NewCampaignHandler(nil, assetSvc, zap.NewNop())
 }
 
 func TestMapCampaignCloneErrorStatus(t *testing.T) {

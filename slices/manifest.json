@@ -270,7 +270,7 @@
       "id": "TMP-019",
       "name": "tenant-asset-namespacing",
       "description": "Campaign assets and presigned URLs use tenant-scoped object-storage keys and public-safe DTOs.",
-      "state": "planned",
+      "state": "done",
       "priority": "P1",
       "depends_on": ["TMP-001"],
       "actor": "campaign-operator",

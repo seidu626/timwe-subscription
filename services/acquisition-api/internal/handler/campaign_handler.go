@@ -15,6 +15,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -870,6 +871,11 @@ func (h *CampaignHandler) AdminPresignBackgroundUpload(ctx *fasthttp.RequestCtx)
 		ctx.Error("Campaign asset upload is not configured", fasthttp.StatusNotImplemented)
 		return
 	}
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok || !identity.HasTenant() {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
 
 	var req adminPresignBackgroundUploadRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
@@ -888,17 +894,29 @@ func (h *CampaignHandler) AdminPresignBackgroundUpload(ctx *fasthttp.RequestCtx)
 	}
 
 	resp, err := h.assetService.PresignBackgroundUpload(context.Background(), service.CampaignAssetUploadRequest{
-		CampaignSlug: slug,
-		FileName:     req.FileName,
-		ContentType:  req.ContentType,
-		SizeBytes:    req.SizeBytes,
+		TenantNamespace: assetTenantNamespace(identity),
+		CampaignSlug:    slug,
+		FileName:        req.FileName,
+		ContentType:     req.ContentType,
+		SizeBytes:       req.SizeBytes,
 	})
 	if err != nil {
+		if errors.Is(err, service.ErrCampaignAssetStorageUnavailable) {
+			ctx.Error("Campaign asset storage unavailable", fasthttp.StatusServiceUnavailable)
+			return
+		}
 		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
 		return
 	}
 
 	writeJSON(ctx, fasthttp.StatusOK, resp)
+}
+
+func assetTenantNamespace(identity tenantctx.Identity) string {
+	if v := strings.TrimSpace(identity.TenantID); v != "" {
+		return v
+	}
+	return strings.TrimSpace(identity.TenantKey)
 }
 
 // AdminGetPostbackRules handles GET /v1/admin/campaigns/:slug/postback-rules
