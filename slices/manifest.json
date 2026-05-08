@@ -256,7 +256,7 @@
       "id": "TMP-018",
       "name": "tenant-claim-and-service-auth-contract",
       "description": "Platform services share typed tenant claims, role scopes, trusted service headers, and request-context propagation.",
-      "state": "planned",
+      "state": "done",
       "priority": "P0",
       "depends_on": [],
       "actor": "platform-operator",

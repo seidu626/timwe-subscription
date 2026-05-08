@@ -20,10 +20,10 @@ var (
 )
 
 type Validator struct {
-	keyFunc  jwt.Keyfunc
-	issuer   string
+	keyFunc   jwt.Keyfunc
+	issuer    string
 	audiences map[string]struct{}
-	parser   *jwt.Parser
+	parser    *jwt.Parser
 }
 
 func New(domain, audience string) (*Validator, error) {
@@ -79,9 +79,37 @@ func New(domain, audience string) (*Validator, error) {
 	}, nil
 }
 
+func NewWithKeyfunc(domain, audience string, keyFunc jwt.Keyfunc) (*Validator, error) {
+	domain = strings.TrimSpace(domain)
+	audience = strings.TrimSpace(audience)
+	if domain == "" || audience == "" || keyFunc == nil {
+		return nil, ErrInvalidConfig
+	}
+	audiences := make(map[string]struct{})
+	for _, part := range strings.Split(audience, ",") {
+		a := strings.TrimSpace(part)
+		if a != "" {
+			audiences[a] = struct{}{}
+		}
+	}
+	if len(audiences) == 0 {
+		return nil, ErrInvalidConfig
+	}
+	return &Validator{
+		keyFunc:   keyFunc,
+		issuer:    fmt.Sprintf("https://%s/", domain),
+		audiences: audiences,
+		parser: jwt.NewParser(
+			jwt.WithValidMethods([]string{"RS256"}),
+			jwt.WithIssuedAt(),
+			jwt.WithLeeway(60*time.Second),
+		),
+	}, nil
+}
+
 // ValidateBearer validates an `Authorization: Bearer <token>` header value.
-// It returns registered claims on success.
-func (v *Validator) ValidateBearer(ctx context.Context, authorizationHeader string) (*jwt.RegisteredClaims, error) {
+// It returns typed tenant/platform claims on success.
+func (v *Validator) ValidateBearer(ctx context.Context, authorizationHeader string) (*Claims, error) {
 	if v == nil || v.keyFunc == nil || v.parser == nil || v.issuer == "" || len(v.audiences) == 0 {
 		return nil, ErrInvalidConfig
 	}
@@ -99,7 +127,7 @@ func (v *Validator) ValidateBearer(ctx context.Context, authorizationHeader stri
 		return nil, ErrMissingToken
 	}
 
-	claims := &jwt.RegisteredClaims{}
+	claims := &Claims{}
 
 	// The jwt library doesn't currently accept context directly for ParseWithClaims,
 	// so we pre-check cancellation here and keep parsing bounded by keyfunc/http timeouts.

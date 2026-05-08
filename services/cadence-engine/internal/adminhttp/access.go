@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/seidu626/subscription-manager/common/auth/auth0jwt"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 )
 
 type access struct {
@@ -89,6 +90,11 @@ func (a *access) require(w http.ResponseWriter, r *http.Request) bool {
 	a.setCORS(w, r)
 
 	if a.validateStaticToken(r) {
+		*r = *r.WithContext(tenantctx.WithIdentity(r.Context(), tenantctx.Identity{
+			PlatformScoped: true,
+			ServiceID:      "cadence-admin-token",
+			TrustSource:    tenantctx.TrustSourceTrustedService,
+		}))
 		return true
 	}
 
@@ -97,12 +103,14 @@ func (a *access) require(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	if _, err := a.validator.ValidateBearer(r.Context(), r.Header.Get("Authorization")); err != nil {
+	claims, err := a.validator.ValidateBearer(r.Context(), r.Header.Get("Authorization"))
+	if err != nil {
 		// Do not log the Authorization header/token. Log only the failure reason.
 		log.Printf("admin auth failed (cadence-engine): remote_addr=%s err=%v", r.RemoteAddr, err)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return false
 	}
+	*r = *r.WithContext(tenantctx.WithIdentity(r.Context(), claims.Identity()))
 	return true
 }
 
