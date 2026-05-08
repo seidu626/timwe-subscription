@@ -356,11 +356,60 @@ func (r *SubscriptionRepository) CreateNotification(notification *domain.Notific
 	return nil
 }
 
+func (r *SubscriptionRepository) CreateChargeNotificationOnce(notification *domain.NotificationRequest) (bool, error) {
+	query := `
+        INSERT INTO notifications (
+            tenant_id, channel_id, partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn, large_account, transaction_uuid,
+            entry_channel, message_type, message, mno_delivery_code, tags, type
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+                $12, $13, $14, $15, $16, $17)
+    `
+	_, err := r.db.Exec(
+		query,
+		buildCreateChargeNotificationOnceArgs(notification)...,
+	)
+	if isUniqueViolation(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to create charge notification once: %w", err)
+	}
+	return true, nil
+}
+
+func buildCreateChargeNotificationOnceArgs(notification *domain.NotificationRequest) []interface{} {
+	return []interface{}{
+		nullStringPtr(notification.TenantID),
+		nullStringPtr(notification.ChannelID),
+		notification.PartnerRole,
+		notification.ExternalTxID,
+		notification.ProductID,
+		notification.PricepointID,
+		notification.MCC,
+		notification.MNC,
+		notification.MSISDN,
+		notification.LargeAccount,
+		notification.TransactionUUID,
+		notification.EntryChannel,
+		notification.MessageType,
+		notification.Message,
+		notification.MnoDeliveryCode,
+		pq.Array(notification.Tags),
+		notification.Type,
+	}
+}
+
 func nullStringPtr(value *string) sql.NullString {
 	if value == nil || strings.TrimSpace(*value) == "" {
 		return sql.NullString{}
 	}
 	return sql.NullString{String: strings.TrimSpace(*value), Valid: true}
+}
+
+func isUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	return errors.As(err, &pqErr) && string(pqErr.Code) == "23505"
 }
 
 // CreateInvalidMSISDNLog creates a log entry for invalid MSISDN responses

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -1161,6 +1163,9 @@ func (s *SubscriptionService) RequestCharge(reqData domain.ChargeRequest) (*doma
 		return nil, err
 	}
 	reqData.TenantRoute = canonicalTenantRoute(reqData.TenantRoute, providerCfg)
+	if strings.TrimSpace(reqData.IdempotencyKey) == "" {
+		reqData.IdempotencyKey = chargeIdempotencyKey(reqData, providerCfg, time.Now().UTC())
+	}
 	authKey, err := providerCfg.AuthKey()
 	if err != nil {
 		return nil, err
@@ -1181,7 +1186,52 @@ func (s *SubscriptionService) RequestCharge(reqData domain.ChargeRequest) (*doma
 		}
 		return nil, callErr
 	}
+	if err := s.recordChargeOwnership(reqData, providerCfg); err != nil {
+		s.logger.Error("charge ownership record failed after provider success",
+			zap.String("tenant_id", reqData.TenantRoute.TenantID),
+			zap.String("channel_id", reqData.TenantRoute.ChannelID),
+			zap.String("idempotency_key", reqData.IdempotencyKey),
+			zap.Error(err))
+	}
 	return resp, nil
+}
+
+func (s *SubscriptionService) recordChargeOwnership(reqData domain.ChargeRequest, providerCfg *TenantProviderConfig) error {
+	if s.repo == nil {
+		return nil
+	}
+	reqData.TenantRoute = canonicalTenantRoute(reqData.TenantRoute, providerCfg)
+	partnerRoleID, err := strconv.Atoi(strings.TrimSpace(providerCfg.PartnerRoleID))
+	if err != nil {
+		return fmt.Errorf("invalid tenant charge partner role id: %w", err)
+	}
+	notification := domain.MapChargeToNotification(reqData, partnerRoleID)
+	inserted, err := s.repo.CreateChargeNotificationOnce(&notification)
+	if err != nil {
+		return err
+	}
+	if !inserted {
+		s.logger.Info("duplicate charge ownership event suppressed",
+			zap.String("tenant_id", reqData.TenantRoute.TenantID),
+			zap.String("channel_id", reqData.TenantRoute.ChannelID),
+			zap.String("idempotency_key", reqData.IdempotencyKey))
+	}
+	return nil
+}
+
+func chargeIdempotencyKey(reqData domain.ChargeRequest, providerCfg *TenantProviderConfig, now time.Time) string {
+	parts := []string{
+		"charge",
+		defaultIfBlank(reqData.TenantRoute.TenantID, "legacy"),
+		defaultIfBlank(reqData.TenantRoute.ChannelID, "legacy"),
+		defaultIfBlank(providerCfg.PartnerRoleID, "legacy"),
+		strconv.Itoa(reqData.ProductID),
+		reqData.MSISDN,
+		defaultIfBlank(reqData.Context, reqData.Channel),
+		now.UTC().Format("200601021504"),
+	}
+	sum := sha256.Sum256([]byte(strings.Join(parts, ":")))
+	return "charge:" + hex.EncodeToString(sum[:])
 }
 
 // Send charge request with configurable time-bounded exponential backoff and jitter
@@ -1196,6 +1246,9 @@ func (s *SubscriptionService) sendChargeRequest(reqData domain.ChargeRequest, ur
 	req.Header.SetMethod("POST")
 	req.Header.Set("apikey", apiKey)
 	req.Header.Set("authentication", authKey)
+	if externalTxID := strings.TrimSpace(reqData.IdempotencyKey); externalTxID != "" {
+		req.Header.Set("external-tx-id", externalTxID)
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	// Set request body

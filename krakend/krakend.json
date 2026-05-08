@@ -1297,7 +1297,7 @@
       ],
       "backend": [
         {
-          "url_pattern": "/api/v1/{realm}/{channel}/mt/{partnerRole}",
+          "url_pattern": "/api/external/v1/{channel}/mt",
           "encoding": "json",
           "sd": "static",
           "method": "POST",
@@ -1352,7 +1352,7 @@
       ],
       "backend": [
         {
-          "url_pattern": "/api/v1/{realm}/charge/dob/{partnerRole}",
+          "url_pattern": "/api/external/v1/charge/dob",
           "encoding": "json",
           "sd": "static",
           "method": "POST",

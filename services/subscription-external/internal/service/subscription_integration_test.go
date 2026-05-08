@@ -29,6 +29,11 @@ func (m *MockSubscriptionRepositoryComplete) CreateNotification(notification *do
 	return args.Error(0)
 }
 
+func (m *MockSubscriptionRepositoryComplete) CreateChargeNotificationOnce(notification *domain.NotificationRequest) (bool, error) {
+	args := m.Called(notification)
+	return args.Bool(0), args.Error(1)
+}
+
 func (m *MockSubscriptionRepositoryComplete) CreateInvalidMSISDNLog(log *domain.InvalidMSISDNLog) error {
 	args := m.Called(log)
 	return args.Error(0)
