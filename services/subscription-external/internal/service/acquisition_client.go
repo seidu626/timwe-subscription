@@ -27,6 +27,8 @@ type AcquisitionClient struct {
 // ChargeSuccessRequest represents the payload for charge-success notification
 type ChargeSuccessRequest struct {
 	TimweTransactionID string `json:"timwe_transaction_id"`
+	TenantID           string `json:"tenant_id,omitempty"`
+	ChannelID          string `json:"channel_id,omitempty"`
 	MSISDN             string `json:"msisdn,omitempty"`
 	ProductID          int    `json:"product_id,omitempty"`
 	ChargedAt          string `json:"charged_at,omitempty"`

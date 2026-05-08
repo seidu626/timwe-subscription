@@ -459,7 +459,7 @@ func (r *SubscriptionRepository) FetchChargeSuccessNotifications(since time.Time
 	}
 	args := []interface{}{"CHARGE", since}
 	query := `
-		SELECT id, msisdn, product_id, COALESCE(transaction_uuid, ''), created_at
+		SELECT id, tenant_id::text, channel_id::text, msisdn, product_id, COALESCE(transaction_uuid, ''), created_at
 		FROM notifications
 		WHERE type = $1 AND created_at >= $2`
 	if afterID > 0 {
@@ -478,8 +478,15 @@ func (r *SubscriptionRepository) FetchChargeSuccessNotifications(since time.Time
 	var out []ChargeSuccessNotificationRow
 	for rows.Next() {
 		var nr ChargeSuccessNotificationRow
-		if err := rows.Scan(&nr.ID, &nr.MSISDN, &nr.ProductID, &nr.TransactionUUID, &nr.CreatedAt); err != nil {
+		var tenantID, channelID sql.NullString
+		if err := rows.Scan(&nr.ID, &tenantID, &channelID, &nr.MSISDN, &nr.ProductID, &nr.TransactionUUID, &nr.CreatedAt); err != nil {
 			return nil, err
+		}
+		if tenantID.Valid {
+			nr.TenantID = &tenantID.String
+		}
+		if channelID.Valid {
+			nr.ChannelID = &channelID.String
 		}
 		out = append(out, nr)
 	}
