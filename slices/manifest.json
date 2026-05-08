@@ -74,7 +74,7 @@
       "id": "TMP-005",
       "name": "tenant-campaign-binding",
       "description": "Tenant admin creates and reads campaigns scoped by tenant and bound to a compatible channel.",
-      "state": "planned",
+      "state": "done",
       "priority": "P1",
       "depends_on": ["TMP-002", "TMP-003", "TMP-019"],
       "actor": "tenant-admin",

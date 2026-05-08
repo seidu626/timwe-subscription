@@ -141,6 +141,7 @@ func main() {
 
 	// Initialize handlers
 	campaignHandler := handler.NewCampaignHandler(campaignService, campaignAssetService, logger)
+	campaignHandler.SetTenantResolver(adminManagementService)
 	transactionHandler := handler.NewTransactionHandler(transactionService, logger)
 	callbackHandler := handler.NewCallbackHandler(transactionRepo, campaignRepo, postbackRepo, providerRegistry, logger)
 	internalHandler := handler.NewInternalHandler(transactionService, logger)

@@ -78,6 +78,15 @@ func TestAdminRequireRejectsAudienceMismatchBeforeIdentity(t *testing.T) {
 	}
 }
 
+func TestIsTenantCampaignPathRequiresTenantAndSlug(t *testing.T) {
+	if !isTenantCampaignPath("/v1/campaigns/tenant-a/daily") {
+		t.Fatal("expected tenant campaign path to match")
+	}
+	if isTenantCampaignPath("/v1/campaigns/daily") {
+		t.Fatal("legacy campaign path must not match tenant campaign route")
+	}
+}
+
 func mustAdminRSAKey(t *testing.T) *rsa.PrivateKey {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)

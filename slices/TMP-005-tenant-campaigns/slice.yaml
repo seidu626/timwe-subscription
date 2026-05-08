@@ -11,12 +11,12 @@ story:
 entrypoints:
   - "POST /v1/admin/campaigns"
   - "GET /v1/admin/campaigns/{slug}"
-  - "GET /v1/campaigns/{tenant_or_slug}/{slug}"
+  - "GET /v1/campaigns/{tenant_key}/{slug}"
 
 acceptance_criteria:
   happy:
     - scenario: "Create compatible campaign"
-      given: ["tenant has product and channel supporting OTP"]
+      given: ["tenant has product and active channel supporting optin and confirm"]
       when: "operator creates OTP campaign bound to the channel"
       then: "API returns campaign with tenant_id, channel_id, flow_type, product mapping, and enabled status"
       evidence: "handler/service test asserts persisted row"
@@ -32,7 +32,7 @@ acceptance_criteria:
       then: "API returns 409"
       evidence: "DB/service conflict test"
     - scenario: "Channel capability mismatch"
-      given: ["channel supports REDIRECT only"]
+      given: ["channel does not include all flow-required provider capabilities"]
       when: "operator creates OTP campaign"
       then: "API returns 422 channel_capability_mismatch"
       evidence: "service validation test"
@@ -61,6 +61,7 @@ out_of_scope:
   - "transaction creation"
   - "real subscription routing"
   - "admin frontend editor changes"
+  - "host/header/gateway public tenant routing, owned by TMP-012"
 
 size_check:
   files_touched: 15
@@ -70,4 +71,3 @@ size_check:
 value_gate:
   required_verdict: "PASS before implementation handoff"
   report_path: "slices/TMP-005-tenant-campaigns/value-gate-report.md"
-

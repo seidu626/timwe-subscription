@@ -107,7 +107,7 @@ INSERT INTO campaigns (
     }'::jsonb,
     '{"per_msisdn_per_day": 3, "per_ip_per_day": 10}'::jsonb,
     true
-) ON CONFLICT (slug) DO UPDATE SET
+) ON CONFLICT (slug) WHERE tenant_id IS NULL DO UPDATE SET
     attribution_mapping = EXCLUDED.attribution_mapping,
     postback_rules = EXCLUDED.postback_rules,
     updated_at = CURRENT_TIMESTAMP;
@@ -155,7 +155,7 @@ INSERT INTO campaigns (
     }'::jsonb,
     '{"per_msisdn_per_day": 3, "per_ip_per_day": 10}'::jsonb,
     true
-) ON CONFLICT (slug) DO UPDATE SET
+) ON CONFLICT (slug) WHERE tenant_id IS NULL DO UPDATE SET
     attribution_mapping = EXCLUDED.attribution_mapping,
     postback_rules = EXCLUDED.postback_rules,
     updated_at = CURRENT_TIMESTAMP;
@@ -200,7 +200,7 @@ INSERT INTO campaigns (
     }'::jsonb,
     '{"per_msisdn_per_day": 5, "per_ip_per_day": 20}'::jsonb,
     false  -- Disabled by default - enable when ready
-) ON CONFLICT (slug) DO UPDATE SET
+) ON CONFLICT (slug) WHERE tenant_id IS NULL DO UPDATE SET
     attribution_mapping = EXCLUDED.attribution_mapping,
     postback_rules = EXCLUDED.postback_rules,
     flow_type = EXCLUDED.flow_type,

@@ -17,11 +17,13 @@ const (
 
 // Campaign represents a marketing campaign configuration
 type Campaign struct {
-	ID       int     `json:"id" db:"id"`
-	Slug     string  `json:"slug" db:"slug"`
-	Language string  `json:"language" db:"language"`
-	Country  string  `json:"country" db:"country"`
-	Operator *string `json:"operator,omitempty" db:"operator"`
+	ID        int     `json:"id" db:"id"`
+	TenantID  *string `json:"tenant_id,omitempty" db:"tenant_id"`
+	ChannelID *string `json:"channel_id,omitempty" db:"channel_id"`
+	Slug      string  `json:"slug" db:"slug"`
+	Language  string  `json:"language" db:"language"`
+	Country   string  `json:"country" db:"country"`
+	Operator  *string `json:"operator,omitempty" db:"operator"`
 
 	// Offer/product mapping
 	OfferProductID int  `json:"offer_product_id" db:"offer_product_id"`

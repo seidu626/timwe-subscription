@@ -22,9 +22,14 @@ import (
 
 // CampaignHandler handles campaign-related HTTP requests
 type CampaignHandler struct {
-	service      *service.CampaignService
-	assetService *service.CampaignAssetService
-	logger       *zap.Logger
+	service        *service.CampaignService
+	assetService   *service.CampaignAssetService
+	tenantResolver campaignTenantResolver
+	logger         *zap.Logger
+}
+
+type campaignTenantResolver interface {
+	ResolveCurrentTenant(identity tenantctx.Identity) (*domain.AdminTenant, error)
 }
 
 // NewCampaignHandler creates a new campaign handler
@@ -34,6 +39,10 @@ func NewCampaignHandler(campaignService *service.CampaignService, assetService *
 		assetService: assetService,
 		logger:       logger,
 	}
+}
+
+func (h *CampaignHandler) SetTenantResolver(resolver campaignTenantResolver) {
+	h.tenantResolver = resolver
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -62,6 +71,19 @@ func extractCampaignSlugFromPath(path string) (string, bool) {
 		return "", false
 	}
 	return slug, true
+}
+
+func extractTenantAndCampaignSlugFromPath(path string) (string, string, bool) {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 4 || parts[0] != "v1" || parts[1] != "campaigns" {
+		return "", "", false
+	}
+	tenantKey := strings.TrimSpace(parts[2])
+	slug := strings.TrimSpace(parts[3])
+	if tenantKey == "" || slug == "" {
+		return "", "", false
+	}
+	return tenantKey, slug, true
 }
 
 func extractCampaignSlugBeforeSuffix(path, suffix string) (string, bool) {
@@ -99,6 +121,29 @@ func (h *CampaignHandler) GetBySlug(ctx *fasthttp.RequestCtx) {
 	writeJSON(ctx, fasthttp.StatusOK, campaign)
 }
 
+// GetByTenantAndSlug handles GET /v1/campaigns/:tenant_key/:slug
+func (h *CampaignHandler) GetByTenantAndSlug(ctx *fasthttp.RequestCtx) {
+	path := string(ctx.Path())
+	tenantKey, slug, ok := extractTenantAndCampaignSlugFromPath(path)
+	if !ok {
+		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		return
+	}
+	if !slugRe.MatchString(tenantKey) || !slugRe.MatchString(slug) {
+		ctx.Error("Invalid tenant or campaign slug", fasthttp.StatusBadRequest)
+		return
+	}
+
+	campaign, err := h.service.GetByTenantKeyAndSlug(tenantKey, slug)
+	if err != nil {
+		h.logger.Error("Failed to get tenant campaign", zap.String("tenant_key", tenantKey), zap.String("slug", slug), zap.Error(err))
+		ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+		return
+	}
+
+	writeJSON(ctx, fasthttp.StatusOK, campaign)
+}
+
 // ListEnabled handles GET /v1/campaigns
 func (h *CampaignHandler) ListEnabled(ctx *fasthttp.RequestCtx) {
 	campaigns, err := h.service.ListEnabled()
@@ -118,6 +163,7 @@ type adminCampaignUpsertRequest struct {
 	Language           string          `json:"language"`
 	Country            string          `json:"country"`
 	Operator           *string         `json:"operator,omitempty"`
+	ChannelID          *string         `json:"channel_id,omitempty"`
 	OfferProductID     int             `json:"offer_product_id"`
 	PricepointID       *int            `json:"pricepoint_id,omitempty"`
 	PartnerRoleID      *int            `json:"partner_role_id,omitempty"`
@@ -578,7 +624,12 @@ func (h *CampaignHandler) AdminGetBySlug(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	campaign, err := h.service.AdminGetBySlug(slug)
+	tenant, _, ok := h.currentCampaignTenantFromRequest(ctx)
+	if !ok {
+		return
+	}
+
+	campaign, err := h.service.AdminGetByTenantAndSlug(tenant.ID, slug)
 	if err != nil {
 		h.logger.Error("Failed to get campaign (admin)", zap.String("slug", slug), zap.Error(err))
 		ctx.Error("Campaign not found", fasthttp.StatusNotFound)
@@ -589,6 +640,11 @@ func (h *CampaignHandler) AdminGetBySlug(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *CampaignHandler) AdminList(ctx *fasthttp.RequestCtx) {
+	tenant, _, ok := h.currentCampaignTenantFromRequest(ctx)
+	if !ok {
+		return
+	}
+
 	// Parse query string manually; fasthttp provides QueryArgs but simplest is URL parse.
 	raw := string(ctx.URI().FullURI())
 	u, err := url.Parse(raw)
@@ -612,7 +668,7 @@ func (h *CampaignHandler) AdminList(ctx *fasthttp.RequestCtx) {
 		country = &v
 	}
 
-	campaigns, err := h.service.AdminList(enabled, country)
+	campaigns, err := h.service.AdminListForTenant(tenant.ID, enabled, country)
 	if err != nil {
 		h.logger.Error("Failed to list campaigns (admin)", zap.Error(err))
 		ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
@@ -623,6 +679,11 @@ func (h *CampaignHandler) AdminList(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *CampaignHandler) AdminCreate(ctx *fasthttp.RequestCtx) {
+	tenant, _, ok := h.currentCampaignTenantFromRequest(ctx)
+	if !ok {
+		return
+	}
+
 	var req adminCampaignUpsertRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
 		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
@@ -633,8 +694,10 @@ func (h *CampaignHandler) AdminCreate(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	created, err := h.service.AdminCreate(&domain.Campaign{
+	created, err := h.service.AdminCreateForTenant(tenant.ID, &domain.Campaign{
 		Slug:               req.Slug,
+		TenantID:           &tenant.ID,
+		ChannelID:          normalizedOptionalString(req.ChannelID),
 		Language:           req.Language,
 		Country:            req.Country,
 		Operator:           req.Operator,
@@ -664,6 +727,10 @@ func (h *CampaignHandler) AdminCreate(ctx *fasthttp.RequestCtx) {
 		UpdatedBy:          req.UpdatedBy,
 	})
 	if err != nil {
+		if status := mapTenantCampaignErrorStatus(err); status != fasthttp.StatusInternalServerError {
+			ctx.Error(err.Error(), status)
+			return
+		}
 		if isCampaignConfigValidationError(err) {
 			ctx.Error(err.Error(), fasthttp.StatusBadRequest)
 			return
@@ -677,6 +744,11 @@ func (h *CampaignHandler) AdminCreate(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *CampaignHandler) AdminUpdate(ctx *fasthttp.RequestCtx) {
+	tenant, _, ok := h.currentCampaignTenantFromRequest(ctx)
+	if !ok {
+		return
+	}
+
 	path := string(ctx.Path())
 	slug, ok := extractCampaignSlugFromPath(path)
 	if !ok {
@@ -695,8 +767,10 @@ func (h *CampaignHandler) AdminUpdate(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	updated, err := h.service.AdminUpdate(slug, &domain.Campaign{
+	updated, err := h.service.AdminUpdateForTenant(tenant.ID, slug, &domain.Campaign{
 		Slug:               slug,
+		TenantID:           &tenant.ID,
+		ChannelID:          normalizedOptionalString(req.ChannelID),
 		Language:           req.Language,
 		Country:            req.Country,
 		Operator:           req.Operator,
@@ -725,6 +799,10 @@ func (h *CampaignHandler) AdminUpdate(ctx *fasthttp.RequestCtx) {
 		UpdatedBy:          req.UpdatedBy,
 	})
 	if err != nil {
+		if status := mapTenantCampaignErrorStatus(err); status != fasthttp.StatusInternalServerError {
+			ctx.Error(err.Error(), status)
+			return
+		}
 		if isCampaignConfigValidationError(err) {
 			ctx.Error(err.Error(), fasthttp.StatusBadRequest)
 			return
@@ -738,6 +816,11 @@ func (h *CampaignHandler) AdminUpdate(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *CampaignHandler) AdminSetEnabled(ctx *fasthttp.RequestCtx) {
+	tenant, _, ok := h.currentCampaignTenantFromRequest(ctx)
+	if !ok {
+		return
+	}
+
 	path := string(ctx.Path())
 	slug, ok := extractCampaignSlugBeforeSuffix(path, "/enabled")
 	if !ok {
@@ -751,8 +834,12 @@ func (h *CampaignHandler) AdminSetEnabled(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	updated, err := h.service.AdminSetEnabled(slug, req.Enabled, req.UpdatedBy)
+	updated, err := h.service.AdminSetEnabledForTenant(tenant.ID, slug, req.Enabled, req.UpdatedBy)
 	if err != nil {
+		if status := mapTenantCampaignErrorStatus(err); status != fasthttp.StatusInternalServerError {
+			ctx.Error(err.Error(), status)
+			return
+		}
 		h.logger.Error("Failed to set enabled (admin)", zap.String("slug", slug), zap.Error(err))
 		ctx.Error("Failed to update campaign", fasthttp.StatusInternalServerError)
 		return
@@ -853,6 +940,65 @@ func mapCampaignCloneErrorStatus(err error) int {
 	default:
 		return fasthttp.StatusInternalServerError
 	}
+}
+
+func mapTenantCampaignErrorStatus(err error) int {
+	if err == nil {
+		return fasthttp.StatusInternalServerError
+	}
+	switch {
+	case errors.Is(err, service.ErrCampaignConflict):
+		return fasthttp.StatusConflict
+	case errors.Is(err, service.ErrCampaignChannelCapabilityMismatch):
+		return fasthttp.StatusUnprocessableEntity
+	case errors.Is(err, service.ErrCampaignChannelInactive):
+		return fasthttp.StatusConflict
+	}
+
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "channel_id is required"),
+		strings.Contains(msg, "tenant_id is required"),
+		strings.Contains(msg, "invalid campaign offer mapping"),
+		strings.Contains(msg, "invalid campaign channel binding"):
+		return fasthttp.StatusBadRequest
+	case strings.Contains(msg, "campaign not found"):
+		return fasthttp.StatusNotFound
+	default:
+		return fasthttp.StatusInternalServerError
+	}
+}
+
+func (h *CampaignHandler) currentCampaignTenantFromRequest(ctx *fasthttp.RequestCtx) (*domain.AdminTenant, tenantctx.Identity, bool) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return nil, tenantctx.Identity{}, false
+	}
+	if h.tenantResolver != nil {
+		tenant, err := h.tenantResolver.ResolveCurrentTenant(identity)
+		if err != nil || tenant == nil || strings.TrimSpace(tenant.ID) == "" {
+			ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+			return nil, tenantctx.Identity{}, false
+		}
+		return tenant, identity, true
+	}
+	if strings.TrimSpace(identity.TenantID) == "" {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return nil, tenantctx.Identity{}, false
+	}
+	return &domain.AdminTenant{ID: strings.TrimSpace(identity.TenantID), TenantKey: strings.TrimSpace(identity.TenantKey), Status: domain.TenantStatusActive}, identity, true
+}
+
+func normalizedOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func isCampaignConfigValidationError(err error) bool {

@@ -219,6 +219,29 @@ func TestAdminPresignBackgroundUploadRequiresTenantContext(t *testing.T) {
 	}
 }
 
+func TestAdminListCampaignsRequiresTenantContext(t *testing.T) {
+	h := NewCampaignHandler(nil, nil, zap.NewNop())
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/admin/campaigns")
+
+	h.AdminList(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+}
+
+func TestExtractTenantAndCampaignSlugFromPath(t *testing.T) {
+	tenantKey, slug, ok := extractTenantAndCampaignSlugFromPath("/v1/campaigns/tenant-a/daily")
+	if !ok || tenantKey != "tenant-a" || slug != "daily" {
+		t.Fatalf("unexpected parse result: tenant=%q slug=%q ok=%v", tenantKey, slug, ok)
+	}
+
+	if _, _, ok := extractTenantAndCampaignSlugFromPath("/v1/campaigns/daily"); ok {
+		t.Fatal("legacy campaign route must not parse as tenant route")
+	}
+}
+
 func TestAdminPresignBackgroundUploadRejectsPathTraversalFileName(t *testing.T) {
 	h := newCampaignAssetTestHandler(t)
 	var ctx fasthttp.RequestCtx

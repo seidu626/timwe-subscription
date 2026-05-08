@@ -370,6 +370,14 @@ func NewRouter(
 			return
 
 		// Campaign endpoints
+		case isTenantCampaignPath(path):
+			if method == fasthttp.MethodGet {
+				campaignHandler.GetByTenantAndSlug(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		case strings.HasPrefix(path, "/v1/campaigns/"):
 			if method == fasthttp.MethodGet {
 				campaignHandler.GetBySlug(ctx)
@@ -498,6 +506,11 @@ func NewRouter(
 		}
 	}
 	return router
+}
+
+func isTenantCampaignPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	return len(parts) == 4 && parts[0] == "v1" && parts[1] == "campaigns"
 }
 
 // setPublicCORS sets permissive CORS headers for public endpoints (like analytics)
