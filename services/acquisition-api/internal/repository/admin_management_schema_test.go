@@ -106,6 +106,33 @@ func TestEnsureSchema_FileReadFails(t *testing.T) {
 	}
 }
 
+func TestAdminManagementMigrationAddsTenantScopedAdminTables(t *testing.T) {
+	migrationPath := filepath.Join("..", "..", "migrations", "add_admin_management_tables.sql")
+	body, err := os.ReadFile(migrationPath)
+	if err != nil {
+		t.Fatalf("failed to read migration: %v", err)
+	}
+	sql := string(body)
+
+	required := []string{
+		"ALTER TABLE products",
+		"ALTER TABLE userbase",
+		"ALTER TABLE userbase_import_jobs",
+		"ALTER TABLE userbase_import_errors",
+		"ALTER TABLE admin_activity_logs",
+		"ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_products_tenant_product_id",
+		"ON products (tenant_id, product_id)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_userbase_tenant_msisdn",
+		"ON userbase (tenant_id, msisdn)",
+	}
+	for _, want := range required {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("migration missing %q", want)
+		}
+	}
+}
+
 func writeTempMigration(t *testing.T, sql string) string {
 	t.Helper()
 

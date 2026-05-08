@@ -36,6 +36,7 @@ type TenantCreateInput struct {
 // AdminProduct represents a product managed via admin APIs.
 type AdminProduct struct {
 	ID              int       `json:"id"`
+	TenantID        string    `json:"tenant_id"`
 	ProductID       string    `json:"product_id"`
 	Name            string    `json:"name"`
 	PricePointID    int       `json:"price_point_id"`
@@ -46,6 +47,7 @@ type AdminProduct struct {
 
 // ProductListFilter is used to filter and paginate products.
 type ProductListFilter struct {
+	TenantID  string
 	Limit     int
 	Offset    int
 	Query     string
@@ -60,17 +62,19 @@ type ProductDependencyCounts struct {
 
 // UserbaseRecord represents a row in userbase.
 type UserbaseRecord struct {
-	ID     int    `json:"id"`
-	MSISDN string `json:"msisdn"`
-	Type   string `json:"type"`
+	ID       int    `json:"id"`
+	TenantID string `json:"tenant_id"`
+	MSISDN   string `json:"msisdn"`
+	Type     string `json:"type"`
 }
 
 // UserbaseListFilter is used to filter and paginate userbase records.
 type UserbaseListFilter struct {
-	Limit  int
-	Offset int
-	MSISDN string
-	Type   string
+	TenantID string
+	Limit    int
+	Offset   int
+	MSISDN   string
+	Type     string
 }
 
 // UserbaseImportJobStatus represents import job status.
@@ -85,6 +89,7 @@ const (
 // UserbaseImportJob stores metadata for an import job.
 type UserbaseImportJob struct {
 	ID          string                  `json:"id"`
+	TenantID    string                  `json:"tenant_id"`
 	Filename    string                  `json:"filename"`
 	Status      UserbaseImportJobStatus `json:"status"`
 	TotalRows   int                     `json:"total_rows"`
@@ -98,6 +103,7 @@ type UserbaseImportJob struct {
 // UserbaseImportError stores a failed import row and reason.
 type UserbaseImportError struct {
 	ID           int    `json:"id"`
+	TenantID     string `json:"tenant_id"`
 	JobID        string `json:"job_id"`
 	RowNumber    int    `json:"row_number"`
 	RawRow       string `json:"raw_row"`
@@ -115,6 +121,7 @@ type UserbaseImportInputRow struct {
 // AdminActivityLog stores auditable admin actions.
 type AdminActivityLog struct {
 	ID         string          `json:"id"`
+	TenantID   string          `json:"tenant_id,omitempty"`
 	EntityType string          `json:"entity_type"`
 	EntityID   string          `json:"entity_id"`
 	Action     string          `json:"action"`
@@ -128,6 +135,7 @@ type AdminActivityLog struct {
 
 // AdminActivityLogFilter is used to filter and paginate activity logs.
 type AdminActivityLogFilter struct {
+	TenantID   string
 	Limit      int
 	Offset     int
 	EntityType string

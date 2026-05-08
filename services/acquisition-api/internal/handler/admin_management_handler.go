@@ -113,8 +113,14 @@ func (h *AdminManagementHandler) GetCurrentTenant(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) ListProducts(ctx *fasthttp.RequestCtx) {
+	tenant, _, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	page, pageSize := parsePageArgs(ctx, 20, 200)
 	filter := &domain.ProductListFilter{
+		TenantID:  tenant.ID,
 		Limit:     pageSize,
 		Offset:    (page - 1) * pageSize,
 		Query:     strings.TrimSpace(string(ctx.QueryArgs().Peek("q"))),
@@ -137,6 +143,11 @@ func (h *AdminManagementHandler) ListProducts(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) CreateProduct(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	var req productPayload
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
 		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
@@ -144,9 +155,9 @@ func (h *AdminManagementHandler) CreateProduct(ctx *fasthttp.RequestCtx) {
 	}
 
 	product := payloadToProduct(&req)
-	actor := actorFromPayloadOrRequest(req.PerformedBy, ctx)
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
 	requestID := requestIDFromHeader(ctx)
-	created, err := h.service.CreateProduct(product, actor, requestID)
+	created, err := h.service.CreateProduct(tenant.ID, product, actor, requestID)
 	if err != nil {
 		h.handleServiceError(ctx, err)
 		return
@@ -156,6 +167,11 @@ func (h *AdminManagementHandler) CreateProduct(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) UpdateProduct(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	id, err := parseProductIDFromPath(string(ctx.Path()))
 	if err != nil {
 		ctx.Error("Invalid product id", fasthttp.StatusBadRequest)
@@ -169,9 +185,9 @@ func (h *AdminManagementHandler) UpdateProduct(ctx *fasthttp.RequestCtx) {
 	}
 
 	product := payloadToProduct(&req)
-	actor := actorFromPayloadOrRequest(req.PerformedBy, ctx)
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
 	requestID := requestIDFromHeader(ctx)
-	updated, err := h.service.UpdateProduct(id, product, actor, requestID)
+	updated, err := h.service.UpdateProduct(tenant.ID, id, product, actor, requestID)
 	if err != nil {
 		h.handleServiceError(ctx, err)
 		return
@@ -180,15 +196,20 @@ func (h *AdminManagementHandler) UpdateProduct(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) DeleteProduct(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	id, err := parseProductIDFromPath(string(ctx.Path()))
 	if err != nil {
 		ctx.Error("Invalid product id", fasthttp.StatusBadRequest)
 		return
 	}
 
-	actor := actorFromHeader(ctx)
+	actor := actorFromPayloadIdentityOrRequest("", identity, ctx)
 	requestID := requestIDFromHeader(ctx)
-	if err := h.service.DeleteProduct(id, actor, requestID); err != nil {
+	if err := h.service.DeleteProduct(tenant.ID, id, actor, requestID); err != nil {
 		var depErr *service.ProductDependencyError
 		switch {
 		case errors.Is(err, service.ErrAdminNotFound):
@@ -211,6 +232,11 @@ func (h *AdminManagementHandler) DeleteProduct(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) BatchUpsertProducts(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	var req batchProductPayload
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
 		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
@@ -222,9 +248,9 @@ func (h *AdminManagementHandler) BatchUpsertProducts(ctx *fasthttp.RequestCtx) {
 		items = append(items, payloadToProduct(&req.Products[i]))
 	}
 
-	actor := actorFromPayloadOrRequest(req.PerformedBy, ctx)
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
 	requestID := requestIDFromHeader(ctx)
-	count, err := h.service.BatchUpsertProducts(items, actor, requestID)
+	count, err := h.service.BatchUpsertProducts(tenant.ID, items, actor, requestID)
 	if err != nil {
 		h.handleServiceError(ctx, err)
 		return
@@ -250,12 +276,18 @@ type upsertUserbaseRequest struct {
 }
 
 func (h *AdminManagementHandler) ListUserbase(ctx *fasthttp.RequestCtx) {
+	tenant, _, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	page, pageSize := parsePageArgs(ctx, 20, 200)
 	filter := &domain.UserbaseListFilter{
-		Limit:  pageSize,
-		Offset: (page - 1) * pageSize,
-		MSISDN: strings.TrimSpace(string(ctx.QueryArgs().Peek("msisdn"))),
-		Type:   strings.TrimSpace(string(ctx.QueryArgs().Peek("type"))),
+		TenantID: tenant.ID,
+		Limit:    pageSize,
+		Offset:   (page - 1) * pageSize,
+		MSISDN:   strings.TrimSpace(string(ctx.QueryArgs().Peek("msisdn"))),
+		Type:     strings.TrimSpace(string(ctx.QueryArgs().Peek("type"))),
 	}
 
 	records, total, err := h.service.ListUserbase(filter)
@@ -274,15 +306,20 @@ func (h *AdminManagementHandler) ListUserbase(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) UpsertUserbase(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	var req upsertUserbaseRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
 		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
 		return
 	}
 
-	actor := actorFromPayloadOrRequest(req.PerformedBy, ctx)
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
 	requestID := requestIDFromHeader(ctx)
-	record, err := h.service.UpsertUserbase(req.MSISDN, req.Type, actor, requestID)
+	record, err := h.service.UpsertUserbase(tenant.ID, req.MSISDN, req.Type, actor, requestID)
 	if err != nil {
 		h.handleServiceError(ctx, err)
 		return
@@ -291,15 +328,20 @@ func (h *AdminManagementHandler) UpsertUserbase(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) DeleteUserbase(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	msisdn, err := parseMSISDNFromPath(string(ctx.Path()))
 	if err != nil {
 		ctx.Error("Invalid msisdn", fasthttp.StatusBadRequest)
 		return
 	}
 
-	actor := actorFromHeader(ctx)
+	actor := actorFromPayloadIdentityOrRequest("", identity, ctx)
 	requestID := requestIDFromHeader(ctx)
-	if err := h.service.DeleteUserbase(msisdn, actor, requestID); err != nil {
+	if err := h.service.DeleteUserbase(tenant.ID, msisdn, actor, requestID); err != nil {
 		h.handleServiceError(ctx, err)
 		return
 	}
@@ -307,6 +349,11 @@ func (h *AdminManagementHandler) DeleteUserbase(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) ImportUserbase(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	fileHeader, err := ctx.FormFile("file")
 	if err != nil {
 		ctx.Error("file is required", fasthttp.StatusBadRequest)
@@ -326,9 +373,9 @@ func (h *AdminManagementHandler) ImportUserbase(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	actor := actorFromHeader(ctx)
+	actor := actorFromPayloadIdentityOrRequest("", identity, ctx)
 	requestID := requestIDFromHeader(ctx)
-	job, importErrors, err := h.service.ImportUserbase(fileHeader.Filename, rows, actor, requestID)
+	job, importErrors, err := h.service.ImportUserbase(tenant.ID, fileHeader.Filename, rows, actor, requestID)
 	if err != nil {
 		h.logger.Error("Failed to import userbase", zap.Error(err))
 		h.handleServiceError(ctx, err)
@@ -342,8 +389,13 @@ func (h *AdminManagementHandler) ImportUserbase(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) ListUserbaseImports(ctx *fasthttp.RequestCtx) {
+	tenant, _, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	page, pageSize := parsePageArgs(ctx, 20, 200)
-	jobs, total, err := h.service.ListUserbaseImportJobs(page, pageSize)
+	jobs, total, err := h.service.ListUserbaseImportJobs(tenant.ID, page, pageSize)
 	if err != nil {
 		h.logger.Error("Failed to list userbase imports", zap.Error(err))
 		ctx.Error("Failed to list userbase imports", fasthttp.StatusInternalServerError)
@@ -359,13 +411,18 @@ func (h *AdminManagementHandler) ListUserbaseImports(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) GetUserbaseImport(ctx *fasthttp.RequestCtx) {
+	tenant, _, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	jobID, err := parseImportIDFromPath(string(ctx.Path()))
 	if err != nil {
 		ctx.Error("Invalid import job id", fasthttp.StatusBadRequest)
 		return
 	}
 
-	job, errorsOut, totalErrors, err := h.service.GetUserbaseImportJob(jobID)
+	job, errorsOut, totalErrors, err := h.service.GetUserbaseImportJob(tenant.ID, jobID)
 	if err != nil {
 		h.handleServiceError(ctx, err)
 		return
@@ -379,8 +436,14 @@ func (h *AdminManagementHandler) GetUserbaseImport(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *AdminManagementHandler) ListActivityLogs(ctx *fasthttp.RequestCtx) {
+	tenant, _, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
 	page, pageSize := parsePageArgs(ctx, 20, 200)
 	filter := &domain.AdminActivityLogFilter{
+		TenantID:   tenant.ID,
 		Limit:      pageSize,
 		Offset:     (page - 1) * pageSize,
 		EntityType: strings.TrimSpace(string(ctx.QueryArgs().Peek("entity_type"))),
@@ -413,6 +476,18 @@ func (h *AdminManagementHandler) ListActivityLogs(ctx *fasthttp.RequestCtx) {
 		"page":        page,
 		"page_size":   pageSize,
 	})
+}
+
+func (h *AdminManagementHandler) currentTenantFromRequest(ctx *fasthttp.RequestCtx) (*domain.AdminTenant, tenantctx.Identity, error) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		return nil, tenantctx.Identity{}, service.ErrTenantContextMissing
+	}
+	tenant, err := h.service.ResolveCurrentTenant(identity)
+	if err != nil {
+		return nil, identity, err
+	}
+	return tenant, identity, nil
 }
 
 func (h *AdminManagementHandler) handleServiceError(ctx *fasthttp.RequestCtx, err error) {
@@ -542,11 +617,39 @@ func parseImportRows(filename string, r io.Reader) ([]domain.UserbaseImportInput
 	switch {
 	case strings.HasSuffix(lower, ".csv"):
 		return parseCSVImportRows(r)
+	case strings.HasSuffix(lower, ".json"):
+		return parseJSONImportRows(r)
 	case strings.HasSuffix(lower, ".xlsx"):
 		return parseXLSXImportRows(r)
 	default:
-		return nil, fmt.Errorf("unsupported file format, use .csv or .xlsx")
+		return nil, fmt.Errorf("unsupported file format, use .csv, .json, or .xlsx")
 	}
+}
+
+func parseJSONImportRows(r io.Reader) ([]domain.UserbaseImportInputRow, error) {
+	var rows []struct {
+		MSISDN   string `json:"msisdn"`
+		Type     string `json:"type"`
+		TenantID string `json:"tenant_id"`
+	}
+	if err := json.NewDecoder(r).Decode(&rows); err != nil {
+		return nil, err
+	}
+
+	out := make([]domain.UserbaseImportInputRow, 0, len(rows))
+	for i, row := range rows {
+		if strings.TrimSpace(row.TenantID) != "" {
+			return nil, fmt.Errorf("row %d must not include tenant_id", i+1)
+		}
+		rawBytes, _ := json.Marshal(row)
+		out = append(out, domain.UserbaseImportInputRow{
+			RowNumber: i + 1,
+			MSISDN:    strings.TrimSpace(row.MSISDN),
+			Type:      strings.TrimSpace(row.Type),
+			RawRow:    string(rawBytes),
+		})
+	}
+	return out, nil
 }
 
 func parseCSVImportRows(r io.Reader) ([]domain.UserbaseImportInputRow, error) {

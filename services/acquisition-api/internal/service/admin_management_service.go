@@ -119,21 +119,33 @@ func (s *AdminManagementService) ListProducts(filter *domain.ProductListFilter) 
 	return s.repo.ListProducts(filter)
 }
 
-func (s *AdminManagementService) CreateProduct(input *domain.AdminProduct, actor, requestID *string) (*domain.AdminProduct, error) {
+func (s *AdminManagementService) CreateProduct(tenantID string, input *domain.AdminProduct, actor, requestID *string) (*domain.AdminProduct, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, ErrTenantContextMissing
+	}
 	if err := validateProductInput(input); err != nil {
 		return nil, err
 	}
+	input.TenantID = tenantID
 	created, err := s.repo.CreateProduct(input)
 	if err != nil {
+		if errors.Is(err, repository.ErrAdminConflict) {
+			return nil, ErrAdminConflict
+		}
 		return nil, err
 	}
-	s.logActivity("product", fmt.Sprintf("%d", created.ID), "create", actor, requestID, nil, created, map[string]any{
+	s.logActivity(tenantID, "product", fmt.Sprintf("%d", created.ID), "create", actor, requestID, nil, created, map[string]any{
 		"product_id": created.ProductID,
 	})
 	return created, nil
 }
 
-func (s *AdminManagementService) UpdateProduct(id int, input *domain.AdminProduct, actor, requestID *string) (*domain.AdminProduct, error) {
+func (s *AdminManagementService) UpdateProduct(tenantID string, id int, input *domain.AdminProduct, actor, requestID *string) (*domain.AdminProduct, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, ErrTenantContextMissing
+	}
 	if id <= 0 {
 		return nil, fmt.Errorf("%w: product id is required", ErrInvalidInput)
 	}
@@ -141,7 +153,7 @@ func (s *AdminManagementService) UpdateProduct(id int, input *domain.AdminProduc
 		return nil, err
 	}
 
-	before, err := s.repo.GetProductByID(id)
+	before, err := s.repo.GetProductByID(tenantID, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrAdminNotFound) {
 			return nil, ErrAdminNotFound
@@ -149,26 +161,34 @@ func (s *AdminManagementService) UpdateProduct(id int, input *domain.AdminProduc
 		return nil, err
 	}
 
-	updated, err := s.repo.UpdateProduct(id, input)
+	input.TenantID = tenantID
+	updated, err := s.repo.UpdateProduct(tenantID, id, input)
 	if err != nil {
 		if errors.Is(err, repository.ErrAdminNotFound) {
 			return nil, ErrAdminNotFound
 		}
+		if errors.Is(err, repository.ErrAdminConflict) {
+			return nil, ErrAdminConflict
+		}
 		return nil, err
 	}
 
-	s.logActivity("product", fmt.Sprintf("%d", updated.ID), "update", actor, requestID, before, updated, map[string]any{
+	s.logActivity(tenantID, "product", fmt.Sprintf("%d", updated.ID), "update", actor, requestID, before, updated, map[string]any{
 		"product_id": updated.ProductID,
 	})
 	return updated, nil
 }
 
-func (s *AdminManagementService) DeleteProduct(id int, actor, requestID *string) error {
+func (s *AdminManagementService) DeleteProduct(tenantID string, id int, actor, requestID *string) error {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return ErrTenantContextMissing
+	}
 	if id <= 0 {
 		return fmt.Errorf("%w: product id is required", ErrInvalidInput)
 	}
 
-	before, err := s.repo.GetProductByID(id)
+	before, err := s.repo.GetProductByID(tenantID, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrAdminNotFound) {
 			return ErrAdminNotFound
@@ -184,20 +204,24 @@ func (s *AdminManagementService) DeleteProduct(id int, actor, requestID *string)
 		return &ProductDependencyError{Counts: counts}
 	}
 
-	if err := s.repo.DeleteProduct(id); err != nil {
+	if err := s.repo.DeleteProduct(tenantID, id); err != nil {
 		if errors.Is(err, repository.ErrAdminNotFound) {
 			return ErrAdminNotFound
 		}
 		return err
 	}
 
-	s.logActivity("product", fmt.Sprintf("%d", before.ID), "delete", actor, requestID, before, nil, map[string]any{
+	s.logActivity(tenantID, "product", fmt.Sprintf("%d", before.ID), "delete", actor, requestID, before, nil, map[string]any{
 		"product_id": before.ProductID,
 	})
 	return nil
 }
 
-func (s *AdminManagementService) BatchUpsertProducts(items []*domain.AdminProduct, actor, requestID *string) (int, error) {
+func (s *AdminManagementService) BatchUpsertProducts(tenantID string, items []*domain.AdminProduct, actor, requestID *string) (int, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return 0, ErrTenantContextMissing
+	}
 	if len(items) == 0 {
 		return 0, fmt.Errorf("%w: products list is empty", ErrInvalidInput)
 	}
@@ -205,14 +229,15 @@ func (s *AdminManagementService) BatchUpsertProducts(items []*domain.AdminProduc
 		if err := validateProductInput(items[i]); err != nil {
 			return 0, fmt.Errorf("%w: item %d: %v", ErrInvalidInput, i+1, err)
 		}
+		items[i].TenantID = tenantID
 	}
 
-	n, err := s.repo.BatchUpsertProducts(items)
+	n, err := s.repo.BatchUpsertProducts(tenantID, items)
 	if err != nil {
 		return 0, err
 	}
 
-	s.logActivity("product", "batch", "batch_upsert", actor, requestID, nil, nil, map[string]any{
+	s.logActivity(tenantID, "product", "batch", "batch_upsert", actor, requestID, nil, nil, map[string]any{
 		"count": n,
 	})
 	return n, nil
@@ -222,16 +247,20 @@ func (s *AdminManagementService) ListUserbase(filter *domain.UserbaseListFilter)
 	return s.repo.ListUserbase(filter)
 }
 
-func (s *AdminManagementService) UpsertUserbase(msisdn, userType string, actor, requestID *string) (*domain.UserbaseRecord, error) {
+func (s *AdminManagementService) UpsertUserbase(tenantID, msisdn, userType string, actor, requestID *string) (*domain.UserbaseRecord, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, ErrTenantContextMissing
+	}
 	normalizedMSISDN, normalizedType, err := normalizeUserbaseInput(msisdn, userType)
 	if err != nil {
 		return nil, err
 	}
 
 	var before *domain.UserbaseRecord
-	before, _ = s.repo.GetUserbaseByMSISDN(normalizedMSISDN)
+	before, _ = s.repo.GetUserbaseByMSISDN(tenantID, normalizedMSISDN)
 
-	updated, err := s.repo.UpsertUserbase(normalizedMSISDN, normalizedType)
+	updated, err := s.repo.UpsertUserbase(tenantID, normalizedMSISDN, normalizedType)
 	if err != nil {
 		return nil, err
 	}
@@ -240,17 +269,21 @@ func (s *AdminManagementService) UpsertUserbase(msisdn, userType string, actor, 
 	if before != nil {
 		action = "update"
 	}
-	s.logActivity("userbase", updated.MSISDN, action, actor, requestID, before, updated, nil)
+	s.logActivity(tenantID, "userbase", updated.MSISDN, action, actor, requestID, before, updated, nil)
 	return updated, nil
 }
 
-func (s *AdminManagementService) DeleteUserbase(msisdn string, actor, requestID *string) error {
+func (s *AdminManagementService) DeleteUserbase(tenantID, msisdn string, actor, requestID *string) error {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return ErrTenantContextMissing
+	}
 	normalizedMSISDN, _, err := normalizeUserbaseInput(msisdn, "BLACKLISTED")
 	if err != nil {
 		return err
 	}
 
-	before, err := s.repo.GetUserbaseByMSISDN(normalizedMSISDN)
+	before, err := s.repo.GetUserbaseByMSISDN(tenantID, normalizedMSISDN)
 	if err != nil {
 		if errors.Is(err, repository.ErrAdminNotFound) {
 			return ErrAdminNotFound
@@ -258,24 +291,28 @@ func (s *AdminManagementService) DeleteUserbase(msisdn string, actor, requestID 
 		return err
 	}
 
-	if err := s.repo.DeleteUserbase(normalizedMSISDN); err != nil {
+	if err := s.repo.DeleteUserbase(tenantID, normalizedMSISDN); err != nil {
 		if errors.Is(err, repository.ErrAdminNotFound) {
 			return ErrAdminNotFound
 		}
 		return err
 	}
 
-	s.logActivity("userbase", normalizedMSISDN, "delete", actor, requestID, before, nil, nil)
+	s.logActivity(tenantID, "userbase", normalizedMSISDN, "delete", actor, requestID, before, nil, nil)
 	return nil
 }
 
-func (s *AdminManagementService) ImportUserbase(filename string, rows []domain.UserbaseImportInputRow, actor, requestID *string) (*domain.UserbaseImportJob, []*domain.UserbaseImportError, error) {
+func (s *AdminManagementService) ImportUserbase(tenantID, filename string, rows []domain.UserbaseImportInputRow, actor, requestID *string) (*domain.UserbaseImportJob, []*domain.UserbaseImportError, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, nil, ErrTenantContextMissing
+	}
 	filename = strings.TrimSpace(filename)
 	if filename == "" {
 		return nil, nil, fmt.Errorf("%w: filename is required", ErrInvalidInput)
 	}
 
-	job, err := s.repo.CreateUserbaseImportJob(filename, actor)
+	job, err := s.repo.CreateUserbaseImportJob(tenantID, filename, actor)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -286,6 +323,7 @@ func (s *AdminManagementService) ImportUserbase(filename string, rows []domain.U
 		msisdn, rowType, validationErr := normalizeUserbaseInput(row.MSISDN, row.Type)
 		if validationErr != nil {
 			errorsOut = append(errorsOut, &domain.UserbaseImportError{
+				TenantID:     tenantID,
 				JobID:        job.ID,
 				RowNumber:    row.RowNumber,
 				RawRow:       row.RawRow,
@@ -294,8 +332,9 @@ func (s *AdminManagementService) ImportUserbase(filename string, rows []domain.U
 			continue
 		}
 
-		if _, err := s.repo.UpsertUserbase(msisdn, rowType); err != nil {
+		if _, err := s.repo.UpsertUserbase(tenantID, msisdn, rowType); err != nil {
 			errorsOut = append(errorsOut, &domain.UserbaseImportError{
+				TenantID:     tenantID,
 				JobID:        job.ID,
 				RowNumber:    row.RowNumber,
 				RawRow:       row.RawRow,
@@ -306,8 +345,8 @@ func (s *AdminManagementService) ImportUserbase(filename string, rows []domain.U
 		successCount++
 	}
 
-	if err := s.repo.InsertUserbaseImportErrors(job.ID, errorsOut); err != nil {
-		_ = s.repo.CompleteUserbaseImportJob(job.ID, domain.UserbaseImportStatusFailed, len(rows), successCount, len(errorsOut))
+	if err := s.repo.InsertUserbaseImportErrors(tenantID, job.ID, errorsOut); err != nil {
+		_ = s.repo.CompleteUserbaseImportJob(tenantID, job.ID, domain.UserbaseImportStatusFailed, len(rows), successCount, len(errorsOut))
 		return nil, nil, err
 	}
 
@@ -315,7 +354,7 @@ func (s *AdminManagementService) ImportUserbase(filename string, rows []domain.U
 	if successCount == 0 && len(rows) > 0 {
 		status = domain.UserbaseImportStatusFailed
 	}
-	if err := s.repo.CompleteUserbaseImportJob(job.ID, status, len(rows), successCount, len(errorsOut)); err != nil {
+	if err := s.repo.CompleteUserbaseImportJob(tenantID, job.ID, status, len(rows), successCount, len(errorsOut)); err != nil {
 		return nil, nil, err
 	}
 
@@ -326,7 +365,7 @@ func (s *AdminManagementService) ImportUserbase(filename string, rows []domain.U
 	now := time.Now().UTC()
 	job.CompletedAt = &now
 
-	s.logActivity("userbase_import", job.ID, "import", actor, requestID, nil, nil, map[string]any{
+	s.logActivity(tenantID, "userbase_import", job.ID, "import", actor, requestID, nil, nil, map[string]any{
 		"filename":     filename,
 		"total_rows":   len(rows),
 		"success_rows": successCount,
@@ -336,7 +375,11 @@ func (s *AdminManagementService) ImportUserbase(filename string, rows []domain.U
 	return job, errorsOut, nil
 }
 
-func (s *AdminManagementService) ListUserbaseImportJobs(page, pageSize int) ([]*domain.UserbaseImportJob, int, error) {
+func (s *AdminManagementService) ListUserbaseImportJobs(tenantID string, page, pageSize int) ([]*domain.UserbaseImportJob, int, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, 0, ErrTenantContextMissing
+	}
 	if page <= 0 {
 		page = 1
 	}
@@ -347,16 +390,20 @@ func (s *AdminManagementService) ListUserbaseImportJobs(page, pageSize int) ([]*
 		pageSize = 200
 	}
 	offset := (page - 1) * pageSize
-	return s.repo.ListUserbaseImportJobs(pageSize, offset)
+	return s.repo.ListUserbaseImportJobs(tenantID, pageSize, offset)
 }
 
-func (s *AdminManagementService) GetUserbaseImportJob(jobID string) (*domain.UserbaseImportJob, []*domain.UserbaseImportError, int, error) {
+func (s *AdminManagementService) GetUserbaseImportJob(tenantID, jobID string) (*domain.UserbaseImportJob, []*domain.UserbaseImportError, int, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, nil, 0, ErrTenantContextMissing
+	}
 	jobID = strings.TrimSpace(jobID)
 	if jobID == "" {
 		return nil, nil, 0, fmt.Errorf("%w: job id is required", ErrInvalidInput)
 	}
 
-	job, err := s.repo.GetUserbaseImportJob(jobID)
+	job, err := s.repo.GetUserbaseImportJob(tenantID, jobID)
 	if err != nil {
 		if errors.Is(err, repository.ErrAdminNotFound) {
 			return nil, nil, 0, ErrAdminNotFound
@@ -364,7 +411,7 @@ func (s *AdminManagementService) GetUserbaseImportJob(jobID string) (*domain.Use
 		return nil, nil, 0, err
 	}
 
-	errorsOut, total, err := s.repo.ListUserbaseImportErrors(jobID, 500, 0)
+	errorsOut, total, err := s.repo.ListUserbaseImportErrors(tenantID, jobID, 500, 0)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -376,6 +423,7 @@ func (s *AdminManagementService) ListActivityLogs(filter *domain.AdminActivityLo
 }
 
 func (s *AdminManagementService) logActivity(
+	tenantID string,
 	entityType string,
 	entityID string,
 	action string,
@@ -387,6 +435,7 @@ func (s *AdminManagementService) logActivity(
 ) {
 	entry := &domain.AdminActivityLog{
 		ID:         uuid.NewString(),
+		TenantID:   strings.TrimSpace(tenantID),
 		EntityType: entityType,
 		EntityID:   entityID,
 		Action:     action,

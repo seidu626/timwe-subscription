@@ -114,6 +114,46 @@ func TestCreateTenantWithActivityLogMapsDuplicateKeyConflict(t *testing.T) {
 	}
 }
 
+func TestListProductsRequiresTenantScope(t *testing.T) {
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	_, _, err = repo.ListProducts(&domain.ProductListFilter{})
+	if err == nil || !regexp.MustCompile(`tenant_id is required`).MatchString(err.Error()) {
+		t.Fatalf("expected tenant_id error, got %v", err)
+	}
+}
+
+func TestUpsertUserbaseUsesTenantScopedKey(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO userbase (tenant_id, msisdn, type)")).
+		WithArgs(tenantID, "233201234567", "ALLOWLISTED").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "msisdn", "type"}).
+			AddRow(7, tenantID, "233201234567", "ALLOWLISTED"))
+
+	record, err := repo.UpsertUserbase(tenantID, "233201234567", "ALLOWLISTED")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if record.TenantID != tenantID || record.MSISDN != "233201234567" {
+		t.Fatalf("unexpected record: %#v", record)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func expectTenantInsert(mock sqlmock.Sqlmock, _ time.Time) *sqlmock.ExpectedQuery {
 	return mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO tenants")).
 		WithArgs(

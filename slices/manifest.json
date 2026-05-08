@@ -32,7 +32,7 @@
       "id": "TMP-002",
       "name": "tenant-admin-management-scope",
       "description": "Tenant admin manages products and userbase records scoped to their tenant with audit logs.",
-      "state": "planned",
+      "state": "done",
       "priority": "P0",
       "depends_on": ["TMP-001"],
       "actor": "tenant-admin",

@@ -64,3 +64,36 @@ CREATE TABLE IF NOT EXISTS userbase_import_errors (
 
 CREATE INDEX IF NOT EXISTS idx_userbase_import_errors_job_id
     ON userbase_import_errors (job_id, id);
+
+ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+ALTER TABLE userbase
+    ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+ALTER TABLE userbase_import_jobs
+    ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+ALTER TABLE userbase_import_errors
+    ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+ALTER TABLE admin_activity_logs
+    ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+ALTER TABLE products
+    DROP CONSTRAINT IF EXISTS products_product_id_key;
+
+ALTER TABLE userbase
+    DROP CONSTRAINT IF EXISTS userbase_msisdn_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_products_tenant_product_id
+    ON products (tenant_id, product_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_userbase_tenant_msisdn
+    ON userbase (tenant_id, msisdn);
+
+CREATE INDEX IF NOT EXISTS idx_userbase_import_jobs_tenant_started
+    ON userbase_import_jobs (tenant_id, started_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_admin_activity_logs_tenant_entity
+    ON admin_activity_logs (tenant_id, entity_type, entity_id, created_at DESC);

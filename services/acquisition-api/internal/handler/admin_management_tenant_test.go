@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -112,6 +113,23 @@ func TestGetCurrentTenantHidesInactiveAndUnknownTenants(t *testing.T) {
 	}
 	if inactiveStatus != fasthttp.StatusForbidden {
 		t.Fatalf("status=%d body=%q", inactiveStatus, inactiveBody)
+	}
+}
+
+func TestParseJSONImportRowsRejectsTenantInjection(t *testing.T) {
+	_, err := parseImportRows("userbase.json", strings.NewReader(`[{"tenant_id":"22222222-2222-2222-2222-222222222222","msisdn":"0201234567","type":"ALLOWLISTED"}]`))
+	if err == nil || !strings.Contains(err.Error(), "must not include tenant_id") {
+		t.Fatalf("expected tenant_id rejection, got %v", err)
+	}
+}
+
+func TestParseJSONImportRowsAcceptsTenantNeutralRows(t *testing.T) {
+	rows, err := parseImportRows("userbase.json", strings.NewReader(`[{"msisdn":"0201234567","type":"ALLOWLISTED"}]`))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(rows) != 1 || rows[0].MSISDN != "0201234567" || rows[0].Type != "ALLOWLISTED" || rows[0].RowNumber != 1 {
+		t.Fatalf("unexpected rows: %#v", rows)
 	}
 }
 

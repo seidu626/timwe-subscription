@@ -115,6 +115,10 @@ func (r *AdminManagementRepository) ListProducts(filter *domain.ProductListFilte
 	if filter == nil {
 		filter = &domain.ProductListFilter{Limit: 20}
 	}
+	tenantID := strings.TrimSpace(filter.TenantID)
+	if tenantID == "" {
+		return nil, 0, fmt.Errorf("tenant_id is required")
+	}
 	if filter.Limit <= 0 {
 		filter.Limit = 20
 	}
@@ -122,9 +126,9 @@ func (r *AdminManagementRepository) ListProducts(filter *domain.ProductListFilte
 		filter.Offset = 0
 	}
 
-	where := []string{"1=1"}
-	args := []any{}
-	argN := 1
+	where := []string{"tenant_id = $1"}
+	args := []any{tenantID}
+	argN := 2
 
 	if q := strings.TrimSpace(filter.Query); q != "" {
 		where = append(where, fmt.Sprintf("(LOWER(product_id) LIKE LOWER($%d) OR LOWER(name) LIKE LOWER($%d))", argN, argN))
@@ -147,7 +151,7 @@ func (r *AdminManagementRepository) ListProducts(filter *domain.ProductListFilte
 
 	args = append(args, filter.Limit, filter.Offset)
 	listQuery := fmt.Sprintf(`
-		SELECT id, product_id, name, price_point_id, price_point_value, short_code, created_at
+		SELECT id, tenant_id, product_id, name, price_point_id, price_point_value, short_code, created_at
 		FROM products
 		WHERE %s
 		ORDER BY created_at DESC, id DESC
@@ -163,7 +167,7 @@ func (r *AdminManagementRepository) ListProducts(filter *domain.ProductListFilte
 	products := make([]*domain.AdminProduct, 0)
 	for rows.Next() {
 		var p domain.AdminProduct
-		if err := rows.Scan(&p.ID, &p.ProductID, &p.Name, &p.PricePointID, &p.PricePointValue, &p.ShortCode, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.TenantID, &p.ProductID, &p.Name, &p.PricePointID, &p.PricePointValue, &p.ShortCode, &p.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan product: %w", err)
 		}
 		products = append(products, &p)
@@ -175,14 +179,14 @@ func (r *AdminManagementRepository) ListProducts(filter *domain.ProductListFilte
 	return products, total, nil
 }
 
-func (r *AdminManagementRepository) GetProductByID(id int) (*domain.AdminProduct, error) {
+func (r *AdminManagementRepository) GetProductByID(tenantID string, id int) (*domain.AdminProduct, error) {
 	query := `
-		SELECT id, product_id, name, price_point_id, price_point_value, short_code, created_at
+		SELECT id, tenant_id, product_id, name, price_point_id, price_point_value, short_code, created_at
 		FROM products
-		WHERE id = $1
+		WHERE tenant_id = $1 AND id = $2
 	`
 	var p domain.AdminProduct
-	if err := r.db.QueryRow(query, id).Scan(&p.ID, &p.ProductID, &p.Name, &p.PricePointID, &p.PricePointValue, &p.ShortCode, &p.CreatedAt); err != nil {
+	if err := r.db.QueryRow(query, tenantID, id).Scan(&p.ID, &p.TenantID, &p.ProductID, &p.Name, &p.PricePointID, &p.PricePointValue, &p.ShortCode, &p.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAdminNotFound
 		}
@@ -193,30 +197,34 @@ func (r *AdminManagementRepository) GetProductByID(id int) (*domain.AdminProduct
 
 func (r *AdminManagementRepository) CreateProduct(product *domain.AdminProduct) (*domain.AdminProduct, error) {
 	query := `
-		INSERT INTO products (product_id, name, price_point_id, price_point_value, short_code)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO products (tenant_id, product_id, name, price_point_id, price_point_value, short_code)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at
 	`
 	out := *product
 	if err := r.db.QueryRow(
 		query,
+		product.TenantID,
 		product.ProductID,
 		product.Name,
 		product.PricePointID,
 		product.PricePointValue,
 		product.ShortCode,
 	).Scan(&out.ID, &out.CreatedAt); err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrAdminConflict
+		}
 		return nil, fmt.Errorf("failed to create product: %w", err)
 	}
 	return &out, nil
 }
 
-func (r *AdminManagementRepository) UpdateProduct(id int, product *domain.AdminProduct) (*domain.AdminProduct, error) {
+func (r *AdminManagementRepository) UpdateProduct(tenantID string, id int, product *domain.AdminProduct) (*domain.AdminProduct, error) {
 	query := `
 		UPDATE products
 		SET product_id = $1, name = $2, price_point_id = $3, price_point_value = $4, short_code = $5
-		WHERE id = $6
-		RETURNING id, product_id, name, price_point_id, price_point_value, short_code, created_at
+		WHERE tenant_id = $6 AND id = $7
+		RETURNING id, tenant_id, product_id, name, price_point_id, price_point_value, short_code, created_at
 	`
 	var out domain.AdminProduct
 	if err := r.db.QueryRow(
@@ -226,18 +234,22 @@ func (r *AdminManagementRepository) UpdateProduct(id int, product *domain.AdminP
 		product.PricePointID,
 		product.PricePointValue,
 		product.ShortCode,
+		tenantID,
 		id,
-	).Scan(&out.ID, &out.ProductID, &out.Name, &out.PricePointID, &out.PricePointValue, &out.ShortCode, &out.CreatedAt); err != nil {
+	).Scan(&out.ID, &out.TenantID, &out.ProductID, &out.Name, &out.PricePointID, &out.PricePointValue, &out.ShortCode, &out.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAdminNotFound
+		}
+		if isUniqueViolation(err) {
+			return nil, ErrAdminConflict
 		}
 		return nil, fmt.Errorf("failed to update product: %w", err)
 	}
 	return &out, nil
 }
 
-func (r *AdminManagementRepository) DeleteProduct(id int) error {
-	res, err := r.db.Exec(`DELETE FROM products WHERE id = $1`, id)
+func (r *AdminManagementRepository) DeleteProduct(tenantID string, id int) error {
+	res, err := r.db.Exec(`DELETE FROM products WHERE tenant_id = $1 AND id = $2`, tenantID, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete product: %w", err)
 	}
@@ -251,7 +263,7 @@ func (r *AdminManagementRepository) DeleteProduct(id int) error {
 	return nil
 }
 
-func (r *AdminManagementRepository) BatchUpsertProducts(products []*domain.AdminProduct) (int, error) {
+func (r *AdminManagementRepository) BatchUpsertProducts(tenantID string, products []*domain.AdminProduct) (int, error) {
 	if len(products) == 0 {
 		return 0, nil
 	}
@@ -269,16 +281,16 @@ func (r *AdminManagementRepository) BatchUpsertProducts(products []*domain.Admin
 	query := `
 		WITH updated AS (
 			UPDATE products
-			SET name = $2, price_point_id = $3, price_point_value = $4, short_code = $5
-			WHERE product_id = $1
+			SET name = $3, price_point_id = $4, price_point_value = $5, short_code = $6
+			WHERE tenant_id = $1 AND product_id = $2
 			RETURNING id
 		)
-		INSERT INTO products (product_id, name, price_point_id, price_point_value, short_code)
-		SELECT $1, $2, $3, $4, $5
+		INSERT INTO products (tenant_id, product_id, name, price_point_id, price_point_value, short_code)
+		SELECT $1, $2, $3, $4, $5, $6
 		WHERE NOT EXISTS (SELECT 1 FROM updated)
 	`
 	for _, p := range products {
-		if _, err = tx.Exec(query, p.ProductID, p.Name, p.PricePointID, p.PricePointValue, p.ShortCode); err != nil {
+		if _, err = tx.Exec(query, tenantID, p.ProductID, p.Name, p.PricePointID, p.PricePointValue, p.ShortCode); err != nil {
 			return 0, fmt.Errorf("failed to upsert product %s: %w", p.ProductID, err)
 		}
 	}
@@ -315,6 +327,10 @@ func (r *AdminManagementRepository) ListUserbase(filter *domain.UserbaseListFilt
 	if filter == nil {
 		filter = &domain.UserbaseListFilter{Limit: 20}
 	}
+	tenantID := strings.TrimSpace(filter.TenantID)
+	if tenantID == "" {
+		return nil, 0, fmt.Errorf("tenant_id is required")
+	}
 	if filter.Limit <= 0 {
 		filter.Limit = 20
 	}
@@ -322,9 +338,9 @@ func (r *AdminManagementRepository) ListUserbase(filter *domain.UserbaseListFilt
 		filter.Offset = 0
 	}
 
-	where := []string{"1=1"}
-	args := []any{}
-	argN := 1
+	where := []string{"tenant_id = $1"}
+	args := []any{tenantID}
+	argN := 2
 	if msisdn := strings.TrimSpace(filter.MSISDN); msisdn != "" {
 		where = append(where, fmt.Sprintf("msisdn LIKE $%d", argN))
 		args = append(args, msisdn+"%")
@@ -345,7 +361,7 @@ func (r *AdminManagementRepository) ListUserbase(filter *domain.UserbaseListFilt
 
 	args = append(args, filter.Limit, filter.Offset)
 	listQuery := fmt.Sprintf(`
-		SELECT id, msisdn, type
+		SELECT id, tenant_id, msisdn, type
 		FROM userbase
 		WHERE %s
 		ORDER BY id DESC
@@ -360,7 +376,7 @@ func (r *AdminManagementRepository) ListUserbase(filter *domain.UserbaseListFilt
 	records := make([]*domain.UserbaseRecord, 0)
 	for rows.Next() {
 		var rec domain.UserbaseRecord
-		if err := rows.Scan(&rec.ID, &rec.MSISDN, &rec.Type); err != nil {
+		if err := rows.Scan(&rec.ID, &rec.TenantID, &rec.MSISDN, &rec.Type); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan userbase row: %w", err)
 		}
 		records = append(records, &rec)
@@ -372,10 +388,10 @@ func (r *AdminManagementRepository) ListUserbase(filter *domain.UserbaseListFilt
 	return records, total, nil
 }
 
-func (r *AdminManagementRepository) GetUserbaseByMSISDN(msisdn string) (*domain.UserbaseRecord, error) {
-	query := `SELECT id, msisdn, type FROM userbase WHERE msisdn = $1`
+func (r *AdminManagementRepository) GetUserbaseByMSISDN(tenantID, msisdn string) (*domain.UserbaseRecord, error) {
+	query := `SELECT id, tenant_id, msisdn, type FROM userbase WHERE tenant_id = $1 AND msisdn = $2`
 	var rec domain.UserbaseRecord
-	if err := r.db.QueryRow(query, msisdn).Scan(&rec.ID, &rec.MSISDN, &rec.Type); err != nil {
+	if err := r.db.QueryRow(query, tenantID, msisdn).Scan(&rec.ID, &rec.TenantID, &rec.MSISDN, &rec.Type); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAdminNotFound
 		}
@@ -384,23 +400,23 @@ func (r *AdminManagementRepository) GetUserbaseByMSISDN(msisdn string) (*domain.
 	return &rec, nil
 }
 
-func (r *AdminManagementRepository) UpsertUserbase(msisdn, userType string) (*domain.UserbaseRecord, error) {
+func (r *AdminManagementRepository) UpsertUserbase(tenantID, msisdn, userType string) (*domain.UserbaseRecord, error) {
 	query := `
-		INSERT INTO userbase (msisdn, type)
-		VALUES ($1, $2)
-		ON CONFLICT (msisdn)
+		INSERT INTO userbase (tenant_id, msisdn, type)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (tenant_id, msisdn)
 		DO UPDATE SET type = EXCLUDED.type
-		RETURNING id, msisdn, type
+		RETURNING id, tenant_id, msisdn, type
 	`
 	var rec domain.UserbaseRecord
-	if err := r.db.QueryRow(query, msisdn, userType).Scan(&rec.ID, &rec.MSISDN, &rec.Type); err != nil {
+	if err := r.db.QueryRow(query, tenantID, msisdn, userType).Scan(&rec.ID, &rec.TenantID, &rec.MSISDN, &rec.Type); err != nil {
 		return nil, fmt.Errorf("failed to upsert userbase row: %w", err)
 	}
 	return &rec, nil
 }
 
-func (r *AdminManagementRepository) DeleteUserbase(msisdn string) error {
-	res, err := r.db.Exec(`DELETE FROM userbase WHERE msisdn = $1`, msisdn)
+func (r *AdminManagementRepository) DeleteUserbase(tenantID, msisdn string) error {
+	res, err := r.db.Exec(`DELETE FROM userbase WHERE tenant_id = $1 AND msisdn = $2`, tenantID, msisdn)
 	if err != nil {
 		return fmt.Errorf("failed to delete userbase row: %w", err)
 	}
@@ -414,18 +430,19 @@ func (r *AdminManagementRepository) DeleteUserbase(msisdn string) error {
 	return nil
 }
 
-func (r *AdminManagementRepository) CreateUserbaseImportJob(filename string, createdBy *string) (*domain.UserbaseImportJob, error) {
+func (r *AdminManagementRepository) CreateUserbaseImportJob(tenantID, filename string, createdBy *string) (*domain.UserbaseImportJob, error) {
 	id := uuid.NewString()
 	startedAt := time.Now().UTC()
 	query := `
-		INSERT INTO userbase_import_jobs (id, filename, status, total_rows, success_rows, failed_rows, started_at, created_by)
-		VALUES ($1, $2, $3, 0, 0, 0, $4, $5)
+		INSERT INTO userbase_import_jobs (id, tenant_id, filename, status, total_rows, success_rows, failed_rows, started_at, created_by)
+		VALUES ($1, $2, $3, $4, 0, 0, 0, $5, $6)
 	`
-	if _, err := r.db.Exec(query, id, filename, domain.UserbaseImportStatusProcessing, startedAt, createdBy); err != nil {
+	if _, err := r.db.Exec(query, id, tenantID, filename, domain.UserbaseImportStatusProcessing, startedAt, createdBy); err != nil {
 		return nil, fmt.Errorf("failed to create userbase import job: %w", err)
 	}
 	return &domain.UserbaseImportJob{
 		ID:        id,
+		TenantID:  tenantID,
 		Filename:  filename,
 		Status:    domain.UserbaseImportStatusProcessing,
 		StartedAt: startedAt,
@@ -433,14 +450,14 @@ func (r *AdminManagementRepository) CreateUserbaseImportJob(filename string, cre
 	}, nil
 }
 
-func (r *AdminManagementRepository) CompleteUserbaseImportJob(jobID string, status domain.UserbaseImportJobStatus, totalRows, successRows, failedRows int) error {
+func (r *AdminManagementRepository) CompleteUserbaseImportJob(tenantID, jobID string, status domain.UserbaseImportJobStatus, totalRows, successRows, failedRows int) error {
 	query := `
 		UPDATE userbase_import_jobs
 		SET status = $1, total_rows = $2, success_rows = $3, failed_rows = $4, completed_at = $5
-		WHERE id = $6
+		WHERE tenant_id = $6 AND id = $7
 	`
 	now := time.Now().UTC()
-	res, err := r.db.Exec(query, status, totalRows, successRows, failedRows, now, jobID)
+	res, err := r.db.Exec(query, status, totalRows, successRows, failedRows, now, tenantID, jobID)
 	if err != nil {
 		return fmt.Errorf("failed to complete userbase import job: %w", err)
 	}
@@ -454,7 +471,7 @@ func (r *AdminManagementRepository) CompleteUserbaseImportJob(jobID string, stat
 	return nil
 }
 
-func (r *AdminManagementRepository) InsertUserbaseImportErrors(jobID string, rows []*domain.UserbaseImportError) error {
+func (r *AdminManagementRepository) InsertUserbaseImportErrors(tenantID, jobID string, rows []*domain.UserbaseImportError) error {
 	if len(rows) == 0 {
 		return nil
 	}
@@ -470,8 +487,8 @@ func (r *AdminManagementRepository) InsertUserbaseImportErrors(jobID string, row
 	}()
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO userbase_import_errors (job_id, row_number, raw_row, error_message)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO userbase_import_errors (tenant_id, job_id, row_number, raw_row, error_message)
+		VALUES ($1, $2, $3, $4, $5)
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare import-error statement: %w", err)
@@ -479,7 +496,7 @@ func (r *AdminManagementRepository) InsertUserbaseImportErrors(jobID string, row
 	defer stmt.Close()
 
 	for _, row := range rows {
-		if _, err = stmt.Exec(jobID, row.RowNumber, row.RawRow, row.ErrorMessage); err != nil {
+		if _, err = stmt.Exec(tenantID, jobID, row.RowNumber, row.RawRow, row.ErrorMessage); err != nil {
 			return fmt.Errorf("failed to insert import error row %d: %w", row.RowNumber, err)
 		}
 	}
@@ -490,7 +507,7 @@ func (r *AdminManagementRepository) InsertUserbaseImportErrors(jobID string, row
 	return nil
 }
 
-func (r *AdminManagementRepository) ListUserbaseImportJobs(limit, offset int) ([]*domain.UserbaseImportJob, int, error) {
+func (r *AdminManagementRepository) ListUserbaseImportJobs(tenantID string, limit, offset int) ([]*domain.UserbaseImportJob, int, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -499,16 +516,17 @@ func (r *AdminManagementRepository) ListUserbaseImportJobs(limit, offset int) ([
 	}
 
 	var total int
-	if err := r.db.QueryRow(`SELECT COUNT(*) FROM userbase_import_jobs`).Scan(&total); err != nil {
+	if err := r.db.QueryRow(`SELECT COUNT(*) FROM userbase_import_jobs WHERE tenant_id = $1`, tenantID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("failed to count userbase import jobs: %w", err)
 	}
 
 	rows, err := r.db.Query(`
-		SELECT id, filename, status, total_rows, success_rows, failed_rows, started_at, completed_at, created_by
+		SELECT id, tenant_id, filename, status, total_rows, success_rows, failed_rows, started_at, completed_at, created_by
 		FROM userbase_import_jobs
+		WHERE tenant_id = $1
 		ORDER BY started_at DESC
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+		LIMIT $2 OFFSET $3
+	`, tenantID, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list userbase import jobs: %w", err)
 	}
@@ -521,7 +539,7 @@ func (r *AdminManagementRepository) ListUserbaseImportJobs(limit, offset int) ([
 			completed sql.NullTime
 			createdBy sql.NullString
 		)
-		if err := rows.Scan(&job.ID, &job.Filename, &job.Status, &job.TotalRows, &job.SuccessRows, &job.FailedRows, &job.StartedAt, &completed, &createdBy); err != nil {
+		if err := rows.Scan(&job.ID, &job.TenantID, &job.Filename, &job.Status, &job.TotalRows, &job.SuccessRows, &job.FailedRows, &job.StartedAt, &completed, &createdBy); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan userbase import job: %w", err)
 		}
 		if completed.Valid {
@@ -539,18 +557,18 @@ func (r *AdminManagementRepository) ListUserbaseImportJobs(limit, offset int) ([
 	return out, total, nil
 }
 
-func (r *AdminManagementRepository) GetUserbaseImportJob(jobID string) (*domain.UserbaseImportJob, error) {
+func (r *AdminManagementRepository) GetUserbaseImportJob(tenantID, jobID string) (*domain.UserbaseImportJob, error) {
 	var (
 		job       domain.UserbaseImportJob
 		completed sql.NullTime
 		createdBy sql.NullString
 	)
 	query := `
-		SELECT id, filename, status, total_rows, success_rows, failed_rows, started_at, completed_at, created_by
+		SELECT id, tenant_id, filename, status, total_rows, success_rows, failed_rows, started_at, completed_at, created_by
 		FROM userbase_import_jobs
-		WHERE id = $1
+		WHERE tenant_id = $1 AND id = $2
 	`
-	if err := r.db.QueryRow(query, jobID).Scan(&job.ID, &job.Filename, &job.Status, &job.TotalRows, &job.SuccessRows, &job.FailedRows, &job.StartedAt, &completed, &createdBy); err != nil {
+	if err := r.db.QueryRow(query, tenantID, jobID).Scan(&job.ID, &job.TenantID, &job.Filename, &job.Status, &job.TotalRows, &job.SuccessRows, &job.FailedRows, &job.StartedAt, &completed, &createdBy); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAdminNotFound
 		}
@@ -566,7 +584,7 @@ func (r *AdminManagementRepository) GetUserbaseImportJob(jobID string) (*domain.
 	return &job, nil
 }
 
-func (r *AdminManagementRepository) ListUserbaseImportErrors(jobID string, limit, offset int) ([]*domain.UserbaseImportError, int, error) {
+func (r *AdminManagementRepository) ListUserbaseImportErrors(tenantID, jobID string, limit, offset int) ([]*domain.UserbaseImportError, int, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -575,17 +593,17 @@ func (r *AdminManagementRepository) ListUserbaseImportErrors(jobID string, limit
 	}
 
 	var total int
-	if err := r.db.QueryRow(`SELECT COUNT(*) FROM userbase_import_errors WHERE job_id = $1`, jobID).Scan(&total); err != nil {
+	if err := r.db.QueryRow(`SELECT COUNT(*) FROM userbase_import_errors WHERE tenant_id = $1 AND job_id = $2`, tenantID, jobID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("failed to count userbase import errors: %w", err)
 	}
 
 	rows, err := r.db.Query(`
-		SELECT id, job_id, row_number, raw_row, error_message
+		SELECT id, tenant_id, job_id, row_number, raw_row, error_message
 		FROM userbase_import_errors
-		WHERE job_id = $1
+		WHERE tenant_id = $1 AND job_id = $2
 		ORDER BY id ASC
-		LIMIT $2 OFFSET $3
-	`, jobID, limit, offset)
+		LIMIT $3 OFFSET $4
+	`, tenantID, jobID, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list userbase import errors: %w", err)
 	}
@@ -594,7 +612,7 @@ func (r *AdminManagementRepository) ListUserbaseImportErrors(jobID string, limit
 	errorsOut := make([]*domain.UserbaseImportError, 0)
 	for rows.Next() {
 		var item domain.UserbaseImportError
-		if err := rows.Scan(&item.ID, &item.JobID, &item.RowNumber, &item.RawRow, &item.ErrorMessage); err != nil {
+		if err := rows.Scan(&item.ID, &item.TenantID, &item.JobID, &item.RowNumber, &item.RawRow, &item.ErrorMessage); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan import error row: %w", err)
 		}
 		errorsOut = append(errorsOut, &item)
@@ -619,8 +637,8 @@ type activityLogExecer interface {
 func createActivityLog(exec activityLogExecer, entry *domain.AdminActivityLog) error {
 	query := `
 		INSERT INTO admin_activity_logs (
-			id, entity_type, entity_id, action, actor, request_id, before_json, after_json, metadata_json, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			id, tenant_id, entity_type, entity_id, action, actor, request_id, before_json, after_json, metadata_json, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 	if entry.ID == "" {
 		entry.ID = uuid.NewString()
@@ -630,6 +648,7 @@ func createActivityLog(exec activityLogExecer, entry *domain.AdminActivityLog) e
 	}
 	_, err := exec.Exec(query,
 		entry.ID,
+		nullableString(entry.TenantID),
 		entry.EntityType,
 		entry.EntityID,
 		entry.Action,
@@ -650,6 +669,10 @@ func (r *AdminManagementRepository) ListActivityLogs(filter *domain.AdminActivit
 	if filter == nil {
 		filter = &domain.AdminActivityLogFilter{Limit: 20}
 	}
+	tenantID := strings.TrimSpace(filter.TenantID)
+	if tenantID == "" {
+		return nil, 0, fmt.Errorf("tenant_id is required")
+	}
 	if filter.Limit <= 0 {
 		filter.Limit = 20
 	}
@@ -657,9 +680,9 @@ func (r *AdminManagementRepository) ListActivityLogs(filter *domain.AdminActivit
 		filter.Offset = 0
 	}
 
-	where := []string{"1=1"}
-	args := []any{}
-	argN := 1
+	where := []string{"tenant_id = $1"}
+	args := []any{tenantID}
+	argN := 2
 
 	if v := strings.TrimSpace(filter.EntityType); v != "" {
 		where = append(where, fmt.Sprintf("entity_type = $%d", argN))
@@ -696,7 +719,7 @@ func (r *AdminManagementRepository) ListActivityLogs(filter *domain.AdminActivit
 
 	args = append(args, filter.Limit, filter.Offset)
 	query := fmt.Sprintf(`
-		SELECT id, entity_type, entity_id, action, actor, request_id, before_json, after_json, metadata_json, created_at
+		SELECT id, tenant_id, entity_type, entity_id, action, actor, request_id, before_json, after_json, metadata_json, created_at
 		FROM admin_activity_logs
 		WHERE %s
 		ORDER BY created_at DESC
@@ -712,15 +735,17 @@ func (r *AdminManagementRepository) ListActivityLogs(filter *domain.AdminActivit
 	out := make([]*domain.AdminActivityLog, 0)
 	for rows.Next() {
 		var (
-			item      domain.AdminActivityLog
-			actor     sql.NullString
-			requestID sql.NullString
-			before    sql.NullString
-			after     sql.NullString
-			metadata  sql.NullString
+			item         domain.AdminActivityLog
+			scanTenantID sql.NullString
+			actor        sql.NullString
+			requestID    sql.NullString
+			before       sql.NullString
+			after        sql.NullString
+			metadata     sql.NullString
 		)
 		if err := rows.Scan(
 			&item.ID,
+			&scanTenantID,
 			&item.EntityType,
 			&item.EntityID,
 			&item.Action,
@@ -732,6 +757,9 @@ func (r *AdminManagementRepository) ListActivityLogs(filter *domain.AdminActivit
 			&item.CreatedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan activity log: %w", err)
+		}
+		if scanTenantID.Valid {
+			item.TenantID = scanTenantID.String
 		}
 		if actor.Valid {
 			item.Actor = &actor.String
@@ -762,6 +790,14 @@ func nullableJSON(data []byte) any {
 		return nil
 	}
 	return string(data)
+}
+
+func nullableString(value string) any {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return value
 }
 
 func tenantMetadataJSON(data []byte) string {
