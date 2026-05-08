@@ -2,7 +2,7 @@
 id: TMP-014
 title: "Admin portal tenant workspace"
 class: vertical_slice
-status: ready
+status: done
 parent_vertical_slice_id: TMP-014
 scope_limit: "Implement tenant workspace route guards and tenant API denial handling in frontend/webspa-admin only. Do not change migration, ops hardening, or partner onboarding contracts."
 merge_policy: "Merge only after HVC, supervisor preflight, UI verification evidence, and value-gate report pass."

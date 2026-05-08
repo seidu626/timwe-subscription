@@ -2,7 +2,7 @@
 id: TMP-016
 title: "Partner channel onboarding contracts"
 class: bounded_enabler
-status: ready
+status: done
 parent_vertical_slice_id: TMP-016
 consumed_by:
   - TMP-003
