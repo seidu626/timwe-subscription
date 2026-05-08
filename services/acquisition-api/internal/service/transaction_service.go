@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,8 @@ import (
 )
 
 const defaultPendingTransactionTTL = 10 * time.Minute
+
+var ErrPostbackFailureRecorded = errors.New("postback failure recorded")
 
 // TransactionService handles acquisition transaction business logic
 type TransactionService struct {
@@ -564,7 +567,11 @@ func (s *TransactionService) buildResponse(tx *domain.AcquisitionTransaction) *d
 func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, event domain.PostbackEvent, attribution *domain.Attribution, campaign *domain.Campaign) error {
 	if attribution == nil || attribution.Provider == "" {
 		s.logger.Debug("Skipping postback: no provider")
-		return fmt.Errorf("no provider in attribution data")
+		provider := "unknown"
+		if attribution != nil {
+			provider = attribution.Provider
+		}
+		return s.recordFailedPostback(tx, event, provider, campaign, "no provider in attribution data")
 	}
 
 	// Build postback context
@@ -594,7 +601,7 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 						zap.String("event", string(event)),
 						zap.String("provider", attribution.Provider),
 						zap.Error(err))
-					return fmt.Errorf("failed to build postback from template: %w", err)
+					return s.recordFailedPostback(tx, event, attribution.Provider, campaign, fmt.Sprintf("failed to build postback from template: %v", err))
 				}
 			}
 		}
@@ -609,13 +616,13 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 				zap.String("event", string(event)),
 				zap.String("campaign_slug", tx.CampaignSlug),
 			)
-			return fmt.Errorf("no postback_rules configured for campaign %q and no registered provider %q", tx.CampaignSlug, attribution.Provider)
+			return s.recordFailedPostback(tx, event, attribution.Provider, campaign, fmt.Sprintf("no postback_rules configured for campaign %q and no registered provider %q", tx.CampaignSlug, attribution.Provider))
 		}
 
 		outcome := map[string]interface{}{
 			"transaction_id": tx.ID.String(),
 			"status":         string(tx.Status),
-			"msisdn":         tx.MSISDN,
+			"msisdn_hash":    ctx.MSISDNHash,
 		}
 
 		req, err = provider.BuildPostback(event, attribution, outcome)
@@ -626,13 +633,15 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 				zap.String("campaign_slug", tx.CampaignSlug),
 				zap.Error(err),
 			)
-			return fmt.Errorf("failed to build postback for provider %q: %w", attribution.Provider, err)
+			return s.recordFailedPostback(tx, event, attribution.Provider, campaign, fmt.Sprintf("failed to build postback for provider %q: %v", attribution.Provider, err))
 		}
 	}
 
 	// Create outbox entry
 	outbox := &domain.PostbackOutbox{
 		ID:                  uuid.New(),
+		TenantID:            tx.TenantID,
+		ChannelID:           campaignChannelID(campaign),
 		TransactionID:       tx.ID,
 		Event:               event,
 		Provider:            attribution.Provider,
@@ -664,9 +673,54 @@ func (s *TransactionService) enqueuePostback(tx *domain.AcquisitionTransaction, 
 	return nil
 }
 
+func (s *TransactionService) recordFailedPostback(tx *domain.AcquisitionTransaction, event domain.PostbackEvent, provider string, campaign *domain.Campaign, reason string) error {
+	if tx == nil {
+		return fmt.Errorf("transaction is required")
+	}
+	provider = strings.TrimSpace(provider)
+	if provider == "" {
+		provider = "unknown"
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		reason = "postback could not be built"
+	}
+	now := time.Now()
+	outbox := &domain.PostbackOutbox{
+		ID:                  uuid.New(),
+		TenantID:            tx.TenantID,
+		ChannelID:           campaignChannelID(campaign),
+		TransactionID:       tx.ID,
+		Event:               event,
+		Provider:            provider,
+		URLTemplateRendered: "skipped://postback",
+		HTTPMethod:          "GET",
+		Headers:             "{}",
+		FailureReason:       &reason,
+		AttemptCount:        0,
+		MaxAttempts:         0,
+		Status:              domain.PostbackStatusFailed,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+	if err := s.postbackRepo.CreateOutbox(outbox); err != nil {
+		return fmt.Errorf("failed to record postback failure: %w", err)
+	}
+	return fmt.Errorf("%w: %s", ErrPostbackFailureRecorded, reason)
+}
+
+func campaignChannelID(campaign *domain.Campaign) *string {
+	if campaign == nil || campaign.ChannelID == nil || strings.TrimSpace(*campaign.ChannelID) == "" {
+		return nil
+	}
+	channelID := strings.TrimSpace(*campaign.ChannelID)
+	return &channelID
+}
+
 // ChargeSuccessRequest represents the request from subscription-external on charge success
 type ChargeSuccessRequest struct {
 	TimweTransactionID string `json:"timwe_transaction_id"`
+	TenantID           string `json:"tenant_id,omitempty"`
 	MSISDN             string `json:"msisdn,omitempty"`
 	ProductID          int    `json:"product_id,omitempty"`
 	ChargedAt          string `json:"charged_at,omitempty"`
@@ -685,8 +739,8 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 		// Fallback: try by MSISDN if provided, searching across statuses that
 		// may exist due to the confirm bug (transactions stuck in CONFIRM_REQUIRED
 		// or ACTION_REQUIRED even though TIMWE processed the subscription).
-		if req.MSISDN != "" {
-			tx, err = s.txRepo.FindByMSISDNAndStatuses(req.MSISDN, []domain.TransactionStatus{
+		if req.MSISDN != "" && strings.TrimSpace(req.TenantID) != "" {
+			tx, err = s.txRepo.FindByTenantMSISDNAndStatuses(strings.TrimSpace(req.TenantID), req.MSISDN, []domain.TransactionStatus{
 				domain.StatusSubscribed,
 				domain.StatusConfirmRequired,
 				domain.StatusActionRequired,
@@ -750,13 +804,22 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 			s.logger.Warn("Failed to parse attribution data", zap.Error(err))
 		}
 	}
+	if attribution.Provider == "" && tx.AdProvider != nil {
+		attribution.Provider = *tx.AdProvider
+	}
+	if attribution.ClickID == "" && tx.ClickID != nil {
+		attribution.ClickID = *tx.ClickID
+	}
 
 	// Enqueue conversion postback (Mobplus requirement: fire on charge success)
 	if err := s.enqueuePostback(tx, domain.PostbackEventConversion, &attribution, campaign); err != nil {
 		s.logger.Warn("Failed to enqueue conversion postback", zap.String("transaction_id", tx.ID.String()), zap.Error(err))
+		if !errors.Is(err, ErrPostbackFailureRecorded) {
+			return nil
+		}
 	}
 
-	// Mark conversion postback as sent
+	// Mark conversion postback as handled once a deliverable or failed outbox row exists.
 	if err := s.txRepo.MarkConversionPostbackSent(tx.ID); err != nil {
 		s.logger.Error("Failed to mark conversion postback sent", zap.Error(err))
 		// Don't return error - postback is already enqueued
@@ -781,17 +844,15 @@ func (s *TransactionService) campaignForTransaction(tx *domain.AcquisitionTransa
 		tenantID = strings.TrimSpace(*tx.TenantID)
 	}
 	if tenantID == "" {
-		campaign, err := s.campaignRepo.GetBySlug(tx.CampaignSlug)
-		if err == nil {
-			return campaign, nil
-		}
 		resolvedTenantID, err := s.txRepo.GetTenantIDByID(tx.ID)
-		if err != nil {
-			return nil, err
+		if err == nil {
+			tenantID = strings.TrimSpace(resolvedTenantID)
+			if tenantID != "" {
+				tx.TenantID = &tenantID
+			}
 		}
-		tenantID = strings.TrimSpace(resolvedTenantID)
-		if tenantID != "" {
-			tx.TenantID = &tenantID
+		if err != nil {
+			s.logger.Debug("transaction tenant lookup failed, falling back to legacy campaign slug", zap.Error(err))
 		}
 	}
 	if tenantID != "" {
