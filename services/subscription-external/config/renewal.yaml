@@ -1,0 +1,196 @@
+# Renewal System Configuration
+# This file configures the opt-out/opt-in renewal strategy
+
+# Network operator configuration
+network_operator:
+  mcc: "620"  # Mobile Country Code for Ghana
+  mnc: "03"   # Mobile Network Code for AirtelTigo
+  country: "Ghana"
+  operator: "AirtelTigo"
+  description: "Ghana AirtelTigo network configuration"
+
+# Renewal strategy configuration
+renewal:
+  strategy: "opt_out_opt_in"  # New strategy since charging is broken
+  enabled: true
+  
+  # Churn policy configuration
+  churn_policy:
+    max_hours_without_payment: 3      # Hours before churning (default: 24 hours = 1 day)
+    max_renewal_attempts: 3          # Max renewal cycles (default: 3)
+    retry_interval_hours: 1         # Hours between attempts (default: 24)
+    grace_period_hours: 1             # Grace period before first attempt (default: 48 hours = 2 days)
+    safe_mode: true                  # Prevent accidental mass churning
+    
+  # Opt-out/opt-in specific configuration
+  opt_out_opt_in:
+    wait_between_ms: 3000            # Wait 3 seconds between opt-out and opt-in
+    batch_size: 50                   # Process 50 at a time
+    max_concurrent: 5                # Max 5 concurrent renewals
+    rate_limit_ms: 500               # 500ms between each renewal
+    batch_delay_ms: 2000             # 2 seconds between batches
+    
+  # Worker configuration
+  worker:
+    enabled: true
+    daily_run_time: "02:00"          # Run at 2 AM daily
+    timezone: "UTC"
+    timeout_per_renewal: 30s
+    max_retries: 3
+    
+  # Monitoring and alerting configuration
+  monitoring:
+    alert_on_failure_rate: 0.3       # Alert if >30% failures
+    alert_on_churn_rate: 0.1         # Alert if >10% churned
+    metrics_port: 9090
+
+# Edge case handling configuration
+edge_cases:
+  # Failed opt-in handling
+  failed_optin:
+    priority_retry_enabled: true
+    max_priority_retries: 5
+    priority_retry_delay_minutes: 5
+    exponential_backoff: true
+    
+  # Duplicate subscription prevention
+  duplicate_prevention:
+    enabled: true
+    check_interval_minutes: 15
+    max_duplicates_per_hour: 10
+    
+  # Rate limiting and throttling
+  rate_limiting:
+    max_renewals_per_minute: 100
+    max_renewals_per_hour: 1000
+    burst_limit: 20
+    
+  # Circuit breaker configuration
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 10
+    recovery_timeout: 60s
+    max_concurrent_requests: 50
+
+# Database configuration for renewal tracking
+database:
+  renewal_cycles_table: "renewal_cycles"
+  churn_tracking_table: "churn_tracking"
+  priority_retry_table: "priority_retry_queue"
+  
+  # Connection pooling
+  max_connections: 100
+  max_idle_connections: 10
+  connection_timeout: 30s
+  
+  # Query timeouts
+  query_timeout: 10s
+  transaction_timeout: 60s
+
+# Logging configuration
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  
+  # File logging (optional)
+  file:
+    enabled: true
+    path: "/var/log/subscription/renewal.log"
+    max_size: 100                    # MB
+    max_backups: 10
+    max_age: 30                      # days
+    compress: true
+    
+  # Structured logging fields
+  fields:
+    service: "renewal-system"
+    version: "2.0.0"
+    environment: "production"
+
+# Metrics and monitoring
+metrics:
+  enabled: true
+  port: 9090
+  path: "/metrics"
+  
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    namespace: "subscription_renewal"
+    subsystem: "opt_out_opt_in"
+    
+  # Custom metrics
+  custom_metrics:
+    renewal_cycle_duration: true
+    opt_out_success_rate: true
+    opt_in_success_rate: true
+    churn_rate: true
+    priority_retry_queue_size: true
+
+# Alerting configuration
+alerting:
+  enabled: true
+  
+  # Webhook alerts
+  webhook:
+    url: "${ALERT_WEBHOOK_URL}"
+    timeout: 10s
+    retry_count: 3
+    
+  # Email alerts (optional)
+  email:
+    enabled: false
+    smtp_host: "localhost"
+    smtp_port: 587
+    from: "renewal-system@company.com"
+    to: ["admin@company.com"]
+    
+  # Alert thresholds
+  thresholds:
+    critical_failure_rate: 0.5       # 50% failure rate
+    high_churn_rate: 0.2             # 20% churn rate
+    stuck_renewals_threshold: 100    # Number of stuck renewals
+    priority_queue_size: 1000        # Priority retry queue size
+
+# Performance tuning
+performance:
+  # Memory management
+  max_memory_usage: "2GB"
+  gc_percent: 100
+  
+  # Goroutine management
+  max_goroutines: 1000
+  goroutine_timeout: 30s
+  
+  # Database optimization
+  batch_size: 100
+  connection_pool_size: 50
+  
+  # Cache configuration
+  cache:
+    enabled: true
+    ttl: 300s                        # 5 minutes
+    max_size: 10000                  # Max cache entries
+    cleanup_interval: 60s            # Cache cleanup interval
+
+# Security configuration
+security:
+  # API rate limiting
+  api_rate_limit:
+    enabled: true
+    requests_per_minute: 1000
+    burst_limit: 100
+    
+  # Input validation
+  validation:
+    msisdn_format: "^233[0-9]{9}$"   # Ghana MSISDN format
+    product_id_format: "^[A-Z0-9]{3,20}$"
+    max_request_size: "1MB"
+    
+  # Audit logging
+  audit:
+    enabled: true
+    log_all_operations: true
+    sensitive_fields: ["msisdn", "product_id"]
+    retention_days: 90 

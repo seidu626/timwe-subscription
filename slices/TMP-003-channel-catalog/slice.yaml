@@ -1,0 +1,82 @@
+story:
+  id: "TMP-003"
+  title: "Tenant admin defines channel capabilities"
+  actor: "tenant-admin"
+  action: "create and manage a channel definition with provider, scope, and capabilities"
+  outcome: "campaigns and subscription routing can select a validated tenant channel"
+  as_a: "tenant-admin"
+  i_want_to: "define channels my tenant can use"
+  so_that: "future acquisition and subscription operations route through supported providers"
+
+entrypoints:
+  - "POST /v1/admin/channels"
+  - "GET /v1/admin/channels"
+  - "PATCH /v1/admin/channels/{id}/enabled"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Create SMS channel"
+      given: ["tenant admin has valid tenant context"]
+      when: "admin creates channel with provider timwe, country GH, operator AirtelTigo, capabilities optin/confirm/mt/charge"
+      then: "API returns channel_id, capability set, enabled status, and tenant_id"
+      evidence: "service and route tests assert persisted capabilities"
+    - scenario: "List tenant channels"
+      given: ["two tenants have channels"]
+      when: "admin lists channels"
+      then: "response includes only current tenant channels"
+      evidence: "repository test with two tenant fixtures"
+  failures:
+    - scenario: "Unsupported capability"
+      given: ["request includes unsupported capability"]
+      when: "admin creates channel"
+      then: "API returns 400 with invalid_capability"
+      evidence: "validation test"
+    - scenario: "Duplicate channel key"
+      given: ["tenant already has channel key sms-gh-at"]
+      when: "admin creates same key again"
+      then: "API returns 409"
+      evidence: "repository unique constraint test"
+    - scenario: "Cross-tenant channel access"
+      given: ["channel belongs to another tenant"]
+      when: "admin toggles enabled status"
+      then: "API returns 404 or 403 and no mutation occurs"
+      evidence: "handler test"
+  edges:
+    - scenario: "Disabled channel"
+      given: ["channel is disabled"]
+      when: "campaign attempts to use it in later slices"
+      then: "channel resolver reports inactive"
+      evidence: "domain/service test"
+  invariants:
+    - rule: "Channel/provider credentials must never be exposed"
+      preserved_by: "channel catalog stores no secret material"
+      violated_when: "channel response contains credential value"
+      test: "response body redaction test"
+    - rule: "Tenant isolation"
+      preserved_by: "tenant_id required in channel queries"
+      violated_when: "tenant reads another tenant channel"
+      test: "cross-tenant negative test"
+
+out_of_scope:
+  - "actual credential storage"
+  - "routing subscription requests through channel"
+  - "campaign binding"
+
+size_check:
+  files_touched: 13
+  migrations: 1
+  endpoints: 3
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-003-channel-catalog/value-gate-report.md"
+
+implementation_evidence:
+  domain_brief: "slices/TMP-003-channel-catalog/domain-brief.md"
+  claude_gate: "Claude critique applied: no credential metadata, deterministic capabilities, tenant-scoped single-update PATCH, and 404 cross-tenant behavior."
+  parallel_reviews:
+    - "schema/repository explorer recommended tenant_channels with scoped uniqueness and TEXT[] capabilities"
+    - "handler/service explorer recommended existing admin tenant resolver and route/error taxonomy"
+  tests:
+    - "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler ./internal/transport"
+    - "cd services/acquisition-api && go test ./..."

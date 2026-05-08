@@ -1,0 +1,140 @@
+{
+  "contract_version": "tenant-channel-v1.0.0",
+  "tenant_key": "legacy-default",
+  "channel_key": "web-gh-mobplus",
+  "partner_key": "mobplus",
+  "fixtures": [
+    {
+      "name": "supported_optin",
+      "kind": "request",
+      "expect": "accepted",
+      "method": "POST",
+      "path": "/api/external/v1/legacy-default/web-gh-mobplus/subscriptions/optin",
+      "capability": "optin",
+      "headers": {
+        "Authorization": "Bearer <partner-access-token>",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "tenant-channel-v1.0.0:optin:partner-click-001",
+        "X-Timwe-Contract-Version": "tenant-channel-v1.0.0"
+      },
+      "body": {
+        "tenant_key": "legacy-default",
+        "channel_key": "web-gh-mobplus",
+        "partner_key": "mobplus",
+        "click_id": "partner-click-001",
+        "msisdn_hash": "sha256:example-redacted",
+        "product_code": "daily-fun"
+      }
+    },
+    {
+      "name": "supported_charge",
+      "kind": "request",
+      "expect": "accepted",
+      "method": "POST",
+      "path": "/api/external/v1/legacy-default/web-gh-mobplus/charges",
+      "capability": "charge",
+      "headers": {
+        "Authorization": "Bearer <partner-access-token>",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "tenant-channel-v1.0.0:charge:partner-click-001",
+        "X-Timwe-Contract-Version": "tenant-channel-v1.0.0"
+      },
+      "body": {
+        "tenant_key": "legacy-default",
+        "channel_key": "web-gh-mobplus",
+        "partner_key": "mobplus",
+        "click_id": "partner-click-001",
+        "subscription_id": "sub_01JXAMPLE000000000000000",
+        "amount": "1.00",
+        "currency": "GHS"
+      }
+    },
+    {
+      "name": "valid_callback",
+      "kind": "callback",
+      "expect": "accepted",
+      "method": "POST",
+      "path": "/api/external/v1/legacy-default/web-gh-mobplus/callbacks/charge.confirmed",
+      "capability": "callback",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Timwe-Timestamp": "2026-05-08T10:00:00Z",
+        "X-Timwe-Event-Id": "evt_01JXAMPLE000000000000000",
+        "X-Timwe-Signature": "sha256=<hex-hmac>",
+        "X-Timwe-Contract-Version": "tenant-channel-v1.0.0"
+      },
+      "body": {
+        "tenant_key": "legacy-default",
+        "channel_key": "web-gh-mobplus",
+        "partner_key": "mobplus",
+        "event_type": "charge.confirmed",
+        "subscription_id": "sub_01JXAMPLE000000000000000",
+        "charge_id": "chg_01JXAMPLE000000000000000"
+      }
+    },
+    {
+      "name": "missing_callback_signature",
+      "kind": "callback",
+      "expect": "rejected",
+      "error_code": "SIGNATURE_REQUIRED",
+      "method": "POST",
+      "path": "/api/external/v1/legacy-default/web-gh-mobplus/callbacks/charge.confirmed",
+      "capability": "callback",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Timwe-Contract-Version": "tenant-channel-v1.0.0"
+      },
+      "body": {
+        "tenant_key": "legacy-default",
+        "channel_key": "web-gh-mobplus",
+        "partner_key": "mobplus",
+        "event_type": "charge.confirmed"
+      }
+    },
+    {
+      "name": "unsupported_charge_capability",
+      "kind": "request",
+      "expect": "rejected",
+      "error_code": "CAPABILITY_NOT_ENABLED",
+      "method": "POST",
+      "path": "/api/external/v1/legacy-default/sms-info-only/charges",
+      "capability": "charge",
+      "headers": {
+        "Authorization": "Bearer <partner-access-token>",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "tenant-channel-v1.0.0:charge:unsupported-001",
+        "X-Timwe-Contract-Version": "tenant-channel-v1.0.0"
+      },
+      "body": {
+        "tenant_key": "legacy-default",
+        "channel_key": "sms-info-only",
+        "partner_key": "mobplus",
+        "click_id": "unsupported-001"
+      }
+    },
+    {
+      "name": "conversion_postback",
+      "kind": "postback",
+      "expect": "delivered",
+      "method": "POST",
+      "path": "https://partner.example/postback",
+      "capability": "postback",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Timwe-Contract-Version": "tenant-channel-v1.0.0"
+      },
+      "body": {
+        "contract_version": "tenant-channel-v1.0.0",
+        "tenant_key": "legacy-default",
+        "channel_key": "web-gh-mobplus",
+        "partner_key": "mobplus",
+        "postback_id": "pb_01JXAMPLE000000000000000",
+        "event_type": "conversion.charged",
+        "click_id": "partner-click-001",
+        "msisdn_hash": "sha256:example-redacted",
+        "amount": "1.00",
+        "currency": "GHS"
+      }
+    }
+  ]
+}

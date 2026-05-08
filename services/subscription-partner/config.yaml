@@ -1,0 +1,78 @@
+# Subscription Partner Service Configuration
+# -----------------------------------------
+# SECURITY NOTE: All secrets MUST be provided via environment variables.
+# This file contains NON-SENSITIVE defaults only.
+#
+# Required Environment Variables:
+#   - APP_DATABASE_POSTGRESQL_PASSWORD: Database password
+#   - JWT_SECRET: JWT signing secret
+#   - TIMWE_API_KEY: TIMWE API key
+#   - TIMWE_PSK: TIMWE Pre-Shared Key
+#
+# Optional Environment Variables:
+#   - APP_DATABASE_POSTGRESQL_HOST: Override database host (default: localhost)
+#   - APP_DATABASE_POSTGRESQL_PORT: Override database port (default: 5432)
+#   - APP_DATABASE_POSTGRESQL_USER: Override database user (default: sm_admin)
+#   - APP_CACHE_REDIS_HOST: Override Redis host (default: localhost)
+#   - APP_CACHE_REDIS_PORT: Override Redis port (default: 6379)
+# -----------------------------------------
+
+ENVIRONMENT: DEVELOPMENT
+
+APPLICATION:
+  PORT: 8081
+  ALLOWED_ORIGINS:
+    - http://localhost:4200
+    - https://admin.nouveauricheglobalgroup.com
+    - https://api.nouveauricheglobalgroup.com
+  TIMWE_MA:
+    HOST: https://partner.timwe.com
+    APPLICATION_PATH: /api/external/v1
+    BASE_URL: "https://prp.timwe.com/api/external/v1"
+    # API_KEY provided via TIMWE_API_KEY environment variable
+    # MT_API_KEY provided via TIMWE_MT_API_KEY environment variable
+    # PSK provided via TIMWE_PSK environment variable
+    PARTNER_ID: 2117
+    REALM: realm
+    AUTHENTICATION_KEY: ""
+    TIMEOUT: 5s
+    MAX_CONNECTIONS: 100
+    MT:       /subscription/optin/:partnerRoleId
+    OPT_IN:   /subscription/optin/:partnerRoleId
+    OPT_OUT:  /subscription/optin/:partnerRoleId
+  TELCO_PREFIXES:
+    MTN: ["233540", "233550", "233244", "233240"]
+    AirtelTigo: ["233260", "233270", "233505"]
+    Vodafone: ["233201", "233202", "233203"]
+  LOG:
+    PATH: /var/log/app.log
+  KEY:
+    DEFAULT: default_key_value
+    RSA:
+      PUBLIC: /path/to/public.key
+      PRIVATE: /path/to/private.key
+  GRACEFUL:
+    MAX_SECOND: 30s
+
+AUTH:
+  JWT_TOKEN:
+    TYPE: Bearer
+    EXPIRED: 24h
+    REFRESH_EXPIRED: 72h
+    # SECRET provided via JWT_SECRET environment variable
+
+DATABASE:
+  POSTGRESQL:
+    HOST: localhost
+    PORT: 5432
+    USER: sm_admin
+    # PASSWORD provided via APP_DATABASE_POSTGRESQL_PASSWORD environment variable
+    DB_NAME: subscription_manager
+    SSL_MODE: disable
+
+CACHE:
+  REDIS:
+    HOST: localhost
+    PORT: 6379
+    DB: 0
+    PASS: ""

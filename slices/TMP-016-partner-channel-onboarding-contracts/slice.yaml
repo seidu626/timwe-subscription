@@ -1,0 +1,76 @@
+story:
+  id: "TMP-016"
+  title: "Partner can onboard a tenant channel using documented contracts"
+  actor: "api-integrated-partner"
+  action: "receive API, callback, credential, sandbox, and postback contract documentation"
+  outcome: "new tenant channels can be configured and tested without bespoke engineering discovery"
+  as_a: "api-integrated-partner"
+  i_want_to: "use stable tenant/channel contracts and sandbox fixtures"
+  so_that: "I can integrate opt-in, charge, notification, and postback flows predictably"
+
+entrypoints:
+  - "docs/tenant-channel-onboarding.md"
+  - "examples/tenant-channel-onboarding/contract-fixtures.json"
+  - "examples/tenant-channel-onboarding/validate-fixtures.sh"
+  - "slices/TMP-016-partner-channel-onboarding-contracts/contract-review-checklist.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Partner onboarding pack exists"
+      given: ["tenant channel supports optin, confirm, MT, charge, callback, and postback"]
+      when: "partner reads onboarding docs"
+      then: "docs define endpoints, auth, tenant/channel identifiers, callback signing, retries, idempotency, errors, and sandbox payloads"
+      evidence: "doc review checklist"
+    - scenario: "Sandbox fixtures validate"
+      given: ["partner uses example payloads"]
+      when: "fixtures are run against local/test stack"
+      then: "requests exercise tenant/channel routes without production credentials"
+      evidence: "fixture smoke command"
+  failures:
+    - scenario: "Breaking contract change"
+      given: ["endpoint or payload field changes"]
+      when: "contract validation runs"
+      then: "change is flagged unless versioned and documented"
+      evidence: "OpenAPI/Postman diff check"
+    - scenario: "Callback signature missing"
+      given: ["inbound callback contract requires signing"]
+      when: "fixture omits signature"
+      then: "sandbox rejects with documented error"
+      evidence: "fixture negative test"
+    - scenario: "Unsupported capability requested"
+      given: ["partner tries charge on non-charge channel"]
+      when: "sandbox request is sent"
+      then: "API returns documented capability error"
+      evidence: "contract fixture test"
+  edges:
+    - scenario: "Legacy TIMWE partner"
+      given: ["partner uses current TIMWE-style fields"]
+      when: "onboarding maps legacy route to tenant channel"
+      then: "docs show compatibility mapping and deprecation posture"
+      evidence: "mapping table review"
+  invariants:
+    - rule: "Contracts must include tenant/channel identity"
+      preserved_by: "contract examples and validator fixtures"
+      violated_when: "example request can succeed without tenant/channel context"
+      test: "negative fixture"
+    - rule: "Contract versioning must be explicit"
+      preserved_by: "tenant-channel-v1.0.0 in docs, examples, and fixture validation"
+      violated_when: "partner-facing examples omit or disagree on version"
+      test: "fixture validator"
+    - rule: "Callbacks must be signed"
+      preserved_by: "HMAC-SHA256 signing guidance and callback fixture headers"
+      violated_when: "accepted callback fixture has no timestamp, event id, or signature"
+      test: "fixture validator"
+
+out_of_scope:
+  - "self-service partner portal"
+  - "legal/commercial contract templates"
+
+size_check:
+  files_touched: 8
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md"

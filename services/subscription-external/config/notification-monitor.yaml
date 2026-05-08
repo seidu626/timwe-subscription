@@ -1,0 +1,127 @@
+# Notification Monitor Configuration
+monitor:
+  # Processing settings
+  batch_size: 2000
+  max_in_flight_batches: 20
+  scan_lookback_days: 90
+  renewal_window_months: 2
+  idle_sleep: "3s"
+  lease_ttl: "30s"
+  redis_key_prefix: "notifmon"
+
+  # Product configuration
+  products:
+    # List of product IDs to process for opt-out notifications
+    # These products will be eligible for automatic opt-in after opt-out
+    product_ids:
+      - "8509"    # Default product
+      - "14392"   # Infant Nutrition
+      - "14396"   # Child Nutrition
+      - "14397"   # Adult Nutrition
+      - "14398"   # Pregnancy Nutrition
+      - "27188"   # Road Safety
+      - "14439"   # Lactation
+      - "28366"   # Thyroid
+
+  # Entry channel configuration
+  entry_channels:
+    # List of entry channels to use for opt-in attempts
+    # The monitor will try these channels in order when processing opt-outs
+    channels:
+      #- "USSD"    # USSD channel (primary)
+      - "SMS"     # SMS channel (secondary)
+      #- "WEB"     # Web channel (tertiary)
+    
+    # Default entry channel to use if none specified
+    default: "SMS"
+    
+    # Strategy for channel selection
+    strategy: "fallback"  # Options: "fallback", "round_robin", "priority"
+
+  # Processing behavior
+  behavior:
+    enable_ghost_subscription_detection: true    # Detect subscriptions without notifications
+    enable_temporal_awareness: true              # Handle opt-outs based on timing
+    enable_duplicate_prevention: true            # Prevent re-processing of notifications
+    # Whether to skip notifications for unconfigured products
+    skip_unconfigured_products: true
+    
+    # Whether to try original entry channel first if it's configured
+    try_original_channel_first: true
+    
+    # Maximum number of opt-in attempts per notification
+    max_optin_attempts: 3
+    
+    # Delay between opt-in attempts (in milliseconds)
+    delay_between_attempts: 1000
+
+  # Monitoring and metrics
+  metrics:
+    # Enable detailed metrics collection
+    enabled: true
+    namespace: "notification_monitor" # Metrics namespace
+    subsystem: "worker"  
+    
+    # Metrics collection interval
+    collection_interval: "30s"
+    
+    # Custom metric labels
+    labels:
+      - "product_id"
+      - "entry_channel"
+      - "msisdn_prefix"
+
+
+  # Logging configuration
+  logging:
+    # Log level for the monitor
+    level: "info"
+    
+    # Whether to log successful opt-ins
+    log_successful_optins: true
+    
+    # Whether to log skipped notifications
+    log_skipped_notifications: true
+    
+    # Whether to log channel attempt failures
+    log_channel_failures: true
+    include_caller: true              # Include caller information
+    include_stacktrace: true          # Include stack traces for errors
+
+
+  # Error handling
+  error_handling:
+    log_errors: true                  # Log all errors
+    metrics_enabled: true             # Enable error metrics
+    alert_on_failure: false           # Send alerts on failures
+    # Maximum consecutive errors before backing off
+    max_consecutive_errors: 10
+    
+    # Backoff duration when errors occur
+    backoff_duration: "5s"
+    
+    # Whether to retry failed operations
+    retry_failed_operations: true
+    
+    # Maximum retry attempts
+    max_retry_attempts: 3 
+  # Enhanced: Resilience and recovery configuration
+  resilience:
+    max_retries: 3                    # Maximum retry attempts for failed operations
+    initial_backoff: "1s"             # Initial backoff duration
+    max_backoff: "30s"                # Maximum backoff duration
+    backoff_multiplier: 2.0           # Multiplier for exponential backoff
+    circuit_breaker_threshold: 5      # Number of failures before circuit breaker opens
+    circuit_breaker_timeout: "60s"    # Time to wait before attempting recovery
+    graceful_degradation: true        # Enable graceful degradation mode
+    health_check_interval: "30s"      # Interval for health checks 
+
+
+  # Enhanced: Entry channel filtering configuration
+  invalid_entry_channels:
+    - "CCTOOL"      # Customer care tool
+    - "INTERNAL"    # Internal system
+    - "ADMIN"       # Administrative tool
+    - "SYSTEM"      # System-generated
+    - "BATCH"       # Batch processing
+    - "API"         # API calls (not user-initiated) 

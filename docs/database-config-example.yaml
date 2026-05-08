@@ -1,0 +1,74 @@
+# Example Database Configuration
+# This file shows how to configure the database using the new unified configuration system
+
+APPLICATION:
+  DATABASE:
+    POSTGRESQL:
+      # Basic connection settings
+      HOST: "localhost"
+      PORT: "5432"
+      USER: "postgres"
+      PASSWORD: "your_password_here"
+      DB_NAME: "subscription_db"
+      SSL_MODE: "disable"
+      
+      # Connection pool settings
+      MAX_OPEN_CONNS: 100
+      MAX_IDLE_CONNS: 20
+      CONN_MAX_LIFETIME: "2h"
+      
+      # Enhanced database timeout settings
+      QUERY_TIMEOUT: "45s"
+      CONNECTION_TIMEOUT: "15s"
+      TRANSACTION_TIMEOUT: "45s"
+      POOL_TIMEOUT: "30s"
+
+# Alternative: You can also use environment variables
+# The following environment variables will override the config file settings:
+#
+# Basic connection settings:
+# PGHOST=my-db-host
+# PGPORT=5432
+# PGUSER=myuser
+# PGPASSWORD=mypassword
+# PGDATABASE=mydatabase
+# PGSSLMODE=require
+#
+# Connection pool settings:
+# PGMAX_OPEN_CONNS=100
+# PGMAX_IDLE_CONNS=20
+# PGCONN_MAX_LIFETIME=7200
+#
+# Timeout settings:
+# PGQUERY_TIMEOUT=45
+# PGCONNECTION_TIMEOUT=15
+# PGTRANSACTION_TIMEOUT=45
+# PGPOOL_TIMEOUT=30
+#
+# Advanced pgx settings:
+# PGCONNECT_TIMEOUT=15
+# PGSTATEMENT_TIMEOUT=45
+# PGIDLE_IN_TRANSACTION_SESSION_TIMEOUT=45
+# PGMAX_CONNS=100
+# PGMIN_CONNS=10
+# PGMAX_CONN_LIFETIME=7200
+# PGMAX_CONN_IDLE_TIME=2700
+# PGHEALTH_CHECK_PERIOD=30
+
+# Usage in Go code:
+#
+# 1. Load main config:
+#    mainConfig := config.InitConfig(logger, "config", []string{"config.yaml"})
+#
+# 2. Create database pool using main config:
+#    pool, err := postgres.NewPGXPoolFromMainConfig(ctx, mainConfig, logger, logLevel)
+#
+# 3. Or use defaults for development:
+#    pool, err := postgres.NewPGXPoolWithDefaults(ctx, "", logger, logLevel)
+#
+# 4. Or use environment variables:
+#    pool, err := postgres.NewPGXPoolFromEnv(ctx, "", logger, logLevel)
+#
+# 5. Or use custom configuration:
+#    config := &postgres.DatabaseConfig{ /* your settings */ }
+#    pool, err := postgres.NewPGXPoolFromConfig(ctx, config, logger, logLevel) 

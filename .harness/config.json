@@ -1,0 +1,121 @@
+{
+  "repo_path": "/home/xper626/workspace/apps/timwe-subscription",
+  "harness_dir": ".harness",
+  "base_branch": "main",
+  "integration_branch": "harness/integration",
+  "max_parallel_agents": 3,
+  "max_retries_per_task": 2,
+  "default_verification_commands": [
+    "jq empty slices/manifest.json",
+    "slice-harness status"
+  ],
+  "stop_conditions": {
+    "max_rounds": 8,
+    "pause_for_destructive_operations": true,
+    "pause_for_credentials": true,
+    "pause_for_production_deploy": true
+  },
+  "skill_proposal": {
+    "reject_kinds": [],
+    "reject_patterns": []
+  },
+  "worktree_dispatch": {
+    "remote_name": null,
+    "remote_required": false,
+    "fetch_before_round": false,
+    "base_ref": null,
+    "push_task_branches": false
+  },
+  "agents": {
+    "dryrun": {
+      "enabled": true,
+      "provider": "shell",
+      "role": "implementation",
+      "command": [
+        "python3",
+        "-c",
+        "import json; print(json.dumps({'task_id':'unknown','status':'ready_for_review','summary':'Dry-run adapter executed. No files changed.','files_changed':[],'tests_run':[],'acceptance_criteria_status':[],'known_risks':[],'blockers':[],'followups':[],'ready_for_review':True}))"
+      ],
+      "prompt_mode": "none",
+      "timeout_seconds": 120,
+      "env": {}
+    },
+    "codex": {
+      "enabled": true,
+      "provider": "codex",
+      "role": "implementation",
+      "command": [
+        "codex",
+        "exec",
+        "--cd",
+        "{worktree}",
+        "--sandbox",
+        "danger-full-access",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--model",
+        "gpt-5.4-mini"
+      ],
+      "prompt_mode": "stdin",
+      "timeout_seconds": 3600,
+      "env": {}
+    },
+    "claude": {
+      "enabled": false,
+      "provider": "claude",
+      "role": "implementation_or_review",
+      "command": [
+        "claude",
+        "-p",
+        "{prompt}",
+        "--output-format",
+        "stream-json"
+      ],
+      "prompt_mode": "arg",
+      "timeout_seconds": 1800
+    },
+    "gemini": {
+      "enabled": false,
+      "provider": "gemini",
+      "role": "review_or_tests",
+      "command": [
+        "gemini",
+        "--prompt",
+        "{prompt}"
+      ],
+      "prompt_mode": "arg",
+      "timeout_seconds": 1800
+    }
+  },
+  "harnesses": {
+    "vertical_slice_classifier": {
+      "enabled": true,
+      "module": "agent_supervisor.harnesses.vertical_slice_classifier.VerticalSliceClassifierHarness",
+      "config": {}
+    },
+    "risk_classifier": {
+      "enabled": true,
+      "module": "agent_supervisor.harnesses.risk_classifier.RiskClassifierHarness",
+      "config": {}
+    },
+    "dependency_impact": {
+      "enabled": true,
+      "module": "agent_supervisor.harnesses.dependency_impact.DependencyImpactHarness",
+      "config": {}
+    },
+    "state_machine": {
+      "enabled": true,
+      "module": "agent_supervisor.harnesses.state_machine.StateMachineHarness",
+      "config": {}
+    },
+    "verification": {
+      "enabled": true,
+      "module": "agent_supervisor.harnesses.verification.VerificationHarness",
+      "config": {}
+    },
+    "review": {
+      "enabled": true,
+      "module": "agent_supervisor.harnesses.review.ReviewHarness",
+      "config": {}
+    }
+  }
+}

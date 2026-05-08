@@ -1,0 +1,50 @@
+{{ define "TimweApiEndpoint" }}
+{
+    "endpoint": "{{ .Endpoint }}",
+    "method": "{{ .METHOD }}",
+    "output_encoding": "no-op",
+    "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+            "return_error_details": true
+        }
+    },
+    "headers_to_pass": [
+        "external-tx-id"
+    ],
+    "input_query_strings": ["*"],
+    "backend": [
+        {
+            "url_pattern": "{{ .BackendUrlPattern }}",
+            "encoding": "no-op",
+            "sd": "static",
+            "method": "{{ .METHOD }}",
+            "extra_config": {
+                "github.com/devopsfaith/krakend/http": {
+                    "return_error_details": true
+                },
+                "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+                          "maxRate": 10,
+                          "capacity": 20,
+                          "strategy": "token-bucket"
+                },
+                 "github.com/devopsfaith/krakend/logging": {
+                      "level": "INFO",
+                      "prefix": "[API Gateway]",
+                      "stdout": true
+                 },
+                 "github.com/devopsfaith/krakend-cors": {
+                       "allow_origins": ["*"],
+                       "allow_methods": ["GET", "POST", "DELETE", "PUT"],
+                       "max_age": "12h"
+                 }
+
+            },
+            "host": ["{{ .BackendHost }}"],
+            "disable_host_sanitize": true,
+            "headers_to_pass": [
+                "external-tx-id"
+            ]
+        }
+    ]
+}
+{{ end }}

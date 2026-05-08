@@ -1,0 +1,23 @@
+{
+  "duration": "1m6.002552302s",
+  "endIndex": -1,
+  "entryChannel": "USSD",
+  "entryChannels": [
+    "USSD"
+  ],
+  "msisdnCount": 0,
+  "productIds": [
+    "8509"
+  ],
+  "response": {
+    "total": 80917,
+    "successful": 80813,
+    "failed": 104,
+    "errorDetails": {
+      "error": "failed to fetch products: failed to query products by IDs: pq: sorry, too many clients already"
+    }
+  },
+  "startIndex": 0,
+  "telco": "AirtelTigo",
+  "timestamp": "2025-08-20T17:14:42Z"
+}

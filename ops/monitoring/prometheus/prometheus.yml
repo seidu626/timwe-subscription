@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: 'notification-monitor'
+    static_configs:
+      - targets: ['host.docker.internal:9099']
+  - job_name: 'notification-worker'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['host.docker.internal:9103']
+  - job_name: 'batch-processor'
+    static_configs:
+      - targets: ['host.docker.internal:9101']

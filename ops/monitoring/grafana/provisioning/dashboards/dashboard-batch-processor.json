@@ -1,0 +1,86 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Batches Succeeded",
+      "targets": [
+        {
+          "expr": "sum(increase(batch_processor_batches_total{outcome=\"success\"}[15m]))"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Batches Failed",
+      "targets": [
+        {
+          "expr": "sum(increase(batch_processor_batches_total{outcome=\"failure\"}[15m]))"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "graph",
+      "title": "Batch Duration (p50/p90/p99)",
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum by (le) (rate(batch_processor_batch_duration_seconds_bucket[5m])))" },
+        { "expr": "histogram_quantile(0.9, sum by (le) (rate(batch_processor_batch_duration_seconds_bucket[5m])))" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(batch_processor_batch_duration_seconds_bucket[5m])))" }
+      ],
+      "legend": {"show": true},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "graph",
+      "title": "Retries",
+      "targets": [
+        { "expr": "rate(batch_processor_retries_total[5m])" }
+      ],
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "graph",
+      "title": "Current Count",
+      "targets": [
+        { "expr": "batch_processor_current_count" }
+      ],
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 18}
+    },
+    {
+      "type": "graph",
+      "title": "Paused State",
+      "targets": [
+        { "expr": "batch_processor_paused" }
+      ],
+      "gridPos": {"h": 4, "w": 12, "x": 0, "y": 24}
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "refresh": "10s",
+  "tags": ["batch-processor"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "",
+  "title": "Batch Processor",
+  "uid": "batch-processor",
+  "version": 1
+}

@@ -1,0 +1,41 @@
+{{define "ProductApiEndpoint"}}
+
+{{$host := .}}
+
+{
+    "endpoint": "/product/{id}",
+    "method": "GET",
+    "output_encoding": "no-op",
+    "extra_config": {},
+    "backend": [
+        {
+            "url_pattern": "/{id}",
+            "encoding": "no-op",
+            "sd": "static",
+            "method": "GET",
+            "extra_config": {},
+            "host": ["{{ $host }}"],
+            "disable_host_sanitize": true
+        }
+    ]
+},
+
+{
+    "endpoint": "/product",
+    "method": "POST",
+    "output_encoding": "no-op",
+    "extra_config": {},
+    "backend": [
+        {
+            "url_pattern": "/insert",
+            "encoding": "no-op",
+            "sd": "static",
+            "method": "POST",
+            "extra_config": {},
+            "host": ["{{ $host }}"],
+            "disable_host_sanitize": true
+        }
+    ]
+}
+
+{{end}}

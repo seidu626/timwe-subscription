@@ -1,0 +1,258 @@
+# Enhanced Configuration for TIMWE Subscription External Service
+# This configuration file demonstrates all the new features and improvements
+
+APPLICATION:
+  ENVIRONMENT: "PRODUCTION"
+  PORT: 8083
+  ALLOWED_ORIGINS: ["*"]
+  
+  # TIMWE API Configuration
+  TIMWE_MA:
+    HOST: "195.23.53.126"
+    BASE_URL: "https://195.23.53.126"
+    API_KEY: "${TIMWE_API_KEY}"
+    MT_API_KEY: "${TIMWE_MT_API_KEY}"
+    PSK: "${TIMWE_PSK}"
+    PARTNER_SERVICE_ID: "${TIMWE_PARTNER_SERVICE_ID}"
+    PARTNER_ROLE_ID: "${TIMWE_PARTNER_ROLE_ID}"
+    REALM: "${TIMWE_REALM}"
+    AUTHENTICATION_KEY: "${TIMWE_AUTH_KEY}"
+    MCC: "620"
+    MNC: "01"
+    TIMEOUT: "30s"
+    MAX_CONNECTIONS: 2000
+    
+    # Enhanced Circuit Breaker Settings
+    CB_MAX_REQUESTS: 100
+    CB_TIMEOUT: "60s"
+    CB_INTERVAL: "120s"
+    CB_MIN_REQUESTS: 10
+    CB_FAILURE_RATE_THRESHOLD: 0.7
+    CB_CONSECUTIVE_FAILURES: 5
+    
+    # Charge Retry Settings
+    CHARGE_RETRY_MAX_DURATION: "5m"
+    CHARGE_RETRY_BASE_DELAY: "1s"
+    CHARGE_RETRY_MAX_DELAY: "30s"
+  
+  # HTTP Server Configuration
+  HTTP:
+    READ_TIMEOUT: "60s"
+    WRITE_TIMEOUT: "60s"
+    IDLE_TIMEOUT: "120s"
+    MAX_REQUEST_BODY_MB: 16
+    CONCURRENCY: 1000
+  
+  # Batch Processing Configuration
+  BATCH:
+    MAX_WORKERS_PER_JOB: 20
+    MAX_CONCURRENT_OPTINS: 100
+    TARGET_QPS: 500
+  
+  # MSISDN Generator Configuration
+  MSISDN_GENERATOR:
+    ENABLED: true
+    BATCH_SIZE: 1000
+    MAX_CONCURRENT: 50
+    MAX_MSISDN_COUNT: 1000000 # Maximum MSISDNs that can be generated in a single batch (1M)
+    CACHE_ENABLED: true
+    BLOOM_FILTER_ENABLED: true
+    FALSE_POSITIVE_RATE: 0.01
+    VALIDATION_TIMEOUT: "30s"
+    GENERATION_TIMEOUT: "60s"
+    WORKER_POOL_SIZE: 100
+    CHANNEL_BUFFER_SIZE: 2000
+    FALLBACK_TO_DATABASE: true
+    MAX_RETRY_ATTEMPTS: 3
+    PRELOAD_ENABLED: true
+    PRELOAD_BATCH_SIZE: 10000
+  
+  # MSISDN Validation Configuration
+  MSISDN_VALIDATION:
+    CACHE_EXPIRY: "30m"
+    ENABLE_PREFIX_VALIDATION: true
+    ENABLE_EXCLUDED_USER_CHECK: true
+    ENABLE_INVALID_LOG_CHECK: true
+    MAX_VALIDATION_ERRORS: 1000
+    # Telecom operator prefixes - override defaults if needed
+    TELCO_PREFIXES:
+      MTN:
+        - "23324"
+        - "23325"
+        - "23354"
+        - "23355"
+        - "23359"
+        - "23326"  # Additional MTN prefixes
+      AirtelTigo:
+        - "23320"
+        - "23327"
+        - "23328"
+        - "23356"
+        - "23357"
+        - "23350"
+        - "23326"
+        - "23346"
+        - "23347"
+        - "23348"
+        - "23349"
+        - "23358"  # Additional AirtelTigo prefixes
+      Vodafone:
+        - "23323"
+        - "23333"
+        - "23320"
+        - "23350"
+        - "23351"
+        - "23352"
+        - "23353"
+        - "23354"  # Additional Vodafone prefixes
+      Glo:
+        - "23323"
+        - "23358"
+        - "23359"  # Additional Glo prefixes
+      # Example: Add new operators
+      # NewOperator:
+      #   - "23360"
+      #   - "23361"
+  
+  # Network Resilience Configuration
+  NETWORK_RESILIENCE:
+    MAX_RETRIES: 5
+    BASE_RETRY_DELAY: "200ms"
+    MAX_RETRY_DELAY: "30s"
+    CONNECTION_TIMEOUT: "10s"
+    READ_TIMEOUT: "30s"
+    WRITE_TIMEOUT: "30s"
+    MAX_CONNS_PER_HOST: 200
+    MAX_IDLE_CONN_DURATION: "60s"
+    CIRCUIT_BREAKER_THRESHOLD: 3
+    CIRCUIT_BREAKER_TIMEOUT: "30s"
+    JITTER_ENABLED: true
+  
+  # Enhanced Monitoring Configuration
+  ENHANCED_MONITORING:
+    ENABLE_AUTOMATED_RECOVERY: true
+    RECOVERY_COOLDOWN: "5m"
+    MAX_RECOVERY_ATTEMPTS: 3
+    HEALTH_CHECK_INTERVAL: "30s"
+    ALERT_COOLDOWN: "2m"
+    ENABLE_REAL_TIME_METRICS: true
+  
+  # Logging Configuration
+  LOG:
+    PATH: "logs/subscription-external.log"
+    ROLLING:
+      ENABLED: true
+      MAX_SIZE: 100
+      MAX_AGE: 30
+      MAX_BACKUPS: 10
+      COMPRESS: true
+      COMPRESS_THRESHOLD: 10
+      LOCAL_TIME: true
+  
+  # Graceful Shutdown Configuration
+  GRACEFUL:
+    MAX_SECOND: "30s"
+
+# Database Configuration
+DATABASE:
+  HOST: "${DB_HOST}"
+  PORT: "${DB_PORT}"
+  NAME: "${DB_NAME}"
+  USER: "${DB_USER}"
+  PASSWORD: "${DB_PASSWORD}"
+  SSL_MODE: "require"
+  MAX_OPEN_CONNS: 100
+  MAX_IDLE_CONNS: 25
+  CONN_MAX_LIFETIME: "5m"
+
+# Redis Configuration
+REDIS:
+  HOST: "${REDIS_HOST}"
+  PORT: "${REDIS_PORT}"
+  PASSWORD: "${REDIS_PASSWORD}"
+  DB: 0
+  POOL_SIZE: 100
+  MIN_IDLE_CONNS: 10
+  MAX_RETRIES: 3
+  DIAL_TIMEOUT: "5s"
+  READ_TIMEOUT: "3s"
+  WRITE_TIMEOUT: "3s"
+
+# Monitoring and Alerting Configuration
+MONITORING:
+  # Charging Failure Monitor Thresholds
+  CHARGING_FAILURE:
+    HIGH_FAILURE_RATE: 50.0      # Alert if > 50% (lowered from 80%)
+    LOW_SUCCESS_RATE: 70.0       # Alert if < 70% (raised from 60%)
+    HIGH_QUEUE_SIZE: 5000        # Alert if > 5000 (lowered from 10000)
+    PROCESSING_DELAY: 3.0        # Alert if > 3 minutes (lowered from 5)
+    DATABASE_ERRORS: 5           # Alert if > 5 in 1 hour (lowered from 10)
+  
+  # Health Check Configuration
+  HEALTH_CHECK:
+    INTERVAL: "30s"
+    TIMEOUT: "10s"
+    MAX_FAILURES: 3
+    ENABLE_METRICS: true
+    ENABLE_ALERTS: true
+  
+  # Metrics Cache Configuration
+  METRICS_CACHE:
+    DEFAULT_TTL: "5m"
+    MAX_ENTRIES: 1000
+    CLEANUP_INTERVAL: "1m"
+    ENABLE_STATS: true
+    COMPRESSION: false
+
+# Worker Configuration
+WORKER:
+  # Resubscription Processor
+  RESUBSCRIPTION:
+    MAX_WORKERS: 20
+    BATCH_SIZE: 100
+    PROCESSING_TIMEOUT: "10m"
+    RETRY_ATTEMPTS: 3
+    RETRY_DELAY: "5s"
+  
+  # Renewal Worker
+  RENEWAL:
+    MAX_WORKERS: 10
+    BATCH_SIZE: 50
+    PROCESSING_TIMEOUT: "5m"
+    RETRY_ATTEMPTS: 2
+    RETRY_DELAY: "10s"
+
+# Security Configuration
+SECURITY:
+  # JWT Configuration
+  JWT:
+    SECRET: "${JWT_SECRET}"
+    EXPIRY: "24h"
+    REFRESH_EXPIRY: "7d"
+  
+  # Rate Limiting
+  RATE_LIMIT:
+    REQUESTS_PER_MINUTE: 1000
+    BURST_SIZE: 100
+  
+  # CORS Configuration
+  CORS:
+    ALLOWED_ORIGINS: ["*"]
+    ALLOWED_METHODS: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    ALLOWED_HEADERS: ["*"]
+    EXPOSED_HEADERS: ["Content-Length"]
+    ALLOW_CREDENTIALS: true
+    MAX_AGE: "86400"
+
+# Feature Flags
+FEATURES:
+  ENABLE_MSISDN_VALIDATION: true
+  ENABLE_NETWORK_RESILIENCE: true
+  ENABLE_ENHANCED_MONITORING: true
+  ENABLE_AUTOMATED_RECOVERY: true
+  ENABLE_BATCH_PROCESSING: true
+  ENABLE_CIRCUIT_BREAKER: true
+  ENABLE_RETRY_MECHANISMS: true
+  ENABLE_CACHING: true
+  ENABLE_METRICS: true
+  ENABLE_ALERTING: true 

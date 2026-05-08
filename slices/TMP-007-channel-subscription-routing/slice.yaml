@@ -1,0 +1,71 @@
+story:
+  id: "TMP-007"
+  title: "Partner and acquisition subscription calls route through tenant channel configuration"
+  actor: "api-integrated-partner"
+  action: "send subscription, MT, charge, optout, status, and confirm requests with tenant/channel context"
+  outcome: "subscription-external uses the correct tenant provider configuration instead of global TIMWE credentials"
+  as_a: "api-integrated-partner"
+  i_want_to: "call subscription APIs for a specific tenant channel"
+  so_that: "requests reach the correct upstream provider credentials and capabilities"
+
+entrypoints:
+  - "POST /api/external/v1/{channel}/mt"
+  - "POST /api/external/v1/charge/dob"
+  - "POST /api/v1/subscription-external/admin/optin"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Partner MT routes by tenant channel"
+      given: ["tenant has active channel with MT capability and credential reference"]
+      when: "partner posts MT request with tenant context"
+      then: "service resolves tenant/channel config and sends provider request with tenant credential reference"
+      evidence: "service test asserts resolver inputs and outbound request config"
+    - scenario: "Acquisition optin uses campaign channel"
+      given: ["acquisition transaction has tenant_id and channel_id"]
+      when: "subscription-external receives service-to-service optin"
+      then: "provider call uses channel config from transaction context"
+      evidence: "integration-style test with fake provider"
+  failures:
+    - scenario: "Missing tenant/channel"
+      given: ["request lacks tenant or channel context"]
+      when: "partner calls endpoint"
+      then: "API returns 400 or 403 and no provider call occurs"
+      evidence: "handler test"
+    - scenario: "Unsupported operation"
+      given: ["channel lacks charge capability"]
+      when: "partner calls charge endpoint"
+      then: "API returns 422 unsupported_channel_operation"
+      evidence: "service test"
+    - scenario: "Credential lookup failure"
+      given: ["channel has no active credential"]
+      when: "service attempts outbound call"
+      then: "API returns dependency/config error and logs redacted context"
+      evidence: "resolver failure test"
+  edges:
+    - scenario: "Upstream timeout"
+      given: ["provider adapter times out"]
+      when: "request is sent"
+      then: "circuit breaker/retry policy records failure without duplicate subscription row"
+      evidence: "service test asserts failure state"
+  invariants:
+    - rule: "No global TIMWE credential fallback"
+      preserved_by: "provider resolver requires tenant_id and channel_id"
+      violated_when: "request succeeds with missing tenant/channel"
+      test: "negative test"
+    - rule: "Subscription identity scoped by tenant"
+      preserved_by: "subscription persistence includes tenant_id"
+      violated_when: "same MSISDN/product conflicts across tenants"
+      test: "two-tenant fixture"
+
+out_of_scope:
+  - "new non-TIMWE provider implementation"
+  - "notification worker tenant routing"
+
+size_check:
+  files_touched: 15
+  migrations: 2
+  endpoints: 3
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-007-channel-subscription-routing/value-gate-report.md"

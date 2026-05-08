@@ -1,0 +1,68 @@
+story:
+  id: "TMP-017"
+  title: "Platform has one tenant-aware owner for charge and billing flows"
+  actor: "platform-operator"
+  action: "decide and prove whether charge ownership lives in subscription-external, billing, or a routed combination"
+  outcome: "charge-capable channels do not split tenant billing state across ambiguous services"
+  as_a: "platform-operator"
+  i_want_to: "settle tenant charge ownership before scaling channels"
+  so_that: "billing, renewal, postback, and reporting state remain consistent"
+
+entrypoints:
+  - "services/subscription-external charge and renewal endpoints"
+  - "services/billing transaction endpoints"
+  - "POST /api/external/v1/charge/dob"
+  - "GET /api/v1/billing/transactions"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Charge ownership decision recorded"
+      given: ["billing service exists but is disabled in compose", "subscription-external handles charge-like flows"]
+      when: "platform charge architecture is reviewed"
+      then: "ADR names the owner, integration boundaries, migration posture, and fallback/deprecation plan"
+      evidence: "ADR and service contract review"
+    - scenario: "Tenant charge route proven"
+      given: ["tenant channel supports charge"]
+      when: "charge endpoint is called"
+      then: "charge transaction, renewal state, report metric, and postback correlation share tenant_id/channel_id"
+      evidence: "service integration test"
+  failures:
+    - scenario: "Split ownership conflict"
+      given: ["billing and subscription-external both claim same charge event"]
+      when: "charge is processed"
+      then: "idempotency/ownership guard prevents duplicate billing state"
+      evidence: "duplicate charge test"
+    - scenario: "Disabled billing dependency"
+      given: ["chosen path depends on billing service but compose disables it"]
+      when: "deployment validation runs"
+      then: "validation fails with explicit missing service dependency"
+      evidence: "compose/config validation"
+    - scenario: "Cross-tenant charge lookup"
+      given: ["tenant admin requests another tenant charge"]
+      when: "billing/charge report endpoint is called"
+      then: "API returns 403/404"
+      evidence: "handler/repository test"
+  edges:
+    - scenario: "Legacy renewal charge"
+      given: ["existing renewal worker creates charge attempt"]
+      when: "tenant platform mode is enabled"
+      then: "renewal charge writes tenant/channel context or remains default-tenant compatible"
+      evidence: "renewal worker test"
+  invariants:
+    - rule: "One charge event has one tenant-scoped owner"
+      preserved_by: "ownership ADR, idempotency key, and repository constraint"
+      violated_when: "same upstream charge updates two service ledgers independently"
+      test: "cross-service idempotency test"
+
+out_of_scope:
+  - "new payment provider reconciliation"
+  - "finance ledger replacement"
+
+size_check:
+  files_touched: 15
+  migrations: 1
+  endpoints: 3
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-017-billing-charge-ownership/value-gate-report.md"

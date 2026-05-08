@@ -1,0 +1,835 @@
+{
+  "info": {
+    "_postman_id": "2e7ea4ac-a05b-4e6c-aabf-2e74a4fb98fb",
+    "name": "SM External Rest API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "5435547"
+  },
+  "item": [
+    {
+      "name": "subscription",
+      "item": [
+        {
+          "name": "optin",
+          "item": [
+            {
+              "name": "{partnerRoleId}",
+              "item": [
+                {
+                  "name": "Endpoint to subscribe, via a specified channel, a user to a product\n",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "apikey",
+                        "value": "<string>",
+                        "description": "(Required) The application key of the partner"
+                      },
+                      {
+                        "key": "external-tx-id",
+                        "value": "<string>",
+                        "description": "(Required) An identifier used to avoid processing more than one time the same request"
+                      },
+                      {
+                        "key": "authentication",
+                        "value": "<string>",
+                        "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "*/*"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"largeAccount\": \"<string>\",\n  \"subKeyword\": \"<string>\",\n  \"trackingId\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"campaignUrl\": \"<string>\"\n}",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}/subscription/optin/:partnerRoleId",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "subscription",
+                        "optin",
+                        ":partnerRoleId"
+                      ],
+                      "variable": [
+                        {
+                          "key": "partnerRoleId",
+                          "value": "<number>",
+                          "description": "(Required) the partner role id"
+                        }
+                      ]
+                    },
+                    "description": "Endpoint to subscribe, via a specified channel, a user to a product\n"
+                  },
+                  "response": [
+                    {
+                      "name": "Successful response",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "description": "(Required) The application key of the partner",
+                            "key": "apikey",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) An identifier used to avoid processing more than one time the same request",
+                            "key": "external-tx-id",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)",
+                            "key": "authentication",
+                            "value": "<string>"
+                          },
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "*/*"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"largeAccount\": \"<string>\",\n  \"subKeyword\": \"<string>\",\n  \"trackingId\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"campaignUrl\": \"<string>\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/subscription/optin/:partnerRoleId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "subscription",
+                            "optin",
+                            ":partnerRoleId"
+                          ],
+                          "variable": [
+                            {
+                              "key": "partnerRoleId"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "text",
+                      "header": [
+                        {
+                          "key": "Content-Type",
+                          "value": "*/*"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n  \"message\": \"<string>\",\n  \"inError\": \"<boolean>\",\n  \"requestId\": \"<string>\",\n  \"code\": \"<string>\",\n  \"responseData\": {\n    \"transactionId\": \"<string>\",\n    \"subscriptionResult\": \"<string>\",\n    \"subscriptionError\": \"<string>\"\n  }\n}"
+                    },
+                    {
+                      "name": "Invalid authentication response",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "description": "(Required) The application key of the partner",
+                            "key": "apikey",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) An identifier used to avoid processing more than one time the same request",
+                            "key": "external-tx-id",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)",
+                            "key": "authentication",
+                            "value": "<string>"
+                          },
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"largeAccount\": \"<string>\",\n  \"subKeyword\": \"<string>\",\n  \"trackingId\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"campaignUrl\": \"<string>\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/subscription/optin/:partnerRoleId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "subscription",
+                            "optin",
+                            ":partnerRoleId"
+                          ],
+                          "variable": [
+                            {
+                              "key": "partnerRoleId"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "text",
+                      "header": [],
+                      "cookie": [],
+                      "body": ""
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "confirm",
+              "item": [
+                {
+                  "name": "{partnerRoleId}",
+                  "item": [
+                    {
+                      "name": "Endpoint to confirm the subscription (in case of double type subscription), via a specified channel, a user to a product\n",
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "apikey",
+                            "value": "<string>",
+                            "description": "(Required) The application key of the partner"
+                          },
+                          {
+                            "key": "external-tx-id",
+                            "value": "<string>",
+                            "description": "(Required) An identifier used to avoid processing more than one time the same request"
+                          },
+                          {
+                            "key": "authentication",
+                            "value": "<string>",
+                            "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)"
+                          },
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "*/*"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"transactionAuthCode\": \"<string>\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/subscription/optin/confirm/:partnerRoleId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "subscription",
+                            "optin",
+                            "confirm",
+                            ":partnerRoleId"
+                          ],
+                          "variable": [
+                            {
+                              "key": "partnerRoleId",
+                              "value": "<number>",
+                              "description": "(Required) the partner role id"
+                            },
+                            {
+                              "key": "realmKey",
+                              "value": "<string>",
+                              "description": "(Required) the realm key"
+                            }
+                          ]
+                        },
+                        "description": "Endpoint to confirm the subscription (in case of double type subscription), via a specified channel, a user to a product\n"
+                      },
+                      "response": [
+                        {
+                          "name": "Successful response",
+                          "originalRequest": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "description": "(Required) The application key of the partner",
+                                "key": "apikey",
+                                "value": "<string>"
+                              },
+                              {
+                                "description": "(Required) An identifier used to avoid processing more than one time the same request",
+                                "key": "external-tx-id",
+                                "value": "<string>"
+                              },
+                              {
+                                "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)",
+                                "key": "authentication",
+                                "value": "<string>"
+                              },
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "*/*"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"transactionAuthCode\": \"<string>\"\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/subscription/optin/confirm/:partnerRoleId",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "subscription",
+                                "optin",
+                                "confirm",
+                                ":partnerRoleId"
+                              ],
+                              "variable": [
+                                {
+                                  "key": "partnerRoleId"
+                                }
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "text",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "*/*"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"message\": \"<string>\",\n  \"inError\": \"<boolean>\",\n  \"requestId\": \"<string>\",\n  \"code\": \"<string>\",\n  \"responseData\": {\n    \"transactionId\": \"<string>\",\n    \"subscriptionResult\": \"<string>\",\n    \"subscriptionError\": \"<string>\"\n  }\n}"
+                        },
+                        {
+                          "name": "Invalid authentication response",
+                          "originalRequest": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "description": "(Required) The application key of the partner",
+                                "key": "apikey",
+                                "value": "<string>"
+                              },
+                              {
+                                "description": "(Required) An identifier used to avoid processing more than one time the same request",
+                                "key": "external-tx-id",
+                                "value": "<string>"
+                              },
+                              {
+                                "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)",
+                                "key": "authentication",
+                                "value": "<string>"
+                              },
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"transactionAuthCode\": \"<string>\"\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/subscription/optin/confirm/:partnerRoleId",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "subscription",
+                                "optin",
+                                "confirm",
+                                ":partnerRoleId"
+                              ],
+                              "variable": [
+                                {
+                                  "key": "partnerRoleId"
+                                }
+                              ]
+                            }
+                          },
+                          "status": "Bad Request",
+                          "code": 400,
+                          "_postman_previewlanguage": "text",
+                          "header": [],
+                          "cookie": [],
+                          "body": ""
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "optout",
+          "item": [
+            {
+              "name": "{partnerRoleId}",
+              "item": [
+                {
+                  "name": "Endpoint to unsubscribe, via a specified channel, a user from a product\n",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "apikey",
+                        "value": "<string>",
+                        "description": "(Required) The application key of the partner"
+                      },
+                      {
+                        "key": "external-tx-id",
+                        "value": "<string>",
+                        "description": "(Required) An identifier used to avoid processing more than one time the same request"
+                      },
+                      {
+                        "key": "authentication",
+                        "value": "<string>",
+                        "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "*/*"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"largeAccount\": \"<string>\",\n  \"subKeyword\": \"<string>\",\n  \"trackingId\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"controlKeyword\": \"<string>\",\n  \"controlServiceKeyword\": \"<string>\",\n  \"subId\": \"<number>\",\n  \"cancelReason\": \"<number>\",\n  \"cancelSource\": \"<number>\"\n}",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}/subscription/optout/:partnerRoleId",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "subscription",
+                        "optout",
+                        ":partnerRoleId"
+                      ],
+                      "variable": [
+                        {
+                          "key": "partnerRoleId",
+                          "value": "<number>",
+                          "description": "(Required) the partner role id"
+                        },
+                        {
+                          "key": "realmKey",
+                          "value": "<string>",
+                          "description": "(Required) the realm key"
+                        }
+                      ]
+                    },
+                    "description": "Endpoint to unsubscribe, via a specified channel, a user from a product\n"
+                  },
+                  "response": [
+                    {
+                      "name": "Successful response",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "description": "(Required) The application key of the partner",
+                            "key": "apikey",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) An identifier used to avoid processing more than one time the same request",
+                            "key": "external-tx-id",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)",
+                            "key": "authentication",
+                            "value": "<string>"
+                          },
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "*/*"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"largeAccount\": \"<string>\",\n  \"subKeyword\": \"<string>\",\n  \"trackingId\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"controlKeyword\": \"<string>\",\n  \"controlServiceKeyword\": \"<string>\",\n  \"subId\": \"<number>\",\n  \"cancelReason\": \"<number>\",\n  \"cancelSource\": \"<number>\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/subscription/optout/:partnerRoleId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "subscription",
+                            "optout",
+                            ":partnerRoleId"
+                          ],
+                          "variable": [
+                            {
+                              "key": "partnerRoleId"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "text",
+                      "header": [
+                        {
+                          "key": "Content-Type",
+                          "value": "*/*"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n  \"message\": \"<string>\",\n  \"inError\": \"<boolean>\",\n  \"requestId\": \"<string>\",\n  \"code\": \"<string>\",\n  \"responseData\": {\n    \"transactionId\": \"<string>\",\n    \"subscriptionResult\": \"<string>\",\n    \"subscriptionError\": \"<string>\"\n  }\n}"
+                    },
+                    {
+                      "name": "Invalid authentication response",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "description": "(Required) The application key of the partner",
+                            "key": "apikey",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) An identifier used to avoid processing more than one time the same request",
+                            "key": "external-tx-id",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)",
+                            "key": "authentication",
+                            "value": "<string>"
+                          },
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"largeAccount\": \"<string>\",\n  \"subKeyword\": \"<string>\",\n  \"trackingId\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"controlKeyword\": \"<string>\",\n  \"controlServiceKeyword\": \"<string>\",\n  \"subId\": \"<number>\",\n  \"cancelReason\": \"<number>\",\n  \"cancelSource\": \"<number>\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/subscription/optout/:partnerRoleId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "subscription",
+                            "optout",
+                            ":partnerRoleId"
+                          ],
+                          "variable": [
+                            {
+                              "key": "partnerRoleId"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "text",
+                      "header": [],
+                      "cookie": [],
+                      "body": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "status",
+          "item": [
+            {
+              "name": "{partnerRoleId}",
+              "item": [
+                {
+                  "name": "Endpoint to get the subscription information of a user to a product\n",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "apikey",
+                        "value": "<string>",
+                        "description": "(Required) The application key of the partner"
+                      },
+                      {
+                        "key": "external-tx-id",
+                        "value": "<string>",
+                        "description": "(Required) An identifier used to avoid processing more than one time the same request"
+                      },
+                      {
+                        "key": "authentication",
+                        "value": "<string>",
+                        "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "*/*"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"controlKeyword\": \"<string>\",\n  \"controlServiceKeyword\": \"<string>\",\n  \"subId\": \"<number>\"\n}",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}/subscription/status/:partnerRoleId",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "subscription",
+                        "status",
+                        ":partnerRoleId"
+                      ],
+                      "variable": [
+                        {
+                          "key": "partnerRoleId",
+                          "value": "<number>",
+                          "description": "(Required) the partner role id"
+                        },
+                        {
+                          "key": "realmKey",
+                          "value": "<string>",
+                          "description": "(Required) the realm key"
+                        }
+                      ]
+                    },
+                    "description": "Endpoint to get the subscription information of a user to a product\n"
+                  },
+                  "response": [
+                    {
+                      "name": "Successful response",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "description": "(Required) The application key of the partner",
+                            "key": "apikey",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) An identifier used to avoid processing more than one time the same request",
+                            "key": "external-tx-id",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)",
+                            "key": "authentication",
+                            "value": "<string>"
+                          },
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "*/*"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"controlKeyword\": \"<string>\",\n  \"controlServiceKeyword\": \"<string>\",\n  \"subId\": \"<number>\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/subscription/status/:partnerRoleId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "subscription",
+                            "status",
+                            ":partnerRoleId"
+                          ],
+                          "variable": [
+                            {
+                              "key": "partnerRoleId"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "text",
+                      "header": [
+                        {
+                          "key": "Content-Type",
+                          "value": "*/*"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n  \"message\": \"<string>\",\n  \"inError\": \"<boolean>\",\n  \"requestId\": \"<string>\",\n  \"code\": \"<string>\",\n  \"responseData\": {\n    \"transactionId\": \"<string>\",\n    \"subscriptionResult\": \"<string>\",\n    \"subscriptionError\": \"<string>\"\n  }\n}"
+                    },
+                    {
+                      "name": "Invalid authentication response",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "description": "(Required) The application key of the partner",
+                            "key": "apikey",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) An identifier used to avoid processing more than one time the same request",
+                            "key": "external-tx-id",
+                            "value": "<string>"
+                          },
+                          {
+                            "description": "(Required) Token to authenticate the partner request (the format is 'partnerServiceId#timestamp' encrypted using AES/ECB/PKCS5Padding with the partner API preshared key, where timestamp corresponds to the milliseconds, between the current time and midnight, January 1, 1970 UTC.)",
+                            "key": "authentication",
+                            "value": "<string>"
+                          },
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"userIdentifier\": \"<string>\",\n  \"userIdentifierType\": \"<string>\",\n  \"productId\": \"<number>\",\n  \"mcc\": \"<string>\",\n  \"mnc\": \"<string>\",\n  \"entryChannel\": \"<string>\",\n  \"clientIp\": \"<string>\",\n  \"controlKeyword\": \"<string>\",\n  \"controlServiceKeyword\": \"<string>\",\n  \"subId\": \"<number>\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/subscription/status/:partnerRoleId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "subscription",
+                            "status",
+                            ":partnerRoleId"
+                          ],
+                          "variable": [
+                            {
+                              "key": "partnerRoleId"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "text",
+                      "header": [],
+                      "cookie": [],
+                      "body": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "/"
+    }
+  ]
+}

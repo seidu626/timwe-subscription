@@ -1,0 +1,19 @@
+  # Enhanced: Resilience and recovery configuration
+  resilience:
+    max_retries: 3                    # Maximum retry attempts for failed operations
+    initial_backoff: "1s"             # Initial backoff duration
+    max_backoff: "30s"                # Maximum backoff duration
+    backoff_multiplier: 2.0           # Multiplier for exponential backoff
+    circuit_breaker_threshold: 5      # Number of failures before circuit breaker opens
+    circuit_breaker_timeout: "60s"    # Time to wait before attempting recovery
+    graceful_degradation: true        # Enable graceful degradation mode
+    health_check_interval: "30s"      # Interval for health checks 
+
+  # Enhanced: Entry channel filtering configuration
+  invalid_entry_channels:
+    - "CCTOOL"      # Customer care tool
+    - "INTERNAL"    # Internal system
+    - "ADMIN"       # Administrative tool
+    - "SYSTEM"      # System-generated
+    - "BATCH"       # Batch processing
+    - "API"         # API calls (not user-initiated) 

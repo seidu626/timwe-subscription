@@ -1,0 +1,69 @@
+{
+  "work_order_id": "WO-TMP-014-001",
+  "issue_id": "TMP-014",
+  "class": "vertical_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Tenant admins see and mutate only their tenant resources in the admin UI.",
+  "actor": "tenant-admin",
+  "entrypoint": "frontend/webspa-admin routes and API client",
+  "trigger": "Tenant admin opens the admin portal",
+  "allowed_files": [
+    "frontend/webspa-admin/**",
+    "slices/TMP-014-admin-portal-tenant-workspace/**",
+    "agent/backlog/issues/TMP-014-admin-portal-tenant-workspace.md",
+    "agent/state/TMP-014.work-order.json",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "Makefile"
+  ],
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "cd frontend/webspa-admin && npm test -- --watch=false"
+  ],
+  "required_evidence": [
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "agent-supervisor --config .harness/config.json preflight",
+    "frontend/webspa-admin verification command if available"
+  ],
+  "non_goals": [
+    "No backend tenant migration enforcement.",
+    "No credential or observability hardening."
+  ],
+  "blocking_dependencies": [
+    "TMP-002",
+    "TMP-003",
+    "TMP-005"
+  ],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-014",
+    "title": "Admin portal tenant workspace",
+    "path": "agent/backlog/issues/TMP-014-admin-portal-tenant-workspace.md",
+    "declared_class": "vertical_slice",
+    "detected_class": "vertical_slice",
+    "confidence": 0.86,
+    "verticality_score": 92,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

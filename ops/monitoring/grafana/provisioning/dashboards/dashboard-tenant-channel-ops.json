@@ -1,0 +1,85 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Dispatches in 15m",
+      "targets": [
+        {
+          "expr": "sum(increase(notification_worker_dispatch_total[15m]))"
+        }
+      ],
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Dispatch Outcomes by Status",
+      "targets": [
+        {
+          "expr": "sum by (status) (increase(notification_worker_dispatch_total[15m]))"
+        }
+      ],
+      "legendFormat": "{{status}}",
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Top Failed Tenant/Channel Pairs",
+      "targets": [
+        {
+          "expr": "topk(5, sum by (tenant_id, channel_id) (increase(notification_worker_dispatch_total{status=\"failed\"}[1h])))"
+        }
+      ],
+      "legendFormat": "{{tenant_id}} / {{channel_id}}",
+      "gridPos": { "h": 8, "w": 18, "x": 0, "y": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Retry Pressure by Tenant",
+      "targets": [
+        {
+          "expr": "topk(5, sum by (tenant_id) (increase(notification_worker_dispatch_total{status=\"retry\"}[1h])))"
+        }
+      ],
+      "legendFormat": "{{tenant_id}}",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Dispatches by Channel",
+      "targets": [
+        {
+          "expr": "sum by (channel_id) (increase(notification_worker_dispatch_total[15m]))"
+        }
+      ],
+      "legendFormat": "{{channel_id}}",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+    }
+  ],
+  "schemaVersion": 39,
+  "style": "dark",
+  "refresh": "10s",
+  "tags": ["tenant-observability", "notification-worker", "platform-ops"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "",
+  "title": "Tenant and Channel Operations",
+  "uid": "tenant-channel-ops",
+  "version": 1
+}

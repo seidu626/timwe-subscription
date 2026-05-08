@@ -1,0 +1,126 @@
+# SSL Configuration Example
+# Rename this file to ssl.conf and update paths/domains to enable HTTPS
+#
+# Prerequisites:
+# 1. Place SSL certificates in ./certs/ directory:
+#    - ./certs/fullchain.pem (or your cert file)
+#    - ./certs/privkey.pem (or your key file)
+# 2. Update server_name directives with your actual domains
+# 3. Remove or comment out the HTTP servers in default.conf
+
+# SSL Settings (shared)
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers on;
+ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+ssl_session_cache shared:SSL:10m;
+ssl_session_timeout 1d;
+ssl_session_tickets off;
+
+# HSTS (uncomment after testing)
+# add_header Strict-Transport-Security "max-age=63072000" always;
+
+# Admin Panel - HTTPS
+server {
+    listen 443 ssl http2;
+    server_name admin.nouveauricheglobalgroup.com;
+
+    ssl_certificate /etc/ssl/certs/fullchain.pem;
+    ssl_certificate_key /etc/ssl/certs/privkey.pem;
+
+    location / {
+        proxy_pass http://webspa-admin;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+# Landing Pages - HTTPS
+server {
+    listen 443 ssl http2;
+    server_name landing.nouveauricheglobalgroup.com;
+
+    ssl_certificate /etc/ssl/certs/fullchain.pem;
+    ssl_certificate_key /etc/ssl/certs/privkey.pem;
+
+    location / {
+        proxy_pass http://landing-web;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+# API Gateway - HTTPS
+server {
+    listen 443 ssl http2;
+    server_name api.nouveauricheglobalgroup.com;
+
+    ssl_certificate /etc/ssl/certs/fullchain.pem;
+    ssl_certificate_key /etc/ssl/certs/privkey.pem;
+
+    # Subscription Partner API
+    location /api/subscription/ {
+        proxy_pass http://api-subscription/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Subscription External API
+    location /api/external/ {
+        proxy_pass http://api-subscription-external/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Notification API
+    location /api/notification/ {
+        proxy_pass http://api-notification/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Acquisition API
+    location /api/acquisition/ {
+        proxy_pass http://api-acquisition/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Cadence Engine API
+    location /api/cadence/ {
+        proxy_pass http://api-cadence/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /health {
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+}
