@@ -83,6 +83,8 @@ type MockSubscriptionRepository struct {
 	createError        error
 	notificationError  error
 	invalidMSISDNError error
+	chargeInserted     bool
+	chargeNotification *domain.NotificationRequest
 }
 
 func (m *MockSubscriptionRepository) FetchActiveMsisdnsWithoutProductsWindow(productIds []int, offset int, limit int) ([]string, error) {
@@ -172,6 +174,17 @@ func (m *MockSubscriptionRepository) CreateSubscription(request *domain.Subscrip
 
 func (m *MockSubscriptionRepository) CreateNotification(notification *domain.NotificationRequest) error {
 	return m.notificationError
+}
+
+func (m *MockSubscriptionRepository) CreateChargeNotificationOnce(notification *domain.NotificationRequest) (bool, error) {
+	m.chargeNotification = notification
+	if m.notificationError != nil {
+		return false, m.notificationError
+	}
+	if !m.chargeInserted {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (m *MockSubscriptionRepository) CreateInvalidMSISDNLog(log *domain.InvalidMSISDNLog) error {

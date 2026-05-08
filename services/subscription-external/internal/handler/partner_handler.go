@@ -128,6 +128,9 @@ func (h *PartnerHandler) PartnerChargeHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	req.TenantRoute = route
+	if strings.TrimSpace(req.IdempotencyKey) == "" {
+		req.IdempotencyKey = strings.TrimSpace(string(ctx.Request.Header.Peek("external-tx-id")))
+	}
 
 	resp, err := h.svc.RequestCharge(req)
 	if err != nil {

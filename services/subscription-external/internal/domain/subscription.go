@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -99,15 +100,16 @@ func (e *MTResponseError) Error() string {
 }
 
 type ChargeRequest struct {
-	ProductID    int                `json:"productId"`
-	PricepointID int                `json:"pricepointId"`
-	MCC          string             `json:"mcc"`
-	MNC          string             `json:"mnc"`
-	MSISDN       string             `json:"msisdn"`
-	ShortCode    string             `json:"shortCode"`
-	Context      string             `json:"context"`
-	Channel      string             `json:"channel"`
-	TenantRoute  TenantRouteContext `json:"-"`
+	ProductID      int                `json:"productId"`
+	PricepointID   int                `json:"pricepointId"`
+	MCC            string             `json:"mcc"`
+	MNC            string             `json:"mnc"`
+	MSISDN         string             `json:"msisdn"`
+	ShortCode      string             `json:"shortCode"`
+	Context        string             `json:"context"`
+	Channel        string             `json:"channel"`
+	IdempotencyKey string             `json:"idempotencyKey,omitempty"`
+	TenantRoute    TenantRouteContext `json:"-"`
 }
 
 type ChargeResponse struct {
@@ -142,7 +144,10 @@ func MapMTRequestToSubscriptionRequest(mtReq MTRequest, transactionId string, pa
 
 // MapChargeToNotification maps a ChargeRequest to a NotificationRequest.
 func MapChargeToNotification(chargeReq ChargeRequest, partnerRole int) NotificationRequest {
-	txId := uuid.New().String()
+	txId := strings.TrimSpace(chargeReq.IdempotencyKey)
+	if txId == "" {
+		txId = uuid.New().String()
+	}
 	return NotificationRequest{
 		TenantID:        stringPtrFromRoute(chargeReq.TenantRoute.TenantID),
 		ChannelID:       stringPtrFromRoute(chargeReq.TenantRoute.ChannelID),

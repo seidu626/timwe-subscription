@@ -54,6 +54,11 @@ func (m *MockSubscriptionRepositoryForInvalidMSISDN) CreateNotification(notifica
 	return args.Error(0)
 }
 
+func (m *MockSubscriptionRepositoryForInvalidMSISDN) CreateChargeNotificationOnce(notification *domain.NotificationRequest) (bool, error) {
+	args := m.Called(notification)
+	return args.Bool(0), args.Error(1)
+}
+
 func (m *MockSubscriptionRepositoryForInvalidMSISDN) GenerateCacheKey(startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) string {
 	args := m.Called(startDate, endDate, productId, shortcode, userIdentifier, entryChannel, page, pageSize)
 	return args.String(0)

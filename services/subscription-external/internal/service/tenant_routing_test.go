@@ -104,7 +104,8 @@ func TestSendMTRoutesThroughTenantProviderConfig(t *testing.T) {
 	defer server.Close()
 
 	cfg := tenantRoutingTestConfig("http://legacy.invalid")
-	svc := NewSubscriptionService(zap.NewNop(), nil, nil, nil, cfg, nil)
+	repo := &MockSubscriptionRepository{chargeInserted: true}
+	svc := NewSubscriptionService(zap.NewNop(), repo, nil, nil, cfg, nil)
 	router := &fakeTenantProviderResolver{
 		cfg: &TenantProviderConfig{
 			TenantID:       "tenant-1",
@@ -149,6 +150,166 @@ func TestSendMTRoutesThroughTenantProviderConfig(t *testing.T) {
 	}
 	if got := payload["userIdentifier"]; got != "233241234567" {
 		t.Fatalf("expected MSISDN in provider payload, got %#v", got)
+	}
+}
+
+func TestRequestChargeRoutesThroughTenantProviderConfig(t *testing.T) {
+	var providerPath string
+	var providerAPIKey string
+	var providerAuth string
+	var providerExternalTx string
+	var payload map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		providerPath = r.URL.Path
+		providerAPIKey = r.Header.Get("apikey")
+		providerAuth = r.Header.Get("authentication")
+		providerExternalTx = r.Header.Get("external-tx-id")
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("failed to decode provider payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{
+				"transactionId": "charge-tx-1",
+			},
+			"message":   "ok",
+			"inError":   false,
+			"requestId": "req-charge",
+			"code":      "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	cfg := tenantRoutingTestConfig("http://legacy.invalid")
+	repo := &MockSubscriptionRepository{chargeInserted: true}
+	svc := NewSubscriptionService(zap.NewNop(), repo, nil, nil, cfg, nil)
+	router := &fakeTenantProviderResolver{
+		cfg: &TenantProviderConfig{
+			TenantID:       "tenant-1",
+			ChannelID:      "channel-1",
+			Provider:       "timwe",
+			BaseURL:        server.URL,
+			APIKey:         "tenant-api-key",
+			Authentication: "tenant-auth-key",
+			PartnerRoleID:  "9090",
+			Realm:          "tenant-realm",
+		},
+	}
+	svc.SetTenantProviderRouter(router)
+
+	resp, err := svc.RequestCharge(domain.ChargeRequest{
+		ProductID:      14397,
+		PricepointID:   1,
+		MCC:            "620",
+		MNC:            "03",
+		MSISDN:         "233241234567",
+		ShortCode:      "1234",
+		Context:        "renewal",
+		Channel:        "SMS",
+		IdempotencyKey: "charge-idem-1",
+		TenantRoute: domain.TenantRouteContext{
+			TenantID:  "tenant-1",
+			ChannelID: "channel-1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected tenant-routed charge success, got %v", err)
+	}
+	if resp == nil || resp.Code != ResponseCodeSuccess {
+		t.Fatalf("expected SUCCESS response, got %+v", resp)
+	}
+	if router.seenOp != ChannelOperationCharge {
+		t.Fatalf("expected charge operation, got %s", router.seenOp)
+	}
+	if router.seenRoute.TenantID != "tenant-1" || router.seenRoute.ChannelID != "channel-1" {
+		t.Fatalf("resolver saw wrong route: %+v", router.seenRoute)
+	}
+	if providerPath != "/tenant-realm/charge/dob/9090" {
+		t.Fatalf("expected tenant charge path, got %s", providerPath)
+	}
+	if providerAPIKey != "tenant-api-key" || providerAuth != "tenant-auth-key" {
+		t.Fatalf("expected tenant credentials, got api=%q auth=%q", providerAPIKey, providerAuth)
+	}
+	if providerExternalTx != "charge-idem-1" {
+		t.Fatalf("expected charge idempotency header, got %q", providerExternalTx)
+	}
+	if got := payload["msisdn"]; got != "233241234567" {
+		t.Fatalf("expected charge payload MSISDN, got %#v", got)
+	}
+	if repo.chargeNotification == nil {
+		t.Fatal("expected charge ownership notification to be recorded")
+	}
+	if repo.chargeNotification.TenantID == nil || *repo.chargeNotification.TenantID != "tenant-1" {
+		t.Fatalf("expected tenant charge ownership, got %#v", repo.chargeNotification.TenantID)
+	}
+	if repo.chargeNotification.ChannelID == nil || *repo.chargeNotification.ChannelID != "channel-1" {
+		t.Fatalf("expected channel charge ownership, got %#v", repo.chargeNotification.ChannelID)
+	}
+	if repo.chargeNotification.TransactionUUID == "" {
+		t.Fatal("expected charge idempotency transaction uuid")
+	}
+	if repo.chargeNotification.TransactionUUID != "charge-idem-1" {
+		t.Fatalf("expected charge ownership to use idempotency key, got %q", repo.chargeNotification.TransactionUUID)
+	}
+}
+
+func TestRequestChargeReturnsProviderSuccessWhenOwnershipRecordFails(t *testing.T) {
+	providerCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		providerCalls++
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{
+				"transactionId": "charge-tx-1",
+			},
+			"message":   "ok",
+			"inError":   false,
+			"requestId": "req-charge",
+			"code":      "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	cfg := tenantRoutingTestConfig("http://legacy.invalid")
+	repo := &MockSubscriptionRepository{notificationError: errors.New("ownership database unavailable")}
+	svc := NewSubscriptionService(zap.NewNop(), repo, nil, nil, cfg, nil)
+	svc.SetTenantProviderRouter(&fakeTenantProviderResolver{
+		cfg: &TenantProviderConfig{
+			TenantID:       "tenant-1",
+			ChannelID:      "channel-1",
+			Provider:       "timwe",
+			BaseURL:        server.URL,
+			APIKey:         "tenant-api-key",
+			Authentication: "tenant-auth-key",
+			PartnerRoleID:  "9090",
+			Realm:          "tenant-realm",
+		},
+	})
+
+	resp, err := svc.RequestCharge(domain.ChargeRequest{
+		ProductID:      14397,
+		PricepointID:   1,
+		MCC:            "620",
+		MNC:            "03",
+		MSISDN:         "233241234567",
+		ShortCode:      "1234",
+		Context:        "renewal",
+		Channel:        "SMS",
+		IdempotencyKey: "charge-idem-2",
+		TenantRoute: domain.TenantRouteContext{
+			TenantID:  "tenant-1",
+			ChannelID: "channel-1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected provider success even when ownership recording fails, got %v", err)
+	}
+	if resp == nil || resp.Code != ResponseCodeSuccess {
+		t.Fatalf("expected SUCCESS response, got %+v", resp)
+	}
+	if providerCalls != 1 {
+		t.Fatalf("expected one provider charge call, got %d", providerCalls)
 	}
 }
 

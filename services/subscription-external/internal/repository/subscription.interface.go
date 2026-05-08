@@ -16,6 +16,7 @@ type DBGetter interface {
 type SubscriptionRepositoryInterface interface {
 	CreateSubscription(request *domain.SubscriptionRequest) error
 	CreateNotification(notification *domain.NotificationRequest) error
+	CreateChargeNotificationOnce(notification *domain.NotificationRequest) (bool, error)
 	CreateInvalidMSISDNLog(log *domain.InvalidMSISDNLog) error
 	CheckSubscriptionExists(msisdn string, productId int) (bool, error)
 	CheckRenewalNotificationExists(msisdn string, productId int) (bool, error)

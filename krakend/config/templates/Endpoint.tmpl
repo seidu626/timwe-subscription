@@ -35,8 +35,9 @@
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/products"                                  "METHOD" "GET" "BackendUrlPattern" "/api/v1/products"                                  "BackendHost" $service.subscription_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/products"                                  "METHOD" "POST" "BackendUrlPattern" "/api/v1/products"                                 "BackendHost" $service.subscription_api_url) }},
 
-{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/{realm}/{channel}/mt/{partnerRole}"        "METHOD" "POST" "BackendUrlPattern" "/api/v1/{realm}/{channel}/mt/{partnerRole}"       "BackendHost" $service.billing_api_url) }},
-{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/{realm}/charge/dob/{partnerRole}"          "METHOD" "POST" "BackendUrlPattern" "/api/v1/{realm}/charge/dob/{partnerRole}"         "BackendHost" $service.billing_api_url) }},
+{{/* Legacy partner charge/MT routes remain public but route to subscription-external, not the disabled billing owner. */}}
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/{realm}/{channel}/mt/{partnerRole}"        "METHOD" "POST" "BackendUrlPattern" "/api/external/v1/{channel}/mt"                    "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/{realm}/charge/dob/{partnerRole}"          "METHOD" "POST" "BackendUrlPattern" "/api/external/v1/charge/dob"                      "BackendHost" $service.subscription_external_api_url) }},
 
 {{/* Landing Web Routes */}}
 {{ template "LandingWebEndpoint" (dict "Endpoint" "/lp/{slug}" "METHOD" "GET" "BackendUrlPattern" "/lp/{slug}" "BackendHost" $service.landing_web_url) }},
