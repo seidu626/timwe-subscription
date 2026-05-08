@@ -40,7 +40,7 @@ DATABASE:
     HOST: 139.59.135.253
     PORT: 5432
     USER: sm_admin
-    PASSWORD: d898b0b78a2627cb4ee6*__
+    PASSWORD: <redacted-db-password>
     DB_NAME: subscription_manager
     SSL_MODE: disable
     # Connection pool settings
@@ -164,4 +164,4 @@ The configuration has been successfully consolidated into a single `DATABASE` se
 3. **Cleaner Structure**: No redundant or duplicate configuration
 4. **Better Maintainability**: Easier to manage and update
 
-**Current State**: All code now uses the `DATABASE` section, providing a clean, unified configuration structure with enhanced database capabilities. 
+**Current State**: All code now uses the `DATABASE` section, providing a clean, unified configuration structure with enhanced database capabilities.

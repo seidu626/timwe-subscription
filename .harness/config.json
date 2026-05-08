@@ -1,7 +1,7 @@
 {
   "repo_path": "/home/xper626/workspace/apps/worktrees/codex-pending-slices-20260508-095850",
   "harness_dir": ".harness",
-  "base_branch": "main",
+  "base_branch": "agent/codex/pending-slices-20260508-095850",
   "integration_branch": "harness/integration",
   "max_parallel_agents": 3,
   "max_retries_per_task": 2,

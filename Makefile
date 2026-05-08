@@ -1360,6 +1360,23 @@ db-migrate-cadence: ## Run cadence engine migration
 	@PGPASSWORD="$$DB_PASSWORD" psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f services/subscription-external/migrations/011_message_cadence_engine.sql
 	@echo "✅ Cadence migration complete!"
 
+.PHONY: db-migrate-tenant-platform-dry-run
+db-migrate-tenant-platform-dry-run: ## Dry-run the legacy default-tenant backfill and readiness checks
+	@echo "🔎 Dry-running tenant platform migration..."
+	@bash scripts/db-migrate-tenant-platform.sh --dry-run
+
+.PHONY: db-migrate-tenant-platform
+db-migrate-tenant-platform: ## Backfill legacy rows into the legacy-default tenant
+	@echo "🗄️ Running tenant platform migration..."
+	@bash scripts/db-migrate-tenant-platform.sh --apply
+	@echo "✅ Tenant platform migration complete!"
+
+.PHONY: db-rollback-tenant-platform
+db-rollback-tenant-platform: ## Roll back legacy-default tenant backfill
+	@echo "↩️ Rolling back tenant platform migration..."
+	@bash scripts/db-migrate-tenant-platform.sh --rollback
+	@echo "✅ Tenant platform rollback complete!"
+
 .PHONY: db-create-mobplus-campaign
 db-create-mobplus-campaign: ## Create a new Mobplus campaign with click_id support
 	@echo "🚀 Creating Mobplus campaign..."
@@ -1525,6 +1542,9 @@ help:
 	@echo "  make db-exec-sql FILE=...   - Execute SQL file against remote database"
 	@echo "  make db-migrate-campaigns   - Run all campaign-related migrations"
 	@echo "  make db-migrate-cadence     - Run cadence engine migration"
+	@echo "  make db-migrate-tenant-platform-dry-run - Dry-run tenant platform migration"
+	@echo "  make db-migrate-tenant-platform - Apply tenant platform migration"
+	@echo "  make db-rollback-tenant-platform - Roll back tenant platform migration"
 	@echo "  make db-create-mobplus-campaign - Create Mobplus campaign with click_id"
 	@echo "  make db-configure-level23-campaign - Configure Level23 campaign/postback"
 	@echo "  make db-generate-level23-share-info - Print Level23 sharing templates"

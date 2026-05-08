@@ -15,7 +15,7 @@ DB:
     HOST: 139.59.135.253
     PORT: 5432
     USER: sm_admin
-    PASSWORD: d898b0b78a2627cb4ee6*__
+    PASSWORD: <redacted-db-password>
     DB_NAME: subscription_manager
     SSL_MODE: disable
 
@@ -25,7 +25,7 @@ DATABASE:
     HOST: 139.59.135.253
     PORT: 5432
     USER: sm_admin
-    PASSWORD: d898b0b78a2627cb4ee6*__
+    PASSWORD: <redacted-db-password>
     DB_NAME: subscription_manager
     SSL_MODE: disable
     # Connection pool settings
@@ -47,7 +47,7 @@ DATABASE:
     HOST: 139.59.135.253
     PORT: 5432
     USER: sm_admin
-    PASSWORD: d898b0b78a2627cb4ee6*__
+    PASSWORD: <redacted-db-password>
     DB_NAME: subscription_manager
     SSL_MODE: disable
     # Connection pool settings
@@ -218,4 +218,4 @@ The configuration consolidation has been successfully completed:
 4. ✅ **Enhanced** database configuration with additional features
 5. ✅ **Documented** all changes and new usage patterns
 
-The system now has a clean, unified database configuration that eliminates redundancy while providing enhanced features for all services. 
+The system now has a clean, unified database configuration that eliminates redundancy while providing enhanced features for all services.

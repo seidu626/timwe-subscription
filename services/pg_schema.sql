@@ -1,7 +1,8 @@
 ---https://medium.com/coding-blocks/creating-user-database-and-adding-access-on-postgresql-8bfcd2f4a91e
 --- sudo -u postgres psql
 create database subscription_manager;
-create user sm_admin with encrypted password 'd898b0b78a2627cb4ee6*__';
+-- Replace the password below with a locally generated secret or a secret-manager reference.
+create user sm_admin with encrypted password 'REPLACE_WITH_LOCAL_DB_PASSWORD';
 grant all privileges on database subscription_manager to sm_admin;
 GRANT ALL ON SCHEMA public TO sm_admin;
 ALTER DATABASE subscription_manager OWNER TO sm_admin;
@@ -174,4 +175,3 @@ INSERT INTO subscriptions (partner_role_id, user_identifier, user_identifier_typ
 (1, '233241234568', 'MSISDN', 14392, 'active'),
 (1, '233241234569', 'MSISDN', 14396, 'active')
 ON CONFLICT (partner_role_id, user_identifier, product_id) DO NOTHING;
-

@@ -77,12 +77,21 @@ MinIO API is exposed on `http://localhost:9100` and MinIO Console on `http://loc
 | `MINIO_ROOT_USER` | MinIO root access key/user | `minioadmin` | No |
 | `MINIO_ROOT_PASSWORD` | MinIO root secret key/password | `minioadmin` | No |
 
+> These MinIO defaults are for local development only. Override them before any shared or production-like deployment.
+
 ## Notification Worker
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `NOTIFICATION_WORKER_MT_BASE_URL` | Base URL for MT message sending | `http://subscription-external:8083` |
 | `NOTIFICATION_WORKER_MT_CHANNEL` | Message channel type | `SMS` |
+| `NOTIFICATION_WORKER_METRICS_ADDR` | Prometheus metrics bind address for the worker | `:9103` |
+
+## Monitoring Stack
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `GRAFANA_ADMIN_PASSWORD` | Grafana admin password for the local monitoring stack | Yes |
 
 ## Landing Web (Next.js)
 
@@ -175,8 +184,9 @@ ssh -L 9000:127.0.0.1:9000 user@your-droplet-ip
 
 ## Security Notes
 
-1. **Never commit secrets to version control** - Use `.env` files locally and Kubernetes secrets in production.
-2. **Use strong passwords** - Generate secure random passwords for all database and API credentials.
-3. **Rotate secrets regularly** - Implement a secret rotation policy.
-4. **Use SSL in production** - Set `APP_DATABASE_POSTGRESQL_SSL_MODE=require` for production deployments.
-5. **Restrict CORS origins** - Don't use `*` for `ACQUISITION_ADMIN_CORS_ORIGINS` in production.
+1. **Use secret references, not literal secrets** - Keep credential-shaped values in environment variables or secret managers; do not hardcode them in compose files or documentation examples.
+2. **Never commit secrets to version control** - Use `.env` files locally and Kubernetes secrets in production.
+3. **Use strong passwords** - Generate secure random passwords for all database and API credentials.
+4. **Rotate secrets regularly** - Implement a secret rotation policy.
+5. **Use SSL in production** - Set `APP_DATABASE_POSTGRESQL_SSL_MODE=require` for production deployments.
+6. **Restrict CORS origins** - Don't use `*` for `ACQUISITION_ADMIN_CORS_ORIGINS` in production.

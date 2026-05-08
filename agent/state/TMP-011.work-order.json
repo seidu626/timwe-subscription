@@ -58,7 +58,7 @@
   "classification_result": {
     "issue_id": "TMP-011",
     "title": "Legacy data migration isolation",
-    "path": "agent/backlog/issues/TMP-011-legacy-data-migration-isolation.md",
+    "path": "/home/xper626/workspace/apps/worktrees/codex-pending-slices-20260508-095850/agent/backlog/issues/TMP-011-legacy-data-migration-isolation.md",
     "declared_class": "operational_slice",
     "detected_class": "operational_slice",
     "confidence": 0.86,
