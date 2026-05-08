@@ -1,0 +1,68 @@
+story:
+  id: "TMP-012"
+  title: "Public requests resolve the correct tenant before campaign or callback handling"
+  actor: "end-subscriber"
+  action: "reach a tenant campaign through host, path, gateway header, or signed campaign route"
+  outcome: "public campaign, HE, transaction, and callback routes cannot choose the wrong tenant"
+  as_a: "end-subscriber"
+  i_want_to: "open the correct tenant's landing or acquisition route"
+  so_that: "my subscription attempt is attached to the tenant campaign I actually visited"
+
+entrypoints:
+  - "GET /lp/{tenant}/{slug} or tenant host mapping"
+  - "GET /v1/campaigns/{slug}"
+  - "GET /v1/he/bootstrap/campaign/{slug}"
+  - "POST /v1/callbacks/{telco}"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Tenant route resolves campaign"
+      given: ["tenant has enabled campaign slug daily", "public request includes accepted tenant route context"]
+      when: "subscriber opens landing page"
+      then: "landing-web and acquisition-api resolve campaign under that tenant only"
+      evidence: "landing API proxy and acquisition handler tests"
+    - scenario: "Gateway forwards tenant context"
+      given: ["request arrives through KrakenD with tenant host mapping"]
+      when: "gateway forwards to acquisition-api"
+      then: "tenant context is present in service request and audit/log fields"
+      evidence: "gateway config test or contract fixture"
+  failures:
+    - scenario: "Ambiguous campaign slug"
+      given: ["two tenants use the same public slug"]
+      when: "request omits tenant host/path/token context"
+      then: "API returns 404 or tenant_resolution_required without defaulting"
+      evidence: "campaign route test"
+    - scenario: "Forged tenant header"
+      given: ["public client sends tenant header directly"]
+      when: "request bypasses trusted gateway policy"
+      then: "service rejects or ignores untrusted tenant header"
+      evidence: "middleware trust-boundary test"
+    - scenario: "Disabled tenant"
+      given: ["tenant is inactive but campaign is enabled"]
+      when: "subscriber opens route"
+      then: "public response is not served and no transaction can start"
+      evidence: "public route test"
+  edges:
+    - scenario: "Legacy single-tenant route"
+      given: ["default tenant mapping is configured for old Ghana route"]
+      when: "subscriber opens existing /lp/{slug} path"
+      then: "legacy route works only when slug is unambiguous under default tenant"
+      evidence: "compatibility route test"
+  invariants:
+    - rule: "Public tenant resolution must be deterministic"
+      preserved_by: "single resolver shared by landing, campaign, HE, transaction, and callback entrypoints"
+      violated_when: "two services resolve the same request to different tenants"
+      test: "resolver contract test across route types"
+
+out_of_scope:
+  - "full DNS automation"
+  - "marketing site redesign"
+
+size_check:
+  files_touched: 15
+  migrations: 0
+  endpoints: 4
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-012-public-tenant-routing/value-gate-report.md"

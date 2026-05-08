@@ -1,0 +1,68 @@
+story:
+  id: "TMP-020"
+  title: "Tenant context appears safely in logs, metrics, traces, and worker health"
+  actor: "operations-analyst"
+  action: "inspect tenant/channel health signals across HTTP services and workers"
+  outcome: "operators can diagnose tenant issues without high-cardinality or PII leakage"
+  as_a: "operations-analyst"
+  i_want_to: "filter operational signals by tenant and channel"
+  so_that: "one tenant's issue can be diagnosed without confusing it with another tenant"
+
+entrypoints:
+  - "HTTP middleware logs"
+  - "Prometheus metrics"
+  - "worker claim/dispatch logs"
+  - "health endpoints"
+
+acceptance_criteria:
+  happy:
+    - scenario: "HTTP request log includes safe tenant context"
+      given: ["request has resolved tenant and channel"]
+      when: "middleware logs request"
+      then: "structured log includes tenant key/channel key/request id and excludes MSISDN or secrets"
+      evidence: "logging middleware test"
+    - scenario: "Worker metric includes approved tenant label"
+      given: ["worker processes tenant outbox item"]
+      when: "metric is emitted"
+      then: "metric includes approved low-cardinality tenant/channel labels"
+      evidence: "worker metric test"
+  failures:
+    - scenario: "Tenant context missing in protected flow"
+      given: ["protected route should have tenant context"]
+      when: "handler emits metric without tenant label"
+      then: "test fails or health output marks route instrumentation incomplete"
+      evidence: "observability gate test"
+    - scenario: "PII label attempted"
+      given: ["MSISDN or click_id is available in request context"]
+      when: "metric/log label is built"
+      then: "PII field is rejected or hashed according to approved spec"
+      evidence: "PII guardrail test"
+    - scenario: "Noisy tenant"
+      given: ["one tenant has high outbox volume"]
+      when: "worker health is requested"
+      then: "health output distinguishes per-tenant queue depth or reports aggregate with safe drilldown"
+      evidence: "worker health test"
+  edges:
+    - scenario: "Unknown tenant during rejection"
+      given: ["request fails before tenant resolution"]
+      when: "middleware logs denial"
+      then: "log includes trust source and request id but no guessed tenant"
+      evidence: "denial log test"
+  invariants:
+    - rule: "Observability is tenant-aware without leaking PII"
+      preserved_by: "approved label allowlist and logging redaction"
+      violated_when: "metric/log includes raw MSISDN, secret, or unbounded click id"
+      test: "label allowlist test"
+
+out_of_scope:
+  - "full distributed tracing deployment"
+  - "new Grafana dashboard redesign"
+
+size_check:
+  files_touched: 14
+  migrations: 0
+  endpoints: 1
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-020-tenant-observability-baseline/value-gate-report.md"

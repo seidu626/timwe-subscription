@@ -1,0 +1,68 @@
+story:
+  id: "TMP-013"
+  title: "Inbound callbacks and partner webhooks correlate to tenant and channel"
+  actor: "mno-or-timwe-upstream"
+  action: "send callback, notification, charge, renewal, or delivery events"
+  outcome: "inbound events update only the intended tenant/channel state"
+  as_a: "mno-or-timwe-upstream"
+  i_want_to: "send callbacks using the agreed platform route"
+  so_that: "subscription, notification, charge, and postback state updates land in the correct tenant"
+
+entrypoints:
+  - "POST /v1/callbacks/{telco}"
+  - "POST /api/v1/webhooks/timwe/notification"
+  - "POST /api/v1/notification/*"
+  - "POST /internal/acquisition/charge-success"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Notification callback resolves tenant"
+      given: ["tenant channel has callback token or provider reference", "TIMWE notification includes partner role/product/correlation data"]
+      when: "subscription-partner receives webhook"
+      then: "event persists with tenant_id, channel_id, provider, raw payload hash, and correlation status"
+      evidence: "webhook handler and repository test"
+    - scenario: "Charge success updates tenant transaction"
+      given: ["acquisition transaction is tenant scoped"]
+      when: "charge-success callback arrives"
+      then: "transaction, subscription, and postback state update under same tenant"
+      evidence: "internal callback service test"
+  failures:
+    - scenario: "Uncorrelatable callback"
+      given: ["payload lacks configured tenant/channel correlation fields"]
+      when: "callback is received"
+      then: "event is stored in quarantine or rejected with no cross-tenant mutation"
+      evidence: "quarantine/reject test"
+    - scenario: "Cross-tenant correlation mismatch"
+      given: ["payload references tenant A token and tenant B transaction id"]
+      when: "callback is processed"
+      then: "processor rejects mismatch and records security/audit event"
+      evidence: "callback correlation test"
+    - scenario: "Replay"
+      given: ["same provider callback id already processed"]
+      when: "provider retries callback"
+      then: "event is idempotently acknowledged without duplicate downstream effects"
+      evidence: "idempotency test"
+  edges:
+    - scenario: "Legacy callback payload"
+      given: ["old TIMWE payload has partner_role_id but no tenant_id"]
+      when: "callback is processed during migration window"
+      then: "resolver maps to default tenant only when mapping is unique and active"
+      evidence: "legacy mapping test"
+  invariants:
+    - rule: "Inbound events cannot mutate another tenant"
+      preserved_by: "correlation verifier before repository updates"
+      violated_when: "callback fields from different tenants produce a successful update"
+      test: "two-tenant mismatch fixture"
+
+out_of_scope:
+  - "new upstream provider integrations beyond current callback shapes"
+  - "fraud scoring"
+
+size_check:
+  files_touched: 15
+  migrations: 1
+  endpoints: 4
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-013-inbound-callback-correlation/value-gate-report.md"

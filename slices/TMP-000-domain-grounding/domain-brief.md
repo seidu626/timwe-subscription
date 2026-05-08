@@ -117,3 +117,13 @@ Failure journeys:
 - Channel taxonomy: SMS, HE, web landing, partner API, USSD, WhatsApp, email, push, billing charge, or only current TIMWE/SMS/web first?
 - Billing service status: revive disabled billing service or keep renewal/charge flows in subscription-external for first tenant platform phase?
 - Admin portal source control: `frontend/webspa-admin` appeared as a nested/untracked checkout in the main tree, so integration ownership needs confirmation before implementation.
+
+## Platform Decisions Required Before Build
+
+1. Tenant resolver contract: accepted sources, precedence, trust boundary, legacy default-tenant behavior, and audit fields.
+2. Tenant membership and role model: tenant admin, campaign operator, operations analyst, platform operator, service account, and partner account scopes.
+3. Channel capability taxonomy: opt-in, confirm, opt-out, status, MT, charge, notification callback, postback, HE bootstrap, redirect, and partner API.
+4. Credential reference model: secret backend, reference shape, rotation, status, redaction, audit, and local development substitute.
+5. Callback correlation model: provider callback id, transaction id, partner role/product mapping, tenant/channel token, replay handling, and quarantine behavior.
+6. Charge ownership: subscription-external, billing service, or explicit split with idempotency and reporting ownership.
+7. Admin portal ownership: whether `frontend/webspa-admin` is in-scope for the first platform release and who owns its build/test/deploy loop.
