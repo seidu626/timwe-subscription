@@ -1,0 +1,52 @@
+# Panic Handler Configuration
+# This file configures how the application handles panics and fatal errors
+
+# Default configuration (used when no environment-specific config is found)
+default:
+  enable_recovery: true
+  log_stack_traces: true
+  log_goroutine_info: true
+  max_stack_depth: 64
+  recovery_timeout: 30s
+  exit_on_fatal: true
+  exit_code: 1
+
+# Development environment configuration
+development:
+  enable_recovery: true
+  log_stack_traces: true
+  log_goroutine_info: true
+  max_stack_depth: 64
+  recovery_timeout: 30s
+  exit_on_fatal: false  # Don't exit in development to allow debugging
+  exit_code: 1
+
+# Staging environment configuration
+staging:
+  enable_recovery: true
+  log_stack_traces: true
+  log_goroutine_info: true
+  max_stack_depth: 64
+  recovery_timeout: 30s
+  exit_on_fatal: true
+  exit_code: 1
+
+# Production environment configuration
+production:
+  enable_recovery: true
+  log_stack_traces: true
+  log_goroutine_info: true
+  max_stack_depth: 64
+  recovery_timeout: 30s
+  exit_on_fatal: true
+  exit_code: 1
+
+# Testing environment configuration
+testing:
+  enable_recovery: false  # Disable recovery in tests
+  log_stack_traces: true
+  log_goroutine_info: false
+  max_stack_depth: 32
+  recovery_timeout: 5s
+  exit_on_fatal: false
+  exit_code: 1 

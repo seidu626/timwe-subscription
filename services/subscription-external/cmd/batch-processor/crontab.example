@@ -1,0 +1,17 @@
+# Crontab entries for Subscription Batch Processor
+# Add these lines to your crontab using: crontab -e
+
+# Run batch processor every day at 2 AM
+0 2 * * * /home/xper626/Documents/repositories/timwe-subscription/services/subscription-external/cmd/batch-processor/run_batch_processor.sh
+
+# Run batch processor every 6 hours
+0 */6 * * * /home/xper626/Documents/repositories/timwe-subscription/services/subscription-external/cmd/batch-processor/run_batch_processor.sh
+
+# Run batch processor every Monday at 3 AM
+0 3 * * 1 /home/xper626/Documents/repositories/timwe-subscription/services/subscription-external/cmd/batch-processor/run_batch_processor.sh
+
+# Run batch processor at specific times (8 AM, 2 PM, 8 PM)
+0 8,14,20 * * * /home/xper626/Documents/repositories/timwe-subscription/services/subscription-external/cmd/batch-processor/run_batch_processor.sh
+
+# For testing: Run every 5 minutes (comment out in production)
+# */5 * * * * /home/xper626/Documents/repositories/timwe-subscription/services/subscription-external/cmd/batch-processor/run_batch_processor.sh -once

@@ -1,0 +1,68 @@
+story:
+  id: "TMP-019"
+  title: "Campaign assets are namespaced by tenant and safe to serve publicly"
+  actor: "campaign-operator"
+  action: "upload, reference, and serve campaign assets through tenant-scoped storage keys"
+  outcome: "landing pages cannot read or overwrite another tenant's campaign media"
+  as_a: "campaign-operator"
+  i_want_to: "manage campaign assets inside my tenant"
+  so_that: "landing media and signed URLs stay isolated"
+
+entrypoints:
+  - "POST /v1/admin/campaign-assets/background/presign"
+  - "campaign asset service"
+  - "MinIO/S3 bucket and key policy"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Tenant asset key generated"
+      given: ["tenant admin requests presigned upload for campaign background"]
+      when: "asset service creates key"
+      then: "object key includes tenant namespace and campaign-safe prefix"
+      evidence: "campaign_asset_service test asserts key and response body"
+    - scenario: "Public asset URL is tenant-safe"
+      given: ["tenant admin requests presigned upload for campaign background"]
+      when: "asset service creates upload response"
+      then: "asset URL is derived from the tenant-scoped object key instead of caller-provided URL text"
+      evidence: "asset URL builder and object-key tests"
+  failures:
+    - scenario: "Cross-tenant asset read"
+      given: ["tenant A and tenant B request assets for the same campaign slug"]
+      when: "asset service builds object keys"
+      then: "tenant namespaces make the object keys distinct"
+      evidence: "two-tenant key generation test"
+    - scenario: "Path traversal"
+      given: ["upload filename includes traversal or control characters"]
+      when: "presign endpoint validates request"
+      then: "API returns 400 and no presign is issued"
+      evidence: "handler validation test"
+    - scenario: "Storage backend failure"
+      given: ["MinIO/S3 presign fails"]
+      when: "tenant admin requests upload"
+      then: "API returns dependency error without leaking credentials"
+      evidence: "handler maps storage sentinel to generic 503"
+  edges:
+    - scenario: "Legacy asset"
+      given: ["existing campaign has global asset path"]
+      when: "campaign tenant binding is introduced"
+      then: "migration maps legacy assets to the default tenant before public serving is tenant-enforced"
+      evidence: "documented dependency on TMP-005 and migration slice"
+  invariants:
+    - rule: "Tenant object keys cannot collide"
+      preserved_by: "tenant namespace and scoped uniqueness"
+      violated_when: "two tenants can write same storage key"
+      test: "two-tenant key generation test"
+
+out_of_scope:
+  - "new media library UI"
+  - "image transformation pipeline"
+  - "campaign-row tenant ownership checks before TMP-005 adds tenant_id to campaigns"
+
+size_check:
+  files_touched: 12
+  migrations: 0
+  endpoints: 1
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-019-tenant-asset-namespacing/value-gate-report.md"

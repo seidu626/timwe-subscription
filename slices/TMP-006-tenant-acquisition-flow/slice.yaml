@@ -1,0 +1,74 @@
+story:
+  id: "TMP-006"
+  title: "End subscriber converts through a tenant campaign"
+  actor: "end-subscriber"
+  action: "start and confirm acquisition through a tenant-scoped campaign"
+  outcome: "transaction, consent, attribution, HE, and next action are tied to the correct tenant"
+  as_a: "end-subscriber"
+  i_want_to: "subscribe through a tenant campaign"
+  so_that: "my subscription attempt follows the correct offer, channel, and consent rules"
+
+entrypoints:
+  - "POST /v1/acquisition/transactions"
+  - "POST /v1/acquisition/transactions/{id}/confirm"
+  - "GET /v1/acquisition/transactions/{id}/status"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Create tenant transaction"
+      given: ["enabled tenant campaign", "valid MSISDN", "consent checked when required"]
+      when: "subscriber submits transaction request"
+      then: "API returns transaction_id, tenant-scoped correlation_id, status, next_action, and payload"
+      evidence: "transaction handler test asserts row tenant_id and response"
+    - scenario: "Confirm OTP"
+      given: ["transaction requires confirmation"]
+      when: "subscriber posts auth code"
+      then: "API resolves campaign context from transaction tenant ownership and returns subscribed or next pending state"
+      evidence: "service/repository tests assert tenant id persistence and tenant campaign lookup path"
+  failures:
+    - scenario: "Tenant campaign mismatch"
+      given: ["campaign slug belongs to another tenant"]
+      when: "subscriber starts transaction under current tenant route"
+      then: "API returns 404 and creates no transaction"
+      evidence: "handler test"
+    - scenario: "Missing consent"
+      given: ["campaign requires consent"]
+      when: "subscriber submits without consent_checked"
+      then: "API returns 400 and no TIMWE call occurs"
+      evidence: "mock call count and DB assertion"
+    - scenario: "Dependency failure"
+      given: ["TIMWE/subscription-external client returns timeout"]
+      when: "transaction starts or confirms"
+      then: "transaction status records failure/pending according to existing contract and no conversion postback is emitted"
+      evidence: "service test asserts transaction and outbox state"
+  edges:
+    - scenario: "Pending reuse isolation"
+      given: ["same MSISDN and campaign slug in two tenants"]
+      when: "both tenants start transactions within pending TTL"
+      then: "pending reuse happens only within same tenant/campaign"
+      evidence: "repository/service test"
+  invariants:
+    - rule: "Consent records remain immutable"
+      preserved_by: "new consent row appended, never updated by confirm/status"
+      violated_when: "confirm mutates consent record"
+      test: "DB state assertion"
+    - rule: "Postbacks are not emitted before valid terminal event"
+      preserved_by: "outbox enqueue only on subscribed/conversion/failure policy"
+      violated_when: "timeout creates conversion postback"
+      test: "outbox assertion"
+
+out_of_scope:
+  - "full landing web UI route changes"
+  - "postback dispatcher delivery"
+  - "cadence and renewal"
+  - "tenant channel credential/provider routing; owned by TMP-007"
+  - "inbound charge/callback tenant correlation; owned by TMP-013"
+
+size_check:
+  files_touched: 15
+  migrations: 1
+  endpoints: 3
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-006-tenant-acquisition-flow/value-gate-report.md"

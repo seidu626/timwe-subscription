@@ -1,0 +1,21 @@
+{
+  "duration": "12.003882648s",
+  "endIndex": 5,
+  "entryChannel": "SMS",
+  "entryChannels": [
+    "USSD",
+    "SMS"
+  ],
+  "msisdnCount": 0,
+  "productIds": [
+    "8509"
+  ],
+  "response": {
+    "total": 5,
+    "successful": 5,
+    "failed": 0
+  },
+  "startIndex": 1,
+  "telco": "AirtelTigo",
+  "timestamp": "2025-08-20T17:20:59Z"
+}

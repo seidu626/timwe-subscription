@@ -1,0 +1,67 @@
+story:
+  id: "TMP-014"
+  title: "Tenant admin uses a tenant-scoped admin workspace"
+  actor: "tenant-admin"
+  action: "navigate campaigns, products, userbase, cadence, postbacks, reports, and settings in webspa-admin"
+  outcome: "the UI exposes tenant context clearly and never requests or displays another tenant's data"
+  as_a: "tenant-admin"
+  i_want_to: "manage only my tenant's platform resources"
+  so_that: "daily operations are safe without manually tracking tenant IDs"
+
+entrypoints:
+  - "frontend/webspa-admin routes"
+  - "Auth0 login callback"
+  - "admin API client interceptors"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Workspace shows current tenant"
+      given: ["tenant admin has one tenant assignment"]
+      when: "admin opens portal"
+      then: "workspace loads current tenant and all data calls include tenant context through trusted auth/gateway path"
+      evidence: "frontend route/client test"
+    - scenario: "Platform operator switches tenant"
+      given: ["operator has platform-scoped permission"]
+      when: "operator selects tenant"
+      then: "subsequent admin views and reports use selected tenant and audit switch"
+      evidence: "frontend state and API contract test"
+  failures:
+    - scenario: "Tenant admin attempts URL tampering"
+      given: ["admin belongs to tenant A"]
+      when: "admin changes route/query to tenant B"
+      then: "UI shows denial/not-found and API returns 403/404"
+      evidence: "route guard and API integration test"
+    - scenario: "Missing tenant assignment"
+      given: ["authenticated user has no tenant membership"]
+      when: "portal loads"
+      then: "UI blocks workspace and does not issue resource list requests"
+      evidence: "frontend auth guard test"
+    - scenario: "Stale tenant selection"
+      given: ["tenant was disabled after login"]
+      when: "admin performs mutation"
+      then: "UI clears workspace and surfaces disabled state"
+      evidence: "client error handling test"
+  edges:
+    - scenario: "Empty tenant workspace"
+      given: ["new tenant has no campaigns/products/userbase"]
+      when: "admin opens dashboard"
+      then: "UI renders empty states without cross-tenant fallback"
+      evidence: "component test"
+  invariants:
+    - rule: "UI tenant context must match API tenant enforcement"
+      preserved_by: "shared auth claims and API error handling"
+      violated_when: "frontend displays data after API denies tenant access"
+      test: "interceptor/guard negative test"
+
+out_of_scope:
+  - "full visual redesign"
+  - "new BI dashboards"
+
+size_check:
+  files_touched: 15
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-014-admin-portal-tenant-workspace/value-gate-report.md"

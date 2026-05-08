@@ -1,0 +1,24 @@
+{
+  "duration": "2.001521755s",
+  "endIndex": 5,
+  "entryChannel": "SMS",
+  "entryChannels": [
+    "USSD",
+    "SMS"
+  ],
+  "msisdnCount": 0,
+  "productIds": [
+    "8509"
+  ],
+  "response": {
+    "total": 0,
+    "successful": 0,
+    "failed": 0,
+    "errorDetails": {
+      "error": "failed to fetch active msisdns with products: pq: for SELECT DISTINCT, ORDER BY expressions must appear in select list"
+    }
+  },
+  "startIndex": 1,
+  "telco": "AirtelTigo",
+  "timestamp": "2025-08-20T17:33:25Z"
+}

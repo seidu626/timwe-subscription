@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CodexReviewGate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision",
+    "p0_count",
+    "p1_count",
+    "summary",
+    "findings"
+  ],
+  "properties": {
+    "decision": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "warn",
+        "block"
+      ],
+      "description": "block if P0 issues exist or build is broken; warn for P1-only."
+    },
+    "p0_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "p1_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "severity",
+          "title",
+          "where",
+          "recommendation"
+        ],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "P0",
+              "P1"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "where": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recommendation": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 10,
+      "description": "Optional labels/tags for automation (e.g., needs-tests, perf-risk)."
+    }
+  }
+}

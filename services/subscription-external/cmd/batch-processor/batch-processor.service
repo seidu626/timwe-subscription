@@ -1,0 +1,19 @@
+[Unit]
+Description=Subscription Batch Processor Service
+After=network.target
+
+[Service]
+Type=simple
+User=xper626
+WorkingDirectory=/home/xper626/Documents/repositories/timwe-subscription/services/subscription-external
+ExecStart=/home/xper626/Documents/repositories/timwe-subscription/services/subscription-external/cmd/batch-processor/batch-processor -config /home/xper626/Documents/repositories/timwe-subscription/services/subscription-external/cmd/batch-processor/config.json
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/var/log/batch-processor.log
+StandardError=append:/var/log/batch-processor-error.log
+
+# Environment variables if needed
+Environment="GO_ENV=production"
+
+[Install]
+WantedBy=multi-user.target

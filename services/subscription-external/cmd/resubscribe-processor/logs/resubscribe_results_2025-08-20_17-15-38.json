@@ -1,0 +1,20 @@
+{
+  "duration": "26.002690923s",
+  "endIndex": -1,
+  "entryChannel": "USSD",
+  "entryChannels": [
+    "USSD"
+  ],
+  "msisdnCount": 0,
+  "productIds": [
+    "8509"
+  ],
+  "response": {
+    "total": 80917,
+    "successful": 80917,
+    "failed": 0
+  },
+  "startIndex": 0,
+  "telco": "AirtelTigo",
+  "timestamp": "2025-08-20T17:15:38Z"
+}

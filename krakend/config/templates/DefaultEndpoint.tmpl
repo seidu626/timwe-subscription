@@ -1,0 +1,29 @@
+{{define "DefaultEndpoint"}}
+
+{{$host := .}}
+
+{
+    "endpoint": "/",
+    "method": "GET",
+    "output_encoding": "no-op",
+    "extra_config": {},
+    "backend": [
+        {
+            "url_pattern": "/",
+            "encoding": "no-op",
+            "sd": "static",
+            "method": "GET",
+            "extra_config": {},
+            "host": ["{{ $host }}"],
+            "disable_host_sanitize": true,
+            "response": {
+                "data": {
+                    "message": "Welcome to Nouveauriche Global API Gateway",
+                    "status": "200"
+                }
+          }
+        } 
+    ]
+}
+
+{{end}}

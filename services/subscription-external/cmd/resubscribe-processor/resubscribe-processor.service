@@ -1,0 +1,35 @@
+[Unit]
+Description=Subscription Resubscribe Processor
+Documentation=https://github.com/seidu626/subscription-manager
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=subscription
+Group=subscription
+WorkingDirectory=/opt/subscription-external/resubscribe-processor
+ExecStart=/opt/subscription-external/resubscribe-processor/resubscribe-processor -config config.json
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=resubscribe-processor
+
+# Environment variables
+Environment=GOMAXPROCS=4
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/subscription-external/resubscribe-processor/logs
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

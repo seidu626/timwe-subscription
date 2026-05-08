@@ -1,0 +1,42 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Opt-in Success",
+      "targets": [{"expr": "sum(increase(optin_success_total[5m]))"}],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Resubscribe Success",
+      "targets": [{"expr": "sum(increase(resubscribe_success_total[5m]))"}],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Processed by Type",
+      "targets": [{"expr": "sum by(type) (increase(notification_processed_total[5m]))"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "Errors by Type/Stage",
+      "targets": [{"expr": "sum by(type,stage) (increase(notification_errors_total[5m]))"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    }
+  ],
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["subscription", "notification-monitor"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "",
+  "title": "Notification Monitor",
+  "version": 1
+}

@@ -1,0 +1,58 @@
+{{ define "AdminApiEndpoint" }}
+{
+    "endpoint": "{{ .Endpoint }}",
+    "method": "{{ .METHOD }}",
+    "output_encoding": "no-op",
+    "extra_config": {
+        "auth/validator": {
+            "alg": "RS256",
+            "jwk_url": "https://{{ .Auth0Domain }}/.well-known/jwks.json",
+            "issuer": "https://{{ .Auth0Domain }}/",
+            "audience": [{{- $auds := splitList "," .Auth0Audience -}}{{- range $i, $aud := $auds }}{{- if $i }}, {{ end -}}"{{ trim $aud }}"{{- end }}],
+            "cache": true,
+            "cache_duration": 900
+        },
+        "github.com/devopsfaith/krakend/http": {
+            "return_error_details": true
+        }
+    },
+    "input_query_strings": ["*"],
+    "input_headers": [
+        "Authorization"
+    ],
+    "headers_to_pass": [
+        "Authorization",
+        "x-forwarded-for",
+        "x-real-ip",
+        "user-agent"
+    ],
+    "backend": [
+        {
+            "url_pattern": "{{ .BackendUrlPattern }}",
+            "encoding": "no-op",
+            "sd": "static",
+            "method": "{{ .METHOD }}",
+            "extra_config": {
+                "github.com/devopsfaith/krakend/http": {
+                    "return_error_details": true
+                },
+                "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+                    "maxRate": 100,
+                    "capacity": 200,
+                    "strategy": "token-bucket"
+                },
+                "github.com/devopsfaith/krakend/logging": {
+                    "level": "INFO",
+                    "prefix": "[Admin API]",
+                    "stdout": true
+                }
+            },
+            "host": ["{{ .BackendHost }}"],
+            "disable_host_sanitize": true,
+            "headers_to_pass": [
+                "Authorization"
+            ]
+        }
+    ]
+}
+{{ end }}

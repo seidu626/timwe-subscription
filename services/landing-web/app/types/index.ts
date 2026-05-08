@@ -53,13 +53,52 @@ export interface AttributionConfig {
   window_days: number
 }
 
+export interface TrackingVisualConfig {
+  background_image_url?: string
+  theme_color?: string
+}
+
 export interface TrackingConfiguration {
   pixels?: PixelConfiguration
   attribution?: AttributionConfig
+  visual?: TrackingVisualConfig
+  redirect_url?: string
+  redirect?: {
+    url: string
+  }
   custom_events?: Array<{
     name: string
     trigger: string
   }>
+}
+
+export interface LandingCopyLocale {
+  heroTitle: string
+  heDescription: string
+  heCta: string
+  heModalTitle: string
+  heModalConfirm: string
+  msisdnDescription: string
+  msisdnPlaceholder: string
+  msisdnCta: string
+  otpDescription: string
+  otpPlaceholder: string
+  otpCta: string
+  successTitle: string
+  successBody: string
+  consentPrefix: string
+  consentTerms: string
+  termsHeading: string
+  legal: string
+  phoneRequired: string
+  phoneInvalid: string
+  otpInvalid: string
+  consentRequired: string
+}
+
+export interface LandingCopyConfig {
+  en?: LandingCopyLocale
+  ar?: LandingCopyLocale
 }
 
 // ============================================
@@ -81,23 +120,33 @@ export interface Campaign {
   consent_required: boolean
   og_image?: string
   tracking_config?: TrackingConfiguration
+  lp_copy?: LandingCopyConfig
 }
 
 export interface TransactionResponse {
   transaction_id: string
-  correlation_id: string
-  status: 'PENDING' | 'OTP_REQUIRED' | 'SUBSCRIBED' | 'FAILED' | 'CANCELLED'
-  next_action: 'OPEN_SMS' | 'OTP' | 'COMPLETE' | 'ERROR'
-  payload: {
+  correlation_id?: string
+  status: 'PENDING' | 'ACTION_REQUIRED' | 'CONFIRM_REQUIRED' | 'SUBSCRIBED' | 'CHARGED' | 'FAILED' | 'CANCELLED'
+  next_action?: 'OPEN_SMS' | 'OTP' | 'REDIRECT' | 'SHOW_INSTRUCTIONS' | 'SUBSCRIBED'
+  payload?: {
     sms_link?: string
     short_code?: string
     keyword?: string
     fallback_steps?: string[]
     transaction_id?: string
     prompt?: string
+    url?: string
+    redirect_url?: string
     message?: string
   }
+  error?: string
 }
+
+// LP flow/UI state
+export type FlowStep = 'HE_PROMPT' | 'MSISDN_ENTRY' | 'OTP_ENTRY' | 'SUCCESS'
+
+// Backend analytics event contract for /api/analytics/landing
+export type AnalyticsEventType = 'landing_view' | 'landing_click' | 'form_submit'
 
 export interface AttributionData extends UTMParameters, AdPlatformClickIds {
   // Mobplus/Affiliate params

@@ -1,0 +1,34 @@
+# examples/codex_config.toml
+#
+# Copy to: ~/.codex/config.toml
+#
+# Notes:
+# - Codex uses profiles to switch between safety postures.
+# - Approval policy and sandbox mode can also be overridden via CLI flags.
+
+# Default posture (good for trusted repos)
+approval_policy = "on-request"
+sandbox_mode    = "workspace-write"
+
+[shell_environment_policy]
+# Only pass through the bare minimum to spawned commands.
+include_only = ["PATH", "HOME"]
+
+# Review-only profile (safe for untrusted repos / audit work)
+[profiles.readonly_quiet]
+approval_policy = "never"
+sandbox_mode    = "read-only"
+
+# Workspace-write but prompt on any command that looks "untrusted"
+[profiles.workspace_write_untrusted]
+approval_policy = "untrusted"
+sandbox_mode    = "workspace-write"
+
+# Convenience profile (still sandboxed; asks on request)
+[profiles.full_auto]
+approval_policy = "on-request"
+sandbox_mode    = "workspace-write"
+
+[features]
+# Enable only if you explicitly want the model to request web searches.
+# web_search_request = true

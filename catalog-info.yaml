@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: timwe-subscription
+  title: Timwe Subscription
+  description: Subscription management platform with Go services, deployment manifests, and frontend surfaces.
+  annotations:
+    xper626.dev/source-path: /home/xper626/workspace/apps/timwe-subscription
+    xper626.dev/docs-path: /home/xper626/workspace/apps/timwe-subscription/docs
+  links:
+    - url: file:///home/xper626/workspace/apps/timwe-subscription
+      title: Repository Root
+    - url: file:///home/xper626/workspace/apps/timwe-subscription/docs
+      title: Documentation
+spec:
+  type: service
+  lifecycle: experimental
+  owner: group:default/workspace-maintainers
+  system: workspace-products

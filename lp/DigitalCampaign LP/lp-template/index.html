@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-type" content="text/html; charset=UTF-8">
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="css/template.css">
+	<link href="https://fonts.googleapis.com/css?family=Hammersmith+One&display=swap" rel="stylesheet">
+</head>
+
+<body id="body">
+	
+	
+	
+	
+	
+	
+    <a href="javascript:void(0);" onclick="btnLng();" class="language"><span class="lng_en">English</span><span class="lng_ar">العربية</span></a>
+
+    <!---HEADER--->
+    <div class="main-img">
+        <img src="images/logo.png" />
+
+        <h1>
+            <span class="lng_en"><p> Want to save money? <BR>Check out our latest tips!
+</P> </span>
+            <span class="lng_ar"> شاهد آخر الأعمال الدرامية والعروض الترفيهية العربية والآسيوية.</span>
+        </h1>
+    </div>
+    <!---HEADER--->
+
+    <!---WAP FLOW--->
+    <div id="block1_He" style="display:block">
+        <div class="banner-area">
+            <p><span class="lng_en">To get access click on Subscribe
+</span>
+                <span class="lng_ar">الرجاء إدخال رقم هاتفك النقال للتسجيل.</span>
+            </p>
+
+            <div class="form">
+                <!--HE FLOW-->
+                <form id="formHESubscription" method="post" novalidate="">
+                    <div class="operadores">
+                        <input class="inputer" id="msisdnHe" name="msisdnHe" type="text" placeholder="Introduce tu celular" value="#{msisdn}" maxlength="12" style="display: none" />
+                    </div>
+                    <div class="btn animated pulse infinite" id="popuphe"><span class="lng_en">Subscribe</span><span class="lng_ar">اشترك</span></div>
+                    <div class="price-bottom">
+                        <span class="lng_en">SR 0.66 / Day (auto-renewal) <auto-renewal></auto-renewal>
+
+
+
+</span>
+                        <span class="lng_ar">أنت تستخدم رقم 96800000000 للاشتراك<br>
+                           تجربة مجانية مدة يومين، عند الانتهاء من التجربة المجانية سوف يتم احتساب 200 بيسة يوميا.</span>
+                    </div>
+                </form>
+            </div>
+            <div class="popupHe message-area" style="display: none">
+                <div class="btn-close-he">X</div>
+                <div class="line">
+                    <div><span class="lng_en">Almost there! <br>Please confirm<br>to get access</span>
+                        <span class="lng_ar">اوشكت على الوصول! يرجى التأكيد للمشاهدة</span>
+                        <div class="serviceName">
+                            <!-- ?php echo $serviceName; ?-->
+                        </div>
+                    </div>
+                </div>
+                <div class="line line-btnPopup">
+                    <input class="btnSubmit" id="formHESubscriptionSubmit" type="submit" name="btnSubmit" value="Confirm" />
+                </div>
+            </div>
+        </div>
+    </div>
+    <!---END OF WAP FLOW--->
+
+    <!---MSISDN--->
+    <div id="block1" style="display:none">
+        <div class="banner-area">
+            <!-- insert MSISDN step-->
+            <p class="descrOptin" style="display:block"><span class="lng_en">Enter your mobile number below to <br> to get the access pin code</span>
+                <span class="lng_ar">أدخل رقم جوالك للبدء بالمشاهدة</span>
+            </p>
+            <div class="form">
+                <form id="formSubscription" name="contacto">
+                    <p><img width="40" src="images/icon1.jpg" />
+                        <input class="prefix" disabled="disabled" value="974" />
+                        <!--input#msisdn_show.inputer(name='msisdn_show', type='text', placeholder='Mobile number', maxlength='9')-->
+                        <input class="inputer" id="msisdn" name="msisdn" type="text" placeholder="Mobile number" maxlength="12" />
+                    </p>
+                    <p class="operadores">
+                        <img width="40" src="images/icon3.png" />
+                        <select class="inputer">
+                        <option value=Mobily" selected>Mobily</option>
+                        
+                        </select>
+                    </p>
+                    <div class="btn" id="formSubscriptionSubmit"><span class="lng_en">Subscribe</span><span class="lng_ar">اشترك</span></div>
+                    <div class="price-bottom">
+                        <span class="lng_en">
+                            Only For Ooredoo clients 10 QAR/Week</span>
+                        <span class="lng_ar">
+                            تجربة مجانية مدة يومين، عند الانتهاء من التجربة المجانية سوف يتم احتساب 200 بيسة يوميا.</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!---END OF MSISDN--->
+
+    <!---PIN--->
+    <div id="block2" style="display:none">
+        <div class="banner-area">
+            <p class="descrOptin">
+                <span class="lng_en">Access the content by entering below the PIN you have received</span>
+                <span class="lng_ar">ادخل الرقم الذي تلقيته للتأكيد</span>
+            </p>
+            <div class="form">
+                <form id="formValidation" name="contacto">
+                    <p><img width="40" src="images/icon2.jpg" />
+                        <input class="inputer" id="password" name="password" type="text" placeholder="****" maxlength="4" />
+                    </p>
+                    <div class="btn fade grow" id="formValidationSubmit"><span class="lng_en">Confirm</span><span class="lng_ar">للتأكيد</span></div>
+                    <div class="price-bottom">
+                        <span class="lng_en">
+                           Only For Ooredoo clients 10 QAR/Week
+                        <span class="lng_ar">
+                           تجربة مجانية مدة يومين، عند الانتهاء من التجربة المجانية سوف يتم احتساب 200 بيسة يوميا.</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+
+
+    </div>
+    <!---END OF PIN--->
+
+    <!---CONGRATS--->
+    <div id="block3" style="display:none">
+        <div id="main-body">
+            <div class="main-img">
+                <p style="font-weight: bold">
+                    <span class="lng_en">Congratulations!<br> You will receive a text message with you access</span>
+                    <span class="lng_ar">تهانينا! سوف تستلم رسالة نصية لمعرفة أفضل الوصفات</span>
+                </p>
+            </div>
+        </div>
+    </div>
+    <!---END OF CONGRATS--->
+
+    <div style="clear: both"></div>
+
+    <!---LEGAL TEXT--->
+    <div class="footer">
+        <div class="legal-footer">
+<span class="lng_en">Welcome to Art of Saving! Subscribers of this service enjoy access to a wide range of tips on how to save money, with unlimited use. The subscription rate for Art of Saving for Mobily users is SR 0.66/Day Your subscription will be renewed automatically until cancelled. to cancel, send 1 to 601061. To use this service, you must be 18+ years old or have received permission from your parents or person authorized to pay your bill
+
+
+
+
+
+
+</span>
+            <span class="lng_ar">سوف تشترك في خدمة VIU Premium.  استمتع بمجموعة كبيرة من مقاطع الفيديو والأفلام والمسلسلات الرائعه مع VIU Premium.  إذا كنت مستخدم جديد فسوف تحصل على يومين مجانيين .  سيتم تجديد الاشتراك تلقائيًا بعد انتهاء التجريبية المجانية، لإلغاء الاشتراك في أي وقت أرسل UNSUB/UNSUB VIUW إلى 90089/91998. يجب ان يكون عمرك اكثر من 18 سنة لاستخدام هذه الخدمة. (Omantel/Ooredoo Oman)</span>
+        </div>
+    </div>
+    <!---END OF LEGAL TEXT--->
+
+    <script type="text/javascript" src="http://code.jquery.com/jquery-1.7.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="js/template.js"></script>
+</body>
+
+</html>

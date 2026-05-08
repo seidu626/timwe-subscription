@@ -1,0 +1,307 @@
+services:
+  subscription:
+    build:
+      context: ./services/subscription-partner
+      dockerfile: Dockerfile
+    container_name: subscription-service
+    ports:
+      - "8081:8081"
+    environment:
+      # Database config - using APP_ prefix to match viper's SetEnvPrefix("APP")
+      - APP_DATABASE_POSTGRESQL_HOST=139.59.135.253
+      - APP_DATABASE_POSTGRESQL_PORT=5432
+      - APP_DATABASE_POSTGRESQL_USER=sm_admin
+      - APP_DATABASE_POSTGRESQL_PASSWORD=d898b0b78a2627cb4ee6*__
+      - APP_DATABASE_POSTGRESQL_DB_NAME=subscription_manager
+      - APP_DATABASE_POSTGRESQL_SSL_MODE=disable
+      # Cache config
+      - APP_CACHE_REDIS_HOST=redis
+      - APP_CACHE_REDIS_PORT=6379
+      - APP_CACHE_REDIS_DB=0
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+      - shared-network
+
+  # billing service disabled - needs migration from net/http to fasthttp
+  # billing:
+  #   build:
+  #     context: ./services/billing
+  #     dockerfile: Dockerfile
+  #   container_name: billing-service
+  #   ports:
+  #     - "8083:8083"
+  #   environment:
+  #     - DB_HOST=database
+  #     - DB_POSTGRESQL_HOST=database
+  #     - JWT_SECRET=${JWT_SECRET}
+  #   depends_on:
+  #     database:
+  #       condition: service_healthy
+  #   networks:
+  #     - backend
+  #     - shared-network
+
+  notification:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "8082:8082"
+    environment:
+      - DB_POSTGRESQL_HOST=database
+      - DB_HOST=database
+      - CACHE_REDIS_HOST=redis
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
+      - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+      - shared-network
+
+  notification-worker:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    container_name: notification-worker
+    command: ["./notification-worker"]
+    environment:
+      - DB_POSTGRESQL_HOST=database
+      - DB_HOST=database
+      - NOTIFICATION_WORKER_MT_BASE_URL=${NOTIFICATION_WORKER_MT_BASE_URL}
+      - NOTIFICATION_WORKER_MT_CHANNEL=${NOTIFICATION_WORKER_MT_CHANNEL}
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - backend
+      - shared-network
+
+  cadence-engine:
+    build:
+      context: ./services/cadence-engine
+      dockerfile: Dockerfile
+    container_name: cadence-engine
+    ports:
+      - "8091:8091"
+    environment:
+      - APP_DATABASE_POSTGRESQL_HOST=database
+      - APP_DATABASE_POSTGRESQL_PORT=5432
+      - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
+      - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+      - APP_DATABASE_POSTGRESQL_SSL_MODE=disable
+      - CADENCE_ADMIN_HTTP_ADDR=:8091
+      - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
+      - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
+      - CADENCE_ADMIN_CORS_ORIGINS=http://localhost:4200
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - backend
+      - shared-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: subscription_redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shared-network
+    restart: always
+
+  database:
+    image: postgres:${POSTGRESQL_VERSION}
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD:  ${PG_PASSWORD}
+      POSTGRES_DB: ${PG_DB}
+    container_name: subscription_manager_db
+    ports:
+      - "5434:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shared-network
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4:latest #https://hevodata.com/learn/pgadmin-docker/#s2
+    #network_mode: host
+    networks:
+      - shared-network
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_LISTEN_PORT: ${PGADMIN_LISTEN_PORT}
+    ports:
+      - "5439:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    networks:
+      - backend
+      - shared-network
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin}; do
+        echo 'waiting for minio...';
+        sleep 2;
+      done;
+      mc mb -p local/${CAMPAIGN_ASSET_STORAGE_BUCKET:-campaign-assets} || true;
+      mc anonymous set download local/${CAMPAIGN_ASSET_STORAGE_BUCKET:-campaign-assets} || true;
+      echo 'minio bucket bootstrap complete';
+      "
+    depends_on:
+      minio:
+        condition: service_started
+    networks:
+      - backend
+      - shared-network
+    restart: "no"
+
+  acquisition-api:
+    build:
+      context: ./services/acquisition-api
+      dockerfile: Dockerfile
+    container_name: acquisition-api
+    ports:
+      - "8084:8084"
+    environment:
+      - APP_DATABASE_POSTGRESQL_HOST=database
+      - APP_DATABASE_POSTGRESQL_PORT=5432
+      - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
+      - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+      - APP_DATABASE_POSTGRESQL_SSL_MODE=disable
+      - TIMWE_API_KEY=${TIMWE_API_KEY}
+      - TIMWE_PSK=${TIMWE_PSK}
+      - SUBSCRIPTION_EXTERNAL_URL=${SUBSCRIPTION_EXTERNAL_URL:-http://krakend:8080}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
+      - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
+      - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
+      - CAMPAIGN_ASSET_STORAGE_ENABLED=${CAMPAIGN_ASSET_STORAGE_ENABLED:-true}
+      - CAMPAIGN_ASSET_STORAGE_ENDPOINT=${CAMPAIGN_ASSET_STORAGE_ENDPOINT:-minio:9000}
+      - CAMPAIGN_ASSET_STORAGE_BUCKET=${CAMPAIGN_ASSET_STORAGE_BUCKET:-campaign-assets}
+      - CAMPAIGN_ASSET_STORAGE_REGION=${CAMPAIGN_ASSET_STORAGE_REGION:-us-east-1}
+      - CAMPAIGN_ASSET_STORAGE_ACCESS_KEY_ID=${CAMPAIGN_ASSET_STORAGE_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-minioadmin}}
+      - CAMPAIGN_ASSET_STORAGE_SECRET_ACCESS_KEY=${CAMPAIGN_ASSET_STORAGE_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-minioadmin}}
+      - CAMPAIGN_ASSET_STORAGE_USE_SSL=${CAMPAIGN_ASSET_STORAGE_USE_SSL:-false}
+      - CAMPAIGN_ASSET_STORAGE_PUBLIC_BASE_URL=${CAMPAIGN_ASSET_STORAGE_PUBLIC_BASE_URL:-http://localhost:9100/${CAMPAIGN_ASSET_STORAGE_BUCKET:-campaign-assets}}
+      - CAMPAIGN_ASSET_STORAGE_KEY_PREFIX=${CAMPAIGN_ASSET_STORAGE_KEY_PREFIX:-campaign-backgrounds}
+      - CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES=${CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES:-2097152}
+      - CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY=${CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY:-10m}
+    depends_on:
+      database:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    networks:
+      - backend
+      - shared-network
+
+  landing-web:
+    build:
+      context: ./services/landing-web
+      dockerfile: Dockerfile
+    container_name: landing-web
+    ports:
+      - "3002:3000"
+    environment:
+      - NEXT_PUBLIC_ACQUISITION_API_URL=http://localhost:8080
+    depends_on:
+      - acquisition-api
+    networks:
+      - shared-network
+
+  postback-dispatcher:
+    build:
+      context: ./services/postback-dispatcher
+      dockerfile: Dockerfile
+    container_name: postback-dispatcher
+    environment:
+      - DATABASE_POSTGRESQL_HOST=database
+      - DATABASE_POSTGRESQL_PORT=5432
+      - DATABASE_POSTGRESQL_USER=${PG_USER}
+      - DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - backend
+      - shared-network
+    restart: unless-stopped
+
+  krakend:
+    build:
+      context: ./krakend
+      dockerfile: Dockerfile
+    container_name: krakend
+    ports:
+      - "8090:8080"
+    environment:
+      FC_ENABLE: 1
+      subscription_api_url: "http://subscription:8081"
+      notification_api_url: "http://notification:8082"
+      billing_api_url: "http://localhost:8083"
+      acquisition_api_url: "http://acquisition-api:8084"
+      landing_web_url: "http://landing-web:3000"
+    depends_on:
+      - subscription
+      - notification
+      - acquisition-api
+    networks:
+      - backend
+      - shared-network
+
+
+networks:
+  backend:
+    driver: bridge
+  shared-network:
+    external: true
+
+volumes:
+  db_data:
+  pgadmin-data:
+    driver: local
+  minio_data:

@@ -1,0 +1,27 @@
+# Postback Dispatcher Configuration
+# -----------------------------------------
+# SECURITY NOTE: All secrets MUST be provided via environment variables.
+# This file contains NON-SENSITIVE defaults only.
+#
+# Required Environment Variables:
+#   - DATABASE_POSTGRESQL_PASSWORD: Database password
+#
+# Optional Environment Variables:
+#   - DATABASE_POSTGRESQL_HOST: Override database host (default: localhost)
+#   - DATABASE_POSTGRESQL_PORT: Override database port (default: 5432)
+#   - DATABASE_POSTGRESQL_USER: Override database user (default: sm_admin)
+# -----------------------------------------
+
+APPLICATION:
+  ENVIRONMENT: DEVELOPMENT
+
+DATABASE:
+  POSTGRESQL:
+    HOST: localhost
+    PORT: 5432
+    USER: sm_admin
+    # PASSWORD provided via DATABASE_POSTGRESQL_PASSWORD environment variable
+    DB_NAME: subscription_manager
+    SSL_MODE: disable
+    MAX_OPEN_CONNS: 20
+    MAX_IDLE_CONNS: 5

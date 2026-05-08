@@ -1,0 +1,114 @@
+name: Codex review (maintainer-triggered, diff-only)
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: codex-review-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  codex_review:
+    # Only run on PR comments (not issues), only when comment starts with "/codex review",
+    # and only when comment author is a maintainer/collaborator.
+    if: >
+      github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '/codex review') &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Resolve PR metadata (diff_url + base SHA)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          curl -sSL \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            > pr.json
+
+          echo "BASE_SHA=$(jq -r '.base.sha' pr.json)" >> "${GITHUB_ENV}"
+          echo "DIFF_URL=$(jq -r '.diff_url' pr.json)" >> "${GITHUB_ENV}"
+
+      - name: Checkout base SHA (safe context)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch PR diff as text (untrusted data)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -sSL \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github.v3.diff" \
+            "${DIFF_URL}" \
+            -o pr.diff
+
+      - name: Size-cap diff (avoid huge prompts)
+        run: |
+          set -euo pipefail
+          MAX_BYTES=$((600 * 1024))
+          BYTES=$(wc -c < pr.diff)
+          if [ "${BYTES}" -gt "${MAX_BYTES}" ]; then
+            head -c "${MAX_BYTES}" pr.diff > pr.diff.truncated
+            mv pr.diff.truncated pr.diff
+            printf "\n\n[TRUNCATED: original diff was %s bytes]\n" "${BYTES}" >> pr.diff
+          fi
+
+      - name: Check Codex configuration
+        id: codex_config
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "${OPENAI_API_KEY}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "OPENAI_API_KEY is not configured; skipping optional Codex review."
+          fi
+
+      - name: Run Codex diff-only review
+        id: codex
+        if: ${{ steps.codex_config.outputs.configured == 'true' }}
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/prompts/review-diff.md
+          output-file: codex-output.md
+          safety-strategy: drop-sudo
+          sandbox: read-only
+          codex-home: .codex-home
+          codex-args: '["--ask-for-approval","never"]'
+
+      - name: Post Codex feedback comment
+        if: ${{ steps.codex.outputs.final-message != '' }}
+        uses: actions/github-script@v7
+        env:
+          BODY: ${{ steps.codex.outputs.final-message }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: process.env.BODY,
+            });

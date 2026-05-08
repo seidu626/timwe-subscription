@@ -1,0 +1,72 @@
+story:
+  id: "TMP-018"
+  title: "Platform services share a typed tenant claim and service-auth contract"
+  actor: "platform-operator"
+  action: "define tenant claims, role scopes, service identity, trusted headers, and request context propagation"
+  outcome: "all protected, public, partner, and worker flows can rely on one tenant trust boundary"
+  as_a: "platform-operator"
+  i_want_to: "standardize tenant identity and service-to-service auth before feature work spreads"
+  so_that: "tenant context is not reinterpreted differently by each service"
+
+entrypoints:
+  - "common/auth/auth0jwt"
+  - "admin middleware"
+  - "KrakenD trusted header policy"
+  - "service-to-service request context"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Typed tenant claims are extracted"
+      given: ["JWT includes approved tenant, role, subject, issuer, and audience claims"]
+      when: "validator processes bearer token"
+      then: "typed claims expose tenant_id, roles, org_id or source tenant reference, subject, and platform scope"
+      evidence: "common/auth/auth0jwt validator unit test with body/state assertions"
+    - scenario: "Trusted service header is accepted"
+      given: ["gateway or internal service signs tenant context with approved service credential"]
+      when: "downstream service receives request"
+      then: "tenant context is attached to request context with trust source metadata"
+      evidence: "middleware trust-boundary test"
+  failures:
+    - scenario: "Audience mismatch"
+      given: ["token has expected issuer but wrong audience"]
+      when: "validator checks token"
+      then: "request is rejected before tenant context exists"
+      evidence: "validator negative test"
+    - scenario: "Forged service header"
+      given: ["external client sends tenant header without trusted signature"]
+      when: "service middleware runs"
+      then: "header is ignored or rejected and no tenant mutation occurs"
+      evidence: "middleware forged-header test"
+    - scenario: "Tenant claim mismatch"
+      given: ["token tenant and route tenant disagree"]
+      when: "protected route resolves tenant"
+      then: "API returns 403 and logs an authorization denial"
+      evidence: "route/middleware mismatch test"
+  edges:
+    - scenario: "Clock skew and replay window"
+      given: ["token is near expiry or replayed outside allowed window"]
+      when: "validator checks token"
+      then: "configured skew is honored and stale replay fails closed"
+      evidence: "validator clock/replay test"
+  invariants:
+    - rule: "Tenant context has one typed representation"
+      preserved_by: "shared claims and tenantctx package"
+      violated_when: "services parse raw tenant strings independently"
+      test: "compile-time package usage and middleware tests"
+    - rule: "Platform scope is explicit"
+      preserved_by: "role/scope matrix and platform operator claim"
+      violated_when: "tenant admin can request all-tenants data"
+      test: "role authorization negative test"
+
+out_of_scope:
+  - "full identity provider migration"
+  - "self-service tenant invitations"
+
+size_check:
+  files_touched: 15
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md"

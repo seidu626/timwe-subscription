@@ -1,0 +1,61 @@
+{
+  "acquisition_routes": [
+    {
+      "endpoint": "/lp/{slug}",
+      "method": "GET",
+      "backend_host": "http://127.0.0.1:3000",
+      "backend_url_pattern": "/lp/{slug}",
+      "template": "LandingWebEndpoint"
+    },
+    {
+      "endpoint": "/v1/analytics/landing/events",
+      "method": "POST",
+      "backend_host": "http://127.0.0.1:8084",
+      "backend_url_pattern": "/v1/analytics/landing/events",
+      "template": "AcquisitionApiEndpoint",
+      "comment": "Landing page event ingestion for funnel reporting"
+    },
+    {
+      "endpoint": "/v1/campaigns/{slug}",
+      "method": "GET",
+      "backend_host": "http://127.0.0.1:8084",
+      "backend_url_pattern": "/v1/campaigns/{slug}",
+      "template": "AcquisitionApiEndpoint"
+    },
+    {
+      "endpoint": "/v1/campaigns",
+      "method": "GET",
+      "backend_host": "http://127.0.0.1:8084",
+      "backend_url_pattern": "/v1/campaigns",
+      "template": "AcquisitionApiEndpoint"
+    },
+    {
+      "endpoint": "/v1/acquisition/transactions",
+      "method": "POST",
+      "backend_host": "http://127.0.0.1:8084",
+      "backend_url_pattern": "/v1/acquisition/transactions",
+      "template": "AcquisitionApiEndpoint"
+    },
+    {
+      "endpoint": "/v1/acquisition/transactions/{id}/confirm",
+      "method": "POST",
+      "backend_host": "http://127.0.0.1:8084",
+      "backend_url_pattern": "/v1/acquisition/transactions/{id}/confirm",
+      "template": "AcquisitionApiEndpoint"
+    },
+    {
+      "endpoint": "/v1/acquisition/transactions/{id}/status",
+      "method": "GET",
+      "backend_host": "http://127.0.0.1:8084",
+      "backend_url_pattern": "/v1/acquisition/transactions/{id}/status",
+      "template": "AcquisitionApiEndpoint"
+    },
+    {
+      "endpoint": "/v1/callbacks/{telco}",
+      "method": "POST",
+      "backend_host": "http://127.0.0.1:8084",
+      "backend_url_pattern": "/v1/callbacks/{telco}",
+      "template": "AcquisitionApiEndpoint"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+story:
+  id: "TMP-010"
+  title: "Operations analyst views tenant and channel health"
+  actor: "operations-analyst"
+  action: "view reports, exports, queues, failures, and health filtered by tenant and channel"
+  outcome: "operators can diagnose tenant performance without data leakage"
+  as_a: "operations-analyst"
+  i_want_to: "filter operational views by tenant and channel"
+  so_that: "I can diagnose a tenant's acquisition and messaging health safely"
+
+entrypoints:
+  - "GET /v1/admin/reports/kpis"
+  - "GET /v1/admin/reports/campaign-performance/export"
+  - "GET /api/v1/subscription-external/monitoring/dashboard"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Tenant KPI report"
+      given: ["two tenants have acquisition events and transactions"]
+      when: "tenant admin fetches KPI report"
+      then: "metrics include only current tenant and honor channel/campaign filters"
+      evidence: "reports repository test"
+    - scenario: "Ops dashboard filtered"
+      given: ["charging failures exist in two tenants"]
+      when: "operations analyst opens dashboard for tenant"
+      then: "dashboard data includes tenant/channel counts only"
+      evidence: "monitoring handler test"
+  failures:
+    - scenario: "Unauthorized aggregation"
+      given: ["tenant admin requests all_tenants=true"]
+      when: "admin calls report"
+      then: "API returns 403 unless actor is platform-scoped"
+      evidence: "authz test"
+    - scenario: "Unsupported channel filter"
+      given: ["query uses unknown channel"]
+      when: "admin calls report"
+      then: "API returns 400 invalid_channel"
+      evidence: "handler validation test"
+    - scenario: "Partial datasource failure"
+      given: ["one report source returns error"]
+      when: "dashboard is requested"
+      then: "response exposes degraded status and does not silently report zero"
+      evidence: "repository failure test"
+  edges:
+    - scenario: "Empty tenant report"
+      given: ["tenant has no data"]
+      when: "report is requested"
+      then: "response returns zeroed metrics with filters echoed"
+      evidence: "report test"
+  invariants:
+    - rule: "Tenant reports must not aggregate across tenants"
+      preserved_by: "tenant_id mandatory in report filters for tenant actors"
+      violated_when: "tenant report count includes other tenant"
+      test: "two-tenant data assertion"
+    - rule: "Operational failure must be visible"
+      preserved_by: "degraded status in health/report output"
+      violated_when: "dependency error is hidden as zero data"
+      test: "fake dependency failure"
+
+out_of_scope:
+  - "visual frontend dashboard redesign"
+  - "new BI warehouse"
+
+size_check:
+  files_touched: 15
+  migrations: 0
+  endpoints: 3
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-010-tenant-reporting-and-ops/value-gate-report.md"
