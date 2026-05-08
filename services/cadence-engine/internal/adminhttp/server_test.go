@@ -1,6 +1,7 @@
 package adminhttp
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -95,5 +96,28 @@ func TestHandleSeriesReturnsErrWhenTenantMissing(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), ErrTenantScope) {
 		t.Fatalf("unexpected body: %s", rr.Body.String())
+	}
+}
+
+func TestHealthReportsObservabilityStatus(t *testing.T) {
+	s := &Server{logger: zap.NewNop()}
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rr := httptest.NewRecorder()
+
+	s.handleHealth(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	observability, ok := body["observability"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected observability status, got %#v", body)
+	}
+	if observability["tenant_labels"] != "enabled" || observability["pii_labels"] != "rejected" {
+		t.Fatalf("unexpected observability status: %#v", observability)
 	}
 }

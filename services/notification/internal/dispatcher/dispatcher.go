@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
+	"github.com/seidu626/subscription-manager/notification/internal/observability"
 	"github.com/seidu626/subscription-manager/notification/internal/repository"
 	"go.uber.org/zap"
 )
@@ -80,15 +81,32 @@ func (d *Dispatcher) processBatch(ctx context.Context) error {
 func (d *Dispatcher) processJob(ctx context.Context, job domain.OutboxJob) error {
 	err := d.sendMT(ctx, job)
 	if err == nil {
+		recordDispatch(job, "sent")
+		d.logger.Info("dispatcher job sent", d.jobFields(job)...)
 		return d.repo.MarkSent(ctx, job.JobID)
 	}
 
 	if job.Attempt >= d.cfg.MaxAttempts {
+		recordDispatch(job, "failed")
+		d.logger.Warn("dispatcher job failed permanently", append(d.jobFields(job), zap.Error(err))...)
 		return d.repo.MarkFailed(ctx, job.JobID, err.Error())
 	}
 
 	nextRetry := d.calculateNextRetry(job.Attempt)
+	recordDispatch(job, "retry")
+	d.logger.Warn("dispatcher job scheduled for retry", append(d.jobFields(job), zap.Error(err), zap.Time("next_retry_at", nextRetry))...)
 	return d.repo.ScheduleRetry(ctx, job.JobID, nextRetry, err.Error())
+}
+
+func (d *Dispatcher) jobFields(job domain.OutboxJob) []zap.Field {
+	labels := observability.WorkerLabels(job.TenantID, job.ChannelID, "notification_worker")
+	return []zap.Field{
+		zap.String("job_id", job.JobID),
+		zap.String("tenant_id", labels.TenantID),
+		zap.String("channel_id", labels.ChannelID),
+		zap.String("worker", labels.Worker),
+		zap.Int("attempt", job.Attempt),
+	}
 }
 
 func (d *Dispatcher) sendMT(ctx context.Context, job domain.OutboxJob) error {

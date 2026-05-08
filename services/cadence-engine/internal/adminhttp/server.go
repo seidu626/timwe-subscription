@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/seidu626/subscription-manager/cadence-engine/internal/domain"
+	"github.com/seidu626/subscription-manager/cadence-engine/internal/observability"
 	"github.com/seidu626/subscription-manager/cadence-engine/internal/repository"
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"go.uber.org/zap"
@@ -49,7 +50,7 @@ func NewServer(repo *repository.CadenceRepository, logger *zap.Logger, cfg Confi
 
 	s.http = &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           mux,
+		Handler:           observability.HTTPMiddleware(logger, mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	return s
@@ -87,7 +88,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status": "ok",
+		"observability": map[string]string{
+			"tenant_labels": "enabled",
+			"pii_labels":    "rejected",
+		},
+	})
 }
 
 func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
