@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"go.uber.org/zap"
 )
 
@@ -51,6 +52,59 @@ func TestTIMWEClient_OptInUsesSubscriptionExternalEndpoint(t *testing.T) {
 	}
 	if resp.TransactionID != "tx-optin-1" {
 		t.Fatalf("expected transaction ID from responseData, got %s", resp.TransactionID)
+	}
+}
+
+func TestTIMWEClient_OptInWithTenantSignsTenantChannelContext(t *testing.T) {
+	const secret = "trusted-secret"
+	var capturedHeaders http.Header
+	var capturedPayload map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedHeaders = r.Header.Clone()
+		if _, err := tenantctx.IdentityFromTrustedRequest(r.Method, r.URL.EscapedPath(), r.Header, tenantctx.TrustedHeaderOptions{Secret: secret}); err != nil {
+			t.Fatalf("trusted tenant headers did not verify: %v", err)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&capturedPayload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{"transactionId": "tx-tenant"},
+			"message":      "ok",
+			"inError":      false,
+			"requestId":    "req-tenant",
+			"code":         "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	client.config.TrustedServiceSecret = secret
+	client.config.ServiceID = "acquisition-api"
+
+	_, err := client.OptInWithTenant(
+		"233241234567",
+		8509,
+		"WEB",
+		map[string]string{"click_id": "abc"},
+		"2117",
+		TenantSubscriptionContext{
+			TenantID:  "11111111-1111-1111-1111-111111111111",
+			ChannelID: "22222222-2222-2222-2222-222222222222",
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected tenant optin to succeed, got %v", err)
+	}
+	if capturedHeaders.Get(tenantctx.HeaderTenantID) != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("expected tenant header, got %q", capturedHeaders.Get(tenantctx.HeaderTenantID))
+	}
+	if capturedHeaders.Get("X-Tenant-Channel-Id") != "22222222-2222-2222-2222-222222222222" {
+		t.Fatalf("expected channel header, got %q", capturedHeaders.Get("X-Tenant-Channel-Id"))
+	}
+	if capturedPayload["channelId"] != "22222222-2222-2222-2222-222222222222" {
+		t.Fatalf("expected channelId in subscription-external payload, got %+v", capturedPayload)
 	}
 }
 
