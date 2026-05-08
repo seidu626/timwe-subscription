@@ -34,6 +34,15 @@ type TIMWEClient interface {
 	Confirm(msisdn string, productID int, entryChannel string, partnerRoleID string, authCode string) (*TIMWEResponse, error)
 }
 
+type TenantAwareTIMWEClient interface {
+	OptInWithTenant(msisdn string, productID int, entryChannel string, trackingFields map[string]string, partnerRoleID string, tenant TenantSubscriptionContext) (*TIMWEResponse, error)
+}
+
+type TenantSubscriptionContext struct {
+	TenantID  string
+	ChannelID string
+}
+
 // TIMWEResponse represents a response from TIMWE API
 type TIMWEResponse struct {
 	Success             bool
@@ -272,16 +281,29 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 	if campaign.PartnerRoleID != nil && *campaign.PartnerRoleID > 0 {
 		partnerRoleID = fmt.Sprintf("%d", *campaign.PartnerRoleID)
 	}
-	timweResp, err := s.timweClient.OptIn(
-		msisdnToUse, // Use HE MSISDN if available, otherwise form MSISDN
-		*tx.OfferProductID,
-		"WEB",
-		map[string]string{
-			"click_id": attribution.ClickID,
-			"campaign": attribution.CampaignSlug,
-		},
-		partnerRoleID,
-	)
+	trackingFields := map[string]string{
+		"click_id": attribution.ClickID,
+		"campaign": attribution.CampaignSlug,
+	}
+	var timweResp *TIMWEResponse
+	if tenantClient, ok := s.timweClient.(TenantAwareTIMWEClient); ok && campaign.TenantID != nil && campaign.ChannelID != nil {
+		timweResp, err = tenantClient.OptInWithTenant(
+			msisdnToUse,
+			*tx.OfferProductID,
+			"WEB",
+			trackingFields,
+			partnerRoleID,
+			TenantSubscriptionContext{TenantID: *campaign.TenantID, ChannelID: *campaign.ChannelID},
+		)
+	} else {
+		timweResp, err = s.timweClient.OptIn(
+			msisdnToUse, // Use HE MSISDN if available, otherwise form MSISDN
+			*tx.OfferProductID,
+			"WEB",
+			trackingFields,
+			partnerRoleID,
+		)
+	}
 
 	if err != nil {
 		tx.Status = domain.StatusFailed

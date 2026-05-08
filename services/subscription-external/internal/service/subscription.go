@@ -136,6 +136,7 @@ type SubscriptionService struct {
 	client             *fasthttp.Client
 	networkClient      *utils.NetworkResilientClient // Enhanced network client
 	config             *config.Config
+	tenantRouter       *TenantProviderRouter
 	circuitBreaker     *gobreaker.TwoStepCircuitBreaker
 	productsCache      sync.Map                // key: joined productIds or "all" -> []*domain.Product
 	bulkhead           chan struct{}           // semaphore for external calls
@@ -228,6 +229,9 @@ func NewSubscriptionService(logger *zap.Logger, repo repository.SubscriptionRepo
 		circuitBreaker:     circuitBreaker,
 		renewalService:     renewalService,
 		msisdnValidator:    msisdnValidator,
+	}
+	if dbGetter, ok := repo.(repository.DBGetter); ok {
+		s.tenantRouter = NewTenantProviderRouter(dbGetter.GetDB(), cfg, nil)
 	}
 
 	// Initialize bulkhead limiter for external calls
@@ -729,21 +733,19 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 	release := s.acquireBulkhead()
 	defer release()
 
-	// Generate auth key
-	authKey := ""
-	if len(s.config.Application.TIMWE.AuthenticationKey) > 10 {
-		authKey = s.config.Application.TIMWE.AuthenticationKey
-	} else {
-		var authErr error
-		authKey, authErr = utils.GetCachedAuthKey(s.config.Application.TIMWE.PartnerServiceID, s.config.Application.TIMWE.Psk)
-		if authErr != nil {
-			s.logger.Error("failed to generate auth key", zap.Error(authErr))
-			return nil, fmt.Errorf("failed to generate auth key: %v", authErr)
-		}
+	providerCfg, err := s.providerConfigOrLegacy(context.Background(), ChannelOperationMT, reqData.TenantRoute)
+	if err != nil {
+		return nil, err
+	}
+	reqData.TenantRoute = canonicalTenantRoute(reqData.TenantRoute, providerCfg)
+	authKey, err := providerCfg.AuthKey()
+	if err != nil {
+		s.logger.Error("failed to resolve auth key", zap.Error(err))
+		return nil, fmt.Errorf("failed to resolve auth key: %w", err)
 	}
 
 	// Build URL and request body
-	url := fmt.Sprintf("%s/subscription/optin/%s", s.config.Application.TIMWE.BaseURL, s.config.Application.TIMWE.PartnerRoleID)
+	url := fmt.Sprintf("%s/subscription/optin/%s", providerCfg.BaseURL, providerCfg.PartnerRoleID)
 	payload, err := s.buildTIMWEOptinPayload(reqData)
 	if err != nil {
 		s.logger.Error("Failed to normalize optin payload", zap.Error(err))
@@ -763,7 +765,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 		return nil, err
 	}
 
-	resp, callErr := s.sendMTWithRetry(reqData, url, authKey, requestBody, 3)
+	resp, callErr := s.sendMTWithRetry(reqData, url, providerCfg.APIKey, authKey, requestBody, 3)
 	success := callErr == nil || s.isNonBreakerError(callErr)
 	done(success)
 	if callErr != nil {
@@ -797,7 +799,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 			return nil, fmt.Errorf("failed to marshal retry request data: %v", err)
 		}
 
-		resp, callErr = s.sendMTWithRetry(mtReqCopy, url, authKey, requestBody, 3)
+		resp, callErr = s.sendMTWithRetry(mtReqCopy, url, providerCfg.APIKey, authKey, requestBody, 3)
 		if callErr != nil {
 			s.logger.Error("Error sending MT retry with SMS", zap.String("msisdn", reqData.UserIdentifier), zap.Error(callErr))
 			return nil, callErr
@@ -832,7 +834,7 @@ func (s *SubscriptionService) isNonBreakerError(err error) bool {
 }
 
 // sendMTWithRetry handles the actual MT request with retry logic for INTERNAL_ERROR
-func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, authKey string, requestBody []byte, maxRetries int) (*domain.MTResponse, error) {
+func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, apiKey, authKey string, requestBody []byte, maxRetries int) (*domain.MTResponse, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			s.logger.Error("PANIC RECOVERED in sendMTWithRetry",
@@ -871,7 +873,7 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, aut
 		// Set up request
 		req.SetRequestURI(url)
 		req.Header.SetMethod("POST")
-		req.Header.Set("apikey", s.config.Application.TIMWE.APIKey)
+		req.Header.Set("apikey", apiKey)
 		req.Header.Set("authentication", authKey)
 		req.Header.Set("external-tx-id", externalTxID)
 		req.Header.Set("Content-Type", "application/json")
@@ -1154,14 +1156,23 @@ func (s *SubscriptionService) validateMTResponse(response *domain.MTResponse, mt
 }
 
 func (s *SubscriptionService) RequestCharge(reqData domain.ChargeRequest) (*domain.ChargeResponse, error) {
-	url := fmt.Sprintf("%s/%s/charge/dob/%s", s.config.Application.TIMWE.BaseURL, s.config.Application.TIMWE.Realm, s.config.Application.TIMWE.PartnerRoleID)
+	providerCfg, err := s.providerConfigOrLegacy(context.Background(), ChannelOperationCharge, reqData.TenantRoute)
+	if err != nil {
+		return nil, err
+	}
+	reqData.TenantRoute = canonicalTenantRoute(reqData.TenantRoute, providerCfg)
+	authKey, err := providerCfg.AuthKey()
+	if err != nil {
+		return nil, err
+	}
+	url := fmt.Sprintf("%s/%s/charge/dob/%s", providerCfg.BaseURL, providerCfg.Realm, providerCfg.PartnerRoleID)
 
 	done, err := s.circuitBreaker.Allow()
 	if err != nil {
 		return nil, err
 	}
 
-	resp, callErr := s.sendChargeRequest(reqData, url)
+	resp, callErr := s.sendChargeRequest(reqData, url, providerCfg.APIKey, authKey)
 	success := callErr == nil || s.isNonBreakerError(callErr)
 	done(success)
 	if callErr != nil {
@@ -1174,7 +1185,7 @@ func (s *SubscriptionService) RequestCharge(reqData domain.ChargeRequest) (*doma
 }
 
 // Send charge request with configurable time-bounded exponential backoff and jitter
-func (s *SubscriptionService) sendChargeRequest(reqData domain.ChargeRequest, url string) (*domain.ChargeResponse, error) {
+func (s *SubscriptionService) sendChargeRequest(reqData domain.ChargeRequest, url, apiKey, authKey string) (*domain.ChargeResponse, error) {
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
 	res := fasthttp.AcquireResponse()
@@ -1183,8 +1194,8 @@ func (s *SubscriptionService) sendChargeRequest(reqData domain.ChargeRequest, ur
 	// Set request URL and headers
 	req.SetRequestURI(url)
 	req.Header.SetMethod("POST")
-	req.Header.Set("apikey", s.config.Application.TIMWE.APIKey)
-	req.Header.Set("authentication", s.config.Application.TIMWE.AuthenticationKey)
+	req.Header.Set("apikey", apiKey)
+	req.Header.Set("authentication", authKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	// Set request body
@@ -2250,25 +2261,23 @@ func (s *SubscriptionService) SendStatusCheck(reqData domain.GetStatusRequest, r
 
 // sendStatusCheckWithRetry handles the actual status check request with retry logic for INTERNAL_ERROR
 func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusRequest, realm string) (*domain.MTResponse, error) {
-	authKey := ""
-	if len(s.config.Application.TIMWE.AuthenticationKey) > 10 {
-		authKey = s.config.Application.TIMWE.AuthenticationKey
-	} else {
-		var authErr error
-		authKey, authErr = utils.GetCachedAuthKey(s.config.Application.TIMWE.PartnerServiceID, s.config.Application.TIMWE.Psk)
-		if authErr != nil {
-			s.logger.Error("failed to generate auth key", zap.Error(authErr))
-			return nil, fmt.Errorf("failed to generate auth key: %v", authErr)
-		}
+	providerCfg, err := s.providerConfigOrLegacy(context.Background(), ChannelOperationStatus, reqData.TenantRoute)
+	if err != nil {
+		return nil, err
 	}
-
-	partnerRoleID, err := strconv.Atoi(s.config.Application.TIMWE.PartnerRoleID)
+	reqData.TenantRoute = canonicalTenantRoute(reqData.TenantRoute, providerCfg)
+	authKey, err := providerCfg.AuthKey()
+	if err != nil {
+		s.logger.Error("failed to resolve auth key", zap.Error(err))
+		return nil, fmt.Errorf("failed to resolve auth key: %w", err)
+	}
+	partnerRoleID, err := providerCfg.PartnerRoleInt()
 	if err != nil {
 		s.logger.Error("Failed to convert PartnerRoleID", zap.Error(err))
-		return nil, fmt.Errorf("invalid PartnerRoleID: %w", err)
+		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/subscription/status/%d", s.config.Application.TIMWE.BaseURL, partnerRoleID)
+	url := fmt.Sprintf("%s/subscription/status/%d", providerCfg.BaseURL, partnerRoleID)
 	payload, err := s.buildTIMWEStatusPayload(reqData)
 	if err != nil {
 		s.logger.Error("Failed to normalize status payload", zap.Error(err))
@@ -2285,7 +2294,7 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 	s.logger.Info("Sending status check request",
 		zap.String("url", url),
 		zap.String("method", "POST"),
-		zap.String("apikey", s.config.Application.TIMWE.APIKey),
+		zap.String("apikey", "[REDACTED]"),
 		zap.String("requestBody", string(requestBody)))
 
 	maxRetries := 3
@@ -2299,7 +2308,7 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 		// Set up request
 		req.SetRequestURI(url)
 		req.Header.SetMethod("POST")
-		req.Header.Set("apikey", s.config.Application.TIMWE.APIKey)
+		req.Header.Set("apikey", providerCfg.APIKey)
 		req.Header.Set("authentication", authKey)
 		req.Header.Set("external-tx-id", externalTxID)
 		req.Header.Set("Content-Type", "application/json")
@@ -2465,26 +2474,23 @@ func (s *SubscriptionService) SendOptout(reqData domain.UnsubscriptionRequest, r
 
 // sendOptoutWithRetry handles the actual opt-out request with retry logic similar to status/MT flows
 func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionRequest, realm string) (*domain.MTResponse, error) {
-	// Resolve authentication key (cached)
-	authKey := ""
-	if len(s.config.Application.TIMWE.AuthenticationKey) > 10 {
-		authKey = s.config.Application.TIMWE.AuthenticationKey
-	} else {
-		var authErr error
-		authKey, authErr = utils.GetCachedAuthKey(s.config.Application.TIMWE.PartnerServiceID, s.config.Application.TIMWE.Psk)
-		if authErr != nil {
-			s.logger.Error("failed to generate auth key", zap.Error(authErr))
-			return nil, fmt.Errorf("failed to generate auth key: %v", authErr)
-		}
+	providerCfg, err := s.providerConfigOrLegacy(context.Background(), ChannelOperationOptout, reqData.TenantRoute)
+	if err != nil {
+		return nil, err
 	}
-
-	partnerRoleID, err := strconv.Atoi(s.config.Application.TIMWE.PartnerRoleID)
+	reqData.TenantRoute = canonicalTenantRoute(reqData.TenantRoute, providerCfg)
+	authKey, err := providerCfg.AuthKey()
+	if err != nil {
+		s.logger.Error("failed to resolve auth key", zap.Error(err))
+		return nil, fmt.Errorf("failed to resolve auth key: %w", err)
+	}
+	partnerRoleID, err := providerCfg.PartnerRoleInt()
 	if err != nil {
 		s.logger.Error("Failed to convert PartnerRoleID", zap.Error(err))
-		return nil, fmt.Errorf("invalid PartnerRoleID: %w", err)
+		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/subscription/optout/%d", s.config.Application.TIMWE.BaseURL, partnerRoleID)
+	url := fmt.Sprintf("%s/subscription/optout/%d", providerCfg.BaseURL, partnerRoleID)
 	payload, err := s.buildTIMWEOptoutPayload(reqData)
 	if err != nil {
 		s.logger.Error("Failed to normalize optout payload", zap.Error(err))
@@ -2507,7 +2513,7 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 		// Prepare request
 		req.SetRequestURI(url)
 		req.Header.SetMethod("POST")
-		req.Header.Set("apikey", s.config.Application.TIMWE.APIKey)
+		req.Header.Set("apikey", providerCfg.APIKey)
 		req.Header.Set("authentication", authKey)
 		req.Header.Set("external-tx-id", externalTxID)
 		req.Header.Set("Content-Type", "application/json")
@@ -2662,26 +2668,23 @@ func (s *SubscriptionService) SendOptinConfirm(reqData domain.SubscriptionConfir
 }
 
 func (s *SubscriptionService) sendOptinConfirmWithRetry(reqData domain.SubscriptionConfirmationRequest, realm string) (*domain.MTResponse, error) {
-	// Resolve authentication key (cached)
-	authKey := ""
-	if len(s.config.Application.TIMWE.AuthenticationKey) > 10 {
-		authKey = s.config.Application.TIMWE.AuthenticationKey
-	} else {
-		var authErr error
-		authKey, authErr = utils.GetCachedAuthKey(s.config.Application.TIMWE.PartnerServiceID, s.config.Application.TIMWE.Psk)
-		if authErr != nil {
-			s.logger.Error("failed to generate auth key", zap.Error(authErr))
-			return nil, fmt.Errorf("failed to generate auth key: %v", authErr)
-		}
+	providerCfg, err := s.providerConfigOrLegacy(context.Background(), ChannelOperationConfirm, reqData.TenantRoute)
+	if err != nil {
+		return nil, err
 	}
-
-	partnerRoleID, err := strconv.Atoi(s.config.Application.TIMWE.PartnerRoleID)
+	reqData.TenantRoute = canonicalTenantRoute(reqData.TenantRoute, providerCfg)
+	authKey, err := providerCfg.AuthKey()
+	if err != nil {
+		s.logger.Error("failed to resolve auth key", zap.Error(err))
+		return nil, fmt.Errorf("failed to resolve auth key: %w", err)
+	}
+	partnerRoleID, err := providerCfg.PartnerRoleInt()
 	if err != nil {
 		s.logger.Error("Failed to convert PartnerRoleID", zap.Error(err))
-		return nil, fmt.Errorf("invalid PartnerRoleID: %w", err)
+		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/subscription/optin/confirm/%d", s.config.Application.TIMWE.BaseURL, partnerRoleID)
+	url := fmt.Sprintf("%s/subscription/optin/confirm/%d", providerCfg.BaseURL, partnerRoleID)
 	payload, err := s.buildTIMWEOptinConfirmPayload(reqData)
 	if err != nil {
 		s.logger.Error("Failed to normalize optin confirm payload", zap.Error(err))
@@ -2703,7 +2706,7 @@ func (s *SubscriptionService) sendOptinConfirmWithRetry(reqData domain.Subscript
 
 		req.SetRequestURI(url)
 		req.Header.SetMethod("POST")
-		req.Header.Set("apikey", s.config.Application.TIMWE.APIKey)
+		req.Header.Set("apikey", providerCfg.APIKey)
 		req.Header.Set("authentication", authKey)
 		req.Header.Set("external-tx-id", externalTxID)
 		req.Header.Set("Content-Type", "application/json")

@@ -58,7 +58,7 @@ func TestSendMTWithRetry_UsesUniqueExternalTxIDPerAttempt(t *testing.T) {
 		t.Fatalf("failed to marshal request: %v", err)
 	}
 
-	resp, err := service.sendMTWithRetry(reqData, server.URL, "auth-key", requestBody, 2)
+	resp, err := service.sendMTWithRetry(reqData, server.URL, "api-key", "auth-key", requestBody, 2)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

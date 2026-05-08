@@ -119,7 +119,11 @@ type ChargeResponse struct {
 }
 
 func MapMTRequestToSubscriptionRequest(mtReq MTRequest, transactionId string, partnerRoleId int, clientIp, campaignUrl string) SubscriptionRequest {
+	tenantID := stringPtrFromRoute(mtReq.TenantRoute.TenantID)
+	channelID := stringPtrFromRoute(mtReq.TenantRoute.ChannelID)
 	return SubscriptionRequest{
+		TenantID:           tenantID,
+		ChannelID:          channelID,
 		TransactionId:      transactionId,
 		PartnerRoleId:      partnerRoleId,        // Set partner role explicitly
 		UserIdentifier:     mtReq.UserIdentifier, // Map UserIdentifier to UserIdentifier
@@ -140,6 +144,8 @@ func MapMTRequestToSubscriptionRequest(mtReq MTRequest, transactionId string, pa
 func MapChargeToNotification(chargeReq ChargeRequest, partnerRole int) NotificationRequest {
 	txId := uuid.New().String()
 	return NotificationRequest{
+		TenantID:        stringPtrFromRoute(chargeReq.TenantRoute.TenantID),
+		ChannelID:       stringPtrFromRoute(chargeReq.TenantRoute.ChannelID),
 		PartnerRole:     partnerRole,
 		ExternalTxID:    txId,
 		ProductID:       chargeReq.ProductID,
@@ -155,6 +161,13 @@ func MapChargeToNotification(chargeReq ChargeRequest, partnerRole int) Notificat
 		Tags:            []string{"billing", "charge"},
 		Type:            "CHARGE",
 	}
+}
+
+func stringPtrFromRoute(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 type NotificationRequest struct {

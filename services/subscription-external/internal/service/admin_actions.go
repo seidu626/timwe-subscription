@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -34,6 +35,29 @@ func ptrFromString(value string) *string {
 		return nil
 	}
 	return &value
+}
+
+func stringPtrIfNotBlank(value string) *string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func channelOperationForAdminAction(operation domain.AdminActionOperation) ChannelOperation {
+	switch operation {
+	case domain.AdminActionOptin:
+		return ChannelOperationOptin
+	case domain.AdminActionOptout:
+		return ChannelOperationOptout
+	case domain.AdminActionConfirm:
+		return ChannelOperationConfirm
+	case domain.AdminActionStatus:
+		return ChannelOperationStatus
+	default:
+		return ChannelOperationOptin
+	}
 }
 
 func normalizeHeaders(input map[string]string) map[string]string {
@@ -79,7 +103,7 @@ func (s *SubscriptionService) resolveAdminPartnerRoleID(requestPartnerRoleID int
 	return partnerRoleID, nil
 }
 
-func (s *SubscriptionService) executeAdminTIMWERequest(url string, payload interface{}, authKey, providedExternalTxID string, customHeaders map[string]string, maxRetries int) (*adminExecutionResult, error) {
+func (s *SubscriptionService) executeAdminTIMWERequest(url string, payload interface{}, apiKey, authKey, providedExternalTxID string, customHeaders map[string]string, maxRetries int) (*adminExecutionResult, error) {
 	requestBody, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request payload: %w", err)
@@ -104,7 +128,7 @@ func (s *SubscriptionService) executeAdminTIMWERequest(url string, payload inter
 		}
 
 		headers := map[string]string{
-			"apikey":         s.config.Application.TIMWE.APIKey,
+			"apikey":         apiKey,
 			"authentication": authKey,
 			"external-tx-id": externalTxID,
 			"content-type":   "application/json",
@@ -139,7 +163,7 @@ func (s *SubscriptionService) executeAdminTIMWERequest(url string, payload inter
 		responseHeaders := headersFromResponse(&res.Header)
 
 		lastResult = &adminExecutionResult{
-			requestHeaders:    headers,
+			requestHeaders:    redactProviderHeaders(headers),
 			requestBody:       json.RawMessage(append([]byte(nil), requestBody...)),
 			requestTimestamp:  requestTime,
 			responseStatus:    res.StatusCode(),
@@ -202,6 +226,20 @@ func (s *SubscriptionService) executeAdminTIMWERequest(url string, payload inter
 	return lastResult, nil
 }
 
+func redactProviderHeaders(headers map[string]string) map[string]string {
+	out := make(map[string]string, len(headers))
+	for key, value := range headers {
+		lower := strings.ToLower(key)
+		switch lower {
+		case "apikey", "authentication", "authorization", "x-api-key":
+			out[key] = "[REDACTED]"
+		default:
+			out[key] = value
+		}
+	}
+	return out
+}
+
 func buildActionErrorPayload(message, kind string, details map[string]interface{}) json.RawMessage {
 	payload := map[string]interface{}{
 		"message": message,
@@ -240,11 +278,26 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 	actionID := uuid.NewString()
 	createdAt := time.Now().UTC()
 
-	partnerRoleID, err := s.resolveAdminPartnerRoleID(req.PartnerRoleID)
+	route := domain.TenantRouteContext{
+		TenantID:   strings.TrimSpace(req.TenantID),
+		TenantKey:  strings.TrimSpace(req.TenantKey),
+		ChannelID:  strings.TrimSpace(req.ChannelID),
+		ChannelKey: strings.TrimSpace(req.ChannelKey),
+	}
+	providerCfg, err := s.providerConfigOrLegacy(context.Background(), channelOperationForAdminAction(operation), route)
 	if err != nil {
 		return nil, err
 	}
-	authKey, err := s.resolveTIMWEAuthKey()
+	partnerRoleID, err := providerCfg.PartnerRoleInt()
+	if err != nil {
+		if isEmptyTenantRoute(route) {
+			partnerRoleID, err = s.resolveAdminPartnerRoleID(req.PartnerRoleID)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	authKey, err := providerCfg.AuthKey()
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +330,7 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 		if err != nil {
 			return nil, err
 		}
-		url = fmt.Sprintf("%s/subscription/optin/%d", s.config.Application.TIMWE.BaseURL, partnerRoleID)
+		url = fmt.Sprintf("%s/subscription/optin/%d", providerCfg.BaseURL, partnerRoleID)
 		if req.ClientIP != "" {
 			payloadMap, mapErr := marshalPayloadToMap(payload)
 			if mapErr != nil {
@@ -308,7 +361,7 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 		if err != nil {
 			return nil, err
 		}
-		url = fmt.Sprintf("%s/subscription/optout/%d", s.config.Application.TIMWE.BaseURL, partnerRoleID)
+		url = fmt.Sprintf("%s/subscription/optout/%d", providerCfg.BaseURL, partnerRoleID)
 	case domain.AdminActionConfirm:
 		confirmReq := domain.SubscriptionConfirmationRequest{
 			UserIdentifier:      req.MSISDN,
@@ -324,7 +377,7 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 		if err != nil {
 			return nil, err
 		}
-		url = fmt.Sprintf("%s/subscription/optin/confirm/%d", s.config.Application.TIMWE.BaseURL, partnerRoleID)
+		url = fmt.Sprintf("%s/subscription/optin/confirm/%d", providerCfg.BaseURL, partnerRoleID)
 	case domain.AdminActionStatus:
 		statusReq := domain.GetStatusRequest{
 			UserIdentifier:        req.MSISDN,
@@ -342,12 +395,12 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 		if err != nil {
 			return nil, err
 		}
-		url = fmt.Sprintf("%s/subscription/status/%d", s.config.Application.TIMWE.BaseURL, partnerRoleID)
+		url = fmt.Sprintf("%s/subscription/status/%d", providerCfg.BaseURL, partnerRoleID)
 	default:
 		return nil, fmt.Errorf("unsupported admin action operation: %s", operation)
 	}
 
-	execResult, execErr := s.executeAdminTIMWERequest(url, payload, authKey, req.ExternalTxID, req.Headers, 3)
+	execResult, execErr := s.executeAdminTIMWERequest(url, payload, providerCfg.APIKey, authKey, req.ExternalTxID, req.Headers, 3)
 	if execResult == nil {
 		return nil, execErr
 	}
@@ -395,6 +448,8 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 
 	logEntry := &domain.AdminSubscriptionActionLog{
 		ID:                 actionID,
+		TenantID:           stringPtrIfNotBlank(providerCfg.TenantID),
+		ChannelID:          stringPtrIfNotBlank(providerCfg.ChannelID),
 		Operation:          operation,
 		MSISDN:             req.MSISDN,
 		ProductID:          req.ProductID,

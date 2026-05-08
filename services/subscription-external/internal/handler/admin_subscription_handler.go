@@ -45,6 +45,17 @@ func (h *SubscriptionHandler) handleAdminAction(ctx *fasthttp.RequestCtx, operat
 		ctx.Error("Invalid request payload", fasthttp.StatusBadRequest)
 		return
 	}
+	route, err := tenantRouteFromRequest(ctx, h.config, req.ChannelID != "" || req.ChannelKey != "" || req.TenantID != "" || req.TenantKey != "", req.ChannelID, req.ChannelKey)
+	if err != nil {
+		ctx.Error(err.Error(), tenantRouteStatus(err))
+		return
+	}
+	if route.TenantID != "" || route.TenantKey != "" {
+		req.TenantID = route.TenantID
+		req.TenantKey = route.TenantKey
+		req.ChannelID = route.ChannelID
+		req.ChannelKey = route.ChannelKey
+	}
 
 	req.MSISDN = strings.TrimSpace(req.MSISDN)
 	if req.MSISDN == "" {
@@ -158,6 +169,7 @@ func (h *SubscriptionHandler) AdminActionHistoryHandler(ctx *fasthttp.RequestCtx
 	}
 
 	filter := domain.AdminActionLogFilter{
+		TenantID:       strings.TrimSpace(string(queryArgs.Peek("tenantId"))),
 		Operation:      operationValue,
 		MSISDN:         strings.TrimSpace(string(queryArgs.Peek("msisdn"))),
 		ExternalTxID:   strings.TrimSpace(string(queryArgs.Peek("externalTxId"))),
