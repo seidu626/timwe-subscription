@@ -2,7 +2,7 @@
 id: TMP-015
 title: "Platform ops secret observability"
 class: operational_slice
-status: ready
+status: done
 parent_vertical_slice_id: TMP-015
 scope_limit: "Harden platform ops docs/config for secret hygiene and tenant/channel observability labels. Do not implement admin UI or partner onboarding contracts."
 merge_policy: "Merge only after HVC, supervisor preflight, docs/config checks, and value-gate report pass."

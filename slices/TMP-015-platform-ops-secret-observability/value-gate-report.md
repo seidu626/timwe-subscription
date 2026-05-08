@@ -2,8 +2,9 @@
 
 - Timestamp: 2026-05-08T10:11:25Z
 - Agent: Codex
-- Verdict: PASS
 - Outcome code: outcome:verified
+
+Verdict: PASS
 
 ## Audit 1: Acceptance Criteria Coverage
 
