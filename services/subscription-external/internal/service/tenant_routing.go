@@ -121,7 +121,11 @@ type TenantProviderRouter struct {
 	operationCapability map[ChannelOperation][]string
 }
 
-func (s *SubscriptionService) SetTenantProviderRouter(router *TenantProviderRouter) {
+type TenantProviderResolver interface {
+	Resolve(ctx context.Context, operation ChannelOperation, route domain.TenantRouteContext) (*TenantProviderConfig, error)
+}
+
+func (s *SubscriptionService) SetTenantProviderRouter(router TenantProviderResolver) {
 	s.tenantRouter = router
 }
 

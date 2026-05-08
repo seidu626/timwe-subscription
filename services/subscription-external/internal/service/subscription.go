@@ -136,7 +136,7 @@ type SubscriptionService struct {
 	client             *fasthttp.Client
 	networkClient      *utils.NetworkResilientClient // Enhanced network client
 	config             *config.Config
-	tenantRouter       *TenantProviderRouter
+	tenantRouter       TenantProviderResolver
 	circuitBreaker     *gobreaker.TwoStepCircuitBreaker
 	productsCache      sync.Map                // key: joined productIds or "all" -> []*domain.Product
 	bulkhead           chan struct{}           // semaphore for external calls
