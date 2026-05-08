@@ -1,0 +1,128 @@
+[
+  {
+    "id": "TMP-011",
+    "title": "legacy-data-migration-isolation",
+    "description": "Implement the operational migration slice for legacy default-tenant backfill, dry-run verification, rollback, and tenant isolation enforcement evidence. Read slices/TMP-011-migration-and-data-isolation/slice.yaml, domain-grounding, story-craft, roadmap-to-slices, and value-gate artifacts before editing. Include a concise Claude critique attempt before implementation and record the result in the slice artifacts.",
+    "status": "ready",
+    "priority": 30,
+    "slice_id": "TMP-011",
+    "depends_on": [],
+    "allowed_files": [
+      "Makefile",
+      "docs/**",
+      "scripts/**",
+      "slices/TMP-011-migration-and-data-isolation/**",
+      "slices/manifest.json",
+      "services/acquisition-api/migrations/**",
+      "services/subscription-external/migrations/**",
+      "services/**/internal/**",
+      "services/**/cmd/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      ".harness/**",
+      ".agent/**"
+    ],
+    "acceptance_criteria": [
+      "make db-migrate-tenant-platform-dry-run exists and reports table-level row counts, unmapped rows, conflict counts, and constraint readiness without mutating production data",
+      "make db-migrate-tenant-platform exists and backfills eligible legacy rows to tenant_key=legacy-default in an idempotent batched migration path",
+      "make db-rollback-tenant-platform exists or an equivalent reviewed rollback script preserves original data and restores nullable tenant compatibility",
+      "TMP-011 value-gate report maps every happy, failure, edge, and invariant criterion to named evidence",
+      "Existing single-tenant Ghana/TIMWE compatibility is covered by smoke, repository, or SQL verification evidence"
+    ],
+    "verification_commands": [
+      "jq empty slices/manifest.json",
+      "slice-harness status"
+    ]
+  },
+  {
+    "id": "TMP-014",
+    "title": "admin-portal-tenant-workspace",
+    "description": "Implement tenant workspace route guards, tenant selector posture, and tenant API denial handling for frontend/webspa-admin according to slices/TMP-014-admin-portal-tenant-workspace/slice.yaml.",
+    "status": "ready",
+    "priority": 20,
+    "slice_id": "TMP-014",
+    "depends_on": [],
+    "allowed_files": [
+      "frontend/webspa-admin/**",
+      "slices/TMP-014-admin-portal-tenant-workspace/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      ".harness/**",
+      ".agent/**"
+    ],
+    "acceptance_criteria": [
+      "Tenant admins see tenant workspace context and tenant-scoped navigation only",
+      "URL tampering or missing tenant assignment produces an explicit denial or empty-state path",
+      "Slice value-gate report names tests or manual evidence for happy, failure, edge, and invariant criteria"
+    ],
+    "verification_commands": [
+      "jq empty slices/manifest.json",
+      "slice-harness status"
+    ]
+  },
+  {
+    "id": "TMP-015",
+    "title": "platform-ops-secret-observability",
+    "description": "Implement platform ops hardening for secret hygiene, tenant/channel metric labels, dashboards, and production checklist according to slices/TMP-015-platform-ops-secret-observability/slice.yaml.",
+    "status": "ready",
+    "priority": 10,
+    "slice_id": "TMP-015",
+    "depends_on": [],
+    "allowed_files": [
+      "config/**",
+      "docker-compose*.yml",
+      "docs/**",
+      "ops/**",
+      "scripts/**",
+      "slices/TMP-015-platform-ops-secret-observability/**",
+      "services/**/internal/observability/**",
+      "services/**/internal/config/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      ".harness/**",
+      ".agent/**"
+    ],
+    "acceptance_criteria": [
+      "Credential-shaped config is documented or guarded without exposing secret material",
+      "Tenant/channel observability labels and dashboards avoid PII and high-cardinality values",
+      "Secret backend unavailable and unsafe local config failure modes are covered by value-gate evidence"
+    ],
+    "verification_commands": [
+      "jq empty slices/manifest.json",
+      "slice-harness status"
+    ]
+  },
+  {
+    "id": "TMP-016",
+    "title": "partner-channel-onboarding-contracts",
+    "description": "Create versioned tenant/channel onboarding contracts, callback signature guidance, credential posture, sandbox fixtures, and postback examples according to slices/TMP-016-partner-channel-onboarding-contracts/slice.yaml.",
+    "status": "ready",
+    "priority": 10,
+    "slice_id": "TMP-016",
+    "depends_on": [],
+    "allowed_files": [
+      "docs/**",
+      "examples/**",
+      "slices/TMP-016-partner-channel-onboarding-contracts/**",
+      "services/**/docs/**",
+      "services/**/README.md"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      ".harness/**",
+      ".agent/**"
+    ],
+    "acceptance_criteria": [
+      "Onboarding document names tenant/channel API, callback, credential, sandbox, and postback contracts",
+      "Sandbox fixtures include supported and unsupported capability examples plus legacy mapping ambiguity",
+      "Slice value-gate report maps contract criteria to concrete files and examples"
+    ],
+    "verification_commands": [
+      "jq empty slices/manifest.json",
+      "slice-harness status"
+    ]
+  }
+]

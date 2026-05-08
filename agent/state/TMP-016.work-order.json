@@ -1,0 +1,75 @@
+{
+  "work_order_id": "WO-TMP-016-001",
+  "issue_id": "TMP-016",
+  "class": "bounded_enabler",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "New tenant channels can be onboarded without bespoke engineering discovery.",
+  "actor": "api-integrated-partner",
+  "entrypoint": "docs/tenant-channel-onboarding.md and sandbox fixtures",
+  "trigger": "Partner begins tenant channel onboarding",
+  "allowed_files": [
+    "docs/**",
+    "examples/**",
+    "slices/TMP-016-partner-channel-onboarding-contracts/**",
+    "services/**/docs/**",
+    "services/**/README.md",
+    "agent/backlog/issues/TMP-016-partner-channel-onboarding-contracts.md",
+    "agent/state/TMP-016.work-order.json",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "frontend/webspa-admin/**",
+    "services/**/internal/**",
+    "Makefile"
+  ],
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "test -f docs/tenant-channel-onboarding.md"
+  ],
+  "required_evidence": [
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "agent-supervisor --config .harness/config.json preflight",
+    "contract fixture evidence"
+  ],
+  "non_goals": [
+    "No live partner credential provisioning.",
+    "No backend route rewrites."
+  ],
+  "blocking_dependencies": [
+    "TMP-003",
+    "TMP-004",
+    "TMP-007",
+    "TMP-012",
+    "TMP-013"
+  ],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-016",
+    "title": "Partner channel onboarding contracts",
+    "path": "agent/backlog/issues/TMP-016-partner-channel-onboarding-contracts.md",
+    "declared_class": "bounded_enabler",
+    "detected_class": "bounded_enabler",
+    "confidence": 0.86,
+    "verticality_score": 92,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

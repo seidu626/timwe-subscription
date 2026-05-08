@@ -1,0 +1,41 @@
+{
+  "enforce_closeout_by_default": true,
+  "exclude_paths": [
+    ".git",
+    ".agent",
+    "node_modules",
+    "dist",
+    "build",
+    ".next",
+    "target",
+    "vendor",
+    "__pycache__",
+    ".venv"
+  ],
+  "max_retries_per_task": 3,
+  "partial_indicator_patterns": [
+    "TODO",
+    "FIXME",
+    "stub",
+    "placeholder",
+    "not implemented",
+    "mock",
+    "temporary",
+    "hack",
+    "@ts-ignore",
+    "describe.skip",
+    "it.skip",
+    "throw new Error(\"not implemented\")",
+    "return null",
+    "coming soon"
+  ],
+  "stale_after_minutes": 30,
+  "stop_conditions": [
+    "no_unblocked_tasks",
+    "only_external_blockers_remain",
+    "budget_or_time_limit_reached",
+    "unsafe_git_state",
+    "same_task_failed_too_many_times"
+  ],
+  "version": 1
+}

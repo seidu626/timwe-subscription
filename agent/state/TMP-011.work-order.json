@@ -1,0 +1,84 @@
+{
+  "work_order_id": "WO-TMP-011-001",
+  "issue_id": "TMP-011",
+  "class": "operational_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Existing production data can be backfilled and verified under tenant isolation before multi-tenant enforcement.",
+  "actor": "platform-operator",
+  "entrypoint": "make db-migrate-tenant-platform",
+  "trigger": "Platform operator runs the tenant platform migration workflow",
+  "allowed_files": [
+    "Makefile",
+    "docs/**",
+    "scripts/**",
+    "slices/TMP-011-migration-and-data-isolation/**",
+    "slices/manifest.json",
+    "services/acquisition-api/migrations/**",
+    "services/subscription-external/migrations/**",
+    "services/**/internal/**",
+    "services/**/cmd/**",
+    "agent/backlog/issues/TMP-011-legacy-data-migration-isolation.md",
+    "agent/state/TMP-011.work-order.json",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "frontend/webspa-admin/**",
+    "package.json",
+    "pnpm-lock.yaml"
+  ],
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "make db-migrate-tenant-platform-dry-run"
+  ],
+  "required_evidence": [
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "agent-supervisor --config .harness/config.json preflight",
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "make db-migrate-tenant-platform-dry-run or equivalent SQL dry-run verification",
+    "TMP-011 value-gate report"
+  ],
+  "non_goals": [
+    "No admin portal tenant workspace changes.",
+    "No partner onboarding contract breadth.",
+    "No production database execution from this agent session."
+  ],
+  "blocking_dependencies": [
+    "TMP-001",
+    "TMP-002",
+    "TMP-005",
+    "TMP-006",
+    "TMP-008",
+    "TMP-009"
+  ],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-011",
+    "title": "Legacy data migration isolation",
+    "path": "agent/backlog/issues/TMP-011-legacy-data-migration-isolation.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 92,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

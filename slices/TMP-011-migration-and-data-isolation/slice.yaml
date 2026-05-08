@@ -10,23 +10,30 @@ story:
 
 entrypoints:
   - "make db-migrate-tenant-platform"
+  - "make db-migrate-tenant-platform-dry-run"
+  - "make db-rollback-tenant-platform"
   - "SQL verification queries in migration runbook"
 
 acceptance_criteria:
   happy:
     - scenario: "Backfill default tenant"
-      given: ["existing global campaigns, products, subscriptions, notifications, postbacks, cadence rows"]
+      given: ["default tenant exists with tenant_key=legacy-default and status=ACTIVE", "existing global campaigns, products, subscriptions, notifications, postbacks, cadence rows"]
       when: "operator runs migration"
       then: "all legacy rows receive default tenant_id and verification queries show zero unmapped rows"
-      evidence: "migration test or dry-run SQL verification"
+      evidence: "dry-run SQL verification and migration test assert table-by-table before/after counts"
     - scenario: "Enforce tenant constraints"
       given: ["backfill completed"]
       when: "operator applies not-null and scoped uniqueness constraints"
       then: "constraints apply without violating existing data"
       evidence: "migration validation script"
+    - scenario: "Rerun safely after partial migration"
+      given: ["a previous migration attempt backfilled a subset of legacy rows before stopping"]
+      when: "operator reruns the migration"
+      then: "already migrated rows are unchanged, remaining eligible rows are backfilled, and row counts remain stable"
+      evidence: "idempotent migration test"
   failures:
     - scenario: "Unmapped legacy row"
-      given: ["row cannot be assigned to default tenant"]
+      given: ["row has no tenant mapping, orphaned foreign key, or ambiguous candidate tenant"]
       when: "migration dry-run executes"
       then: "migration stops before enforcing constraints and lists offending table/count"
       evidence: "SQL dry-run test"
@@ -37,15 +44,20 @@ acceptance_criteria:
       evidence: "fixture migration test"
     - scenario: "Rollback required"
       given: ["post-deploy smoke fails"]
-      when: "operator runs rollback notes"
-      then: "rollback preserves original data and disables tenant enforcement safely"
-      evidence: "documented rollback script review"
+      when: "operator runs rollback target"
+      then: "rollback preserves original data, removes enforcement constraints, and restores nullable tenant compatibility safely"
+      evidence: "make db-rollback-tenant-platform smoke or script review"
   edges:
     - scenario: "Large table lock risk"
       given: ["subscriptions/notifications tables are large"]
       when: "migration runs"
-      then: "migration uses batched backfill or explicitly documents lock window"
-      evidence: "runbook and SQL review"
+      then: "migration uses batched backfill with an explicit batch size and validates constraint application lock risk separately"
+      evidence: "runbook, dry-run estimate, and SQL review"
+    - scenario: "Verification artifact"
+      given: ["dry-run or production-like migration completes"]
+      when: "operator records migration evidence"
+      then: "artifact includes tenant id, table row counts, unmapped counts, conflict counts, and constraint status"
+      evidence: "migration verification report fixture"
   invariants:
     - rule: "Existing single-tenant behavior remains compatible"
       preserved_by: "default tenant mapping and compatibility query paths during transition"
@@ -55,6 +67,10 @@ acceptance_criteria:
       preserved_by: "verification query before adding not-null constraints"
       violated_when: "any migrated table has null tenant_id"
       test: "SQL assertion"
+    - rule: "Migration is retryable and auditable"
+      preserved_by: "idempotent updates and table-level verification artifacts"
+      violated_when: "rerun changes already migrated row ownership or produces no row-count evidence"
+      test: "idempotency and verification artifact assertions"
 
 out_of_scope:
   - "new feature behavior beyond migration"

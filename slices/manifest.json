@@ -17,6 +17,7 @@
   "slices": [
     {
       "id": "TMP-001",
+      "class": "vertical_slice",
       "name": "tenant-context-walking-skeleton",
       "description": "Platform operator creates a tenant and authenticated requests carry tenant context through one protected admin endpoint.",
       "state": "done",
@@ -31,6 +32,7 @@
     },
     {
       "id": "TMP-002",
+      "class": "vertical_slice",
       "name": "tenant-admin-management-scope",
       "description": "Tenant admin manages products and userbase records scoped to their tenant with audit logs.",
       "state": "done",
@@ -45,6 +47,7 @@
     },
     {
       "id": "TMP-003",
+      "class": "vertical_slice",
       "name": "channel-catalog-capabilities",
       "description": "Tenant admin creates channel definitions with provider, country/operator scope, and supported capabilities.",
       "state": "done",
@@ -59,6 +62,7 @@
     },
     {
       "id": "TMP-004",
+      "class": "vertical_slice",
       "name": "channel-credential-binding",
       "description": "Tenant admin binds a secret-backed credential reference to a channel without exposing secret material.",
       "state": "done",
@@ -73,6 +77,7 @@
     },
     {
       "id": "TMP-005",
+      "class": "vertical_slice",
       "name": "tenant-campaign-binding",
       "description": "Tenant admin creates and reads campaigns scoped by tenant and bound to a compatible channel.",
       "state": "done",
@@ -87,6 +92,7 @@
     },
     {
       "id": "TMP-006",
+      "class": "vertical_slice",
       "name": "tenant-acquisition-flow",
       "description": "End subscriber starts and confirms an acquisition transaction through a tenant campaign.",
       "state": "done",
@@ -101,6 +107,7 @@
     },
     {
       "id": "TMP-007",
+      "class": "vertical_slice",
       "name": "channel-subscription-routing",
       "description": "API-integrated partner and acquisition services route optin, confirm, optout, status, MT, and charge through tenant channel configuration.",
       "state": "done",
@@ -117,6 +124,7 @@
     },
     {
       "id": "TMP-008",
+      "class": "vertical_slice",
       "name": "notification-and-cadence-routing",
       "description": "Notifications, message outbox, cadence state, and worker dispatch preserve tenant and channel context.",
       "state": "done",
@@ -133,6 +141,7 @@
     },
     {
       "id": "TMP-009",
+      "class": "vertical_slice",
       "name": "postback-attribution-routing",
       "description": "Ad partner postbacks and attribution rules resolve by tenant, campaign, channel, and provider.",
       "state": "done",
@@ -149,6 +158,7 @@
     },
     {
       "id": "TMP-010",
+      "class": "vertical_slice",
       "name": "tenant-reporting-operations",
       "description": "Tenant admin views reports, exports, queues, charging failures, renewal, and health filtered by tenant and channel.",
       "state": "done",
@@ -165,6 +175,7 @@
     },
     {
       "id": "TMP-011",
+      "class": "operational_slice",
       "name": "legacy-data-migration-isolation",
       "description": "Platform operator migrates existing global data into a default tenant and verifies tenant isolation constraints.",
       "state": "planned",
@@ -179,6 +190,7 @@
     },
     {
       "id": "TMP-012",
+      "class": "vertical_slice",
       "name": "public-tenant-routing",
       "description": "Public landing, campaign, HE, callback, and gateway routes resolve tenant deterministically before work begins.",
       "state": "done",
@@ -193,6 +205,7 @@
     },
     {
       "id": "TMP-013",
+      "class": "vertical_slice",
       "name": "inbound-callback-correlation",
       "description": "Inbound TIMWE/MNO/partner callbacks correlate to tenant and channel before updating subscription, notification, charge, or postback state.",
       "state": "done",
@@ -209,6 +222,7 @@
     },
     {
       "id": "TMP-014",
+      "class": "vertical_slice",
       "name": "admin-portal-tenant-workspace",
       "description": "Admin portal exposes a tenant workspace, tenant route guards, platform operator tenant switching, and API tenant error handling.",
       "state": "planned",
@@ -223,6 +237,7 @@
     },
     {
       "id": "TMP-015",
+      "class": "operational_slice",
       "name": "platform-ops-secret-observability",
       "description": "Platform operator removes unsafe secret patterns, documents rotation, and adds tenant/channel observability labels and dashboards.",
       "state": "planned",
@@ -237,6 +252,7 @@
     },
     {
       "id": "TMP-016",
+      "class": "bounded_enabler",
       "name": "partner-channel-onboarding-contracts",
       "description": "Partner receives versioned tenant/channel API, callback, credential, sandbox, and postback contracts.",
       "state": "planned",
@@ -251,6 +267,7 @@
     },
     {
       "id": "TMP-017",
+      "class": "operational_slice",
       "name": "billing-charge-ownership",
       "description": "Platform operator decides and proves the tenant-aware owner for charge and billing flows across subscription-external and the disabled billing service.",
       "state": "done",
@@ -267,6 +284,7 @@
     },
     {
       "id": "TMP-018",
+      "class": "bounded_enabler",
       "name": "tenant-claim-and-service-auth-contract",
       "description": "Platform services share typed tenant claims, role scopes, trusted service headers, and request-context propagation.",
       "state": "done",
@@ -281,6 +299,7 @@
     },
     {
       "id": "TMP-019",
+      "class": "vertical_slice",
       "name": "tenant-asset-namespacing",
       "description": "Campaign assets and presigned URLs use tenant-scoped object-storage keys and public-safe DTOs.",
       "state": "done",
@@ -295,6 +314,7 @@
     },
     {
       "id": "TMP-020",
+      "class": "operational_slice",
       "name": "tenant-observability-baseline",
       "description": "HTTP services and workers emit safe tenant/channel context in logs, metrics, traces, and health signals.",
       "state": "done",
