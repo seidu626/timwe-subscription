@@ -30,19 +30,21 @@ func NewNotificationRepository(db *sql.DB, client cached.RedisClient) *Notificat
 	}
 }
 
-// GenerateCacheKey generates a unique cache key for query filters
-func (r *NotificationRepository) GenerateCacheKey(startDate, endDate time.Time, partnerRole, msisdn, channel, notificationType string, page, pageSize int) string {
-	return fmt.Sprintf("notifications:%s:%s:%s:%s:%s:%s:%d:%d", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), partnerRole, msisdn, channel, notificationType, page, pageSize)
+// GenerateCacheKey generates a unique cache key for query filters.
+func (r *NotificationRepository) GenerateCacheKey(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, channel, notificationType string, page, pageSize int) string {
+	return fmt.Sprintf("notifications:%s:%s:%s:%s:%s:%s:%s:%s:%d:%d", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), tenantID, channelID, partnerRole, msisdn, channel, notificationType, page, pageSize)
 }
 
 // FetchNotifications retrieves notifications with filtering, pagination, and caching support.
-func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	channelID = strings.TrimSpace(channelID)
 	partnerRole = strings.TrimSpace(partnerRole)
 	msisdn = strings.TrimSpace(msisdn)
 	entryChannel = strings.TrimSpace(entryChannel)
 	notificationType = strings.TrimSpace(notificationType)
 
-	cacheKey := r.GenerateCacheKey(startDate, endDate, partnerRole, msisdn, entryChannel, notificationType, page, pageSize)
+	cacheKey := r.GenerateCacheKey(startDate, endDate, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, page, pageSize)
 
 	// Try fetching cached response
 	log.Printf("Fetching notifications from cache: %s", cacheKey)
@@ -59,13 +61,25 @@ func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time
 	// Build main and count queries with filtering options
 	query := `
         SELECT 
-            id, partner_role, msisdn, product_id, entry_channel, pricepoint_id, type, created_at
+            id, tenant_id::text, channel_id::text, partner_role, msisdn, product_id, entry_channel, pricepoint_id, type, created_at
         FROM notifications WHERE 1=1`
 	countQuery := `SELECT COUNT(*) FROM notifications WHERE 1=1`
 	args := []interface{}{}
 	argIndex := 1
 
 	// Apply filters if provided
+	if tenantID != "" {
+		query += fmt.Sprintf(" AND tenant_id::text = $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND tenant_id::text = $%d", argIndex)
+		args = append(args, tenantID)
+		argIndex++
+	}
+	if channelID != "" {
+		query += fmt.Sprintf(" AND channel_id::text = $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND channel_id::text = $%d", argIndex)
+		args = append(args, channelID)
+		argIndex++
+	}
 	if !startDate.IsZero() {
 		query += fmt.Sprintf(" AND created_at >= $%d", argIndex)
 		countQuery += fmt.Sprintf(" AND created_at >= $%d", argIndex)
@@ -162,6 +176,8 @@ type rowScanner interface {
 
 func scanAndMapNotification(scanner rowScanner) (*domain.Notification, error) {
 	var id int
+	var tenantID sql.NullString
+	var channelID sql.NullString
 	var partnerRole int
 	var msisdn string
 	var productID int
@@ -172,6 +188,8 @@ func scanAndMapNotification(scanner rowScanner) (*domain.Notification, error) {
 
 	if err := scanner.Scan(
 		&id,
+		&tenantID,
+		&channelID,
 		&partnerRole,
 		&msisdn,
 		&productID,
@@ -185,6 +203,8 @@ func scanAndMapNotification(scanner rowScanner) (*domain.Notification, error) {
 
 	return &domain.Notification{
 		ID:           id,
+		TenantID:     nullStringPtr(tenantID),
+		ChannelID:    nullStringPtr(channelID),
 		PartnerRole:  partnerRole,
 		MSISDN:       msisdn,
 		ProductID:    productID,
@@ -213,13 +233,15 @@ func nullStringPtr(val sql.NullString) *string {
 func (r *NotificationRepository) Save(notification *domain.NotificationRequest) error {
 	query := `
         INSERT INTO notifications (
-            partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn,
+            tenant_id, channel_id, partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn,
             large_account, transaction_uuid, mno_delivery_code, entry_channel, message_type,
             message, tags, type
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
         )`
 	_, err := r.db.Exec(query,
+		nullStringPtrValue(notification.TenantID),
+		nullStringPtrValue(notification.ChannelID),
 		notification.PartnerRole,
 		notification.ExternalTxID,
 		notification.ProductID,
@@ -240,4 +262,11 @@ func (r *NotificationRepository) Save(notification *domain.NotificationRequest) 
 		return fmt.Errorf("failed to save notification: %w", err)
 	}
 	return nil
+}
+
+func nullStringPtrValue(value *string) sql.NullString {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: strings.TrimSpace(*value), Valid: true}
 }

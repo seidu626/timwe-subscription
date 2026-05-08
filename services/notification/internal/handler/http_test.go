@@ -7,17 +7,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
 	"github.com/seidu626/subscription-manager/notification/internal/service"
 	"github.com/valyala/fasthttp"
 )
 
 type handlerRepoStub struct {
-	fetchResp *domain.ListResponse
-	fetchErr  error
+	fetchResp      *domain.ListResponse
+	fetchErr       error
+	fetchTenantID  string
+	fetchChannelID string
+	saved          *domain.NotificationRequest
 }
 
-func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+	h.fetchTenantID = tenantID
+	h.fetchChannelID = channelID
 	if h.fetchErr != nil {
 		return nil, h.fetchErr
 	}
@@ -28,6 +34,7 @@ func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, partn
 }
 
 func (h *handlerRepoStub) Save(notification *domain.NotificationRequest) error {
+	h.saved = notification
 	return nil
 }
 
@@ -35,6 +42,7 @@ func TestListNotifications_ReturnsInternalServerError(t *testing.T) {
 	svc := service.NewNotificationService(&handlerRepoStub{fetchErr: errors.New("query failed")})
 	h := NewNotificationHandler(svc)
 	ctx := newListRequestContext("/api/v1/notification/list?page=1&pageSize=10")
+	setTenantIdentity(ctx, "tenant-1")
 
 	h.ListNotifications(ctx)
 
@@ -69,6 +77,7 @@ func TestListNotifications_ReturnsPaginationHeaderAndBody(t *testing.T) {
 	svc := service.NewNotificationService(&handlerRepoStub{fetchResp: listResponse})
 	h := NewNotificationHandler(svc)
 	ctx := newListRequestContext("/api/v1/notification/list?page=1&pageSize=10")
+	setTenantIdentity(ctx, "tenant-1")
 
 	h.ListNotifications(ctx)
 
@@ -98,6 +107,94 @@ func TestListNotifications_ReturnsPaginationHeaderAndBody(t *testing.T) {
 	}
 }
 
+func TestListNotifications_RequiresTenantContext(t *testing.T) {
+	svc := service.NewNotificationService(&handlerRepoStub{})
+	h := NewNotificationHandler(svc)
+	ctx := newListRequestContext("/api/v1/notification/list?page=1&pageSize=10")
+
+	h.ListNotifications(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("expected status 403 without tenant context, got %d", ctx.Response.StatusCode())
+	}
+	if !strings.Contains(string(ctx.Response.Body()), "tenant context required") {
+		t.Fatalf("unexpected response body: %s", ctx.Response.Body())
+	}
+}
+
+func TestListNotifications_RejectsSpoofedTenantHeaderWithoutVerifiedIdentity(t *testing.T) {
+	svc := service.NewNotificationService(&handlerRepoStub{})
+	h := NewNotificationHandler(svc)
+	ctx := newListRequestContext("/api/v1/notification/list?page=1&pageSize=10")
+	ctx.Request.Header.Set("X-Tenant-Id", "tenant-evil")
+
+	h.ListNotifications(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("expected status 403 for spoofed tenant header, got %d", ctx.Response.StatusCode())
+	}
+}
+
+func TestListNotifications_AllowsPlatformScopedTenantSelection(t *testing.T) {
+	svc := service.NewNotificationService(&handlerRepoStub{})
+	h := NewNotificationHandler(svc)
+	ctx := newListRequestContext("/api/v1/notification/list?page=1&pageSize=10")
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{PlatformScoped: true})
+	ctx.Request.Header.Set("X-Tenant-Id", "tenant-1")
+
+	h.ListNotifications(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("expected status 200 for platform tenant selection, got %d", ctx.Response.StatusCode())
+	}
+}
+
+func TestListNotifications_UsesVerifiedTenantOverSpoofedTenantHeader(t *testing.T) {
+	repo := &handlerRepoStub{}
+	svc := service.NewNotificationService(repo)
+	h := NewNotificationHandler(svc)
+	ctx := newListRequestContext("/api/v1/notification/list?page=1&pageSize=10")
+	setTenantIdentity(ctx, "tenant-a")
+	ctx.Request.Header.Set("X-Tenant-Id", "tenant-b")
+
+	h.ListNotifications(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("expected status 200, got %d", ctx.Response.StatusCode())
+	}
+	if repo.fetchTenantID != "tenant-a" {
+		t.Fatalf("expected verified tenant tenant-a to be used, got %q", repo.fetchTenantID)
+	}
+}
+
+func TestNotificationInboundPersistsTenantChannelContext(t *testing.T) {
+	repo := &handlerRepoStub{}
+	svc := service.NewNotificationService(repo)
+	h := NewNotificationHandler(svc)
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetRequestURI("/api/v1/notification/user-optin/2117")
+	ctx.SetUserValue("partnerRole", "2117")
+	ctx.Request.Header.SetMethod(fasthttp.MethodPost)
+	ctx.Request.Header.Set("X-Tenant-Id", "tenant-1")
+	ctx.Request.Header.Set("X-Tenant-Channel-Id", "channel-1")
+	ctx.Request.SetBodyString(`{"msisdn":"233241234567","productId":8509,"message":"ok"}`)
+
+	h.UserOptinHandler(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("expected status 200, got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if repo.saved == nil {
+		t.Fatal("expected notification to be saved")
+	}
+	if repo.saved.TenantID == nil || *repo.saved.TenantID != "tenant-1" {
+		t.Fatalf("expected tenant persisted, got %#v", repo.saved.TenantID)
+	}
+	if repo.saved.ChannelID == nil || *repo.saved.ChannelID != "channel-1" {
+		t.Fatalf("expected channel persisted, got %#v", repo.saved.ChannelID)
+	}
+}
+
 func newListRequestContext(uri string) *fasthttp.RequestCtx {
 	req := fasthttp.AcquireRequest()
 	req.Header.SetMethod(fasthttp.MethodGet)
@@ -107,4 +204,8 @@ func newListRequestContext(uri string) *fasthttp.RequestCtx {
 	ctx.Init(req, nil, nil)
 
 	return ctx
+}
+
+func setTenantIdentity(ctx *fasthttp.RequestCtx, tenantID string) {
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{TenantID: tenantID})
 }

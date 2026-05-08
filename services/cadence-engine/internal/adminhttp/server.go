@@ -16,6 +16,7 @@ import (
 
 	"github.com/seidu626/subscription-manager/cadence-engine/internal/domain"
 	"github.com/seidu626/subscription-manager/cadence-engine/internal/repository"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"go.uber.org/zap"
 )
 
@@ -96,6 +97,10 @@ func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
 	if !s.access.require(w, r) {
 		return
 	}
+	tenantID, channelID, ok := s.tenantScope(w, r)
+	if !ok {
+		return
+	}
 
 	switch r.Method {
 	case http.MethodGet:
@@ -137,7 +142,7 @@ func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
 			limit = n
 		}
 
-		items, err := s.repo.ListSeries(r.Context(), partnerRoleID, productID, active, limit)
+		items, err := s.repo.ListSeries(r.Context(), tenantID, channelID, partnerRoleID, productID, active, limit)
 		if err != nil {
 			s.logger.Error("list series failed", zap.Error(err))
 			writeError(w, http.StatusInternalServerError, "failed to list series")
@@ -149,6 +154,7 @@ func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			PartnerRoleID  int    `json:"partner_role_id"`
 			ProductID      int    `json:"product_id"`
+			ChannelID      string `json:"channel_id"`
 			Name           string `json:"name"`
 			Mode           string `json:"mode"`
 			ContentVersion int    `json:"content_version"`
@@ -172,7 +178,7 @@ func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
 			active = *req.IsActive
 		}
 
-		series, err := s.repo.UpsertSeries(r.Context(), req.PartnerRoleID, req.ProductID, req.Name, req.Mode, req.ContentVersion, active)
+		series, err := s.repo.UpsertSeries(r.Context(), tenantID, firstNonBlank(req.ChannelID, channelID), req.PartnerRoleID, req.ProductID, req.Name, req.Mode, req.ContentVersion, active)
 		if err != nil {
 			s.logger.Error("upsert series failed", zap.Error(err))
 			writeError(w, http.StatusInternalServerError, "failed to upsert series")
@@ -208,6 +214,24 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 	seriesID, err := strconv.ParseInt(parts[4], 10, 64)
 	if err != nil || seriesID <= 0 {
 		http.Error(w, "invalid series id", http.StatusBadRequest)
+		return
+	}
+	tenantID, channelID, ok := s.tenantScope(w, r)
+	if !ok {
+		return
+	}
+	series, err := s.repo.GetSeriesForTenant(r.Context(), tenantID, seriesID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "series not found")
+			return
+		}
+		s.logger.Error("get series failed", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "failed to get series")
+		return
+	}
+	if channelID != "" && !seriesMatchesChannel(series, channelID) {
+		writeError(w, http.StatusNotFound, "series not found")
 		return
 	}
 
@@ -311,17 +335,6 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusBadRequest, "content_version is required and must be > 0")
 				return
 			}
-			// Validate series exists
-			series, err := s.repo.GetSeries(r.Context(), seriesID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					writeError(w, http.StatusNotFound, "series not found")
-					return
-				}
-				s.logger.Error("get series failed", zap.Error(err))
-				writeError(w, http.StatusInternalServerError, "failed to get series")
-				return
-			}
 			// Validate content items exist for this version
 			v := req.ContentVersion
 			activeOnly := true
@@ -422,7 +435,7 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 				}
 				defer func() { _ = tx.Rollback() }()
 
-				if _, err := s.repo.UpsertContentItemTx(r.Context(), tx, seriesID, req.ContentVersion, req.SeqNo, req.MessageText, active); err != nil {
+				if _, err := s.repo.UpsertContentItemTx(r.Context(), tx, tenantID, seriesChannelID(series, channelID), seriesID, req.ContentVersion, req.SeqNo, req.MessageText, active); err != nil {
 					s.logger.Error("upsert content failed", zap.Error(err))
 					writeError(w, http.StatusInternalServerError, "failed to save content")
 					return
@@ -446,16 +459,6 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		series, err := s.repo.GetSeries(r.Context(), seriesID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				writeError(w, http.StatusNotFound, "series not found")
-				return
-			}
-			s.logger.Error("get series failed", zap.Error(err))
-			writeError(w, http.StatusInternalServerError, "failed to get series")
-			return
-		}
 		writeJSON(w, http.StatusOK, series)
 		return
 	case http.MethodPatch:
@@ -473,7 +476,7 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "failed to patch series")
 			return
 		}
-		series, err := s.repo.GetSeries(r.Context(), seriesID)
+		series, err := s.repo.GetSeriesForTenant(r.Context(), tenantID, seriesID)
 		if err != nil {
 			s.logger.Error("get series after patch failed", zap.Error(err))
 			writeError(w, http.StatusInternalServerError, "failed to get series")
@@ -492,6 +495,10 @@ func (s *Server) handleCSVImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.access.require(w, r) {
+		return
+	}
+	tenantID, channelID, ok := s.tenantScope(w, r)
+	if !ok {
 		return
 	}
 
@@ -552,10 +559,10 @@ func (s *Server) handleCSVImport(w http.ResponseWriter, r *http.Request) {
 	var deactivated int64
 
 	for _, group := range importReq.Series {
-		series, err := s.repo.GetSeriesByKey(r.Context(), group.PartnerRoleID, group.ProductID, group.SeriesName)
+		series, err := s.repo.GetSeriesByKey(r.Context(), tenantID, group.PartnerRoleID, group.ProductID, group.SeriesName)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				created, err := s.repo.UpsertSeries(r.Context(), group.PartnerRoleID, group.ProductID, group.SeriesName, group.Mode, 1, true)
+				created, err := s.repo.UpsertSeries(r.Context(), tenantID, channelID, group.PartnerRoleID, group.ProductID, group.SeriesName, group.Mode, 1, true)
 				if err != nil {
 					s.logger.Error("ensure series failed", zap.Error(err))
 					writeError(w, http.StatusInternalServerError, "failed to import")
@@ -573,7 +580,7 @@ func (s *Server) handleCSVImport(w http.ResponseWriter, r *http.Request) {
 			keep := make([]int, 0, len(items))
 			for _, item := range items {
 				keep = append(keep, item.SeqNo)
-				if _, err := s.repo.UpsertContentItemTx(r.Context(), tx, series.ID, contentVersion, item.SeqNo, item.MessageText, item.IsActive); err != nil {
+				if _, err := s.repo.UpsertContentItemTx(r.Context(), tx, tenantID, seriesChannelID(series, channelID), series.ID, contentVersion, item.SeqNo, item.MessageText, item.IsActive); err != nil {
 					s.logger.Error("upsert content item failed", zap.Error(err))
 					writeError(w, http.StatusInternalServerError, "failed to import")
 					return
@@ -604,6 +611,46 @@ func (s *Server) handleCSVImport(w http.ResponseWriter, r *http.Request) {
 		"upserted":     upserted,
 		"deactivated":  deactivated,
 	})
+}
+
+func (s *Server) tenantScope(w http.ResponseWriter, r *http.Request) (string, string, bool) {
+	identity, _ := tenantctx.FromContext(r.Context())
+	tenantID := strings.TrimSpace(identity.TenantID)
+	if tenantID == "" && identity.PlatformScoped {
+		tenantID = firstNonBlank(r.Header.Get(tenantctx.HeaderTenantID), r.URL.Query().Get("tenantId"), r.URL.Query().Get("tenant_id"))
+	}
+	if tenantID == "" {
+		writeError(w, http.StatusForbidden, "tenant context required")
+		return "", "", false
+	}
+	channelID := firstNonBlank(
+		r.Header.Get("X-Tenant-Channel-Id"),
+		r.Header.Get("X-Channel-Id"),
+		r.URL.Query().Get("channelId"),
+		r.URL.Query().Get("channel_id"),
+	)
+	return tenantID, channelID, true
+}
+
+func firstNonBlank(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func seriesMatchesChannel(series *domain.MessageSeries, channelID string) bool {
+	channelID = strings.TrimSpace(channelID)
+	return channelID == "" || (series != nil && series.ChannelID != nil && strings.TrimSpace(*series.ChannelID) == channelID)
+}
+
+func seriesChannelID(series *domain.MessageSeries, fallback string) string {
+	if series != nil && series.ChannelID != nil && strings.TrimSpace(*series.ChannelID) != "" {
+		return strings.TrimSpace(*series.ChannelID)
+	}
+	return strings.TrimSpace(fallback)
 }
 
 func splitPath(p string) []string {

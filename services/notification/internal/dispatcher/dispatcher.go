@@ -15,14 +15,14 @@ import (
 )
 
 type Config struct {
-	BatchSize     int
-	PollInterval  time.Duration
-	MaxAttempts   int
-	BackoffBase   time.Duration
-	BackoffMax    time.Duration
-	MTBaseURL     string
-	MTChannel     string
-	HTTPTimeout   time.Duration
+	BatchSize    int
+	PollInterval time.Duration
+	MaxAttempts  int
+	BackoffBase  time.Duration
+	BackoffMax   time.Duration
+	MTBaseURL    string
+	MTChannel    string
+	HTTPTimeout  time.Duration
 }
 
 type Dispatcher struct {
@@ -105,6 +105,9 @@ func (d *Dispatcher) sendMT(ctx context.Context, job domain.OutboxJob) error {
 		"msisdn":    job.MSISDN,
 		"text":      job.MessageText,
 	}
+	if job.ChannelID != nil && *job.ChannelID != "" {
+		payload["channelId"] = *job.ChannelID
+	}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -116,6 +119,12 @@ func (d *Dispatcher) sendMT(ctx context.Context, job domain.OutboxJob) error {
 		return fmt.Errorf("create MT request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if job.TenantID != nil && *job.TenantID != "" {
+		req.Header.Set("X-Tenant-Id", *job.TenantID)
+	}
+	if job.ChannelID != nil && *job.ChannelID != "" {
+		req.Header.Set("X-Tenant-Channel-Id", *job.ChannelID)
+	}
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {

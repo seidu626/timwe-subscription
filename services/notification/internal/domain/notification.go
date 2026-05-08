@@ -14,6 +14,8 @@ type ListResponse struct {
 
 type Notification struct {
 	ID              int       `gorm:"primary_key" json:"id"`
+	TenantID        *string   `json:"tenantId,omitempty"`
+	ChannelID       *string   `json:"channelId,omitempty"`
 	PartnerRole     int       `json:"partnerRole"`
 	ExternalTxID    string    `json:"externalTxId"`
 	ProductID       int       `json:"productId"`
@@ -33,6 +35,8 @@ type Notification struct {
 }
 
 type NotificationRequest struct {
+	TenantID        *string  `json:"tenantId,omitempty"`
+	ChannelID       *string  `json:"channelId,omitempty"`
 	PartnerRole     int      `json:"partnerRole"`
 	ExternalTxID    string   `json:"externalTxId"`
 	ProductID       int      `json:"productId"`

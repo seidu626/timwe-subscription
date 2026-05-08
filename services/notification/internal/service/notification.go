@@ -13,7 +13,7 @@ type NotificationService struct {
 }
 
 type notificationRepository interface {
-	FetchNotifications(startDate, endDate time.Time, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error)
+	FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error)
 	Save(notification *domain.NotificationRequest) error
 }
 
@@ -26,6 +26,8 @@ func (s *NotificationService) GetNotifications(filters map[string]string) (*doma
 	// Parse filter values
 	startDate := parseFilterDate(filters["startDate"], false)
 	endDate := parseFilterDate(filters["endDate"], true)
+	tenantID := filters["tenantId"]
+	channelID := filters["channelId"]
 	partnerRole := filters["partnerRole"]
 	msisdn := filters["msisdn"]
 	entryChannel := filters["entry_channel"]
@@ -44,7 +46,7 @@ func (s *NotificationService) GetNotifications(filters map[string]string) (*doma
 	}
 
 	// Pass filters to the repository layer
-	listResponse, err := s.repo.FetchNotifications(startDate, endDate, partnerRole, msisdn, entryChannel, notificationType, page, pageSize)
+	listResponse, err := s.repo.FetchNotifications(startDate, endDate, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, page, pageSize)
 	if err != nil {
 		return nil, fmt.Errorf("get notifications failed (page=%d pageSize=%d): %w", page, pageSize, err)
 	}
