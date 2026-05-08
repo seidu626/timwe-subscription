@@ -60,7 +60,7 @@
       "id": "TMP-004",
       "name": "channel-credential-binding",
       "description": "Tenant admin binds a secret-backed credential reference to a channel without exposing secret material.",
-      "state": "planned",
+      "state": "done",
       "priority": "P1",
       "depends_on": ["TMP-003"],
       "actor": "tenant-admin",

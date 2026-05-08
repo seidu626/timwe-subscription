@@ -11,6 +11,7 @@ import (
 var defaultAdminManagementSchemaPaths = []string{
 	"migrations/add_admin_management_tables.sql",
 	"migrations/add_tenant_channels.sql",
+	"migrations/add_tenant_channel_credentials.sql",
 }
 
 var requiredAdminManagementRelations = []string{
@@ -19,6 +20,7 @@ var requiredAdminManagementRelations = []string{
 	"public.userbase_import_jobs",
 	"public.userbase_import_errors",
 	"public.tenant_channels",
+	"public.tenant_channel_credentials",
 }
 
 // EnsureSchema ensures admin-management tables/indexes exist using the SQL migration file,

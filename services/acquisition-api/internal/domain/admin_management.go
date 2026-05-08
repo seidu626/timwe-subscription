@@ -86,6 +86,57 @@ func (c *AdminChannel) IsRoutable() bool {
 	return c != nil && c.Status == ChannelStatusActive && len(c.Capabilities) > 0
 }
 
+type ChannelCredentialStatus string
+
+const (
+	ChannelCredentialStatusActive   ChannelCredentialStatus = "ACTIVE"
+	ChannelCredentialStatusInactive ChannelCredentialStatus = "INACTIVE"
+)
+
+// AdminChannelCredential is a redacted tenant channel credential reference.
+type AdminChannelCredential struct {
+	ID                string                  `json:"credential_id"`
+	TenantID          string                  `json:"tenant_id"`
+	ChannelID         string                  `json:"channel_id"`
+	Purpose           string                  `json:"purpose"`
+	Version           int                     `json:"version"`
+	Status            ChannelCredentialStatus `json:"status"`
+	SecretRef         string                  `json:"-"`
+	SecretRefDisplay  string                  `json:"redacted_display"`
+	SecretFingerprint string                  `json:"-"`
+	CreatedBy         *string                 `json:"created_by,omitempty"`
+	CreatedAt         time.Time               `json:"created_at"`
+	UpdatedAt         time.Time               `json:"updated_at"`
+	ActivatedAt       *time.Time              `json:"activated_at,omitempty"`
+	DeactivatedAt     *time.Time              `json:"deactivated_at,omitempty"`
+}
+
+func (c AdminChannelCredential) String() string {
+	return "[REDACTED channel credential]"
+}
+
+func (c AdminChannelCredential) GoString() string {
+	return c.String()
+}
+
+// ChannelCredentialBindInput contains credential material before it is converted to a reference.
+type ChannelCredentialBindInput struct {
+	ChannelID        string
+	Purpose          string
+	SecretRef        string
+	SecretValue      string
+	SecretRefDisplay string
+}
+
+// ChannelCredentialListFilter is used to filter and paginate channel credential metadata.
+type ChannelCredentialListFilter struct {
+	TenantID  string
+	ChannelID string
+	Purpose   string
+	Limit     int
+	Offset    int
+}
+
 // ChannelCreateInput contains normalized channel create data.
 type ChannelCreateInput struct {
 	ChannelKey   string

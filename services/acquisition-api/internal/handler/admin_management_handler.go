@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -70,6 +71,21 @@ type channelPayload struct {
 type channelEnabledPayload struct {
 	Enabled     *bool  `json:"enabled"`
 	PerformedBy string `json:"performed_by,omitempty"`
+}
+
+type listChannelCredentialsResponse struct {
+	Credentials []*domain.AdminChannelCredential `json:"credentials"`
+	TotalCount  int                              `json:"total_count"`
+	Page        int                              `json:"page"`
+	PageSize    int                              `json:"page_size"`
+}
+
+type channelCredentialPayload struct {
+	Purpose          string `json:"purpose,omitempty"`
+	SecretRef        string `json:"secret_ref,omitempty"`
+	SecretValue      string `json:"secret_value,omitempty"`
+	SecretRefDisplay string `json:"redacted_display,omitempty"`
+	PerformedBy      string `json:"performed_by,omitempty"`
 }
 
 type tenantCreatePayload struct {
@@ -383,6 +399,72 @@ func (h *AdminManagementHandler) SetChannelEnabled(ctx *fasthttp.RequestCtx) {
 	writeJSON(ctx, fasthttp.StatusOK, channel)
 }
 
+func (h *AdminManagementHandler) BindChannelCredential(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	channelID, err := parseChannelIDFromCredentialsPath(string(ctx.Path()))
+	if err != nil {
+		ctx.Error("Invalid channel id", fasthttp.StatusBadRequest)
+		return
+	}
+	var req channelCredentialPayload
+	decoder := json.NewDecoder(bytes.NewReader(ctx.PostBody()))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
+	requestID := requestIDFromHeader(ctx)
+	credential, err := h.service.BindChannelCredential(context.Background(), tenant.ID, channelID, &domain.ChannelCredentialBindInput{
+		ChannelID:        channelID,
+		Purpose:          req.Purpose,
+		SecretRef:        req.SecretRef,
+		SecretValue:      req.SecretValue,
+		SecretRefDisplay: req.SecretRefDisplay,
+	}, actor, requestID)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusCreated, credential)
+}
+
+func (h *AdminManagementHandler) ListChannelCredentials(ctx *fasthttp.RequestCtx) {
+	tenant, _, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	channelID, err := parseChannelIDFromCredentialsPath(string(ctx.Path()))
+	if err != nil {
+		ctx.Error("Invalid channel id", fasthttp.StatusBadRequest)
+		return
+	}
+	page, pageSize := parsePageArgs(ctx, 20, 200)
+	credentials, total, err := h.service.ListChannelCredentials(&domain.ChannelCredentialListFilter{
+		TenantID:  tenant.ID,
+		ChannelID: channelID,
+		Purpose:   strings.TrimSpace(string(ctx.QueryArgs().Peek("purpose"))),
+		Limit:     pageSize,
+		Offset:    (page - 1) * pageSize,
+	})
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, listChannelCredentialsResponse{
+		Credentials: credentials,
+		TotalCount:  total,
+		Page:        page,
+		PageSize:    pageSize,
+	})
+}
+
 type listUserbaseResponse struct {
 	Records    []*domain.UserbaseRecord `json:"records"`
 	TotalCount int                      `json:"total_count"`
@@ -618,6 +700,10 @@ func (h *AdminManagementHandler) handleServiceError(ctx *fasthttp.RequestCtx, er
 		ctx.Error("Forbidden", fasthttp.StatusForbidden)
 	case errors.Is(err, service.ErrAdminConflict):
 		ctx.Error("Resource already exists", fasthttp.StatusConflict)
+	case errors.Is(err, service.ErrAdminInvalidState):
+		ctx.Error(err.Error(), fasthttp.StatusConflict)
+	case errors.Is(err, service.ErrAdminDependencyUnavailable):
+		ctx.Error("Dependency unavailable", fasthttp.StatusServiceUnavailable)
 	case errors.Is(err, service.ErrTenantContextMissing):
 		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
 	case errors.Is(err, service.ErrTenantUnavailable):
@@ -697,6 +783,18 @@ func parseImportIDFromPath(path string) (string, error) {
 func parseChannelIDFromEnabledPath(path string) (string, error) {
 	parts := splitPathParts(path)
 	if len(parts) < 5 || parts[len(parts)-1] != "enabled" {
+		return "", errors.New("invalid path")
+	}
+	id := strings.TrimSpace(parts[len(parts)-2])
+	if id == "" {
+		return "", errors.New("missing channel id")
+	}
+	return id, nil
+}
+
+func parseChannelIDFromCredentialsPath(path string) (string, error) {
+	parts := splitPathParts(path)
+	if len(parts) < 5 || parts[len(parts)-1] != "credentials" {
 		return "", errors.New("invalid path")
 	}
 	id := strings.TrimSpace(parts[len(parts)-2])

@@ -165,6 +165,49 @@ func TestCreateChannelRejectsUnsupportedCapability(t *testing.T) {
 	}
 }
 
+func TestBindChannelCredentialRawSecretBackendUnavailableDoesNotEchoSecret(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	channelID := "33333333-3333-3333-3333-333333333333"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs("tenant-a").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "tenant-a", "Tenant A", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at")).
+		WithArgs(tenantID, channelID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "channel_key", "provider", "country", "operator", "capabilities", "status", "created_at", "updated_at"}).
+			AddRow(channelID, tenantID, "timwe-gh-airteltigo", "timwe", "GH", nil, "{optin,mt}", domain.ChannelStatusActive, now, now))
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "tenant-a",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetRequestURI("/v1/admin/channels/" + channelID + "/credentials")
+	ctx.Request.SetBodyString(`{"secret_value":"super-secret"}`)
+
+	h.BindChannelCredential(&ctx)
+
+	body := string(ctx.Response.Body())
+	if ctx.Response.StatusCode() != fasthttp.StatusServiceUnavailable {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), body)
+	}
+	if strings.Contains(body, "super-secret") || strings.Contains(strings.ToLower(body), "secret_value") {
+		t.Fatalf("response leaked secret-bearing input: %q", body)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func currentTenantResponseFor(t *testing.T, expect func(sqlmock.Sqlmock, time.Time)) (int, []byte) {
 	t.Helper()
 	db, mock, err := sqlmock.New()

@@ -235,6 +235,17 @@ func NewRouter(
 			}
 			return
 
+		case strings.HasPrefix(path, "/v1/admin/channels/") && strings.HasSuffix(path, "/credentials"):
+			switch method {
+			case fasthttp.MethodGet:
+				adminManagementHandler.ListChannelCredentials(ctx)
+			case fasthttp.MethodPost:
+				adminManagementHandler.BindChannelCredential(ctx)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		case strings.HasPrefix(path, "/v1/admin/channels/") && strings.HasSuffix(path, "/enabled"):
 			if method == fasthttp.MethodPatch {
 				adminManagementHandler.SetChannelEnabled(ctx)

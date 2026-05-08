@@ -227,6 +227,58 @@ func TestSetChannelStatusWithActivityLogUsesTenantScopedUpdate(t *testing.T) {
 	}
 }
 
+func TestRotateChannelCredentialWithActivityLogInactivatesOldAndInsertsNextVersion(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	channelID := "33333333-3333-3333-3333-333333333333"
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT status")).
+		WithArgs(tenantID, channelID).
+		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(domain.ChannelStatusActive))
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,")).
+		WithArgs(tenantID, channelID, "provider_api", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COALESCE(MAX(version), 0) + 1")).
+		WithArgs(tenantID, channelID, "provider_api").
+		WillReturnRows(sqlmock.NewRows([]string{"next_version"}).AddRow(2))
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE tenant_channel_credentials")).
+		WithArgs(tenantID, channelID, "provider_api", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO tenant_channel_credentials")).
+		WithArgs(sqlmock.AnyArg(), tenantID, channelID, "provider_api", 2, "vault://tenant/channel/provider", "vault://[REDACTED]", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "channel_id", "purpose", "version", "status", "secret_ref", "secret_ref_display", "secret_fingerprint", "created_by", "created_at", "updated_at", "activated_at", "deactivated_at"}).
+			AddRow("44444444-4444-4444-4444-444444444444", tenantID, channelID, "provider_api", 2, domain.ChannelCredentialStatusActive, "vault://tenant/channel/provider", "vault://[REDACTED]", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", nil, now, now, now, nil))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	created, err := repo.RotateChannelCredentialWithActivityLog(&domain.AdminChannelCredential{
+		TenantID:          tenantID,
+		ChannelID:         channelID,
+		Purpose:           "provider_api",
+		SecretRef:         "vault://tenant/channel/provider",
+		SecretRefDisplay:  "vault://[REDACTED]",
+		SecretFingerprint: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}, &domain.AdminActivityLog{ID: "55555555-5555-5555-5555-555555555555", Action: "bind"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if created.Version != 2 || created.SecretRefDisplay != "vault://[REDACTED]" {
+		t.Fatalf("unexpected credential: %#v", created)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func expectTenantInsert(mock sqlmock.Sqlmock, _ time.Time) *sqlmock.ExpectedQuery {
 	return mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO tenants")).
 		WithArgs(

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"regexp"
 	"strings"
@@ -13,6 +14,15 @@ import (
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"go.uber.org/zap"
 )
+
+type countingCredentialStore struct {
+	calls int
+}
+
+func (s *countingCredentialStore) PutChannelCredential(ctx context.Context, input ChannelCredentialSecretInput) (ChannelCredentialSecretRef, error) {
+	s.calls++
+	return ChannelCredentialSecretRef{SecretRef: "vault://tenant/channel/provider", SecretRefDisplay: "vault://[REDACTED]"}, nil
+}
 
 func TestCreateTenantRequiresPlatformScope(t *testing.T) {
 	svc := NewAdminManagementService(nil, zap.NewNop())
@@ -121,5 +131,65 @@ func TestNormalizeChannelCreateInputRejectsChargeWithoutMT(t *testing.T) {
 	})
 	if !errors.Is(err, ErrInvalidInput) || !strings.Contains(err.Error(), "charge requires mt") {
 		t.Fatalf("expected charge dependency error, got %v", err)
+	}
+}
+
+func TestBindChannelCredentialRejectsInactiveBeforeSecretStore(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	channelID := "33333333-3333-3333-3333-333333333333"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at")).
+		WithArgs(tenantID, channelID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "channel_key", "provider", "country", "operator", "capabilities", "status", "created_at", "updated_at"}).
+			AddRow(channelID, tenantID, "timwe-gh-airteltigo", "timwe", "GH", nil, "{optin,mt}", domain.ChannelStatusInactive, now, now))
+
+	store := &countingCredentialStore{}
+	svc := NewAdminManagementService(repository.NewAdminManagementRepository(db, zap.NewNop()), zap.NewNop())
+	svc.SetChannelCredentialSecretStore(store)
+
+	_, err = svc.BindChannelCredential(context.Background(), tenantID, channelID, &domain.ChannelCredentialBindInput{
+		SecretValue: "super-secret",
+	}, nil, nil)
+	if !errors.Is(err, ErrAdminInvalidState) || !strings.Contains(err.Error(), "channel_inactive") {
+		t.Fatalf("expected channel_inactive error, got %v", err)
+	}
+	if store.calls != 0 {
+		t.Fatalf("secret store was called before inactive channel rejection")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestBindChannelCredentialRequiresBackendForRawSecret(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	channelID := "33333333-3333-3333-3333-333333333333"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at")).
+		WithArgs(tenantID, channelID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "channel_key", "provider", "country", "operator", "capabilities", "status", "created_at", "updated_at"}).
+			AddRow(channelID, tenantID, "timwe-gh-airteltigo", "timwe", "GH", nil, "{optin,mt}", domain.ChannelStatusActive, now, now))
+
+	svc := NewAdminManagementService(repository.NewAdminManagementRepository(db, zap.NewNop()), zap.NewNop())
+	_, err = svc.BindChannelCredential(context.Background(), tenantID, channelID, &domain.ChannelCredentialBindInput{
+		SecretValue: "super-secret",
+	}, nil, nil)
+	if !errors.Is(err, ErrAdminDependencyUnavailable) {
+		t.Fatalf("expected dependency error, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
 	}
 }

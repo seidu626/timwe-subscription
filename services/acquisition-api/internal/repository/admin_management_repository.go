@@ -18,6 +18,8 @@ var (
 	ErrAdminNotFound = errors.New("admin resource not found")
 	// ErrAdminConflict is returned when an admin-managed resource violates uniqueness.
 	ErrAdminConflict = errors.New("admin resource conflict")
+	// ErrAdminInvalidState is returned when a valid resource is not in a state that allows a mutation.
+	ErrAdminInvalidState = errors.New("admin resource invalid state")
 )
 
 // AdminManagementRepository handles products/userbase/admin activity data access.
@@ -502,6 +504,162 @@ func (r *AdminManagementRepository) SetChannelStatusWithActivityLog(tenantID, id
 	}
 	committed = true
 	return channel, nil
+}
+
+func (r *AdminManagementRepository) ListChannelCredentials(filter *domain.ChannelCredentialListFilter) ([]*domain.AdminChannelCredential, int, error) {
+	if filter == nil {
+		filter = &domain.ChannelCredentialListFilter{Limit: 20}
+	}
+	tenantID := strings.TrimSpace(filter.TenantID)
+	channelID := strings.TrimSpace(filter.ChannelID)
+	if tenantID == "" || channelID == "" {
+		return nil, 0, fmt.Errorf("tenant_id and channel_id are required")
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+
+	where := []string{"tenant_id = $1", "channel_id = $2"}
+	args := []any{tenantID, channelID}
+	argN := 3
+	if purpose := strings.TrimSpace(filter.Purpose); purpose != "" {
+		where = append(where, fmt.Sprintf("purpose = $%d", argN))
+		args = append(args, purpose)
+		argN++
+	}
+	whereSQL := strings.Join(where, " AND ")
+
+	var total int
+	if err := r.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM tenant_channel_credentials WHERE %s`, whereSQL), args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count channel credentials: %w", err)
+	}
+
+	args = append(args, filter.Limit, filter.Offset)
+	rows, err := r.db.Query(fmt.Sprintf(`
+		SELECT id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,
+		       secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at
+		FROM tenant_channel_credentials
+		WHERE %s
+		ORDER BY version DESC, created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereSQL, argN, argN+1), args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list channel credentials: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]*domain.AdminChannelCredential, 0)
+	for rows.Next() {
+		credential, err := scanChannelCredential(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan channel credential: %w", err)
+		}
+		out = append(out, credential)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed to iterate channel credentials: %w", err)
+	}
+	return out, total, nil
+}
+
+func (r *AdminManagementRepository) RotateChannelCredentialWithActivityLog(credential *domain.AdminChannelCredential, entry *domain.AdminActivityLog) (*domain.AdminChannelCredential, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin channel credential rotation tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var channelStatus domain.ChannelStatus
+	if err := tx.QueryRow(`
+		SELECT status
+		FROM tenant_channels
+		WHERE tenant_id = $1 AND id = $2
+		FOR UPDATE
+	`, credential.TenantID, credential.ChannelID).Scan(&channelStatus); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, fmt.Errorf("failed to lock tenant channel: %w", err)
+	}
+	if channelStatus != domain.ChannelStatusActive {
+		return nil, ErrAdminInvalidState
+	}
+
+	existing, err := scanChannelCredential(tx.QueryRow(`
+		SELECT id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,
+		       secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at
+		FROM tenant_channel_credentials
+		WHERE tenant_id = $1 AND channel_id = $2 AND purpose = $3 AND secret_fingerprint = $4 AND status = 'ACTIVE'
+	`, credential.TenantID, credential.ChannelID, credential.Purpose, credential.SecretFingerprint))
+	if err == nil {
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("failed to commit idempotent credential lookup tx: %w", err)
+		}
+		committed = true
+		return existing, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("failed to check existing channel credential: %w", err)
+	}
+
+	var nextVersion int
+	if err := tx.QueryRow(`
+		SELECT COALESCE(MAX(version), 0) + 1
+		FROM tenant_channel_credentials
+		WHERE tenant_id = $1 AND channel_id = $2 AND purpose = $3
+	`, credential.TenantID, credential.ChannelID, credential.Purpose).Scan(&nextVersion); err != nil {
+		return nil, fmt.Errorf("failed to calculate credential version: %w", err)
+	}
+
+	now := time.Now().UTC()
+	if _, err := tx.Exec(`
+		UPDATE tenant_channel_credentials
+		SET status = 'INACTIVE', updated_at = $4, deactivated_at = $4
+		WHERE tenant_id = $1 AND channel_id = $2 AND purpose = $3 AND status = 'ACTIVE'
+	`, credential.TenantID, credential.ChannelID, credential.Purpose, now); err != nil {
+		return nil, fmt.Errorf("failed to deactivate old channel credential: %w", err)
+	}
+
+	credential.ID = uuid.NewString()
+	created, err := scanChannelCredential(tx.QueryRow(`
+		INSERT INTO tenant_channel_credentials (
+			id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,
+			secret_fingerprint, created_by, activated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, $7, $8, $9, $10)
+		RETURNING id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,
+		          secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at
+	`, credential.ID, credential.TenantID, credential.ChannelID, credential.Purpose, nextVersion, credential.SecretRef,
+		credential.SecretRefDisplay, credential.SecretFingerprint, credential.CreatedBy, now))
+	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrAdminConflict
+		}
+		return nil, fmt.Errorf("failed to insert channel credential: %w", err)
+	}
+
+	if entry != nil {
+		entry.TenantID = created.TenantID
+		entry.EntityType = "tenant_channel_credential"
+		entry.EntityID = created.ID
+		if err := createActivityLog(tx, entry); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit channel credential rotation tx: %w", err)
+	}
+	committed = true
+	return created, nil
 }
 
 func (r *AdminManagementRepository) ListUserbase(filter *domain.UserbaseListFilter) ([]*domain.UserbaseRecord, int, error) {
@@ -1049,6 +1207,45 @@ func scanChannel(row rowScanner) (*domain.AdminChannel, error) {
 	channel.Capabilities = []string(capabilities)
 	channel.Enabled = channel.Status == domain.ChannelStatusActive
 	return &channel, nil
+}
+
+func scanChannelCredential(row rowScanner) (*domain.AdminChannelCredential, error) {
+	var (
+		credential  domain.AdminChannelCredential
+		createdBy   sql.NullString
+		activated   sql.NullTime
+		deactivated sql.NullTime
+	)
+	if err := row.Scan(
+		&credential.ID,
+		&credential.TenantID,
+		&credential.ChannelID,
+		&credential.Purpose,
+		&credential.Version,
+		&credential.Status,
+		&credential.SecretRef,
+		&credential.SecretRefDisplay,
+		&credential.SecretFingerprint,
+		&createdBy,
+		&credential.CreatedAt,
+		&credential.UpdatedAt,
+		&activated,
+		&deactivated,
+	); err != nil {
+		return nil, err
+	}
+	if createdBy.Valid {
+		credential.CreatedBy = &createdBy.String
+	}
+	if activated.Valid {
+		t := activated.Time
+		credential.ActivatedAt = &t
+	}
+	if deactivated.Valid {
+		t := deactivated.Time
+		credential.DeactivatedAt = &t
+	}
+	return &credential, nil
 }
 
 func isUniqueViolation(err error) bool {

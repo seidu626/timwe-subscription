@@ -1,6 +1,10 @@
 package service
 
 import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +33,10 @@ var (
 	ErrTenantContextMissing = errors.New("tenant context missing")
 	// ErrTenantUnavailable hides inactive and unknown tenant details from tenant-scoped callers.
 	ErrTenantUnavailable = errors.New("tenant unavailable")
+	// ErrAdminInvalidState indicates the target resource cannot accept the requested mutation now.
+	ErrAdminInvalidState = errors.New("admin resource invalid state")
+	// ErrAdminDependencyUnavailable indicates a required backend dependency is unavailable.
+	ErrAdminDependencyUnavailable = errors.New("admin dependency unavailable")
 )
 
 var (
@@ -44,6 +52,27 @@ var allowedChannelCapabilities = map[string]struct{}{
 	"charge":  {},
 }
 
+const defaultChannelCredentialPurpose = "provider_api"
+
+var channelCredentialPurposeRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,78}[a-z0-9]$`)
+
+type ChannelCredentialSecretInput struct {
+	TenantID    string
+	ChannelID   string
+	Purpose     string
+	SecretValue string
+}
+
+type ChannelCredentialSecretRef struct {
+	SecretRef        string
+	SecretRefDisplay string
+	FingerprintInput string
+}
+
+type ChannelCredentialSecretStore interface {
+	PutChannelCredential(ctx context.Context, input ChannelCredentialSecretInput) (ChannelCredentialSecretRef, error)
+}
+
 // ProductDependencyError indicates a product cannot be deleted because it is still referenced.
 type ProductDependencyError struct {
 	Counts *domain.ProductDependencyCounts
@@ -55,12 +84,17 @@ func (e *ProductDependencyError) Error() string {
 
 // AdminManagementService orchestrates admin management operations.
 type AdminManagementService struct {
-	repo   *repository.AdminManagementRepository
-	logger *zap.Logger
+	repo              *repository.AdminManagementRepository
+	logger            *zap.Logger
+	credentialSecrets ChannelCredentialSecretStore
 }
 
 func NewAdminManagementService(repo *repository.AdminManagementRepository, logger *zap.Logger) *AdminManagementService {
 	return &AdminManagementService{repo: repo, logger: logger}
+}
+
+func (s *AdminManagementService) SetChannelCredentialSecretStore(store ChannelCredentialSecretStore) {
+	s.credentialSecrets = store
 }
 
 func (s *AdminManagementService) CreateTenant(input *domain.TenantCreateInput, identity tenantctx.Identity, actor, requestID *string) (*domain.AdminTenant, string, error) {
@@ -347,6 +381,91 @@ func (s *AdminManagementService) SetChannelEnabled(tenantID, channelID string, e
 		return nil, err
 	}
 	return channel, nil
+}
+
+func (s *AdminManagementService) ListChannelCredentials(filter *domain.ChannelCredentialListFilter) ([]*domain.AdminChannelCredential, int, error) {
+	if filter == nil {
+		filter = &domain.ChannelCredentialListFilter{Limit: 20}
+	}
+	filter.Purpose = normalizeCredentialPurpose(filter.Purpose)
+	credentials, total, err := s.repo.ListChannelCredentials(filter)
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return nil, 0, ErrAdminNotFound
+		}
+		return nil, 0, err
+	}
+	return credentials, total, nil
+}
+
+func (s *AdminManagementService) BindChannelCredential(ctx context.Context, tenantID, channelID string, input *domain.ChannelCredentialBindInput, actor, requestID *string) (*domain.AdminChannelCredential, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	channelID = strings.TrimSpace(channelID)
+	if tenantID == "" {
+		return nil, ErrTenantContextMissing
+	}
+	if channelID == "" {
+		return nil, fmt.Errorf("%w: channel id is required", ErrInvalidInput)
+	}
+
+	channel, err := s.repo.GetChannelByID(tenantID, channelID)
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, err
+	}
+	if !channel.IsRoutable() {
+		return nil, fmt.Errorf("%w: channel_inactive", ErrAdminInvalidState)
+	}
+	normalized, err := s.normalizeChannelCredentialBindInput(ctx, tenantID, channelID, input)
+	if err != nil {
+		return nil, err
+	}
+
+	credential := &domain.AdminChannelCredential{
+		TenantID:          tenantID,
+		ChannelID:         channelID,
+		Purpose:           normalized.Purpose,
+		Status:            domain.ChannelCredentialStatusActive,
+		SecretRef:         normalized.SecretRef,
+		SecretRefDisplay:  normalized.SecretRefDisplay,
+		SecretFingerprint: credentialFingerprint(tenantID, normalized.fingerprintInput()),
+		CreatedBy:         actor,
+	}
+	entry := &domain.AdminActivityLog{
+		ID:        uuid.NewString(),
+		TenantID:  tenantID,
+		Action:    "bind",
+		Actor:     actor,
+		RequestID: requestID,
+		AfterJSON: mustJSON(map[string]any{
+			"channel_id":       channelID,
+			"purpose":          credential.Purpose,
+			"redacted_display": credential.SecretRefDisplay,
+			"status":           credential.Status,
+		}),
+		Metadata: mustJSON(map[string]any{
+			"channel_id": channelID,
+			"purpose":    credential.Purpose,
+		}),
+		CreatedAt: time.Now().UTC(),
+	}
+
+	created, err := s.repo.RotateChannelCredentialWithActivityLog(credential, entry)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrAdminNotFound):
+			return nil, ErrAdminNotFound
+		case errors.Is(err, repository.ErrAdminInvalidState):
+			return nil, fmt.Errorf("%w: channel_inactive", ErrAdminInvalidState)
+		case errors.Is(err, repository.ErrAdminConflict):
+			return nil, ErrAdminConflict
+		default:
+			return nil, err
+		}
+	}
+	return created, nil
 }
 
 func (s *AdminManagementService) ListUserbase(filter *domain.UserbaseListFilter) ([]*domain.UserbaseRecord, int, error) {
@@ -639,6 +758,114 @@ func normalizeChannelCreateInput(input *domain.ChannelCreateInput) (*domain.Chan
 		return nil, fmt.Errorf("%w: channel_key is invalid", ErrInvalidInput)
 	}
 	return &out, nil
+}
+
+type normalizedCredentialBindInput struct {
+	Purpose          string
+	SecretRef        string
+	SecretRefDisplay string
+	FingerprintInput string
+}
+
+func (n normalizedCredentialBindInput) fingerprintInput() string {
+	if strings.TrimSpace(n.FingerprintInput) != "" {
+		return n.FingerprintInput
+	}
+	return n.SecretRef
+}
+
+func (s *AdminManagementService) normalizeChannelCredentialBindInput(ctx context.Context, tenantID, channelID string, input *domain.ChannelCredentialBindInput) (*normalizedCredentialBindInput, error) {
+	if input == nil {
+		return nil, fmt.Errorf("%w: credential payload is required", ErrInvalidInput)
+	}
+	purpose := normalizeCredentialPurpose(input.Purpose)
+	if !channelCredentialPurposeRe.MatchString(purpose) {
+		return nil, fmt.Errorf("%w: purpose is invalid", ErrInvalidInput)
+	}
+	secretRef := strings.TrimSpace(input.SecretRef)
+	secretValue := strings.TrimSpace(input.SecretValue)
+	display := strings.TrimSpace(input.SecretRefDisplay)
+	if secretRef != "" && secretValue != "" {
+		return nil, fmt.Errorf("%w: provide secret_ref or secret_value, not both", ErrInvalidInput)
+	}
+	if secretRef == "" && secretValue == "" {
+		return nil, fmt.Errorf("%w: secret_ref or secret_value is required", ErrInvalidInput)
+	}
+
+	if secretRef != "" {
+		if err := validateSecretRef(secretRef); err != nil {
+			return nil, err
+		}
+		display = redactSecretRef(secretRef)
+		return &normalizedCredentialBindInput{
+			Purpose:          purpose,
+			SecretRef:        secretRef,
+			SecretRefDisplay: display,
+			FingerprintInput: secretRef,
+		}, nil
+	}
+
+	if s.credentialSecrets == nil {
+		return nil, fmt.Errorf("%w: secret_backend_unavailable", ErrAdminDependencyUnavailable)
+	}
+	ref, err := s.credentialSecrets.PutChannelCredential(ctx, ChannelCredentialSecretInput{
+		TenantID:    tenantID,
+		ChannelID:   channelID,
+		Purpose:     purpose,
+		SecretValue: secretValue,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%w: secret_backend_unavailable", ErrAdminDependencyUnavailable)
+	}
+	secretRef = strings.TrimSpace(ref.SecretRef)
+	if err := validateSecretRef(secretRef); err != nil {
+		return nil, err
+	}
+	display = redactSecretRef(secretRef)
+	fingerprintInput := strings.TrimSpace(ref.FingerprintInput)
+	if fingerprintInput == "" {
+		fingerprintInput = secretValue
+	}
+	return &normalizedCredentialBindInput{
+		Purpose:          purpose,
+		SecretRef:        secretRef,
+		SecretRefDisplay: display,
+		FingerprintInput: fingerprintInput,
+	}, nil
+}
+
+func normalizeCredentialPurpose(purpose string) string {
+	purpose = strings.ToLower(strings.TrimSpace(purpose))
+	if purpose == "" {
+		return defaultChannelCredentialPurpose
+	}
+	return purpose
+}
+
+func validateSecretRef(secretRef string) error {
+	for _, prefix := range []string{"vault://", "aws-sm://", "gcp-sm://", "azure-kv://", "secret://", "env://"} {
+		if strings.HasPrefix(secretRef, prefix) && len(secretRef) > len(prefix) {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: secret_ref must use an allowed reference prefix", ErrInvalidInput)
+}
+
+func redactSecretRef(secretRef string) string {
+	secretRef = strings.TrimSpace(secretRef)
+	if secretRef == "" {
+		return "[REDACTED]"
+	}
+	if idx := strings.Index(secretRef, "://"); idx > 0 {
+		return secretRef[:idx+3] + "[REDACTED]"
+	}
+	return "[REDACTED]"
+}
+
+func credentialFingerprint(tenantID, value string) string {
+	mac := hmac.New(sha256.New, []byte(strings.TrimSpace(tenantID)))
+	mac.Write([]byte(strings.TrimSpace(value)))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func normalizeChannelCapabilities(raw []string) ([]string, error) {
