@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/sony/gobreaker"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
@@ -38,6 +39,8 @@ type TIMWEConfig struct {
 	CBMinRequests          uint32
 	CBFailureRateThreshold float64
 	CBConsecutiveFailures  uint32
+	TrustedServiceSecret   string
+	ServiceID              string
 }
 
 // DefaultTIMWEConfig returns default TIMWE configuration
@@ -84,6 +87,8 @@ type MTRequest struct {
 	Timezone          string `json:"timezone,omitempty"`
 	Context           string `json:"context,omitempty"`
 	MoTransactionUUID string `json:"moTransactionUUID"`
+	ChannelID         string `json:"channelId,omitempty"`
+	ChannelKey        string `json:"channelKey,omitempty"`
 }
 
 // MTResponse represents the TIMWE MT response
@@ -99,6 +104,7 @@ type outboundRequestMeta struct {
 	Operation string
 	MSISDN    string
 	ProductID int
+	Headers   map[string]string
 }
 
 // ConfirmRequest represents the TIMWE subscription confirmation request
@@ -165,6 +171,14 @@ func NewTIMWEClientWithConfig(config *TIMWEConfig, logger *zap.Logger) *TIMWECli
 
 // OptIn calls subscription-external opt-in endpoint.
 func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel string, trackingFields map[string]string, partnerRoleID string) (*TIMWEResponse, error) {
+	return c.optIn(msisdn, productID, entryChannel, trackingFields, partnerRoleID, TenantSubscriptionContext{})
+}
+
+func (c *TIMWEClientImpl) OptInWithTenant(msisdn string, productID int, entryChannel string, trackingFields map[string]string, partnerRoleID string, tenant TenantSubscriptionContext) (*TIMWEResponse, error) {
+	return c.optIn(msisdn, productID, entryChannel, trackingFields, partnerRoleID, tenant)
+}
+
+func (c *TIMWEClientImpl) optIn(msisdn string, productID int, entryChannel string, trackingFields map[string]string, partnerRoleID string, tenant TenantSubscriptionContext) (*TIMWEResponse, error) {
 	c.logger.Info("Subscription opt-in called",
 		zap.String("msisdn", msisdn),
 		zap.Int("product_id", productID),
@@ -184,6 +198,9 @@ func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel strin
 		MNC:               c.config.MNC,
 		MSISDN:            msisdn,
 		MoTransactionUUID: txUUID,
+	}
+	if tenant.TenantID != "" && tenant.ChannelID != "" {
+		reqData.ChannelID = tenant.ChannelID
 	}
 
 	// Add tracking fields as context
@@ -214,6 +231,15 @@ func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel strin
 		zap.String("raw_body", string(requestBody)),
 	)
 
+	headers := map[string]string{}
+	if tenant.TenantID != "" {
+		signed, signErr := c.signedTenantHeaders("POST", fmt.Sprintf("/api/external/v1/%s/mt", strings.ToUpper(entryChannel)), requestBody, tenant)
+		if signErr != nil {
+			return nil, signErr
+		}
+		headers = signed
+	}
+
 	// Execute with circuit breaker
 	done, cbErr := c.circuitBreaker.Allow()
 	if cbErr != nil {
@@ -226,6 +252,7 @@ func (c *TIMWEClientImpl) OptIn(msisdn string, productID int, entryChannel strin
 		Operation: "optin",
 		MSISDN:    msisdn,
 		ProductID: productID,
+		Headers:   headers,
 	})
 	if err != nil {
 		done(false) // Mark as failure for circuit breaker
@@ -481,6 +508,9 @@ func (c *TIMWEClientImpl) sendMTRequestWithRetry(url string, requestBody []byte,
 		req.Header.SetMethod("POST")
 		req.Header.Set("external-tx-id", externalTxID)
 		req.Header.Set("Content-Type", "application/json")
+		for key, value := range meta.Headers {
+			req.Header.Set(key, value)
+		}
 		req.SetBody(requestBody)
 
 		c.logger.Info("Sending outbound TIMWE request",
@@ -601,6 +631,38 @@ func (c *TIMWEClientImpl) sendMTRequestWithRetry(url string, requestBody []byte,
 	}
 
 	return nil, fmt.Errorf("exhausted all retry attempts")
+}
+
+func (c *TIMWEClientImpl) signedTenantHeaders(method, path string, body []byte, tenant TenantSubscriptionContext) (map[string]string, error) {
+	secret := strings.TrimSpace(c.config.TrustedServiceSecret)
+	if secret == "" {
+		return nil, fmt.Errorf("trusted service secret is required for tenant subscription routing")
+	}
+	serviceID := strings.TrimSpace(c.config.ServiceID)
+	if serviceID == "" {
+		serviceID = "acquisition-api"
+	}
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+	nonce := uuid.NewString()
+	bodySHA := tenantctx.BodySHA256(body)
+	signature := tenantctx.SignServiceRequest(secret, tenantctx.SignInput{
+		Method:    method,
+		Path:      path,
+		Timestamp: timestamp,
+		Nonce:     nonce,
+		ServiceID: serviceID,
+		TenantID:  tenant.TenantID,
+		BodySHA:   bodySHA,
+	})
+	return map[string]string{
+		tenantctx.HeaderTenantID:         tenant.TenantID,
+		tenantctx.HeaderServiceID:        serviceID,
+		tenantctx.HeaderServiceTimestamp: timestamp,
+		tenantctx.HeaderServiceNonce:     nonce,
+		tenantctx.HeaderServiceBodySHA:   bodySHA,
+		tenantctx.HeaderServiceSignature: signature,
+		"X-Tenant-Channel-Id":            tenant.ChannelID,
+	}, nil
 }
 
 func msisdnPrefix(msisdn string) string {

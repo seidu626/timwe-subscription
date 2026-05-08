@@ -1,0 +1,80 @@
+story:
+  id: "TMP-004"
+  title: "Tenant admin binds secure credentials to a channel"
+  actor: "tenant-admin"
+  action: "attach, rotate, and inspect redacted credential references for a tenant channel"
+  outcome: "channel routing can resolve provider credentials without exposing secrets"
+  as_a: "tenant-admin"
+  i_want_to: "bind credentials to my tenant channels"
+  so_that: "provider calls use the right tenant configuration securely"
+
+entrypoints:
+  - "POST /v1/admin/channels/{id}/credentials"
+  - "GET /v1/admin/channels/{id}/credentials"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Bind credential reference"
+      given: ["tenant owns enabled channel", "secret backend accepts write or reference"]
+      when: "admin submits credential payload or secret reference"
+      then: "API returns credential id, version, status, and redacted display only"
+      evidence: "service test asserts secret is not returned"
+    - scenario: "Rotate credential"
+      given: ["channel has active credential"]
+      when: "admin binds new version"
+      then: "old version is inactive and new version is active with audit log"
+      evidence: "repository test asserts version state"
+  failures:
+    - scenario: "Secret backend unavailable"
+      given: ["secret adapter returns failure"]
+      when: "admin binds credential"
+      then: "API returns dependency error and no active credential row is created"
+      evidence: "adapter failure test"
+    - scenario: "Cross-tenant credential access"
+      given: ["credential belongs to another tenant channel"]
+      when: "admin lists credentials"
+      then: "API returns 404 or empty list"
+      evidence: "handler test"
+    - scenario: "Credential value read attempt"
+      given: ["credential exists"]
+      when: "admin retrieves credential metadata"
+      then: "response never includes secret material"
+      evidence: "body assertion"
+  edges:
+    - scenario: "Inactive channel"
+      given: ["channel is disabled"]
+      when: "admin binds credential"
+      then: "API rejects or creates inactive credential based on chosen policy"
+      evidence: "policy test"
+  invariants:
+    - rule: "Secrets never appear in responses or logs"
+      preserved_by: "redacted DTO and structured logging without credential fields"
+      violated_when: "plain secret is serialized"
+      test: "response/log capture test"
+    - rule: "Admin mutations are auditable"
+      preserved_by: "credential bind/rotate logs metadata only"
+      violated_when: "rotation has no audit log"
+      test: "activity log test"
+
+out_of_scope:
+  - "using credential in TIMWE calls"
+  - "full vault vendor integration beyond adapter contract"
+
+size_check:
+  files_touched: 14
+  migrations: 1
+  endpoints: 2
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-004-channel-credential-binding/value-gate-report.md"
+
+implementation_evidence:
+  domain_brief: "slices/TMP-004-channel-credential-binding/domain-brief.md"
+  claude_gate: "Claude critique applied: purpose-scoped active uniqueness, HMAC fingerprint, partial unique index, redacted DTO/audit, inactive-channel rejection, and 503 dependency behavior."
+  parallel_reviews:
+    - "schema/repository explorer recommended tenant_channel_credentials, composite tenant/channel FK, active partial uniqueness, and transactional rotation"
+    - "handler/service explorer recommended existing tenant resolver, strict JSON decode, dependency unavailable mapping, and redacted responses"
+  tests:
+    - "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler ./internal/transport"
+    - "cd services/acquisition-api && go test ./..."

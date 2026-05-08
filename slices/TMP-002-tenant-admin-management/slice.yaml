@@ -1,0 +1,79 @@
+story:
+  id: "TMP-002"
+  title: "Tenant admin manages products and userbase within tenant scope"
+  actor: "tenant-admin"
+  action: "list, create, and import admin management records under the current tenant"
+  outcome: "tenant-owned products and userbase can be managed without cross-tenant leakage"
+  as_a: "tenant-admin"
+  i_want_to: "manage products and userbase records scoped to my tenant"
+  so_that: "campaign and subscription setup uses only my tenant's offer inventory and subscriber base"
+
+entrypoints:
+  - "GET /v1/admin/products"
+  - "POST /v1/admin/products"
+  - "POST /v1/admin/userbase/imports"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Tenant product list"
+      given: ["tenant has two products", "another tenant has one product"]
+      when: "tenant admin lists products"
+      then: "response includes only current tenant products and pagination metadata"
+      evidence: "handler test asserts product ids and total count"
+    - scenario: "Userbase import"
+      given: ["valid CSV or JSON import rows"]
+      when: "tenant admin imports userbase"
+      then: "job records success/failure counts under tenant_id"
+      evidence: "repository test asserts import job and rows carry tenant_id"
+  failures:
+    - scenario: "Cross-tenant read blocked"
+      given: ["tenant admin requests product id owned by another tenant"]
+      when: "admin calls product detail/update/delete"
+      then: "API returns 404 or 403 and no foreign row is returned"
+      evidence: "service test asserts no row"
+    - scenario: "Duplicate product per tenant"
+      given: ["tenant already has product_id 8509"]
+      when: "admin creates product_id 8509 again"
+      then: "API returns 409, while another tenant may use same external product id only if contract allows"
+      evidence: "DB constraint test covers scoped uniqueness"
+    - scenario: "Invalid userbase import row"
+      given: ["import contains malformed MSISDN or missing type"]
+      when: "admin imports file"
+      then: "job records row error and imports valid rows only"
+      evidence: "import parser/service test asserts error row"
+  edges:
+    - scenario: "Empty tenant"
+      given: ["tenant has no products or userbase records"]
+      when: "admin lists records"
+      then: "API returns empty list with total_count 0"
+      evidence: "handler test"
+  invariants:
+    - rule: "Admin mutations must be authenticated and auditable"
+      preserved_by: "create/import/update/delete append admin activity logs with tenant_id"
+      violated_when: "mutation succeeds without activity log"
+      test: "assert activity log row for each mutation"
+    - rule: "Tenant reports and admin data must not aggregate across tenants"
+      preserved_by: "all repository queries require tenant_id"
+      violated_when: "list returns another tenant's row"
+      test: "seed two tenants and assert isolation"
+
+out_of_scope:
+  - "public product APIs"
+  - "campaign binding"
+  - "frontend admin implementation if nested frontend ownership is unresolved"
+
+size_check:
+  files_touched: 12
+  migrations: 1
+  endpoints: 12
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-002-tenant-admin-management/value-gate-report.md"
+
+implementation_evidence:
+  domain_brief: "slices/TMP-002-tenant-admin-management/domain-brief.md"
+  claude_gate: "Claude read-only critique applied: migration scope expanded to tenant_id products/userbase/imports/activity logs and repository access made tenant-required."
+  tests:
+    - "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler ./internal/transport"
+    - "cd services/acquisition-api && go test ./..."

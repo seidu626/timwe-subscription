@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/seidu626/subscription-manager/common/auth/auth0jwt"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/valyala/fasthttp"
 )
 
@@ -92,12 +93,14 @@ func (a *adminAccess) require(ctx *fasthttp.RequestCtx) bool {
 	}
 
 	authHeader := string(ctx.Request.Header.Peek("Authorization"))
-	if _, err := a.validator.ValidateBearer(context.Background(), authHeader); err != nil {
+	claims, err := a.validator.ValidateBearer(context.Background(), authHeader)
+	if err != nil {
 		// Do not log the Authorization header/token. Log only the failure reason.
 		log.Printf("admin auth failed (acquisition-api): remote_ip=%s err=%v", ctx.RemoteIP(), err)
 		a.errorWithCORS(ctx, "Unauthorized", fasthttp.StatusUnauthorized)
 		return false
 	}
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, claims.Identity())
 	return true
 }
 

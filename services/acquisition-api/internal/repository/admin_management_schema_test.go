@@ -25,6 +25,9 @@ func TestEnsureSchema_Success(t *testing.T) {
 CREATE TABLE IF NOT EXISTS admin_activity_logs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_jobs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenants (id UUID PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenant_channels (id UUID PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 `
 	file := writeTempMigration(t, migrationSQL)
 
@@ -32,9 +35,12 @@ CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
 	mock.ExpectExec(regexp.QuoteMeta(strings.TrimSpace(migrationSQL))).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
+	expectRelationExists(mock, "public.tenants")
 	expectRelationExists(mock, "public.admin_activity_logs")
 	expectRelationExists(mock, "public.userbase_import_jobs")
 	expectRelationExists(mock, "public.userbase_import_errors")
+	expectRelationExists(mock, "public.tenant_channels")
+	expectRelationExists(mock, "public.tenant_channel_credentials")
 
 	if err := repo.EnsureSchema(context.Background(), file); err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -58,6 +64,9 @@ func TestEnsureSchema_MissingRelationFails(t *testing.T) {
 CREATE TABLE IF NOT EXISTS admin_activity_logs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_jobs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenants (id UUID PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenant_channels (id UUID PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 `
 	file := writeTempMigration(t, migrationSQL)
 
@@ -65,9 +74,12 @@ CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
 	mock.ExpectExec(regexp.QuoteMeta(strings.TrimSpace(migrationSQL))).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
+	expectRelationExists(mock, "public.tenants")
 	expectRelationExists(mock, "public.admin_activity_logs")
 	expectRelationMissing(mock, "public.userbase_import_jobs")
 	expectRelationExists(mock, "public.userbase_import_errors")
+	expectRelationExists(mock, "public.tenant_channels")
+	expectRelationExists(mock, "public.tenant_channel_credentials")
 
 	err = repo.EnsureSchema(context.Background(), file)
 	if err == nil {
@@ -99,6 +111,89 @@ func TestEnsureSchema_FileReadFails(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to read admin management schema migration") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestAdminManagementMigrationAddsTenantScopedAdminTables(t *testing.T) {
+	migrationPath := filepath.Join("..", "..", "migrations", "add_admin_management_tables.sql")
+	body, err := os.ReadFile(migrationPath)
+	if err != nil {
+		t.Fatalf("failed to read migration: %v", err)
+	}
+	sql := string(body)
+
+	required := []string{
+		"ALTER TABLE products",
+		"ALTER TABLE userbase",
+		"ALTER TABLE userbase_import_jobs",
+		"ALTER TABLE userbase_import_errors",
+		"ALTER TABLE admin_activity_logs",
+		"ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_products_tenant_product_id",
+		"ON products (tenant_id, product_id)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_userbase_tenant_msisdn",
+		"ON userbase (tenant_id, msisdn)",
+	}
+	for _, want := range required {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("migration missing %q", want)
+		}
+	}
+}
+
+func TestTenantChannelsMigrationDefinesCapabilityCatalog(t *testing.T) {
+	migrationPath := filepath.Join("..", "..", "migrations", "add_tenant_channels.sql")
+	body, err := os.ReadFile(migrationPath)
+	if err != nil {
+		t.Fatalf("failed to read migration: %v", err)
+	}
+	sql := string(body)
+
+	required := []string{
+		"CREATE TABLE IF NOT EXISTS tenant_channels",
+		"tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT",
+		"capabilities TEXT[] NOT NULL",
+		"CONSTRAINT chk_tenant_channels_capabilities_allowed",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_tenant_channels_tenant_key",
+		"ON tenant_channels (tenant_id, channel_key)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_tenant_channels_tenant_provider_scope",
+		"COALESCE(operator, '')",
+	}
+	for _, want := range required {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("migration missing %q", want)
+		}
+	}
+}
+
+func TestTenantChannelCredentialsMigrationStoresReferencesOnly(t *testing.T) {
+	migrationPath := filepath.Join("..", "..", "migrations", "add_tenant_channel_credentials.sql")
+	body, err := os.ReadFile(migrationPath)
+	if err != nil {
+		t.Fatalf("failed to read migration: %v", err)
+	}
+	sql := string(body)
+
+	required := []string{
+		"CREATE TABLE IF NOT EXISTS tenant_channel_credentials",
+		"FOREIGN KEY (tenant_id, channel_id)",
+		"REFERENCES tenant_channels (tenant_id, id)",
+		"secret_ref TEXT NOT NULL",
+		"secret_ref_display TEXT NOT NULL",
+		"secret_fingerprint TEXT NOT NULL",
+		"WHERE status = 'ACTIVE'",
+		"idx_tenant_channel_credentials_fingerprint",
+	}
+	for _, want := range required {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("migration missing %q", want)
+		}
+	}
+	forbidden := []string{"secret_value", "password", "api_key", "token_value"}
+	for _, bad := range forbidden {
+		if strings.Contains(strings.ToLower(sql), bad) {
+			t.Fatalf("migration contains plaintext-like column %q", bad)
+		}
 	}
 }
 

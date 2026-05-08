@@ -207,6 +207,37 @@ func (r *SubscriptionRepository) FetchActiveMsisdnsWithProductsWindow(productIds
 
 // CreateSubscription inserts a new subscription record into the database.
 func (r *SubscriptionRepository) CreateSubscription(request *domain.SubscriptionRequest) error {
+	if request.TenantID != nil && strings.TrimSpace(*request.TenantID) != "" {
+		query := `
+        INSERT INTO subscriptions (
+            tenant_id, channel_id, partner_role_id, user_identifier, user_identifier_type, product_id, mcc, mnc, entry_channel,
+            large_account, sub_keyword, tracking_id, client_ip, campaign_url, transaction_id, start_date
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8,
+            $9, $10, $11, $12, $13, $14, $15, NOW()
+        )
+        ON CONFLICT (tenant_id, partner_role_id, user_identifier, product_id) WHERE tenant_id IS NOT NULL DO UPDATE SET
+            channel_id = EXCLUDED.channel_id,
+            user_identifier_type = EXCLUDED.user_identifier_type,
+            mcc = EXCLUDED.mcc,
+            mnc = EXCLUDED.mnc,
+            entry_channel = EXCLUDED.entry_channel,
+            large_account = EXCLUDED.large_account,
+            sub_keyword = EXCLUDED.sub_keyword,
+            tracking_id = EXCLUDED.tracking_id,
+            client_ip = EXCLUDED.client_ip,
+            campaign_url = EXCLUDED.campaign_url,
+            transaction_id = EXCLUDED.transaction_id,
+            start_date = COALESCE(subscriptions.start_date, EXCLUDED.start_date),
+			status = EXCLUDED.status
+    `
+		_, err := r.db.Exec(query, nullStringPtr(request.TenantID), nullStringPtr(request.ChannelID), request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId)
+		if err != nil {
+			return fmt.Errorf("failed to create tenant subscription: %w", err)
+		}
+		return nil
+	}
+
 	query := `
         INSERT INTO subscriptions (
             partner_role_id, user_identifier, user_identifier_type, product_id, mcc, mnc, entry_channel,
@@ -292,15 +323,17 @@ func (r *SubscriptionRepository) CheckRenewalNotificationExists(msisdn string, p
 func (r *SubscriptionRepository) CreateNotification(notification *domain.NotificationRequest) error {
 	query := `
         INSERT INTO notifications (
-            partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn, large_account, transaction_uuid,
+            tenant_id, channel_id, partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn, large_account, transaction_uuid,
             entry_channel, message_type, message, mno_delivery_code, tags, type
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9,
-            $10, $11, $12, $13, $14, $15
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+            $12, $13, $14, $15, $16, $17
         )
     `
 	_, err := r.db.Exec(
 		query,
+		nullStringPtr(notification.TenantID),
+		nullStringPtr(notification.ChannelID),
 		notification.PartnerRole,
 		notification.ExternalTxID,
 		notification.ProductID,
@@ -321,6 +354,13 @@ func (r *SubscriptionRepository) CreateNotification(notification *domain.Notific
 		return fmt.Errorf("failed to create notification: %w", err)
 	}
 	return nil
+}
+
+func nullStringPtr(value *string) sql.NullString {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: strings.TrimSpace(*value), Valid: true}
 }
 
 // CreateInvalidMSISDNLog creates a log entry for invalid MSISDN responses
@@ -819,6 +859,8 @@ func (r *SubscriptionRepository) ensureAdminActionAuditSchema() error {
 		ddl := []string{
 			`CREATE TABLE IF NOT EXISTS admin_subscription_action_logs (
 				id UUID PRIMARY KEY,
+				tenant_id UUID,
+				channel_id UUID,
 				operation VARCHAR(20) NOT NULL,
 				msisdn VARCHAR(50) NOT NULL,
 				product_id INTEGER NOT NULL,
@@ -847,6 +889,12 @@ func (r *SubscriptionRepository) ensureAdminActionAuditSchema() error {
 				ON admin_subscription_action_logs (external_tx_id)`,
 			`CREATE INDEX IF NOT EXISTS idx_admin_subscription_action_logs_admin_request_id
 				ON admin_subscription_action_logs (admin_request_id)`,
+			`ALTER TABLE admin_subscription_action_logs
+				ADD COLUMN IF NOT EXISTS tenant_id UUID,
+				ADD COLUMN IF NOT EXISTS channel_id UUID`,
+			`CREATE INDEX IF NOT EXISTS idx_admin_subscription_action_logs_tenant_created
+				ON admin_subscription_action_logs (tenant_id, channel_id, created_at DESC)
+				WHERE tenant_id IS NOT NULL`,
 		}
 
 		for _, q := range ddl {
@@ -908,6 +956,8 @@ func (r *SubscriptionRepository) CreateAdminActionLog(logEntry *domain.AdminSubs
 	query := `
 		INSERT INTO admin_subscription_action_logs (
 			id,
+			tenant_id,
+			channel_id,
 			operation,
 			msisdn,
 			product_id,
@@ -928,9 +978,9 @@ func (r *SubscriptionRepository) CreateAdminActionLog(logEntry *domain.AdminSubs
 			duration_ms,
 			created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
-			$11::jsonb, $12, $13, $14::jsonb, $15::jsonb, $16, $17::jsonb,
-			$18::jsonb, $19, $20
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb,
+			$13::jsonb, $14, $15, $16::jsonb, $17::jsonb, $18, $19::jsonb,
+			$20::jsonb, $21, $22
 		)
 	`
 
@@ -938,6 +988,8 @@ func (r *SubscriptionRepository) CreateAdminActionLog(logEntry *domain.AdminSubs
 		r.ctx,
 		query,
 		logEntry.ID,
+		nullStringPtr(logEntry.TenantID),
+		nullStringPtr(logEntry.ChannelID),
 		string(logEntry.Operation),
 		logEntry.MSISDN,
 		logEntry.ProductID,
@@ -1000,6 +1052,10 @@ func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLo
 		args = append(args, filter.AdminRequestID)
 		conditions = append(conditions, fmt.Sprintf("admin_request_id = $%d", len(args)))
 	}
+	if filter.TenantID != "" {
+		args = append(args, filter.TenantID)
+		conditions = append(conditions, fmt.Sprintf("tenant_id::text = $%d", len(args)))
+	}
 
 	whereClause := ""
 	if len(conditions) > 0 {
@@ -1020,6 +1076,8 @@ func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLo
 	query := `
 		SELECT
 			id,
+			tenant_id::text,
+			channel_id::text,
 			operation,
 			msisdn,
 			product_id,
@@ -1046,11 +1104,15 @@ func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLo
 	for rows.Next() {
 		var (
 			summary      domain.AdminActionLogSummary
+			tenantID     sql.NullString
+			channelID    sql.NullString
 			operation    string
 			errorPayload []byte
 		)
 		if err := rows.Scan(
 			&summary.ID,
+			&tenantID,
+			&channelID,
 			&operation,
 			&summary.MSISDN,
 			&summary.ProductID,
@@ -1065,6 +1127,12 @@ func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLo
 			return nil, 0, fmt.Errorf("failed to scan admin action summary: %w", err)
 		}
 		summary.Operation = domain.AdminActionOperation(operation)
+		if tenantID.Valid {
+			summary.TenantID = &tenantID.String
+		}
+		if channelID.Valid {
+			summary.ChannelID = &channelID.String
+		}
 
 		logEntry := domain.AdminSubscriptionActionLog{ErrorPayload: json.RawMessage(errorPayload)}
 		summary.HasError = logEntry.HasError()
@@ -1087,6 +1155,8 @@ func (r *SubscriptionRepository) GetAdminActionLogByID(id string) (*domain.Admin
 	query := `
 		SELECT
 			id,
+			tenant_id::text,
+			channel_id::text,
 			operation,
 			msisdn,
 			product_id,
@@ -1112,6 +1182,8 @@ func (r *SubscriptionRepository) GetAdminActionLogByID(id string) (*domain.Admin
 
 	var (
 		logEntry     domain.AdminSubscriptionActionLog
+		tenantID     sql.NullString
+		channelID    sql.NullString
 		operation    string
 		reqHeaders   []byte
 		reqBody      []byte
@@ -1124,6 +1196,8 @@ func (r *SubscriptionRepository) GetAdminActionLogByID(id string) (*domain.Admin
 
 	err := r.db.QueryRowContext(r.ctx, query, id).Scan(
 		&logEntry.ID,
+		&tenantID,
+		&channelID,
 		&operation,
 		&logEntry.MSISDN,
 		&logEntry.ProductID,
@@ -1152,6 +1226,12 @@ func (r *SubscriptionRepository) GetAdminActionLogByID(id string) (*domain.Admin
 	}
 
 	logEntry.Operation = domain.AdminActionOperation(operation)
+	if tenantID.Valid {
+		logEntry.TenantID = &tenantID.String
+	}
+	if channelID.Valid {
+		logEntry.ChannelID = &channelID.String
+	}
 	logEntry.RequestBody = json.RawMessage(reqBody)
 	logEntry.ResponseBody = json.RawMessage(resBody)
 	logEntry.ServiceResult = json.RawMessage(serviceJSON)

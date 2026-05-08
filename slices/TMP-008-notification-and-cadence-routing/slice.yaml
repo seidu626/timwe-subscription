@@ -1,0 +1,71 @@
+story:
+  id: "TMP-008"
+  title: "Tenant admin sees tenant-scoped notifications and cadence"
+  actor: "tenant-admin"
+  action: "inspect and manage notification and cadence records for the current tenant and channel"
+  outcome: "async messaging state preserves tenant/channel isolation and idempotency"
+  as_a: "tenant-admin"
+  i_want_to: "manage notifications and cadence for my tenant channels"
+  so_that: "subscriber messaging can be operated without cross-tenant leakage or duplicate sends"
+
+entrypoints:
+  - "GET /api/v1/notification/list"
+  - "GET /v1/admin/cadence/series"
+  - "POST /v1/admin/cadence/content/import/csv"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Notification list scoped"
+      given: ["two tenants have notifications"]
+      when: "tenant admin lists notifications"
+      then: "API returns only current tenant notifications with channel filter support"
+      evidence: "repository/handler test"
+    - scenario: "Cadence content import scoped"
+      given: ["tenant owns product/channel series"]
+      when: "admin imports cadence CSV"
+      then: "series/content rows include tenant_id and are listed only to that tenant"
+      evidence: "cadence admin test"
+  failures:
+    - scenario: "Duplicate outbox job"
+      given: ["same idempotency key already exists"]
+      when: "worker plans same cadence send again"
+      then: "DB rejects duplicate and worker does not send twice"
+      evidence: "repository test"
+    - scenario: "Worker channel send failure"
+      given: ["channel send adapter fails"]
+      when: "notification worker dispatches MT"
+      then: "message_outbox or notification outbox records retry/failure under tenant_id"
+      evidence: "worker test"
+    - scenario: "Cross-tenant cadence access"
+      given: ["series belongs to another tenant"]
+      when: "admin reads or edits series"
+      then: "API returns 404 or 403"
+      evidence: "adminhttp test"
+  edges:
+    - scenario: "Paused subscription message state"
+      given: ["subscription_message_state status is PAUSED"]
+      when: "advancer runs"
+      then: "no new message job is created"
+      evidence: "scheduler/advancer test"
+  invariants:
+    - rule: "Message outbox idempotency key remains unique"
+      preserved_by: "tenant-aware idempotency key uniqueness"
+      violated_when: "duplicate sends occur"
+      test: "duplicate planning test"
+    - rule: "Tenant admin cannot see cross-tenant notifications"
+      preserved_by: "tenant_id required in notification/cadence queries"
+      violated_when: "response contains other tenant data"
+      test: "two-tenant fixture"
+
+out_of_scope:
+  - "campaign acquisition changes"
+  - "postback routing"
+
+size_check:
+  files_touched: 15
+  migrations: 2
+  endpoints: 3
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-008-notification-and-cadence-routing/value-gate-report.md"

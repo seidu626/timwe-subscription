@@ -46,8 +46,9 @@ type AcquisitionTransaction struct {
 	CorrelationID uuid.UUID `json:"correlation_id" db:"correlation_id"`
 
 	// Campaign and user
-	CampaignSlug string `json:"campaign_slug" db:"campaign_slug"`
-	MSISDN       string `json:"msisdn" db:"msisdn"`
+	TenantID     *string `json:"tenant_id,omitempty" db:"tenant_id"`
+	CampaignSlug string  `json:"campaign_slug" db:"campaign_slug"`
+	MSISDN       string  `json:"msisdn" db:"msisdn"`
 
 	// Status and flow
 	Status            TransactionStatus `json:"status" db:"status"`
@@ -95,8 +96,9 @@ type AcquisitionTransaction struct {
 
 // CreateTransactionRequest represents the request to create a new transaction
 type CreateTransactionRequest struct {
-	CampaignSlug string `json:"campaign_slug" binding:"required"`
-	MSISDN       string `json:"msisdn" binding:"required"`
+	CampaignSlug string  `json:"campaign_slug" binding:"required"`
+	TenantKey    *string `json:"tenant_key,omitempty"`
+	MSISDN       string  `json:"msisdn" binding:"required"`
 
 	// Attribution (will be normalized by provider)
 	Provider        *string           `json:"provider,omitempty"`

@@ -54,21 +54,29 @@ type OptinRequest struct {
 }
 
 type MTRequest struct {
-	ProductID          int    `json:"productId"`
-	PricepointID       int    `json:"pricepointId"`
-	MCC                string `json:"mcc"`
-	MNC                string `json:"mnc"`
-	UserIdentifier     string `json:"userIdentifier"`
-	UserIdentifierType string `json:"userIdentifierType"`
-	EntryChannel       string `json:"entryChannel"`
-	SubKeyword         string `json:"subKeyword"`
-	LargeAccount       string `json:"largeAccount"`
-	CampaignUrl        string `json:"campaignUrl"`
-	SendDate           string `json:"sendDate"`
-	Priority           string `json:"priority"`
-	Timezone           string `json:"timezone"`
-	Context            string `json:"context"`
-	MoTransactionUUID  string `json:"moTransactionUUID"`
+	ProductID          int                `json:"productId"`
+	PricepointID       int                `json:"pricepointId"`
+	MCC                string             `json:"mcc"`
+	MNC                string             `json:"mnc"`
+	UserIdentifier     string             `json:"userIdentifier"`
+	UserIdentifierType string             `json:"userIdentifierType"`
+	EntryChannel       string             `json:"entryChannel"`
+	SubKeyword         string             `json:"subKeyword"`
+	LargeAccount       string             `json:"largeAccount"`
+	CampaignUrl        string             `json:"campaignUrl"`
+	SendDate           string             `json:"sendDate"`
+	Priority           string             `json:"priority"`
+	Timezone           string             `json:"timezone"`
+	Context            string             `json:"context"`
+	MoTransactionUUID  string             `json:"moTransactionUUID"`
+	TenantRoute        TenantRouteContext `json:"-"`
+}
+
+type TenantRouteContext struct {
+	TenantID   string
+	TenantKey  string
+	ChannelID  string
+	ChannelKey string
 }
 
 type MTResponse struct {
@@ -91,14 +99,15 @@ func (e *MTResponseError) Error() string {
 }
 
 type ChargeRequest struct {
-	ProductID    int    `json:"productId"`
-	PricepointID int    `json:"pricepointId"`
-	MCC          string `json:"mcc"`
-	MNC          string `json:"mnc"`
-	MSISDN       string `json:"msisdn"`
-	ShortCode    string `json:"shortCode"`
-	Context      string `json:"context"`
-	Channel      string `json:"channel"`
+	ProductID    int                `json:"productId"`
+	PricepointID int                `json:"pricepointId"`
+	MCC          string             `json:"mcc"`
+	MNC          string             `json:"mnc"`
+	MSISDN       string             `json:"msisdn"`
+	ShortCode    string             `json:"shortCode"`
+	Context      string             `json:"context"`
+	Channel      string             `json:"channel"`
+	TenantRoute  TenantRouteContext `json:"-"`
 }
 
 type ChargeResponse struct {
@@ -110,7 +119,11 @@ type ChargeResponse struct {
 }
 
 func MapMTRequestToSubscriptionRequest(mtReq MTRequest, transactionId string, partnerRoleId int, clientIp, campaignUrl string) SubscriptionRequest {
+	tenantID := stringPtrFromRoute(mtReq.TenantRoute.TenantID)
+	channelID := stringPtrFromRoute(mtReq.TenantRoute.ChannelID)
 	return SubscriptionRequest{
+		TenantID:           tenantID,
+		ChannelID:          channelID,
 		TransactionId:      transactionId,
 		PartnerRoleId:      partnerRoleId,        // Set partner role explicitly
 		UserIdentifier:     mtReq.UserIdentifier, // Map UserIdentifier to UserIdentifier
@@ -131,6 +144,8 @@ func MapMTRequestToSubscriptionRequest(mtReq MTRequest, transactionId string, pa
 func MapChargeToNotification(chargeReq ChargeRequest, partnerRole int) NotificationRequest {
 	txId := uuid.New().String()
 	return NotificationRequest{
+		TenantID:        stringPtrFromRoute(chargeReq.TenantRoute.TenantID),
+		ChannelID:       stringPtrFromRoute(chargeReq.TenantRoute.ChannelID),
 		PartnerRole:     partnerRole,
 		ExternalTxID:    txId,
 		ProductID:       chargeReq.ProductID,
@@ -148,7 +163,16 @@ func MapChargeToNotification(chargeReq ChargeRequest, partnerRole int) Notificat
 	}
 }
 
+func stringPtrFromRoute(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
 type NotificationRequest struct {
+	TenantID        *string  `json:"tenantId,omitempty"`
+	ChannelID       *string  `json:"channelId,omitempty"`
 	PartnerRole     int      `json:"partnerRole"`
 	ExternalTxID    string   `json:"externalTxId"`
 	ProductID       int      `json:"productId"`
@@ -178,6 +202,8 @@ type ListResponse struct {
 
 type Subscription struct {
 	Id                  int        `json:"id"`
+	TenantID            *string    `json:"tenantId,omitempty"`
+	ChannelID           *string    `json:"channelId,omitempty"`
 	PartnerRoleId       string     `json:"partnerRoleId"`
 	UserIdentifier      string     `json:"userIdentifier"`
 	UserIdentifierType  string     `json:"userIdentifierType"`
@@ -200,6 +226,8 @@ type Subscription struct {
 }
 
 type SubscriptionRequest struct {
+	TenantID           *string `json:"tenantId,omitempty"`
+	ChannelID          *string `json:"channelId,omitempty"`
 	TransactionId      string  `json:"transactionId"`
 	PartnerRoleId      int     `json:"-"`
 	UserIdentifier     string  `json:"userIdentifier"`
@@ -223,48 +251,51 @@ type SubscribeResponse struct {
 }
 
 type SubscriptionConfirmationRequest struct {
-	PartnerRoleId       int     `json:"-"`
-	UserIdentifier      string  `json:"userIdentifier"`
-	UserIdentifierType  string  `json:"userIdentifierType"`
-	ProductId           int     `json:"productId"`
-	Mcc                 *string `json:"mcc"`          // Changed to pointer to handle NULL values
-	Mnc                 *string `json:"mnc"`          // Changed to pointer to handle NULL values
-	EntryChannel        *string `json:"entryChannel"` // Changed to pointer to handle NULL values
-	ClientIp            *string `json:"clientIp"`     // Changed to pointer to handle NULL values
-	TransactionAuthCode string  `json:"transactionAuthCode"`
+	PartnerRoleId       int                `json:"-"`
+	UserIdentifier      string             `json:"userIdentifier"`
+	UserIdentifierType  string             `json:"userIdentifierType"`
+	ProductId           int                `json:"productId"`
+	Mcc                 *string            `json:"mcc"`          // Changed to pointer to handle NULL values
+	Mnc                 *string            `json:"mnc"`          // Changed to pointer to handle NULL values
+	EntryChannel        *string            `json:"entryChannel"` // Changed to pointer to handle NULL values
+	ClientIp            *string            `json:"clientIp"`     // Changed to pointer to handle NULL values
+	TransactionAuthCode string             `json:"transactionAuthCode"`
+	TenantRoute         TenantRouteContext `json:"-"`
 }
 
 type UnsubscriptionRequest struct {
-	PartnerRoleId         int     `json:"-"`
-	UserIdentifier        string  `json:"userIdentifier"`
-	UserIdentifierType    string  `json:"userIdentifierType"`
-	ProductId             int     `json:"productId"`
-	Mcc                   *string `json:"mcc"`          // Changed to pointer to handle NULL values
-	Mnc                   *string `json:"mnc"`          // Changed to pointer to handle NULL values
-	EntryChannel          *string `json:"entryChannel"` // Changed to pointer to handle NULL values
-	LargeAccount          *string `json:"largeAccount"` // Changed to pointer to handle NULL values
-	SubKeyword            *string `json:"subKeyword"`   // Changed to pointer to handle NULL values
-	TrackingId            *string `json:"trackingId"`   // Changed to pointer to handle NULL values
-	ClientIp              *string `json:"clientIp"`     // Changed to pointer to handle NULL values
-	ControlKeyword        string  `json:"controlKeyword"`
-	ControlServiceKeyword string  `json:"controlServiceKeyword"`
-	SubId                 int     `json:"subId"`
-	CancelReason          int     `json:"cancelReason"`
-	CancelSource          int     `json:"cancelSource"`
+	PartnerRoleId         int                `json:"-"`
+	UserIdentifier        string             `json:"userIdentifier"`
+	UserIdentifierType    string             `json:"userIdentifierType"`
+	ProductId             int                `json:"productId"`
+	Mcc                   *string            `json:"mcc"`          // Changed to pointer to handle NULL values
+	Mnc                   *string            `json:"mnc"`          // Changed to pointer to handle NULL values
+	EntryChannel          *string            `json:"entryChannel"` // Changed to pointer to handle NULL values
+	LargeAccount          *string            `json:"largeAccount"` // Changed to pointer to handle NULL values
+	SubKeyword            *string            `json:"subKeyword"`   // Changed to pointer to handle NULL values
+	TrackingId            *string            `json:"trackingId"`   // Changed to pointer to handle NULL values
+	ClientIp              *string            `json:"clientIp"`     // Changed to pointer to handle NULL values
+	ControlKeyword        string             `json:"controlKeyword"`
+	ControlServiceKeyword string             `json:"controlServiceKeyword"`
+	SubId                 int                `json:"subId"`
+	CancelReason          int                `json:"cancelReason"`
+	CancelSource          int                `json:"cancelSource"`
+	TenantRoute           TenantRouteContext `json:"-"`
 }
 
 type GetStatusRequest struct {
-	PartnerRoleId         int     `json:"-"`
-	UserIdentifier        string  `json:"userIdentifier"`
-	UserIdentifierType    string  `json:"userIdentifierType"`
-	ProductId             int     `json:"productId"`
-	Mcc                   *string `json:"mcc"`          // Changed to pointer to handle NULL values
-	Mnc                   *string `json:"mnc"`          // Changed to pointer to handle NULL values
-	EntryChannel          *string `json:"entryChannel"` // Changed to pointer to handle NULL values
-	ClientIp              *string `json:"clientIp"`     // Changed to pointer to handle NULL values
-	ControlKeyword        string  `json:"controlKeyword"`
-	ControlServiceKeyword string  `json:"controlServiceKeyword"`
-	SubId                 int     `json:"subId"`
+	PartnerRoleId         int                `json:"-"`
+	UserIdentifier        string             `json:"userIdentifier"`
+	UserIdentifierType    string             `json:"userIdentifierType"`
+	ProductId             int                `json:"productId"`
+	Mcc                   *string            `json:"mcc"`          // Changed to pointer to handle NULL values
+	Mnc                   *string            `json:"mnc"`          // Changed to pointer to handle NULL values
+	EntryChannel          *string            `json:"entryChannel"` // Changed to pointer to handle NULL values
+	ClientIp              *string            `json:"clientIp"`     // Changed to pointer to handle NULL values
+	ControlKeyword        string             `json:"controlKeyword"`
+	ControlServiceKeyword string             `json:"controlServiceKeyword"`
+	SubId                 int                `json:"subId"`
+	TenantRoute           TenantRouteContext `json:"-"`
 }
 
 type SubscriptionStatus struct {

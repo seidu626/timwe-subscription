@@ -186,6 +186,23 @@ func NewRouter(
 			}
 			return
 
+		// Admin tenant context endpoints
+		case strings.EqualFold(path, "/v1/admin/tenants"):
+			if method == fasthttp.MethodPost {
+				adminManagementHandler.CreateTenant(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.EqualFold(path, "/v1/admin/tenants/current"):
+			if method == fasthttp.MethodGet {
+				adminManagementHandler.GetCurrentTenant(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		// Admin products management
 		case strings.EqualFold(path, "/v1/admin/products"):
 			switch method {
@@ -201,6 +218,37 @@ func NewRouter(
 		case strings.EqualFold(path, "/v1/admin/products/batch"):
 			if method == fasthttp.MethodPost {
 				adminManagementHandler.BatchUpsertProducts(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		// Admin channel catalog
+		case strings.EqualFold(path, "/v1/admin/channels"):
+			switch method {
+			case fasthttp.MethodGet:
+				adminManagementHandler.ListChannels(ctx)
+			case fasthttp.MethodPost:
+				adminManagementHandler.CreateChannel(ctx)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/channels/") && strings.HasSuffix(path, "/credentials"):
+			switch method {
+			case fasthttp.MethodGet:
+				adminManagementHandler.ListChannelCredentials(ctx)
+			case fasthttp.MethodPost:
+				adminManagementHandler.BindChannelCredential(ctx)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/channels/") && strings.HasSuffix(path, "/enabled"):
+			if method == fasthttp.MethodPatch {
+				adminManagementHandler.SetChannelEnabled(ctx)
 			} else {
 				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
 			}
@@ -322,6 +370,14 @@ func NewRouter(
 			return
 
 		// Campaign endpoints
+		case isTenantCampaignPath(path):
+			if method == fasthttp.MethodGet {
+				campaignHandler.GetByTenantAndSlug(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		case strings.HasPrefix(path, "/v1/campaigns/"):
 			if method == fasthttp.MethodGet {
 				campaignHandler.GetBySlug(ctx)
@@ -450,6 +506,11 @@ func NewRouter(
 		}
 	}
 	return router
+}
+
+func isTenantCampaignPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	return len(parts) == 4 && parts[0] == "v1" && parts[1] == "campaigns"
 }
 
 // setPublicCORS sets permissive CORS headers for public endpoints (like analytics)

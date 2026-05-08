@@ -18,6 +18,7 @@ import type {
 
 interface UseSubscriptionFlowProps {
   slug: string
+  tenantKey?: string
   searchParams: URLSearchParams
   trackConversion: (event: ConversionEvent) => void
   pixelTrackEvent: (eventName: string, params?: Record<string, any>) => void
@@ -46,6 +47,7 @@ const eventTypeMap: Record<string, AnalyticsEventType | null> = {
 
 export function useSubscriptionFlow({
   slug,
+  tenantKey,
   searchParams,
   trackConversion,
   pixelTrackEvent,
@@ -135,7 +137,11 @@ export function useSubscriptionFlow({
       provider,
     })
 
-    fetch(`/api/campaigns/${slug}`)
+    const campaignPath = tenantKey
+      ? `/api/campaigns/${encodeURIComponent(tenantKey)}/${encodeURIComponent(slug)}`
+      : `/api/campaigns/${encodeURIComponent(slug)}`
+
+    fetch(campaignPath)
       .then(async (response) => {
         if (!response.ok) throw new Error('Campaign not found')
         return response.json()
@@ -151,7 +157,7 @@ export function useSubscriptionFlow({
         setError(err.message || 'Failed to load campaign')
         trackEvent('campaign_load_error', { campaign_slug: slug, error: err.message })
       })
-  }, [slug, clickId, provider, onPixelConfigLoad, trackEvent])
+  }, [slug, tenantKey, clickId, provider, onPixelConfigLoad, trackEvent])
 
   const submitTransaction = useCallback(async (text: any) => {
     if (!text) {
@@ -191,6 +197,7 @@ export function useSubscriptionFlow({
         headers,
         body: JSON.stringify({
           campaign_slug: slug,
+          ...(tenantKey ? { tenant_key: tenantKey } : {}),
           msisdn: normalizedMsisdn,
           provider,
           click_id: clickId,

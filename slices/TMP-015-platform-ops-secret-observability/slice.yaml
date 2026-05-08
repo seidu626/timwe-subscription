@@ -1,0 +1,68 @@
+story:
+  id: "TMP-015"
+  title: "Platform operator hardens tenant secrets, config, metrics, and runbooks"
+  actor: "platform-operator"
+  action: "rotate unsafe configuration, label tenant/channel observability, and document platform operations"
+  outcome: "tenant channels can run without leaking credentials or hiding tenant-specific failures"
+  as_a: "platform-operator"
+  i_want_to: "operate tenant channels with safe secrets and useful health signals"
+  so_that: "production issues can be diagnosed without exposing tenant credentials or data"
+
+entrypoints:
+  - "docker-compose*.yml"
+  - "docs/environment-variables.md"
+  - "ops/monitoring/*"
+  - "service config loaders"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Sensitive config is externalized"
+      given: ["compose/config files contain credential-shaped values"]
+      when: "operator prepares tenant platform deploy"
+      then: "secrets are referenced through environment/secret manager names and documented rotation process"
+      evidence: "config diff and runbook review"
+    - scenario: "Tenant metrics labels exist"
+      given: ["tenant/channel request and worker flows execute"]
+      when: "metrics are emitted"
+      then: "safe labels include tenant key/channel key or approved low-cardinality aliases"
+      evidence: "metrics unit test and dashboard fixture"
+  failures:
+    - scenario: "Credential accidentally logged"
+      given: ["channel credential lookup fails"]
+      when: "service logs error"
+      then: "log contains credential reference only, never secret material"
+      evidence: "logging assertion"
+    - scenario: "Missing tenant label"
+      given: ["worker processes tenant outbox item"]
+      when: "metric is emitted"
+      then: "value-gate fails or test catches missing tenant/channel dimension"
+      evidence: "metric test"
+    - scenario: "Secret backend unavailable"
+      given: ["secret backend cannot resolve channel credential"]
+      when: "outbound operation runs"
+      then: "operation fails closed and health reports degraded"
+      evidence: "config/health test"
+  edges:
+    - scenario: "Local development"
+      given: ["developer runs docker compose locally"]
+      when: "tenant platform stack starts"
+      then: "sample secrets are clearly non-production and real secrets are not required for unrelated tests"
+      evidence: "local runbook and config test"
+  invariants:
+    - rule: "Secrets are never durable business data"
+      preserved_by: "credential references and secret backend adapter"
+      violated_when: "raw API key or PSK is stored in tenant/channel table"
+      test: "repository redaction test"
+
+out_of_scope:
+  - "cloud-specific secret manager migration unless selected by operator"
+  - "full SOC2 control set"
+
+size_check:
+  files_touched: 15
+  migrations: 0
+  endpoints: 1
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-015-platform-ops-secret-observability/value-gate-report.md"

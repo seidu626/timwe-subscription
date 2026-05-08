@@ -16,6 +16,10 @@ const (
 )
 
 type AdminSubscriptionActionRequest struct {
+	TenantID              string            `json:"tenantId,omitempty"`
+	TenantKey             string            `json:"tenantKey,omitempty"`
+	ChannelID             string            `json:"channelId,omitempty"`
+	ChannelKey            string            `json:"channelKey,omitempty"`
 	MSISDN                string            `json:"msisdn"`
 	ProductID             int               `json:"productId"`
 	PartnerRoleID         int               `json:"partnerRoleId,omitempty"`
@@ -57,6 +61,8 @@ type AdminActionCapturedResponse struct {
 
 type AdminSubscriptionActionLog struct {
 	ID                 string               `json:"id"`
+	TenantID           *string              `json:"tenantId,omitempty"`
+	ChannelID          *string              `json:"channelId,omitempty"`
 	Operation          AdminActionOperation `json:"operation"`
 	MSISDN             string               `json:"msisdn"`
 	ProductID          int                  `json:"productId"`
@@ -80,6 +86,8 @@ type AdminSubscriptionActionLog struct {
 
 type AdminSubscriptionActionDetail struct {
 	ID             string                      `json:"id"`
+	TenantID       *string                     `json:"tenantId,omitempty"`
+	ChannelID      *string                     `json:"channelId,omitempty"`
 	Operation      AdminActionOperation        `json:"operation"`
 	MSISDN         string                      `json:"msisdn"`
 	ProductID      int                         `json:"productId"`
@@ -115,6 +123,8 @@ func (l *AdminSubscriptionActionLog) ErrorMessage() string {
 func (l *AdminSubscriptionActionLog) ToDetail() AdminSubscriptionActionDetail {
 	return AdminSubscriptionActionDetail{
 		ID:             l.ID,
+		TenantID:       l.TenantID,
+		ChannelID:      l.ChannelID,
 		Operation:      l.Operation,
 		MSISDN:         l.MSISDN,
 		ProductID:      l.ProductID,
@@ -142,6 +152,7 @@ func (l *AdminSubscriptionActionLog) ToDetail() AdminSubscriptionActionDetail {
 }
 
 type AdminActionLogFilter struct {
+	TenantID       string
 	Operation      AdminActionOperation
 	MSISDN         string
 	ExternalTxID   string
@@ -152,6 +163,8 @@ type AdminActionLogFilter struct {
 
 type AdminActionLogSummary struct {
 	ID                 string               `json:"id"`
+	TenantID           *string              `json:"tenantId,omitempty"`
+	ChannelID          *string              `json:"channelId,omitempty"`
 	Operation          AdminActionOperation `json:"operation"`
 	MSISDN             string               `json:"msisdn"`
 	ProductID          int                  `json:"productId"`

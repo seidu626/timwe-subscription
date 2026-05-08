@@ -1,5 +1,22 @@
 -- Admin management audit and import history tables
 
+CREATE TABLE IF NOT EXISTS tenants (
+    id UUID PRIMARY KEY,
+    tenant_key VARCHAR(100) NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+    default_country VARCHAR(2) NOT NULL,
+    metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_tenants_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    CONSTRAINT chk_tenants_key_format CHECK (tenant_key ~ '^[a-z0-9][a-z0-9_-]{1,98}[a-z0-9]$'),
+    CONSTRAINT chk_tenants_default_country CHECK (default_country ~ '^[A-Z]{2}$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_tenants_status
+    ON tenants (status, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS admin_activity_logs (
     id UUID PRIMARY KEY,
     entity_type VARCHAR(100) NOT NULL,
@@ -47,3 +64,36 @@ CREATE TABLE IF NOT EXISTS userbase_import_errors (
 
 CREATE INDEX IF NOT EXISTS idx_userbase_import_errors_job_id
     ON userbase_import_errors (job_id, id);
+
+ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+ALTER TABLE userbase
+    ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+ALTER TABLE userbase_import_jobs
+    ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+ALTER TABLE userbase_import_errors
+    ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+ALTER TABLE admin_activity_logs
+    ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+ALTER TABLE products
+    DROP CONSTRAINT IF EXISTS products_product_id_key;
+
+ALTER TABLE userbase
+    DROP CONSTRAINT IF EXISTS userbase_msisdn_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_products_tenant_product_id
+    ON products (tenant_id, product_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_userbase_tenant_msisdn
+    ON userbase (tenant_id, msisdn);
+
+CREATE INDEX IF NOT EXISTS idx_userbase_import_jobs_tenant_started
+    ON userbase_import_jobs (tenant_id, started_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_admin_activity_logs_tenant_entity
+    ON admin_activity_logs (tenant_id, entity_type, entity_id, created_at DESC);

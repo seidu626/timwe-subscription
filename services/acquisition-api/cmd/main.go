@@ -85,7 +85,7 @@ func main() {
 	}
 	logger.Info("Admin management schema bootstrap completed",
 		zap.Duration("duration", time.Since(schemaBootstrapStart)),
-		zap.String("migration_file", "migrations/add_admin_management_tables.sql"),
+		zap.String("migration_set", "admin_management"),
 	)
 
 	// Initialize TIMWE client with configuration
@@ -141,6 +141,7 @@ func main() {
 
 	// Initialize handlers
 	campaignHandler := handler.NewCampaignHandler(campaignService, campaignAssetService, logger)
+	campaignHandler.SetTenantResolver(adminManagementService)
 	transactionHandler := handler.NewTransactionHandler(transactionService, logger)
 	callbackHandler := handler.NewCallbackHandler(transactionRepo, campaignRepo, postbackRepo, providerRegistry, logger)
 	internalHandler := handler.NewInternalHandler(transactionService, logger)

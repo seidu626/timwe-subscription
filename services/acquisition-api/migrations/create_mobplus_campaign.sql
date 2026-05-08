@@ -138,7 +138,7 @@ INSERT INTO campaigns (
     -- Enable the campaign
     true,
     'system'
-) ON CONFLICT (slug) DO UPDATE SET
+) ON CONFLICT (slug) WHERE tenant_id IS NULL DO UPDATE SET
     language = EXCLUDED.language,
     country = EXCLUDED.country,
     operator = EXCLUDED.operator,

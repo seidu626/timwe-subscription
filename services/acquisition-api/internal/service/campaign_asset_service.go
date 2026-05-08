@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"path"
@@ -22,6 +23,8 @@ var allowedBackgroundImageTypes = map[string]string{
 	"image/webp": ".webp",
 }
 
+var ErrCampaignAssetStorageUnavailable = errors.New("campaign asset storage unavailable")
+
 var sanitizeAssetSegmentRe = regexp.MustCompile(`[^a-z0-9\-]+`)
 
 type CampaignAssetStorageConfig struct {
@@ -39,10 +42,11 @@ type CampaignAssetStorageConfig struct {
 }
 
 type CampaignAssetUploadRequest struct {
-	CampaignSlug string
-	FileName     string
-	ContentType  string
-	SizeBytes    int64
+	TenantNamespace string
+	CampaignSlug    string
+	FileName        string
+	ContentType     string
+	SizeBytes       int64
 }
 
 type CampaignAssetUploadResponse struct {
@@ -124,6 +128,10 @@ func (s *CampaignAssetService) PresignBackgroundUpload(ctx context.Context, req 
 		return nil, fmt.Errorf("size_bytes exceeds max of %d bytes", s.cfg.MaxUploadSizeBytes)
 	}
 
+	tenantSegment := sanitizeAssetSegment(req.TenantNamespace)
+	if tenantSegment == "" {
+		return nil, fmt.Errorf("tenant namespace is required")
+	}
 	slugSegment := sanitizeAssetSegment(req.CampaignSlug)
 	if slugSegment == "" {
 		slugSegment = "campaign"
@@ -131,6 +139,9 @@ func (s *CampaignAssetService) PresignBackgroundUpload(ctx context.Context, req 
 
 	fileName := strings.TrimSpace(req.FileName)
 	if fileName != "" {
+		if err := validateAssetFileName(fileName); err != nil {
+			return nil, err
+		}
 		lower := strings.ToLower(fileName)
 		if strings.HasSuffix(lower, ".jpeg") || strings.HasSuffix(lower, ".jpg") {
 			ext = ".jpg"
@@ -143,11 +154,11 @@ func (s *CampaignAssetService) PresignBackgroundUpload(ctx context.Context, req 
 		}
 	}
 
-	objectKey := fmt.Sprintf("%s/%s/%d-%s%s", s.cfg.KeyPrefix, slugSegment, time.Now().Unix(), uuid.NewString(), ext)
+	objectKey := buildBackgroundObjectKey(s.cfg.KeyPrefix, tenantSegment, slugSegment, time.Now(), uuid.NewString(), ext)
 
 	uploadURL, err := s.client.PresignedPutObject(ctx, s.cfg.Bucket, objectKey, s.cfg.PresignExpiry)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create presigned upload URL: %w", err)
+		return nil, fmt.Errorf("%w: failed to create presigned upload URL", ErrCampaignAssetStorageUnavailable)
 	}
 
 	assetURL := s.buildAssetURL(objectKey)
@@ -220,4 +231,20 @@ func sanitizeAssetSegment(value string) string {
 		normalized = normalized[:80]
 	}
 	return normalized
+}
+
+func validateAssetFileName(fileName string) error {
+	if strings.Contains(fileName, "/") || strings.Contains(fileName, "\\") || strings.Contains(fileName, "..") {
+		return fmt.Errorf("file_name must be a simple file name")
+	}
+	for _, r := range fileName {
+		if r < 0x20 || r == 0x7f {
+			return fmt.Errorf("file_name contains control characters")
+		}
+	}
+	return nil
+}
+
+func buildBackgroundObjectKey(prefix, tenantSegment, campaignSegment string, now time.Time, id string, ext string) string {
+	return fmt.Sprintf("%s/tenants/%s/%s/%d-%s%s", strings.Trim(prefix, "/"), tenantSegment, campaignSegment, now.Unix(), id, ext)
 }

@@ -20,16 +20,30 @@ var (
 )
 
 type Validator struct {
-	keyFunc  jwt.Keyfunc
-	issuer   string
-	audience string
-	parser   *jwt.Parser
+	keyFunc   jwt.Keyfunc
+	issuer    string
+	audiences map[string]struct{}
+	parser    *jwt.Parser
 }
 
 func New(domain, audience string) (*Validator, error) {
 	domain = strings.TrimSpace(domain)
 	audience = strings.TrimSpace(audience)
 	if domain == "" || audience == "" {
+		return nil, ErrInvalidConfig
+	}
+
+	// Support comma-separated audiences to allow safe migration between API identifiers.
+	// Example: "https://dev-xxx.auth0.com/api/v2/,https://api.example.com"
+	audiences := make(map[string]struct{})
+	for _, part := range strings.Split(audience, ",") {
+		a := strings.TrimSpace(part)
+		if a == "" {
+			continue
+		}
+		audiences[a] = struct{}{}
+	}
+	if len(audiences) == 0 {
 		return nil, ErrInvalidConfig
 	}
 
@@ -52,20 +66,51 @@ func New(domain, audience string) (*Validator, error) {
 	}
 
 	return &Validator{
-		keyFunc:  jwks.Keyfunc,
-		issuer:   issuer,
-		audience: audience,
+		keyFunc:   jwks.Keyfunc,
+		issuer:    issuer,
+		audiences: audiences,
 		parser: jwt.NewParser(
 			jwt.WithValidMethods([]string{"RS256"}),
 			jwt.WithIssuedAt(),
+			// Allow 60 seconds of clock skew between token issuer and validator.
+			// This prevents "token used before issued" errors due to minor clock differences.
+			jwt.WithLeeway(60*time.Second),
+		),
+	}, nil
+}
+
+func NewWithKeyfunc(domain, audience string, keyFunc jwt.Keyfunc) (*Validator, error) {
+	domain = strings.TrimSpace(domain)
+	audience = strings.TrimSpace(audience)
+	if domain == "" || audience == "" || keyFunc == nil {
+		return nil, ErrInvalidConfig
+	}
+	audiences := make(map[string]struct{})
+	for _, part := range strings.Split(audience, ",") {
+		a := strings.TrimSpace(part)
+		if a != "" {
+			audiences[a] = struct{}{}
+		}
+	}
+	if len(audiences) == 0 {
+		return nil, ErrInvalidConfig
+	}
+	return &Validator{
+		keyFunc:   keyFunc,
+		issuer:    fmt.Sprintf("https://%s/", domain),
+		audiences: audiences,
+		parser: jwt.NewParser(
+			jwt.WithValidMethods([]string{"RS256"}),
+			jwt.WithIssuedAt(),
+			jwt.WithLeeway(60*time.Second),
 		),
 	}, nil
 }
 
 // ValidateBearer validates an `Authorization: Bearer <token>` header value.
-// It returns registered claims on success.
-func (v *Validator) ValidateBearer(ctx context.Context, authorizationHeader string) (*jwt.RegisteredClaims, error) {
-	if v == nil || v.keyFunc == nil || v.parser == nil || v.issuer == "" || v.audience == "" {
+// It returns typed tenant/platform claims on success.
+func (v *Validator) ValidateBearer(ctx context.Context, authorizationHeader string) (*Claims, error) {
+	if v == nil || v.keyFunc == nil || v.parser == nil || v.issuer == "" || len(v.audiences) == 0 {
 		return nil, ErrInvalidConfig
 	}
 
@@ -82,7 +127,7 @@ func (v *Validator) ValidateBearer(ctx context.Context, authorizationHeader stri
 		return nil, ErrMissingToken
 	}
 
-	claims := &jwt.RegisteredClaims{}
+	claims := &Claims{}
 
 	// The jwt library doesn't currently accept context directly for ParseWithClaims,
 	// so we pre-check cancellation here and keep parsing bounded by keyfunc/http timeouts.
@@ -102,17 +147,22 @@ func (v *Validator) ValidateBearer(ctx context.Context, authorizationHeader stri
 
 	// Enforce issuer and audience explicitly.
 	if claims.Issuer != v.issuer {
-		return nil, ErrInvalidToken
+		return nil, fmt.Errorf("%w: issuer mismatch (got %q want %q)", ErrInvalidToken, claims.Issuer, v.issuer)
 	}
 	audienceOK := false
 	for _, aud := range claims.Audience {
-		if aud == v.audience {
+		if _, ok := v.audiences[aud]; ok {
 			audienceOK = true
 			break
 		}
 	}
 	if !audienceOK {
-		return nil, ErrInvalidToken
+		// Keep this non-sensitive: report the token audiences + expected set keys.
+		expected := make([]string, 0, len(v.audiences))
+		for a := range v.audiences {
+			expected = append(expected, a)
+		}
+		return nil, fmt.Errorf("%w: audience mismatch (got %v want one of %v)", ErrInvalidToken, claims.Audience, expected)
 	}
 
 	// Ensure alg is RS256 (defense-in-depth; ParseWithClaims already enforces valid methods).

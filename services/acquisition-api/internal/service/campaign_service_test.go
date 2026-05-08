@@ -12,19 +12,30 @@ import (
 )
 
 type fakeCampaignRepo struct {
-	getBySlugFn      func(string) (*domain.Campaign, error)
-	listEnabledFn    func() ([]*domain.Campaign, error)
-	getAdminBySlugFn func(string) (*domain.Campaign, error)
-	listAllFn        func(*bool, *string) ([]*domain.Campaign, error)
-	createFn         func(*domain.Campaign) (*domain.Campaign, error)
-	updateFn         func(string, *domain.Campaign) (*domain.Campaign, error)
-	setEnabledFn     func(string, bool, *string) (*domain.Campaign, error)
-	validateOfferFn      func(int, *int) error
-	updatePostbackRulesFn func(string, json.RawMessage) error
+	getBySlugFn               func(string) (*domain.Campaign, error)
+	getByTenantKeyAndSlugFn   func(string, string) (*domain.Campaign, error)
+	listEnabledFn             func() ([]*domain.Campaign, error)
+	getAdminBySlugFn          func(string) (*domain.Campaign, error)
+	getAdminByTenantAndSlugFn func(string, string) (*domain.Campaign, error)
+	listAllFn                 func(*bool, *string) ([]*domain.Campaign, error)
+	listAllForTenantFn        func(string, *bool, *string) ([]*domain.Campaign, error)
+	createFn                  func(*domain.Campaign) (*domain.Campaign, error)
+	createForTenantFn         func(string, *domain.Campaign) (*domain.Campaign, error)
+	updateFn                  func(string, *domain.Campaign) (*domain.Campaign, error)
+	updateForTenantFn         func(string, string, *domain.Campaign) (*domain.Campaign, error)
+	setEnabledFn              func(string, bool, *string) (*domain.Campaign, error)
+	setEnabledForTenantFn     func(string, string, bool, *string) (*domain.Campaign, error)
+	validateOfferFn           func(int, *int) error
+	validateTenantOfferFn     func(string, int, *int) error
+	validateTenantChannelFn   func(string, string, string, *string, domain.FlowType) error
+	updatePostbackRulesFn     func(string, json.RawMessage) error
 }
 
 func (f *fakeCampaignRepo) GetBySlug(slug string) (*domain.Campaign, error) {
 	return f.getBySlugFn(slug)
+}
+func (f *fakeCampaignRepo) GetByTenantKeyAndSlug(tenantKey, slug string) (*domain.Campaign, error) {
+	return f.getByTenantKeyAndSlugFn(tenantKey, slug)
 }
 func (f *fakeCampaignRepo) ListEnabled() ([]*domain.Campaign, error) {
 	return f.listEnabledFn()
@@ -32,17 +43,32 @@ func (f *fakeCampaignRepo) ListEnabled() ([]*domain.Campaign, error) {
 func (f *fakeCampaignRepo) GetAdminBySlug(slug string) (*domain.Campaign, error) {
 	return f.getAdminBySlugFn(slug)
 }
+func (f *fakeCampaignRepo) GetAdminByTenantAndSlug(tenantID, slug string) (*domain.Campaign, error) {
+	return f.getAdminByTenantAndSlugFn(tenantID, slug)
+}
 func (f *fakeCampaignRepo) ListAll(enabled *bool, country *string) ([]*domain.Campaign, error) {
 	return f.listAllFn(enabled, country)
+}
+func (f *fakeCampaignRepo) ListAllForTenant(tenantID string, enabled *bool, country *string) ([]*domain.Campaign, error) {
+	return f.listAllForTenantFn(tenantID, enabled, country)
 }
 func (f *fakeCampaignRepo) Create(c *domain.Campaign) (*domain.Campaign, error) {
 	return f.createFn(c)
 }
+func (f *fakeCampaignRepo) CreateForTenant(tenantID string, c *domain.Campaign) (*domain.Campaign, error) {
+	return f.createForTenantFn(tenantID, c)
+}
 func (f *fakeCampaignRepo) Update(slug string, c *domain.Campaign) (*domain.Campaign, error) {
 	return f.updateFn(slug, c)
 }
+func (f *fakeCampaignRepo) UpdateForTenant(tenantID, slug string, c *domain.Campaign) (*domain.Campaign, error) {
+	return f.updateForTenantFn(tenantID, slug, c)
+}
 func (f *fakeCampaignRepo) SetEnabled(slug string, enabled bool, updatedBy *string) (*domain.Campaign, error) {
 	return f.setEnabledFn(slug, enabled, updatedBy)
+}
+func (f *fakeCampaignRepo) SetEnabledForTenant(tenantID, slug string, enabled bool, updatedBy *string) (*domain.Campaign, error) {
+	return f.setEnabledForTenantFn(tenantID, slug, enabled, updatedBy)
 }
 func (f *fakeCampaignRepo) UpdatePostbackRules(slug string, rules json.RawMessage) error {
 	if f.updatePostbackRulesFn != nil {
@@ -55,6 +81,18 @@ func (f *fakeCampaignRepo) ValidateOfferProductMapping(offerProductID int, price
 		return nil
 	}
 	return f.validateOfferFn(offerProductID, pricepointID)
+}
+func (f *fakeCampaignRepo) ValidateTenantOfferProductMapping(tenantID string, offerProductID int, pricepointID *int) error {
+	if f.validateTenantOfferFn == nil {
+		return nil
+	}
+	return f.validateTenantOfferFn(tenantID, offerProductID, pricepointID)
+}
+func (f *fakeCampaignRepo) ValidateTenantChannelForCampaign(tenantID, channelID, country string, operator *string, flowType domain.FlowType) error {
+	if f.validateTenantChannelFn == nil {
+		return nil
+	}
+	return f.validateTenantChannelFn(tenantID, channelID, country, operator, flowType)
 }
 
 func TestCampaignService_AdminCRUD_HappyPath(t *testing.T) {
@@ -289,5 +327,143 @@ func TestCampaignService_AdminCreate_RejectsInvalidOfferMapping(t *testing.T) {
 	}
 	if createCalled {
 		t.Fatal("expected create not to be called when mapping validation fails")
+	}
+}
+
+func TestCampaignService_AdminCreateForTenantPersistsTenantAndChannel(t *testing.T) {
+	logger := zap.NewNop()
+	channelID := "33333333-3333-3333-3333-333333333333"
+	tenantID := "22222222-2222-2222-2222-222222222222"
+
+	repo := &fakeCampaignRepo{
+		validateTenantOfferFn: func(gotTenantID string, offerProductID int, pricepointID *int) error {
+			if gotTenantID != tenantID || offerProductID != 27188 {
+				t.Fatalf("unexpected tenant offer validation: tenant=%q offer=%d", gotTenantID, offerProductID)
+			}
+			return nil
+		},
+		validateTenantChannelFn: func(gotTenantID, gotChannelID, country string, operator *string, flowType domain.FlowType) error {
+			if gotTenantID != tenantID || gotChannelID != channelID || country != "GH" || flowType != domain.FlowTypeOTP {
+				t.Fatalf("unexpected channel validation: tenant=%q channel=%q country=%q flow=%q", gotTenantID, gotChannelID, country, flowType)
+			}
+			return nil
+		},
+		createForTenantFn: func(gotTenantID string, c *domain.Campaign) (*domain.Campaign, error) {
+			if gotTenantID != tenantID {
+				t.Fatalf("expected tenant %q, got %q", tenantID, gotTenantID)
+			}
+			if c.TenantID == nil || *c.TenantID != tenantID {
+				t.Fatalf("expected campaign tenant_id to be set, got %#v", c.TenantID)
+			}
+			if c.ChannelID == nil || *c.ChannelID != channelID {
+				t.Fatalf("expected campaign channel_id to be set, got %#v", c.ChannelID)
+			}
+			return c, nil
+		},
+	}
+
+	svc := NewCampaignService(repo, logger)
+	created, err := svc.AdminCreateForTenant(tenantID, &domain.Campaign{
+		Slug:           "daily",
+		ChannelID:      &channelID,
+		Country:        "GH",
+		OfferProductID: 27188,
+		FlowType:       domain.FlowTypeOTP,
+	})
+	if err != nil {
+		t.Fatalf("expected tenant campaign create to pass, got %v", err)
+	}
+	if created.Slug != "daily" {
+		t.Fatalf("expected created campaign daily, got %q", created.Slug)
+	}
+}
+
+func TestCampaignService_AdminCreateForTenantRejectsTenantProductMismatch(t *testing.T) {
+	logger := zap.NewNop()
+	createCalled := false
+	channelID := "33333333-3333-3333-3333-333333333333"
+
+	repo := &fakeCampaignRepo{
+		validateTenantOfferFn: func(string, int, *int) error {
+			return errors.New("offer_product_id 9999 is not present in tenant products")
+		},
+		validateTenantChannelFn: func(string, string, string, *string, domain.FlowType) error {
+			return nil
+		},
+		createForTenantFn: func(string, *domain.Campaign) (*domain.Campaign, error) {
+			createCalled = true
+			return nil, errors.New("should not be called")
+		},
+	}
+
+	svc := NewCampaignService(repo, logger)
+	_, err := svc.AdminCreateForTenant("tenant-a", &domain.Campaign{
+		Slug:           "daily",
+		ChannelID:      &channelID,
+		Country:        "GH",
+		OfferProductID: 9999,
+		FlowType:       domain.FlowTypeOTP,
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid campaign offer mapping") {
+		t.Fatalf("expected tenant product validation error, got %v", err)
+	}
+	if createCalled {
+		t.Fatal("expected create not to be called")
+	}
+}
+
+func TestCampaignService_AdminCreateForTenantMapsChannelCapabilityMismatch(t *testing.T) {
+	logger := zap.NewNop()
+	channelID := "33333333-3333-3333-3333-333333333333"
+	repo := &fakeCampaignRepo{
+		validateTenantOfferFn: func(string, int, *int) error {
+			return nil
+		},
+		validateTenantChannelFn: func(string, string, string, *string, domain.FlowType) error {
+			return errors.New("channel_capability_mismatch: missing confirm")
+		},
+		createForTenantFn: func(string, *domain.Campaign) (*domain.Campaign, error) {
+			return nil, errors.New("should not be called")
+		},
+	}
+
+	svc := NewCampaignService(repo, logger)
+	_, err := svc.AdminCreateForTenant("tenant-a", &domain.Campaign{
+		Slug:           "daily",
+		ChannelID:      &channelID,
+		Country:        "GH",
+		OfferProductID: 27188,
+		FlowType:       domain.FlowTypeOTP,
+	})
+	if !errors.Is(err, ErrCampaignChannelCapabilityMismatch) {
+		t.Fatalf("expected channel capability mismatch, got %v", err)
+	}
+}
+
+func TestCampaignService_AdminCreateForTenantMapsDuplicateSlugConflict(t *testing.T) {
+	logger := zap.NewNop()
+	channelID := "33333333-3333-3333-3333-333333333333"
+	repo := &fakeCampaignRepo{
+		validateTenantOfferFn: func(string, int, *int) error {
+			return nil
+		},
+		validateTenantChannelFn: func(string, string, string, *string, domain.FlowType) error {
+			return nil
+		},
+		createForTenantFn: func(string, *domain.Campaign) (*domain.Campaign, error) {
+			return nil, errors.New(`pq: duplicate key value violates unique constraint "idx_campaigns_tenant_slug"`)
+		},
+	}
+
+	svc := NewCampaignService(repo, logger)
+	_, err := svc.AdminCreateForTenant("tenant-a", &domain.Campaign{
+		Slug:           "daily",
+		ChannelID:      &channelID,
+		Country:        "GH",
+		OfferProductID: 27188,
+		FlowType:       domain.FlowTypeOTP,
+	})
+	if !errors.Is(err, ErrCampaignConflict) {
+		t.Fatalf("expected campaign conflict, got %v", err)
 	}
 }

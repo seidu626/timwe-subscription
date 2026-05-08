@@ -178,15 +178,12 @@ func (h *HEBootstrapHandler) HandleBootstrapWithCampaign(ctx *fasthttp.RequestCt
 		return
 	}
 
-	// Extract campaign slug from path: /v1/he/bootstrap/campaign/{slug}
-	path := string(ctx.Path())
-	parts := strings.Split(path, "/")
-	var campaignSlug string
-	for i, p := range parts {
-		if p == "campaign" && i+1 < len(parts) {
-			campaignSlug = parts[i+1]
-			break
-		}
+	// Extract campaign route from path:
+	// /v1/he/bootstrap/campaign/{slug} or /v1/he/bootstrap/campaign/{tenant}/{slug}
+	campaignSlug := heCampaignRouteFromPath(string(ctx.Path()))
+	if campaignSlug == "" {
+		ctx.Error("Invalid campaign path", fasthttp.StatusBadRequest)
+		return
 	}
 
 	// Extract HE identity from headers
@@ -233,6 +230,28 @@ func (h *HEBootstrapHandler) HandleBootstrapWithCampaign(ctx *fasthttp.RequestCt
 
 	// Redirect to HTTPS with token
 	h.redirectWithToken(ctx, token, campaignSlug, originalQuery)
+}
+
+func heCampaignRouteFromPath(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for i, part := range parts {
+		if part != "campaign" {
+			continue
+		}
+		remaining := parts[i+1:]
+		switch len(remaining) {
+		case 1:
+			if slugRe.MatchString(remaining[0]) {
+				return remaining[0]
+			}
+		case 2:
+			if slugRe.MatchString(remaining[0]) && slugRe.MatchString(remaining[1]) {
+				return remaining[0] + "/" + remaining[1]
+			}
+		}
+		return ""
+	}
+	return ""
 }
 
 // HandleTokenExchange handles POST /v1/he/token/exchange
