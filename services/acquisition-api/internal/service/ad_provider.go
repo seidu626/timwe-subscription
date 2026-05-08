@@ -115,9 +115,10 @@ func (s *PostbackTemplateService) BuildPostbackFromTemplate(template *domain.Pos
 
 	if ctx.ClickID == "" {
 		if strings.Contains(template.URL, "{click_id}") || strings.Contains(template.URL, "{txid}") {
-			s.logger.Warn("click_id is empty but URL template contains click_id placeholder",
+			s.logger.Warn("click_id is empty but URL template requires click identity",
 				zap.String("template_url", template.URL),
 			)
+			return nil, fmt.Errorf("click_id is required for postback template")
 		}
 	}
 
@@ -218,11 +219,11 @@ func (p *MobplusProvider) BuildPostback(event domain.PostbackEvent, attribution 
 	// Check for template URL in outcome (preferred)
 	if templateURL, ok := outcome["postback_url"].(string); ok && templateURL != "" {
 		ctx := &domain.PostbackContext{
-			ClickID:       attribution.ClickID,
-			CampaignSlug:  attribution.CampaignSlug,
-			Sub1:          attribution.Sub1,
-			Sub2:          attribution.Sub2,
-			Sub3:          attribution.Sub3,
+			ClickID:      attribution.ClickID,
+			CampaignSlug: attribution.CampaignSlug,
+			Sub1:         attribution.Sub1,
+			Sub2:         attribution.Sub2,
+			Sub3:         attribution.Sub3,
 		}
 
 		if txID, ok := outcome["transaction_id"].(string); ok {

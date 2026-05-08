@@ -29,19 +29,34 @@ func NewPostbackRepository(db *sql.DB, logger *zap.Logger) *PostbackRepository {
 func (r *PostbackRepository) CreateOutbox(outbox *domain.PostbackOutbox) error {
 	query := `
 		INSERT INTO postback_outbox (
-			id, transaction_id, event, provider, url_template_rendered,
-			http_method, headers, body, attempt_count, max_attempts,
+			id, tenant_id, channel_id, transaction_id, event, provider,
+			url_template_rendered, http_method, headers, body, failure_reason,
+			attempt_count, max_attempts,
 			next_retry_at, status, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+			$1, $2, $3, $4, $5, $6, $7, $8,
+			$9, $10, $11, $12, $13, $14, $15, $16, $17
 		)
 	`
 
 	var body sql.NullString
 	var nextRetryAt sql.NullTime
+	var tenantID, channelID, failureReason sql.NullString
+	if outbox.TenantID != nil && *outbox.TenantID != "" {
+		tenantID.String = *outbox.TenantID
+		tenantID.Valid = true
+	}
+	if outbox.ChannelID != nil && *outbox.ChannelID != "" {
+		channelID.String = *outbox.ChannelID
+		channelID.Valid = true
+	}
 	if outbox.Body != nil {
 		body.String = *outbox.Body
 		body.Valid = true
+	}
+	if outbox.FailureReason != nil && *outbox.FailureReason != "" {
+		failureReason.String = *outbox.FailureReason
+		failureReason.Valid = true
 	}
 	if outbox.NextRetryAt != nil {
 		nextRetryAt.Time = *outbox.NextRetryAt
@@ -49,10 +64,11 @@ func (r *PostbackRepository) CreateOutbox(outbox *domain.PostbackOutbox) error {
 	}
 
 	_, err := r.db.Exec(query,
-		outbox.ID, outbox.TransactionID, outbox.Event, outbox.Provider,
-		outbox.URLTemplateRendered, outbox.HTTPMethod, outbox.Headers,
-		body, outbox.AttemptCount, outbox.MaxAttempts, nextRetryAt,
-		outbox.Status, outbox.CreatedAt, outbox.UpdatedAt,
+		outbox.ID, tenantID, channelID, outbox.TransactionID, outbox.Event,
+		outbox.Provider, outbox.URLTemplateRendered, outbox.HTTPMethod,
+		outbox.Headers, body, failureReason, outbox.AttemptCount,
+		outbox.MaxAttempts, nextRetryAt, outbox.Status, outbox.CreatedAt,
+		outbox.UpdatedAt,
 	)
 
 	if err != nil {
@@ -66,9 +82,10 @@ func (r *PostbackRepository) CreateOutbox(outbox *domain.PostbackOutbox) error {
 // Use ClaimPendingPostbacks for production workloads with multiple dispatcher replicas
 func (r *PostbackRepository) GetPendingPostbacks(limit int) ([]*domain.PostbackOutbox, error) {
 	query := `
-		SELECT id, transaction_id, event, provider, url_template_rendered,
-		       http_method, headers, body, attempt_count, max_attempts,
-		       next_retry_at, status, created_at, updated_at
+		SELECT id, tenant_id::text, channel_id::text, transaction_id, event,
+		       provider, url_template_rendered, http_method, headers, body,
+		       failure_reason, attempt_count, max_attempts, next_retry_at,
+		       status, created_at, updated_at
 		FROM postback_outbox
 		WHERE status IN ('PENDING', 'PROCESSING')
 		  AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)
@@ -113,9 +130,10 @@ func (r *PostbackRepository) ClaimPendingPostbacks(limit int) ([]*domain.Postbac
 	// Select and lock rows atomically using FOR UPDATE SKIP LOCKED
 	// This prevents duplicate processing when multiple dispatcher instances run
 	selectQuery := `
-		SELECT id, transaction_id, event, provider, url_template_rendered,
-		       http_method, headers, body, attempt_count, max_attempts,
-		       next_retry_at, status, created_at, updated_at
+		SELECT id, tenant_id::text, channel_id::text, transaction_id, event,
+		       provider, url_template_rendered, http_method, headers, body,
+		       failure_reason, attempt_count, max_attempts, next_retry_at,
+		       status, created_at, updated_at
 		FROM postback_outbox
 		WHERE status = 'PENDING'
 		  AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)
@@ -180,21 +198,31 @@ func (r *PostbackRepository) ClaimPendingPostbacks(limit int) ([]*domain.Postbac
 func (r *PostbackRepository) scanPostbackOutboxFromRows(rows *sql.Rows) (*domain.PostbackOutbox, error) {
 	var pb domain.PostbackOutbox
 	var body sql.NullString
+	var tenantID, channelID, failureReason sql.NullString
 	var nextRetryAt sql.NullTime
 
 	err := rows.Scan(
-		&pb.ID, &pb.TransactionID, &pb.Event, &pb.Provider,
-		&pb.URLTemplateRendered, &pb.HTTPMethod, &pb.Headers, &body,
-		&pb.AttemptCount, &pb.MaxAttempts, &nextRetryAt, &pb.Status,
-		&pb.CreatedAt, &pb.UpdatedAt,
+		&pb.ID, &tenantID, &channelID, &pb.TransactionID, &pb.Event,
+		&pb.Provider, &pb.URLTemplateRendered, &pb.HTTPMethod, &pb.Headers,
+		&body, &failureReason, &pb.AttemptCount, &pb.MaxAttempts,
+		&nextRetryAt, &pb.Status, &pb.CreatedAt, &pb.UpdatedAt,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
+	if tenantID.Valid {
+		pb.TenantID = &tenantID.String
+	}
+	if channelID.Valid {
+		pb.ChannelID = &channelID.String
+	}
 	if body.Valid {
 		pb.Body = &body.String
+	}
+	if failureReason.Valid {
+		pb.FailureReason = &failureReason.String
 	}
 	if nextRetryAt.Valid {
 		pb.NextRetryAt = &nextRetryAt.Time
@@ -295,21 +323,31 @@ func (r *PostbackRepository) CreateAttempt(attempt *domain.PostbackAttempt) erro
 func (r *PostbackRepository) scanPostbackOutbox(rows *sql.Rows) (*domain.PostbackOutbox, error) {
 	var pb domain.PostbackOutbox
 	var body sql.NullString
+	var tenantID, channelID, failureReason sql.NullString
 	var nextRetryAt sql.NullTime
 
 	err := rows.Scan(
-		&pb.ID, &pb.TransactionID, &pb.Event, &pb.Provider,
-		&pb.URLTemplateRendered, &pb.HTTPMethod, &pb.Headers, &body,
-		&pb.AttemptCount, &pb.MaxAttempts, &nextRetryAt, &pb.Status,
-		&pb.CreatedAt, &pb.UpdatedAt,
+		&pb.ID, &tenantID, &channelID, &pb.TransactionID, &pb.Event,
+		&pb.Provider, &pb.URLTemplateRendered, &pb.HTTPMethod, &pb.Headers,
+		&body, &failureReason, &pb.AttemptCount, &pb.MaxAttempts,
+		&nextRetryAt, &pb.Status, &pb.CreatedAt, &pb.UpdatedAt,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
+	if tenantID.Valid {
+		pb.TenantID = &tenantID.String
+	}
+	if channelID.Valid {
+		pb.ChannelID = &channelID.String
+	}
 	if body.Valid {
 		pb.Body = &body.String
+	}
+	if failureReason.Valid {
+		pb.FailureReason = &failureReason.String
 	}
 	if nextRetryAt.Valid {
 		pb.NextRetryAt = &nextRetryAt.Time
@@ -355,9 +393,10 @@ func (r *PostbackRepository) GetByStatus(status domain.PostbackStatus, limit int
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, transaction_id, event, provider, url_template_rendered,
-		       http_method, headers, body, attempt_count, max_attempts,
-		       next_retry_at, status, created_at, updated_at
+		SELECT id, tenant_id::text, channel_id::text, transaction_id, event,
+		       provider, url_template_rendered, http_method, headers, body,
+		       failure_reason, attempt_count, max_attempts, next_retry_at,
+		       status, created_at, updated_at
 		FROM postback_outbox
 		WHERE status = $1
 		ORDER BY created_at %s
@@ -375,6 +414,52 @@ func (r *PostbackRepository) GetByStatus(status domain.PostbackStatus, limit int
 		pb, err := r.scanPostbackOutbox(rows)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan postback outbox: %w", err)
+		}
+		outbox = append(outbox, pb)
+	}
+	return outbox, totalCount, nil
+}
+
+// GetByStatusForTenant returns tenant-owned postback outbox records filtered by status.
+func (r *PostbackRepository) GetByStatusForTenant(tenantID string, status domain.PostbackStatus, limit int, offset int) ([]*domain.PostbackOutbox, int64, error) {
+	countQuery := `
+		SELECT COUNT(*)
+		FROM postback_outbox
+		WHERE tenant_id = $1::uuid AND status = $2
+	`
+
+	var totalCount int64
+	if err := r.db.QueryRow(countQuery, tenantID, status).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count tenant postback outbox by status: %w", err)
+	}
+
+	orderDirection := "DESC"
+	if status == domain.PostbackStatusDLQ {
+		orderDirection = "ASC"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, tenant_id::text, channel_id::text, transaction_id, event,
+		       provider, url_template_rendered, http_method, headers, body,
+		       failure_reason, attempt_count, max_attempts, next_retry_at,
+		       status, created_at, updated_at
+		FROM postback_outbox
+		WHERE tenant_id = $1::uuid AND status = $2
+		ORDER BY created_at %s
+		LIMIT $3 OFFSET $4
+	`, orderDirection)
+
+	rows, err := r.db.Query(query, tenantID, status, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query tenant postback outbox by status: %w", err)
+	}
+	defer rows.Close()
+
+	var outbox []*domain.PostbackOutbox
+	for rows.Next() {
+		pb, err := r.scanPostbackOutbox(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan tenant postback outbox: %w", err)
 		}
 		outbox = append(outbox, pb)
 	}
@@ -405,6 +490,30 @@ func (r *PostbackRepository) ResetForRetry(id uuid.UUID) error {
 	return nil
 }
 
+// ResetForRetryForTenant resets a tenant-owned failed or DLQ postback.
+func (r *PostbackRepository) ResetForRetryForTenant(tenantID string, id uuid.UUID) error {
+	query := `
+		UPDATE postback_outbox
+		SET status = 'PENDING', attempt_count = 0, next_retry_at = NULL, updated_at = CURRENT_TIMESTAMP
+		WHERE tenant_id = $1::uuid AND id = $2 AND status IN ('DLQ', 'FAILED')
+	`
+
+	result, err := r.db.Exec(query, tenantID, id)
+	if err != nil {
+		return fmt.Errorf("failed to reset tenant postback for retry: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("postback not found or not in DLQ/FAILED status")
+	}
+
+	return nil
+}
+
 // BulkResetDLQ resets a page of DLQ postbacks back to PENDING. Returns count of updated rows.
 func (r *PostbackRepository) BulkResetDLQ(limit int, offset int) (int64, error) {
 	query := `
@@ -421,6 +530,32 @@ func (r *PostbackRepository) BulkResetDLQ(limit int, offset int) (int64, error) 
 	result, err := r.db.Exec(query, limit, offset)
 	if err != nil {
 		return 0, fmt.Errorf("failed to bulk reset DLQ postbacks: %w", err)
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to check rows affected: %w", err)
+	}
+
+	return count, nil
+}
+
+// BulkResetDLQForTenant resets tenant-owned DLQ postbacks back to PENDING.
+func (r *PostbackRepository) BulkResetDLQForTenant(tenantID string, limit int, offset int) (int64, error) {
+	query := `
+		UPDATE postback_outbox
+		SET status = 'PENDING', attempt_count = 0, next_retry_at = NULL, updated_at = CURRENT_TIMESTAMP
+		WHERE id IN (
+			SELECT id FROM postback_outbox
+			WHERE tenant_id = $1::uuid AND status = 'DLQ'
+			ORDER BY created_at ASC
+			LIMIT $2 OFFSET $3
+		)
+	`
+
+	result, err := r.db.Exec(query, tenantID, limit, offset)
+	if err != nil {
+		return 0, fmt.Errorf("failed to bulk reset tenant DLQ postbacks: %w", err)
 	}
 
 	count, err := result.RowsAffected()
@@ -476,12 +611,48 @@ func (r *PostbackRepository) GetPostbackStats() (*PostbackStats, error) {
 	return stats, nil
 }
 
+// GetPostbackStatsForTenant returns aggregate counts by status for one tenant.
+func (r *PostbackRepository) GetPostbackStatsForTenant(tenantID string) (*PostbackStats, error) {
+	query := `SELECT status, COUNT(*) as count FROM postback_outbox WHERE tenant_id = $1::uuid GROUP BY status`
+
+	rows, err := r.db.Query(query, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query tenant postback stats: %w", err)
+	}
+	defer rows.Close()
+
+	stats := &PostbackStats{}
+	for rows.Next() {
+		var status string
+		var count int64
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan tenant postback stats: %w", err)
+		}
+		stats.Total += count
+		switch status {
+		case "PENDING":
+			stats.Pending = count
+		case "PROCESSING":
+			stats.Processing = count
+		case "SUCCESS":
+			stats.Success = count
+		case "FAILED":
+			stats.Failed = count
+		case "DLQ":
+			stats.DLQ = count
+		}
+	}
+
+	return stats, nil
+}
+
 // GetOutboxByTransactionID returns all postback outbox records for a transaction.
 func (r *PostbackRepository) GetOutboxByTransactionID(transactionID uuid.UUID) ([]*domain.PostbackOutbox, error) {
 	query := `
-		SELECT id, transaction_id, event, provider, url_template_rendered,
-		       http_method, headers, body, attempt_count, max_attempts,
-		       next_retry_at, status, created_at, updated_at
+		SELECT id, tenant_id::text, channel_id::text, transaction_id, event,
+		       provider, url_template_rendered, http_method, headers, body,
+		       failure_reason, attempt_count, max_attempts, next_retry_at,
+		       status, created_at, updated_at
 		FROM postback_outbox
 		WHERE transaction_id = $1
 		ORDER BY created_at DESC
@@ -498,6 +669,35 @@ func (r *PostbackRepository) GetOutboxByTransactionID(transactionID uuid.UUID) (
 		pb, err := r.scanPostbackOutbox(rows)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan postback outbox: %w", err)
+		}
+		outbox = append(outbox, pb)
+	}
+	return outbox, nil
+}
+
+// GetOutboxByTransactionIDForTenant returns tenant-owned postbacks for a transaction.
+func (r *PostbackRepository) GetOutboxByTransactionIDForTenant(tenantID string, transactionID uuid.UUID) ([]*domain.PostbackOutbox, error) {
+	query := `
+		SELECT id, tenant_id::text, channel_id::text, transaction_id, event,
+		       provider, url_template_rendered, http_method, headers, body,
+		       failure_reason, attempt_count, max_attempts, next_retry_at,
+		       status, created_at, updated_at
+		FROM postback_outbox
+		WHERE tenant_id = $1::uuid AND transaction_id = $2
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.Query(query, tenantID, transactionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query tenant postback outbox: %w", err)
+	}
+	defer rows.Close()
+
+	var outbox []*domain.PostbackOutbox
+	for rows.Next() {
+		pb, err := r.scanPostbackOutbox(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan tenant postback outbox: %w", err)
 		}
 		outbox = append(outbox, pb)
 	}

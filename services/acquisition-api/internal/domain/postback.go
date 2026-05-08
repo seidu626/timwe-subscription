@@ -13,10 +13,10 @@ import (
 type PostbackEvent string
 
 const (
-	PostbackEventSubscribed  PostbackEvent = "subscribed"
-	PostbackEventFailed      PostbackEvent = "failed"
-	PostbackEventCancelled   PostbackEvent = "cancelled"
-	PostbackEventConversion  PostbackEvent = "conversion" // Fired on charge success (Mobplus requirement)
+	PostbackEventSubscribed PostbackEvent = "subscribed"
+	PostbackEventFailed     PostbackEvent = "failed"
+	PostbackEventCancelled  PostbackEvent = "cancelled"
+	PostbackEventConversion PostbackEvent = "conversion" // Fired on charge success (Mobplus requirement)
 )
 
 // PostbackTemplate defines a configurable postback URL template
@@ -32,22 +32,22 @@ type PostbackRules map[string]map[string]PostbackTemplate
 
 // PostbackContext contains all the data available for template rendering
 type PostbackContext struct {
-	ClickID         string
-	TransactionID   string
-	CampaignSlug    string
-	MSISDN          string
-	MSISDNHash      string // SHA256 hash of MSISDN for privacy
-	Provider        string
-	Status          string
-	Payout          string // Optional payout amount
-	OfferID         string
-	CampaignID      string
-	AdvID           string
-	AffID           string
-	PubID           string
-	Sub1            string
-	Sub2            string
-	Sub3            string
+	ClickID       string
+	TransactionID string
+	CampaignSlug  string
+	MSISDN        string
+	MSISDNHash    string // SHA256 hash of MSISDN for privacy
+	Provider      string
+	Status        string
+	Payout        string // Optional payout amount
+	OfferID       string
+	CampaignID    string
+	AdvID         string
+	AffID         string
+	PubID         string
+	Sub1          string
+	Sub2          string
+	Sub3          string
 }
 
 // NewPostbackContext creates a PostbackContext from transaction and attribution data
@@ -102,7 +102,7 @@ func (c *PostbackContext) RenderURL(template string) string {
 		"{sub2}":           c.Sub2,
 		"{sub3}":           c.Sub3,
 		// Mobplus-specific alias
-		"{txid}":           c.ClickID,
+		"{txid}": c.ClickID,
 	}
 
 	result := template
@@ -125,34 +125,37 @@ const (
 
 // PostbackOutbox represents a queued postback
 type PostbackOutbox struct {
-	ID                    uuid.UUID      `json:"id" db:"id"`
-	TransactionID         uuid.UUID      `json:"transaction_id" db:"transaction_id"`
-	Event                 PostbackEvent   `json:"event" db:"event"`
-	Provider              string         `json:"provider" db:"provider"`
-	URLTemplateRendered   string         `json:"url_template_rendered" db:"url_template_rendered"`
-	HTTPMethod            string         `json:"http_method" db:"http_method"`
-	Headers               string         `json:"headers" db:"headers"` // JSON string
-	Body                  *string        `json:"body,omitempty" db:"body"` // JSON string
-	
+	ID                  uuid.UUID     `json:"id" db:"id"`
+	TenantID            *string       `json:"tenant_id,omitempty" db:"tenant_id"`
+	ChannelID           *string       `json:"channel_id,omitempty" db:"channel_id"`
+	TransactionID       uuid.UUID     `json:"transaction_id" db:"transaction_id"`
+	Event               PostbackEvent `json:"event" db:"event"`
+	Provider            string        `json:"provider" db:"provider"`
+	URLTemplateRendered string        `json:"url_template_rendered" db:"url_template_rendered"`
+	HTTPMethod          string        `json:"http_method" db:"http_method"`
+	Headers             string        `json:"headers" db:"headers"`     // JSON string
+	Body                *string       `json:"body,omitempty" db:"body"` // JSON string
+	FailureReason       *string       `json:"failure_reason,omitempty" db:"failure_reason"`
+
 	// Retry tracking
-	AttemptCount          int            `json:"attempt_count" db:"attempt_count"`
-	MaxAttempts           int            `json:"max_attempts" db:"max_attempts"`
-	NextRetryAt           *time.Time     `json:"next_retry_at,omitempty" db:"next_retry_at"`
-	Status                PostbackStatus `json:"status" db:"status"`
-	
+	AttemptCount int            `json:"attempt_count" db:"attempt_count"`
+	MaxAttempts  int            `json:"max_attempts" db:"max_attempts"`
+	NextRetryAt  *time.Time     `json:"next_retry_at,omitempty" db:"next_retry_at"`
+	Status       PostbackStatus `json:"status" db:"status"`
+
 	// Timestamps
-	CreatedAt             time.Time      `json:"created_at" db:"created_at"`
-	UpdatedAt             time.Time      `json:"updated_at" db:"updated_at"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // PostbackAttempt represents a single postback attempt
 type PostbackAttempt struct {
-	ID            uuid.UUID  `json:"id" db:"id"`
-	OutboxID      uuid.UUID  `json:"outbox_id" db:"outbox_id"`
-	AttemptNumber int        `json:"attempt_number" db:"attempt_number"`
-	HTTPStatus    *int       `json:"http_status,omitempty" db:"http_status"`
-	ResponseBody  *string    `json:"response_body,omitempty" db:"response_body"`
-	ErrorMessage  *string    `json:"error_message,omitempty" db:"error_message"`
-	DurationMs    *int       `json:"duration_ms,omitempty" db:"duration_ms"`
-	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+	ID            uuid.UUID `json:"id" db:"id"`
+	OutboxID      uuid.UUID `json:"outbox_id" db:"outbox_id"`
+	AttemptNumber int       `json:"attempt_number" db:"attempt_number"`
+	HTTPStatus    *int      `json:"http_status,omitempty" db:"http_status"`
+	ResponseBody  *string   `json:"response_body,omitempty" db:"response_body"`
+	ErrorMessage  *string   `json:"error_message,omitempty" db:"error_message"`
+	DurationMs    *int      `json:"duration_ms,omitempty" db:"duration_ms"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
 }

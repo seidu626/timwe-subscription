@@ -26,6 +26,12 @@ func NewPostbackAdminHandler(repo *repository.PostbackRepository, logger *zap.Lo
 // GetByTransactionID handles:
 // GET /v1/admin/postbacks?transaction_id=<uuid>
 func (h *PostbackAdminHandler) GetByTransactionID(ctx *fasthttp.RequestCtx) {
+	tenantID, ok := postbackTenantIDFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+
 	raw := string(ctx.QueryArgs().Peek("transaction_id"))
 	if raw == "" {
 		ctx.Error("transaction_id is required", fasthttp.StatusBadRequest)
@@ -38,7 +44,7 @@ func (h *PostbackAdminHandler) GetByTransactionID(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	outbox, err := h.repo.GetOutboxByTransactionID(txID)
+	outbox, err := h.repo.GetOutboxByTransactionIDForTenant(tenantID, txID)
 	if err != nil {
 		h.logger.Error("Failed to fetch postback outbox", zap.String("transaction_id", txID.String()), zap.Error(err))
 		ctx.Error("Failed to fetch postbacks", fasthttp.StatusInternalServerError)
@@ -75,6 +81,12 @@ func (h *PostbackAdminHandler) GetByTransactionID(ctx *fasthttp.RequestCtx) {
 // ListByStatus handles:
 // GET /v1/admin/postbacks/status/:status?limit=50&offset=0
 func (h *PostbackAdminHandler) ListByStatus(ctx *fasthttp.RequestCtx) {
+	tenantID, ok := postbackTenantIDFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+
 	path := string(ctx.Path())
 	statusStr := strings.TrimPrefix(path, "/v1/admin/postbacks/status/")
 	if statusStr == "" || statusStr == path {
@@ -98,7 +110,7 @@ func (h *PostbackAdminHandler) ListByStatus(ctx *fasthttp.RequestCtx) {
 		}
 	}
 
-	outbox, totalCount, err := h.repo.GetByStatus(status, limit, offset)
+	outbox, totalCount, err := h.repo.GetByStatusForTenant(tenantID, status, limit, offset)
 	if err != nil {
 		h.logger.Error("Failed to fetch postbacks by status", zap.String("status", string(status)), zap.Error(err))
 		ctx.Error("Failed to fetch postbacks", fasthttp.StatusInternalServerError)
@@ -119,6 +131,12 @@ func (h *PostbackAdminHandler) ListByStatus(ctx *fasthttp.RequestCtx) {
 // RetryPostback handles:
 // POST /v1/admin/postbacks/:id/retry
 func (h *PostbackAdminHandler) RetryPostback(ctx *fasthttp.RequestCtx) {
+	tenantID, ok := postbackTenantIDFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+
 	path := string(ctx.Path())
 	// Extract ID from /v1/admin/postbacks/<id>/retry
 	trimmed := strings.TrimPrefix(path, "/v1/admin/postbacks/")
@@ -130,8 +148,12 @@ func (h *PostbackAdminHandler) RetryPostback(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	if err := h.repo.ResetForRetry(id); err != nil {
+	if err := h.repo.ResetForRetryForTenant(tenantID, id); err != nil {
 		h.logger.Error("Failed to retry postback", zap.String("id", id.String()), zap.Error(err))
+		if strings.Contains(err.Error(), "not found") {
+			ctx.Error("Postback not found", fasthttp.StatusNotFound)
+			return
+		}
 		ctx.Error("Failed to retry postback: "+err.Error(), fasthttp.StatusUnprocessableEntity)
 		return
 	}
@@ -147,6 +169,12 @@ func (h *PostbackAdminHandler) RetryPostback(ctx *fasthttp.RequestCtx) {
 // BulkRequeueDLQ handles:
 // POST /v1/admin/postbacks/requeue-dlq?limit=100&offset=0
 func (h *PostbackAdminHandler) BulkRequeueDLQ(ctx *fasthttp.RequestCtx) {
+	tenantID, ok := postbackTenantIDFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+
 	limit := 100
 	if raw := string(ctx.QueryArgs().Peek("limit")); raw != "" {
 		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
@@ -161,7 +189,7 @@ func (h *PostbackAdminHandler) BulkRequeueDLQ(ctx *fasthttp.RequestCtx) {
 		}
 	}
 
-	count, err := h.repo.BulkResetDLQ(limit, offset)
+	count, err := h.repo.BulkResetDLQForTenant(tenantID, limit, offset)
 	if err != nil {
 		h.logger.Error("Failed to bulk requeue DLQ postbacks", zap.Error(err))
 		ctx.Error("Failed to requeue DLQ postbacks", fasthttp.StatusInternalServerError)
@@ -180,7 +208,13 @@ func (h *PostbackAdminHandler) BulkRequeueDLQ(ctx *fasthttp.RequestCtx) {
 // GetStats handles:
 // GET /v1/admin/postbacks/stats
 func (h *PostbackAdminHandler) GetStats(ctx *fasthttp.RequestCtx) {
-	stats, err := h.repo.GetPostbackStats()
+	tenantID, ok := postbackTenantIDFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+
+	stats, err := h.repo.GetPostbackStatsForTenant(tenantID)
 	if err != nil {
 		h.logger.Error("Failed to fetch postback stats", zap.Error(err))
 		ctx.Error("Failed to fetch postback stats", fasthttp.StatusInternalServerError)
@@ -202,4 +236,13 @@ func (h *PostbackAdminHandler) GetStats(ctx *fasthttp.RequestCtx) {
 
 func (h *PostbackAdminHandler) String() string {
 	return "PostbackAdminHandler"
+}
+
+func postbackTenantIDFromRequest(ctx *fasthttp.RequestCtx) (string, bool) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		return "", false
+	}
+	tenantID := strings.TrimSpace(identity.TenantID)
+	return tenantID, tenantID != ""
 }
