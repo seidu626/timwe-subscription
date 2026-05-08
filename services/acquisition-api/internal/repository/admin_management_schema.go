@@ -13,6 +13,7 @@ var defaultAdminManagementSchemaPaths = []string{
 	"migrations/add_tenant_channels.sql",
 	"migrations/add_tenant_channel_credentials.sql",
 	"migrations/add_tenant_z_campaign_binding.sql",
+	"migrations/add_tenant_zz_acquisition_flow.sql",
 }
 
 var requiredAdminManagementRelations = []string{

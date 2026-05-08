@@ -23,11 +23,6 @@ BEGIN
     END IF;
 END $$;
 
-ALTER TABLE campaigns
-    DROP CONSTRAINT IF EXISTS campaigns_slug_key;
-
-DROP INDEX IF EXISTS idx_campaigns_slug;
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_campaigns_tenant_slug
     ON campaigns (tenant_id, slug)
     WHERE tenant_id IS NOT NULL;

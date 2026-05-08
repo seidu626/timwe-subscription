@@ -197,6 +197,7 @@ export function useSubscriptionFlow({
         headers,
         body: JSON.stringify({
           campaign_slug: slug,
+          ...(tenantKey ? { tenant_key: tenantKey } : {}),
           msisdn: normalizedMsisdn,
           provider,
           click_id: clickId,

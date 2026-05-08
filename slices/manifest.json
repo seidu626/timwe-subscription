@@ -88,7 +88,7 @@
       "id": "TMP-006",
       "name": "tenant-acquisition-flow",
       "description": "End subscriber starts and confirms an acquisition transaction through a tenant campaign.",
-      "state": "planned",
+      "state": "done",
       "priority": "P1",
       "depends_on": ["TMP-004", "TMP-005", "TMP-012"],
       "actor": "end-subscriber",

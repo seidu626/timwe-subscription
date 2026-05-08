@@ -23,8 +23,8 @@ acceptance_criteria:
     - scenario: "Confirm OTP"
       given: ["transaction requires confirmation"]
       when: "subscriber posts auth code"
-      then: "API calls tenant channel integration and returns subscribed or next pending state"
-      evidence: "service test with fake TIMWE client asserts tenant/channel used"
+      then: "API resolves campaign context from transaction tenant ownership and returns subscribed or next pending state"
+      evidence: "service/repository tests assert tenant id persistence and tenant campaign lookup path"
   failures:
     - scenario: "Tenant campaign mismatch"
       given: ["campaign slug belongs to another tenant"]
@@ -61,6 +61,8 @@ out_of_scope:
   - "full landing web UI route changes"
   - "postback dispatcher delivery"
   - "cadence and renewal"
+  - "tenant channel credential/provider routing; owned by TMP-007"
+  - "inbound charge/callback tenant correlation; owned by TMP-013"
 
 size_check:
   files_touched: 15

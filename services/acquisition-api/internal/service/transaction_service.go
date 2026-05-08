@@ -76,8 +76,15 @@ func (s *TransactionService) SetPendingTransactionTTL(ttl time.Duration) {
 
 // CreateTransaction creates a new acquisition transaction
 func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequest) (*domain.CreateTransactionResponse, error) {
-	// Get campaign
-	campaign, err := s.campaignRepo.GetBySlug(req.CampaignSlug)
+	// Get campaign. Tenant-key requests must use the tenant-scoped public lookup;
+	// legacy slug-only requests can only resolve unscoped campaigns.
+	var campaign *domain.Campaign
+	var err error
+	if req.TenantKey != nil && strings.TrimSpace(*req.TenantKey) != "" {
+		campaign, err = s.campaignRepo.GetByTenantKeyAndSlug(strings.TrimSpace(*req.TenantKey), req.CampaignSlug)
+	} else {
+		campaign, err = s.campaignRepo.GetBySlug(req.CampaignSlug)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("campaign not found: %w", err)
 	}
@@ -118,7 +125,12 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 
 	// Check for duplicate (idempotency)
 	if attribution.ClickID != "" && attribution.Provider != "" {
-		existing, err := s.txRepo.FindByClickID(attribution.Provider, attribution.ClickID)
+		var existing *domain.AcquisitionTransaction
+		if campaign.TenantID != nil && strings.TrimSpace(*campaign.TenantID) != "" {
+			existing, err = s.txRepo.FindByTenantClickID(strings.TrimSpace(*campaign.TenantID), attribution.Provider, attribution.ClickID)
+		} else {
+			existing, err = s.txRepo.FindByClickID(attribution.Provider, attribution.ClickID)
+		}
 		if err == nil && existing != nil {
 			// Return existing transaction
 			return s.buildResponse(existing), nil
@@ -152,15 +164,27 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 	// Idempotency by campaign+msisdn: if user already has an active/finished transaction,
 	// return it instead of creating new attempts that consume throttle budget.
 	reuseCutoff := time.Now().Add(-s.pendingTxTTL)
-	existingByMSISDN, err := s.txRepo.FindLatestByCampaignAndMSISDN(
-		campaign.Slug,
-		msisdnToUse,
-		[]domain.TransactionStatus{
-			domain.StatusConfirmRequired,
-			domain.StatusActionRequired,
-		},
-		reuseCutoff,
-	)
+	statusesForReuse := []domain.TransactionStatus{
+		domain.StatusConfirmRequired,
+		domain.StatusActionRequired,
+	}
+	var existingByMSISDN *domain.AcquisitionTransaction
+	if campaign.TenantID != nil && strings.TrimSpace(*campaign.TenantID) != "" {
+		existingByMSISDN, err = s.txRepo.FindLatestByTenantCampaignAndMSISDN(
+			strings.TrimSpace(*campaign.TenantID),
+			campaign.Slug,
+			msisdnToUse,
+			statusesForReuse,
+			reuseCutoff,
+		)
+	} else {
+		existingByMSISDN, err = s.txRepo.FindLatestByCampaignAndMSISDN(
+			campaign.Slug,
+			msisdnToUse,
+			statusesForReuse,
+			reuseCutoff,
+		)
+	}
 	if err == nil && existingByMSISDN != nil {
 		s.logger.Info("Returning existing transaction for campaign+msisdn",
 			zap.String("campaign_slug", campaign.Slug),
@@ -176,7 +200,12 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 		return nil, fmt.Errorf("failed to check existing campaign+msisdn transaction: %w", err)
 	}
 
-	throttled, err := s.txRepo.CheckThrottle(campaign.Slug, msisdnToUse, ipAddr, throttles)
+	var throttled bool
+	if campaign.TenantID != nil && strings.TrimSpace(*campaign.TenantID) != "" {
+		throttled, err = s.txRepo.CheckThrottleForTenant(strings.TrimSpace(*campaign.TenantID), campaign.Slug, msisdnToUse, ipAddr, throttles)
+	} else {
+		throttled, err = s.txRepo.CheckThrottle(campaign.Slug, msisdnToUse, ipAddr, throttles)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to check throttle: %w", err)
 	}
@@ -205,6 +234,7 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 	tx := &domain.AcquisitionTransaction{
 		ID:              transactionID,
 		CorrelationID:   correlationID,
+		TenantID:        campaign.TenantID,
 		CampaignSlug:    req.CampaignSlug,
 		MSISDN:          msisdnToUse, // Use HE MSISDN if available
 		Status:          domain.StatusPending,
@@ -376,7 +406,7 @@ func (s *TransactionService) ConfirmTransaction(transactionID uuid.UUID, authCod
 	}
 
 	// Fetch campaign to get product + partner role (confirm endpoint requires these)
-	campaign, err := s.campaignRepo.GetBySlug(tx.CampaignSlug)
+	campaign, err := s.campaignForTransaction(tx)
 	if err != nil {
 		return nil, fmt.Errorf("campaign not found: %w", err)
 	}
@@ -683,7 +713,7 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 	}
 
 	// Get campaign for postback rules
-	campaign, err := s.campaignRepo.GetBySlug(tx.CampaignSlug)
+	campaign, err := s.campaignForTransaction(tx)
 	if err != nil {
 		s.logger.Warn("Campaign not found for postback rules",
 			zap.String("campaign_slug", tx.CampaignSlug),
@@ -718,6 +748,34 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 	)
 
 	return nil
+}
+
+func (s *TransactionService) campaignForTransaction(tx *domain.AcquisitionTransaction) (*domain.Campaign, error) {
+	if tx == nil {
+		return nil, fmt.Errorf("transaction is required")
+	}
+	tenantID := ""
+	if tx.TenantID != nil {
+		tenantID = strings.TrimSpace(*tx.TenantID)
+	}
+	if tenantID == "" {
+		campaign, err := s.campaignRepo.GetBySlug(tx.CampaignSlug)
+		if err == nil {
+			return campaign, nil
+		}
+		resolvedTenantID, err := s.txRepo.GetTenantIDByID(tx.ID)
+		if err != nil {
+			return nil, err
+		}
+		tenantID = strings.TrimSpace(resolvedTenantID)
+		if tenantID != "" {
+			tx.TenantID = &tenantID
+		}
+	}
+	if tenantID != "" {
+		return s.campaignRepo.GetAdminByTenantAndSlug(tenantID, tx.CampaignSlug)
+	}
+	return s.campaignRepo.GetBySlug(tx.CampaignSlug)
 }
 
 // GetTransactionByTimweID retrieves a transaction by TIMWE transaction ID

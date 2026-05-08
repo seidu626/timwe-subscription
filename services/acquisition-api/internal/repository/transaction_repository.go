@@ -35,7 +35,7 @@ func (r *TransactionRepository) DB() *sql.DB {
 func (r *TransactionRepository) Create(tx *domain.AcquisitionTransaction) error {
 	query := `
 		INSERT INTO acquisition_transactions (
-			id, correlation_id, campaign_slug, msisdn, status, next_action,
+			id, correlation_id, tenant_id, campaign_slug, msisdn, status, next_action,
 			next_action_payload, ad_provider, click_id, attribution_data,
 			ip_address, user_agent, consent_required, consent_checked,
 			consent_version, consent_timestamp, landing_version_hash,
@@ -45,12 +45,12 @@ func (r *TransactionRepository) Create(tx *domain.AcquisitionTransaction) error 
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-			$15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+			$15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
 		)
 	`
 
 	var nextAction, adProvider, clickID, ipAddress, userAgent, consentVersion,
-		landingVersionHash, timweTransactionID,
+		landingVersionHash, tenantID, timweTransactionID,
 		transactionAuthCode, timweStatus, heSource, heMSISDN, heOperator sql.NullString
 	var offerProductID, pricepointID, partnerRoleID sql.NullInt64
 	var consentTimestamp sql.NullTime
@@ -60,6 +60,10 @@ func (r *TransactionRepository) Create(tx *domain.AcquisitionTransaction) error 
 	if tx.NextAction != nil {
 		nextAction.String = string(*tx.NextAction)
 		nextAction.Valid = true
+	}
+	if tx.TenantID != nil {
+		tenantID.String = *tx.TenantID
+		tenantID.Valid = true
 	}
 	if tx.AdProvider != nil {
 		adProvider.String = *tx.AdProvider
@@ -136,7 +140,7 @@ func (r *TransactionRepository) Create(tx *domain.AcquisitionTransaction) error 
 	}
 
 	_, err := r.db.Exec(query,
-		tx.ID, tx.CorrelationID, tx.CampaignSlug, tx.MSISDN, tx.Status,
+		tx.ID, tx.CorrelationID, tenantID, tx.CampaignSlug, tx.MSISDN, tx.Status,
 		nextAction, nextActionPayload, adProvider, clickID, attributionData,
 		ipAddress, userAgent, tx.ConsentRequired, tx.ConsentChecked,
 		consentVersion, consentTimestamp, landingVersionHash,
@@ -175,6 +179,20 @@ func (r *TransactionRepository) GetByID(id uuid.UUID) (*domain.AcquisitionTransa
 	}
 
 	return tx, nil
+}
+
+func (r *TransactionRepository) GetTenantIDByID(id uuid.UUID) (string, error) {
+	var tenantID sql.NullString
+	if err := r.db.QueryRow(`SELECT tenant_id FROM acquisition_transactions WHERE id = $1`, id).Scan(&tenantID); err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("transaction not found")
+		}
+		return "", fmt.Errorf("failed to get transaction tenant: %w", err)
+	}
+	if !tenantID.Valid {
+		return "", nil
+	}
+	return tenantID.String, nil
 }
 
 // UpdateStatus updates the transaction status and related fields
@@ -373,6 +391,50 @@ func (r *TransactionRepository) CheckThrottle(campaignSlug, msisdn, ipAddress st
 	return false, nil
 }
 
+func (r *TransactionRepository) CheckThrottleForTenant(tenantID, campaignSlug, msisdn, ipAddress string, throttles map[string]interface{}) (bool, error) {
+	if strings.TrimSpace(tenantID) == "" {
+		return r.CheckThrottle(campaignSlug, msisdn, ipAddress, throttles)
+	}
+
+	if msisdnLimit, ok := throttles["per_msisdn_per_day"].(float64); ok && msisdnLimit > 0 {
+		query := `
+			SELECT COUNT(*)
+			FROM acquisition_transactions
+			WHERE tenant_id = $1 AND campaign_slug = $2 AND msisdn = $3
+			  AND status NOT IN ('FAILED', 'CANCELLED')
+			  AND created_at >= CURRENT_DATE
+		`
+		var count int
+		err := r.db.QueryRow(query, tenantID, campaignSlug, msisdn).Scan(&count)
+		if err != nil {
+			return false, fmt.Errorf("failed to check tenant MSISDN throttle: %w", err)
+		}
+		if count >= int(msisdnLimit) {
+			return true, nil
+		}
+	}
+
+	if ipLimit, ok := throttles["per_ip_per_day"].(float64); ok && ipLimit > 0 && ipAddress != "" {
+		query := `
+			SELECT COUNT(*)
+			FROM acquisition_transactions
+			WHERE tenant_id = $1 AND campaign_slug = $2 AND ip_address = $3
+			  AND status NOT IN ('FAILED', 'CANCELLED')
+			  AND created_at >= CURRENT_DATE
+		`
+		var count int
+		err := r.db.QueryRow(query, tenantID, campaignSlug, ipAddress).Scan(&count)
+		if err != nil {
+			return false, fmt.Errorf("failed to check tenant IP throttle: %w", err)
+		}
+		if count >= int(ipLimit) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 // FindByClickID finds transactions by click ID (for idempotency)
 func (r *TransactionRepository) FindByClickID(provider, clickID string) (*domain.AcquisitionTransaction, error) {
 	query := `
@@ -392,6 +454,34 @@ func (r *TransactionRepository) FindByClickID(provider, clickID string) (*domain
 	`
 
 	tx, err := r.scanTransaction(query, provider, clickID)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
+}
+
+func (r *TransactionRepository) FindByTenantClickID(tenantID, provider, clickID string) (*domain.AcquisitionTransaction, error) {
+	if strings.TrimSpace(tenantID) == "" {
+		return r.FindByClickID(provider, clickID)
+	}
+	query := `
+		SELECT id, correlation_id, campaign_slug, msisdn, status, next_action,
+		       next_action_payload, ad_provider, click_id, attribution_data,
+		       ip_address, user_agent, consent_required, consent_checked,
+		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
+		       timwe_transaction_id, transaction_auth_code, timwe_status,
+		       he_source, he_msisdn, he_operator,
+		       charged_at, charge_payout, conversion_postback_sent,
+		       created_at, updated_at
+		FROM acquisition_transactions
+		WHERE tenant_id = $1 AND ad_provider = $2 AND click_id = $3
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	tx, err := r.scanTransaction(query, tenantID, provider, clickID)
 	if err != nil {
 		return nil, err
 	}
@@ -527,6 +617,51 @@ func (r *TransactionRepository) FindLatestByCampaignAndMSISDN(campaignSlug, msis
 		       created_at, updated_at
 		FROM acquisition_transactions
 		WHERE campaign_slug = $1 AND msisdn = $2
+		  AND status IN (%s)
+		  AND created_at >= %s
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, strings.Join(placeholders, ", "), cutoffPlaceholder)
+
+	tx, err := r.scanTransaction(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
+}
+
+func (r *TransactionRepository) FindLatestByTenantCampaignAndMSISDN(tenantID, campaignSlug, msisdn string, statuses []domain.TransactionStatus, notOlderThan time.Time) (*domain.AcquisitionTransaction, error) {
+	if strings.TrimSpace(tenantID) == "" {
+		return r.FindLatestByCampaignAndMSISDN(campaignSlug, msisdn, statuses, notOlderThan)
+	}
+	if len(statuses) == 0 {
+		return nil, fmt.Errorf("statuses are required")
+	}
+
+	placeholders := make([]string, len(statuses))
+	args := make([]interface{}, 0, len(statuses)+4)
+	args = append(args, tenantID, campaignSlug, msisdn)
+
+	for i, status := range statuses {
+		placeholders[i] = fmt.Sprintf("$%d", i+4)
+		args = append(args, string(status))
+	}
+	cutoffPlaceholder := fmt.Sprintf("$%d", len(statuses)+4)
+	args = append(args, notOlderThan)
+
+	query := fmt.Sprintf(`
+		SELECT id, correlation_id, campaign_slug, msisdn, status, next_action,
+		       next_action_payload, ad_provider, click_id, attribution_data,
+		       ip_address, user_agent, consent_required, consent_checked,
+		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
+		       timwe_transaction_id, transaction_auth_code, timwe_status,
+		       he_source, he_msisdn, he_operator,
+		       charged_at, charge_payout, conversion_postback_sent,
+		       created_at, updated_at
+		FROM acquisition_transactions
+		WHERE tenant_id = $1 AND campaign_slug = $2 AND msisdn = $3
 		  AND status IN (%s)
 		  AND created_at >= %s
 		ORDER BY created_at DESC
