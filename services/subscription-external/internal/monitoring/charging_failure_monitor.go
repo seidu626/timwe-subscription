@@ -55,6 +55,7 @@ type Alert struct {
 // ChargingFailureMonitor handles monitoring and alerting for charging failures
 type ChargingFailureMonitor struct {
 	metrics         *ChargingFailureMetrics
+	scopedMetrics   map[string]*ChargingFailureMetrics
 	thresholds      *AlertThresholds
 	alerts          []*Alert
 	mu              sync.RWMutex
@@ -86,6 +87,7 @@ func NewChargingFailureMonitor(logger *zap.Logger) *ChargingFailureMonitor {
 			AverageProcessingTime: 0.0,
 			Metadata:              make(map[string]interface{}),
 		},
+		scopedMetrics: make(map[string]*ChargingFailureMetrics),
 		thresholds: &AlertThresholds{
 			HighFailureRate:    80.0,
 			LowSuccessRate:     60.0,
@@ -99,6 +101,23 @@ func NewChargingFailureMonitor(logger *zap.Logger) *ChargingFailureMonitor {
 		alertChan: make(chan *Alert, 100),
 		stopChan:  make(chan struct{}),
 	}
+}
+
+// UpdateScopedMetrics updates metrics for a tenant/channel dashboard scope.
+func (m *ChargingFailureMonitor) UpdateScopedMetrics(tenantID, channelID string, metrics *ChargingFailureMetrics) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if metrics == nil {
+		delete(m.scopedMetrics, dashboardScopeKey(tenantID, channelID))
+		return
+	}
+	if metrics.Metadata == nil {
+		metrics.Metadata = make(map[string]interface{})
+	}
+	metrics.Metadata["tenant_id"] = tenantID
+	metrics.Metadata["channel_id"] = channelID
+	m.scopedMetrics[dashboardScopeKey(tenantID, channelID)] = metrics
 }
 
 // Start begins the monitoring process
@@ -444,8 +463,36 @@ func (m *ChargingFailureMonitor) GetDashboardData() map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	metrics := m.metrics
-	alerts := m.alerts
+	return m.dashboardDataLocked(m.metrics, m.alerts, map[string]interface{}{
+		"scope":    "global",
+		"degraded": false,
+	})
+}
+
+// GetDashboardDataForScope returns dashboard data for a tenant/channel scope.
+func (m *ChargingFailureMonitor) GetDashboardDataForScope(tenantID, channelID string) map[string]interface{} {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	scope := map[string]interface{}{
+		"scope":      "tenant_channel",
+		"tenant_id":  tenantID,
+		"channel_id": channelID,
+		"degraded":   false,
+	}
+	metrics, ok := m.scopedMetrics[dashboardScopeKey(tenantID, channelID)]
+	if !ok || metrics == nil {
+		scope["degraded"] = true
+		scope["degraded_reason"] = "scoped metrics unavailable"
+		metrics = zeroScopedMetrics(tenantID, channelID)
+	}
+	return m.dashboardDataLocked(metrics, filterAlertsForScope(m.alerts, tenantID, channelID), scope)
+}
+
+func (m *ChargingFailureMonitor) dashboardDataLocked(metrics *ChargingFailureMetrics, alerts []*Alert, scope map[string]interface{}) map[string]interface{} {
+	if metrics == nil {
+		metrics = &ChargingFailureMetrics{LastUpdated: time.Now(), ProcessingStatus: "unknown", Metadata: map[string]interface{}{}}
+	}
 
 	// Count unacknowledged alerts by severity
 	alertCounts := make(map[string]int)
@@ -483,8 +530,38 @@ func (m *ChargingFailureMonitor) GetDashboardData() map[string]interface{} {
 			"monitor_running": m.isRunning,
 			"last_check":      time.Now(),
 			"uptime":          time.Since(metrics.LastUpdated).String(),
+			"scope":           scope,
 		},
 	}
+}
+
+func dashboardScopeKey(tenantID, channelID string) string {
+	return tenantID + "::" + channelID
+}
+
+func zeroScopedMetrics(tenantID, channelID string) *ChargingFailureMetrics {
+	return &ChargingFailureMetrics{
+		LastUpdated:      time.Now(),
+		ProcessingStatus: "degraded",
+		SuccessRate:      0,
+		Metadata: map[string]interface{}{
+			"tenant_id":  tenantID,
+			"channel_id": channelID,
+		},
+	}
+}
+
+func filterAlertsForScope(alerts []*Alert, tenantID, channelID string) []*Alert {
+	var filtered []*Alert
+	for _, alert := range alerts {
+		if alert == nil || alert.Metadata == nil {
+			continue
+		}
+		if alert.Metadata["tenant_id"] == tenantID && alert.Metadata["channel_id"] == channelID {
+			filtered = append(filtered, alert)
+		}
+	}
+	return filtered
 }
 
 // Helper functions

@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
@@ -16,6 +17,19 @@ import (
 type ReportsHandler struct {
 	reportsRepo *repository.ReportsRepository
 	logger      *zap.Logger
+}
+
+type reportFilterError struct {
+	status  int
+	code    string
+	message string
+}
+
+func (e reportFilterError) Error() string {
+	if e.message != "" {
+		return e.message
+	}
+	return e.code
 }
 
 // NewReportsHandler creates a new reports handler
@@ -32,6 +46,25 @@ func NewReportsHandler(
 // parseFilters extracts common report filters from query parameters
 func (h *ReportsHandler) parseFilters(ctx *fasthttp.RequestCtx) (domain.ReportFilters, error) {
 	filters := domain.ReportFilters{}
+	identity, hasIdentity := tenantIdentityFromRequest(ctx)
+	allTenants := strings.EqualFold(strings.TrimSpace(string(ctx.QueryArgs().Peek("all_tenants"))), "true")
+	filters.AllTenants = allTenants
+
+	switch {
+	case allTenants && !hasIdentity:
+		return filters, reportFilterError{status: fasthttp.StatusForbidden, code: "tenant_context_required", message: "tenant context is required"}
+	case allTenants && !identity.PlatformScoped:
+		return filters, reportFilterError{status: fasthttp.StatusForbidden, code: "tenant_aggregation_forbidden", message: "all_tenants requires platform scope"}
+	case hasIdentity && identity.PlatformScoped && allTenants:
+		// Platform-wide reporting intentionally leaves TenantID unset.
+	case hasIdentity && strings.TrimSpace(identity.TenantID) != "":
+		tenantID := strings.TrimSpace(identity.TenantID)
+		filters.TenantID = &tenantID
+	case hasIdentity && strings.TrimSpace(identity.TenantKey) != "":
+		return filters, reportFilterError{status: fasthttp.StatusForbidden, code: "tenant_id_required", message: "tenant id is required for tenant reports"}
+	default:
+		return filters, reportFilterError{status: fasthttp.StatusForbidden, code: "tenant_context_required", message: "tenant context is required"}
+	}
 
 	// Parse start date (default: 30 days ago)
 	startDateStr := string(ctx.QueryArgs().Peek("startDate"))
@@ -74,6 +107,27 @@ func (h *ReportsHandler) parseFilters(ctx *fasthttp.RequestCtx) (domain.ReportFi
 		filters.Country = &country
 	}
 
+	// Optional tenant channel filter.
+	channelID := strings.TrimSpace(firstReportQuery(ctx, "channelId", "channel_id"))
+	if channelID != "" {
+		if !isUUIDLike(channelID) {
+			return filters, reportFilterError{status: fasthttp.StatusBadRequest, code: "invalid_channel", message: "invalid_channel"}
+		}
+		if filters.TenantID == nil {
+			return filters, reportFilterError{status: fasthttp.StatusBadRequest, code: "invalid_channel", message: "invalid_channel"}
+		}
+		if h.reportsRepo != nil {
+			ok, err := h.reportsRepo.ChannelBelongsToTenant(*filters.TenantID, channelID)
+			if err != nil {
+				return filters, fmt.Errorf("failed to validate channel: %w", err)
+			}
+			if !ok {
+				return filters, reportFilterError{status: fasthttp.StatusBadRequest, code: "invalid_channel", message: "invalid_channel"}
+			}
+		}
+		filters.ChannelID = &channelID
+	}
+
 	return filters, nil
 }
 
@@ -81,7 +135,7 @@ func (h *ReportsHandler) parseFilters(ctx *fasthttp.RequestCtx) (domain.ReportFi
 func (h *ReportsHandler) GetKPIs(ctx *fasthttp.RequestCtx) {
 	filters, err := h.parseFilters(ctx)
 	if err != nil {
-		h.errorResponse(ctx, err.Error(), fasthttp.StatusBadRequest)
+		h.reportFilterErrorResponse(ctx, err)
 		return
 	}
 
@@ -99,7 +153,7 @@ func (h *ReportsHandler) GetKPIs(ctx *fasthttp.RequestCtx) {
 func (h *ReportsHandler) GetAcquisitionFunnel(ctx *fasthttp.RequestCtx) {
 	filters, err := h.parseFilters(ctx)
 	if err != nil {
-		h.errorResponse(ctx, err.Error(), fasthttp.StatusBadRequest)
+		h.reportFilterErrorResponse(ctx, err)
 		return
 	}
 
@@ -117,7 +171,7 @@ func (h *ReportsHandler) GetAcquisitionFunnel(ctx *fasthttp.RequestCtx) {
 func (h *ReportsHandler) GetCampaignPerformance(ctx *fasthttp.RequestCtx) {
 	filters, err := h.parseFilters(ctx)
 	if err != nil {
-		h.errorResponse(ctx, err.Error(), fasthttp.StatusBadRequest)
+		h.reportFilterErrorResponse(ctx, err)
 		return
 	}
 
@@ -135,7 +189,7 @@ func (h *ReportsHandler) GetCampaignPerformance(ctx *fasthttp.RequestCtx) {
 func (h *ReportsHandler) GetTimeSeries(ctx *fasthttp.RequestCtx) {
 	filters, err := h.parseFilters(ctx)
 	if err != nil {
-		h.errorResponse(ctx, err.Error(), fasthttp.StatusBadRequest)
+		h.reportFilterErrorResponse(ctx, err)
 		return
 	}
 
@@ -171,12 +225,48 @@ func (h *ReportsHandler) errorResponse(ctx *fasthttp.RequestCtx, message string,
 	})
 }
 
+func (h *ReportsHandler) reportFilterErrorResponse(ctx *fasthttp.RequestCtx, err error) {
+	if filterErr, ok := err.(reportFilterError); ok {
+		h.errorResponse(ctx, filterErr.code, filterErr.status)
+		return
+	}
+	h.errorResponse(ctx, err.Error(), fasthttp.StatusBadRequest)
+}
+
+func firstReportQuery(ctx *fasthttp.RequestCtx, names ...string) string {
+	for _, name := range names {
+		if value := strings.TrimSpace(string(ctx.QueryArgs().Peek(name))); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func isUUIDLike(value string) bool {
+	if len(value) != 36 {
+		return false
+	}
+	for i, r := range value {
+		switch i {
+		case 8, 13, 18, 23:
+			if r != '-' {
+				return false
+			}
+		default:
+			if !(r >= '0' && r <= '9') && !(r >= 'a' && r <= 'f') && !(r >= 'A' && r <= 'F') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // ExportCampaignPerformanceCSV handles GET /v1/admin/reports/campaign-performance/export
 // Returns CSV file with campaign performance data
 func (h *ReportsHandler) ExportCampaignPerformanceCSV(ctx *fasthttp.RequestCtx) {
 	filters, err := h.parseFilters(ctx)
 	if err != nil {
-		h.errorResponse(ctx, err.Error(), fasthttp.StatusBadRequest)
+		h.reportFilterErrorResponse(ctx, err)
 		return
 	}
 

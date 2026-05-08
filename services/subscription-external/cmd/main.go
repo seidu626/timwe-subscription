@@ -521,7 +521,7 @@ func main() {
 	metricsCache := monitoring.NewMetricsCache(cacheConfig, logger)
 
 	// Create monitoring handler
-	monitoringHandler := handler.NewMonitoringHandler(monitor, logger)
+	monitoringHandler := handler.NewMonitoringHandler(monitor, logger, cfg)
 
 	// Start the monitor with context
 	monitorCtx := context.Background()
