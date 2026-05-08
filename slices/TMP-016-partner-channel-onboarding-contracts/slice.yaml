@@ -10,9 +10,9 @@ story:
 
 entrypoints:
   - "docs/tenant-channel-onboarding.md"
-  - "OpenAPI or Postman collection"
-  - "sandbox callback fixtures"
-  - "credential exchange runbook"
+  - "examples/tenant-channel-onboarding/contract-fixtures.json"
+  - "examples/tenant-channel-onboarding/validate-fixtures.sh"
+  - "slices/TMP-016-partner-channel-onboarding-contracts/contract-review-checklist.md"
 
 acceptance_criteria:
   happy:
@@ -53,13 +53,21 @@ acceptance_criteria:
       preserved_by: "contract examples and validator fixtures"
       violated_when: "example request can succeed without tenant/channel context"
       test: "negative fixture"
+    - rule: "Contract versioning must be explicit"
+      preserved_by: "tenant-channel-v1.0.0 in docs, examples, and fixture validation"
+      violated_when: "partner-facing examples omit or disagree on version"
+      test: "fixture validator"
+    - rule: "Callbacks must be signed"
+      preserved_by: "HMAC-SHA256 signing guidance and callback fixture headers"
+      violated_when: "accepted callback fixture has no timestamp, event id, or signature"
+      test: "fixture validator"
 
 out_of_scope:
   - "self-service partner portal"
   - "legal/commercial contract templates"
 
 size_check:
-  files_touched: 12
+  files_touched: 8
   migrations: 0
   endpoints: 0
 
