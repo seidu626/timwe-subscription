@@ -27,7 +27,9 @@ function LandingPageWithSearchParams(): React.JSX.Element {
   const [pixelConfig, setPixelConfig] = useState<PixelConfiguration | undefined>(undefined)
 
   const slugValue = params?.slug
+  const tenantValue = params?.tenant
   const slug = typeof slugValue === 'string' ? slugValue : Array.isArray(slugValue) ? slugValue[0] : ''
+  const tenantKey = typeof tenantValue === 'string' ? tenantValue : Array.isArray(tenantValue) ? tenantValue[0] : ''
 
   useEffect(() => {
     captureBootstrapTokenFromUrl()
@@ -37,6 +39,7 @@ function LandingPageWithSearchParams(): React.JSX.Element {
     <PixelManager config={pixelConfig}>
       <LandingPageContent 
         slug={slug} 
+        tenantKey={tenantKey}
         searchParams={searchParams} 
         onPixelConfigLoad={setPixelConfig} 
       />
@@ -56,10 +59,12 @@ export default function LandingPage(): React.JSX.Element {
 
 function LandingPageContent({
   slug,
+  tenantKey,
   searchParams,
   onPixelConfigLoad,
 }: {
   slug: string
+  tenantKey?: string
   searchParams: URLSearchParams
   onPixelConfigLoad?: (config: PixelConfiguration | undefined) => void
 }): React.JSX.Element {
@@ -83,6 +88,7 @@ function LandingPageContent({
     normalizeGhanaLocalInput,
   } = useSubscriptionFlow({
     slug,
+    tenantKey,
     searchParams,
     trackConversion,
     pixelTrackEvent,

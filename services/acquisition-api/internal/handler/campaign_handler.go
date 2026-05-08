@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -111,6 +112,22 @@ func (h *CampaignHandler) GetBySlug(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	if hasPublicTenantHeaders(ctx) {
+		identity, err := trustedPublicTenantIdentityFromRequest(ctx)
+		if err != nil || strings.TrimSpace(identity.TenantKey) == "" {
+			ctx.Error("Tenant context invalid", fasthttp.StatusForbidden)
+			return
+		}
+		campaign, err := h.service.GetByTenantKeyAndSlug(identity.TenantKey, slug)
+		if err != nil {
+			h.logger.Error("Failed to get trusted tenant campaign", zap.String("tenant_key", identity.TenantKey), zap.String("slug", slug), zap.Error(err))
+			ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+			return
+		}
+		writeJSON(ctx, fasthttp.StatusOK, campaign)
+		return
+	}
+
 	campaign, err := h.service.GetBySlug(slug)
 	if err != nil {
 		h.logger.Error("Failed to get campaign", zap.String("slug", slug), zap.Error(err))
@@ -119,6 +136,35 @@ func (h *CampaignHandler) GetBySlug(ctx *fasthttp.RequestCtx) {
 	}
 
 	writeJSON(ctx, fasthttp.StatusOK, campaign)
+}
+
+type fastHTTPHeaderGetter struct {
+	header *fasthttp.RequestHeader
+}
+
+func (g fastHTTPHeaderGetter) Get(name string) string {
+	if g.header == nil {
+		return ""
+	}
+	return string(g.header.Peek(name))
+}
+
+func hasPublicTenantHeaders(ctx *fasthttp.RequestCtx) bool {
+	return len(ctx.Request.Header.Peek(tenantctx.HeaderTenantID)) > 0 ||
+		len(ctx.Request.Header.Peek(tenantctx.HeaderTenantKey)) > 0
+}
+
+func trustedPublicTenantIdentityFromRequest(ctx *fasthttp.RequestCtx) (tenantctx.Identity, error) {
+	secret := strings.TrimSpace(os.Getenv("TENANT_TRUSTED_HEADER_SECRET"))
+	if secret == "" {
+		secret = strings.TrimSpace(os.Getenv("TRUSTED_SERVICE_TENANT_SECRET"))
+	}
+	return tenantctx.IdentityFromTrustedRequest(
+		string(ctx.Method()),
+		string(ctx.Path()),
+		fastHTTPHeaderGetter{header: &ctx.Request.Header},
+		tenantctx.TrustedHeaderOptions{Secret: secret},
+	)
 }
 
 // GetByTenantAndSlug handles GET /v1/campaigns/:tenant_key/:slug

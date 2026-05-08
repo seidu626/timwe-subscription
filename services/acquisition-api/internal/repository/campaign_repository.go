@@ -60,7 +60,7 @@ func (r *CampaignRepository) GetBySlug(slug string) (*domain.Campaign, error) {
 			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
 			       enabled, created_at, updated_at, created_by, updated_by
 			FROM campaigns
-			WHERE slug = $1 AND enabled = true
+			WHERE slug = $1 AND enabled = true AND tenant_id IS NULL
 		`
 
 	var campaign domain.Campaign
@@ -279,7 +279,7 @@ func (r *CampaignRepository) ListEnabled() ([]*domain.Campaign, error) {
 			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
 			       enabled, created_at, updated_at, created_by, updated_by
 			FROM campaigns
-			WHERE enabled = true
+			WHERE enabled = true AND tenant_id IS NULL
 			ORDER BY created_at DESC
 	`
 

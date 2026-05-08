@@ -12,7 +12,7 @@ entrypoints:
   - "GET /lp/{tenant}/{slug} or tenant host mapping"
   - "GET /v1/campaigns/{slug}"
   - "GET /v1/he/bootstrap/campaign/{slug}"
-  - "POST /v1/callbacks/{telco}"
+  - "GET /v1/he/bootstrap/campaign/{tenant}/{slug}"
 
 acceptance_criteria:
   happy:
@@ -22,10 +22,10 @@ acceptance_criteria:
       then: "landing-web and acquisition-api resolve campaign under that tenant only"
       evidence: "landing API proxy and acquisition handler tests"
     - scenario: "Gateway forwards tenant context"
-      given: ["request arrives through KrakenD with tenant host mapping"]
+      given: ["request arrives through KrakenD with signed tenant headers"]
       when: "gateway forwards to acquisition-api"
-      then: "tenant context is present in service request and audit/log fields"
-      evidence: "gateway config test or contract fixture"
+      then: "raw tenant headers are accepted only with a valid trusted-service signature"
+      evidence: "trusted public tenant header tests"
   failures:
     - scenario: "Ambiguous campaign slug"
       given: ["two tenants use the same public slug"]
@@ -46,7 +46,7 @@ acceptance_criteria:
     - scenario: "Legacy single-tenant route"
       given: ["default tenant mapping is configured for old Ghana route"]
       when: "subscriber opens existing /lp/{slug} path"
-      then: "legacy route works only when slug is unambiguous under default tenant"
+      then: "legacy route works only for legacy unscoped campaigns and cannot resolve tenant-bound duplicates"
       evidence: "compatibility route test"
   invariants:
     - rule: "Public tenant resolution must be deterministic"
@@ -57,6 +57,7 @@ acceptance_criteria:
 out_of_scope:
   - "full DNS automation"
   - "marketing site redesign"
+  - "transaction tenant persistence and callback correlation; owned by TMP-006 and TMP-013"
 
 size_check:
   files_touched: 15

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
@@ -239,6 +240,46 @@ func TestExtractTenantAndCampaignSlugFromPath(t *testing.T) {
 
 	if _, _, ok := extractTenantAndCampaignSlugFromPath("/v1/campaigns/daily"); ok {
 		t.Fatal("legacy campaign route must not parse as tenant route")
+	}
+}
+
+func TestTrustedPublicTenantIdentityRequiresSignature(t *testing.T) {
+	t.Setenv("TENANT_TRUSTED_HEADER_SECRET", "secret")
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/campaigns/daily")
+	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "tenant-a")
+	ctx.Request.Header.Set(tenantctx.HeaderServiceID, "gateway")
+
+	if _, err := trustedPublicTenantIdentityFromRequest(&ctx); err == nil {
+		t.Fatal("expected unsigned tenant headers to be rejected")
+	}
+}
+
+func TestTrustedPublicTenantIdentityAcceptsSignedTenantKey(t *testing.T) {
+	t.Setenv("TENANT_TRUSTED_HEADER_SECRET", "secret")
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/campaigns/daily")
+	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "tenant-a")
+	ctx.Request.Header.Set(tenantctx.HeaderServiceID, "gateway")
+	ctx.Request.Header.Set(tenantctx.HeaderServiceTimestamp, now)
+	ctx.Request.Header.Set(tenantctx.HeaderServiceSignature, tenantctx.SignServiceRequest("secret", tenantctx.SignInput{
+		Method:    fasthttp.MethodGet,
+		Path:      "/v1/campaigns/daily",
+		Timestamp: now,
+		ServiceID: "gateway",
+		TenantKey: "tenant-a",
+	}))
+
+	identity, err := trustedPublicTenantIdentityFromRequest(&ctx)
+	if err != nil {
+		t.Fatalf("expected signed tenant headers to pass, got %v", err)
+	}
+	if identity.TenantKey != "tenant-a" || identity.TrustSource != tenantctx.TrustSourceTrustedService {
+		t.Fatalf("unexpected identity: %#v", identity)
 	}
 }
 

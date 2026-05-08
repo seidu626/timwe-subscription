@@ -172,7 +172,7 @@
       "id": "TMP-012",
       "name": "public-tenant-routing",
       "description": "Public landing, campaign, HE, callback, and gateway routes resolve tenant deterministically before work begins.",
-      "state": "planned",
+      "state": "done",
       "priority": "P1",
       "depends_on": ["TMP-001", "TMP-005", "TMP-018"],
       "actor": "end-subscriber",

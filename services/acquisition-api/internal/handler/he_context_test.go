@@ -149,6 +149,18 @@ func TestNormalizeMSISDN(t *testing.T) {
 	}
 }
 
+func TestHECampaignRouteFromPathSupportsTenantRoute(t *testing.T) {
+	if got := heCampaignRouteFromPath("/v1/he/bootstrap/campaign/tenant-a/daily"); got != "tenant-a/daily" {
+		t.Fatalf("expected tenant campaign route, got %q", got)
+	}
+	if got := heCampaignRouteFromPath("/v1/he/bootstrap/campaign/daily"); got != "daily" {
+		t.Fatalf("expected legacy campaign route, got %q", got)
+	}
+	if got := heCampaignRouteFromPath("/v1/he/bootstrap/campaign/tenant-a/../daily"); got != "" {
+		t.Fatalf("expected unsafe route to be rejected, got %q", got)
+	}
+}
+
 func TestIsValidMSISDN(t *testing.T) {
 	validCases := []string{
 		"123456789",
