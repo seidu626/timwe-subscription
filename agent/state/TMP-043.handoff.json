@@ -1,0 +1,126 @@
+{
+  "acceptance_results": [
+    {
+      "criterion": "Pending ADR templates exist for all six release decision areas.",
+      "status": "passed",
+      "evidence": [
+        "slices/decisions/TMP-026-webspa-admin-source-reproducibility.md",
+        "slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+        "slices/decisions/TMP-035-notification-message-outbox-schema.md",
+        "slices/decisions/TMP-036-postback-outbox-schema.md",
+        "slices/decisions/TMP-037-landing-web-dependency-remediation.md",
+        "slices/decisions/TMP-038-local-main-integration-strategy.md"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Templates do not record approval.",
+      "status": "passed",
+      "evidence": [
+        "Status: proposed",
+        "Approval recorded: no"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "No service, SQL, compose, dependency, package, credential, submodule, runtime, or branch-integration files changed.",
+      "status": "passed",
+      "evidence": [
+        "git diff --name-only file-scope review"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    }
+  ],
+  "blockers": [
+    "TMP-021, TMP-026, TMP-034, TMP-035, TMP-036, TMP-037, and TMP-038 remain blocked until an authorized operator fills and accepts the relevant decision."
+  ],
+  "changed_files": [
+    "agent/backlog/issues/TMP-043-release-decision-templates.md",
+    "agent/state/TMP-043.handoff.json",
+    "agent/state/TMP-043.work-order.json",
+    "slices/decisions/README.md",
+    "slices/decisions/TMP-026-webspa-admin-source-reproducibility.md",
+    "slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+    "slices/decisions/TMP-035-notification-message-outbox-schema.md",
+    "slices/decisions/TMP-036-postback-outbox-schema.md",
+    "slices/decisions/TMP-037-landing-web-dependency-remediation.md",
+    "slices/decisions/TMP-038-local-main-integration-strategy.md",
+    "slices/manifest.json",
+    "slices/TMP-043-release-decision-templates/domain-brief.md",
+    "slices/TMP-043-release-decision-templates/notes.md",
+    "slices/TMP-043-release-decision-templates/slice.yaml",
+    "slices/TMP-043-release-decision-templates/spec.md",
+    "slices/TMP-043-release-decision-templates/value-gate-report.md"
+  ],
+  "cleanup_notes": [
+    "No long-running processes were started by the slice."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Created six pending release-blocker ADR templates.",
+    "Updated the decisions README with template entries.",
+    "Preserved all approval gates and avoided runtime/source changes."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "No operator approval has been recorded."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-043 creates fillable pending ADR templates; it does not approve any blocked implementation path.",
+  "residual_work_policy": "blocked_until_approval",
+  "risk_notes": [
+    "This slice is evidence-only.",
+    "Templates must not be interpreted as approval because they state Status: proposed and Approval recorded: no."
+  ],
+  "safe_to_continue": false,
+  "schema_version": 1,
+  "session_id": "codex-20260509-063006",
+  "status": "done",
+  "summary": "Release decision ADR templates recorded.",
+  "supervisor_decision": "done",
+  "task_id": "T-TMP-043",
+  "unfinished_work": [
+    "Seven release-verification blockers remain pending operator decisions."
+  ],
+  "validation": [
+    {
+      "command": "test -f slices/decisions/TMP-026-webspa-admin-source-reproducibility.md && test -f slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md && test -f slices/decisions/TMP-035-notification-message-outbox-schema.md && test -f slices/decisions/TMP-036-postback-outbox-schema.md && test -f slices/decisions/TMP-037-landing-web-dependency-remediation.md && test -f slices/decisions/TMP-038-local-main-integration-strategy.md && jq empty slices/manifest.json agent/state/TMP-043.work-order.json agent/state/TMP-043.handoff.json .agent/tasks.json && git diff --check",
+      "exit_code": 0,
+      "output_excerpt": "templates exist, JSON valid, diff check passed",
+      "status": "passed",
+      "timestamp": "2026-05-09T06:35:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-043 assignment_decision allow; no blocking reasons",
+      "status": "passed",
+      "timestamp": "2026-05-09T06:35:00Z"
+    },
+    {
+      "command": "slice-harness status && slice-harness sync --dry-run",
+      "exit_code": 0,
+      "output_excerpt": "seven blocked slices remain; no drift detected",
+      "status": "passed",
+      "timestamp": "2026-05-09T06:35:00Z"
+    },
+    {
+      "command": "agent-supervisor preflight --repair then preflight/list-tasks/auto-loop with worktree-local temp config",
+      "exit_code": 0,
+      "output_excerpt": "T-TMP-043 done; preflight ok; auto-loop stopped with No ready tasks",
+      "status": "passed",
+      "timestamp": "2026-05-09T06:35:00Z"
+    }
+  ],
+  "updated_at": "2026-05-09T06:35:00Z"
+}

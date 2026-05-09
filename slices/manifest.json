@@ -2,7 +2,7 @@
   "version": 1,
   "roadmap": "tenant-multichannel-platform",
   "generated_at": "2026-05-08T01:50:00Z",
-  "current_slice": "TMP-042",
+  "current_slice": "TMP-043",
   "source_domain_brief": "slices/TMP-000-domain-grounding/domain-brief.md",
   "supporting_documents": [
     "slices/README.md",
@@ -1348,7 +1348,46 @@
         "dod_path": "slices/TMP-042-release-decision-packet/value-gate-report.md"
       },
       "notes": "Consolidated the exact operator decisions needed to unblock the seven remaining release-verification blockers without recording approval or changing runtime files."
+    },
+    {
+      "id": "TMP-043",
+      "external_id": "TMP-043",
+      "name": "Release decision ADR templates",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-043-release-decision-templates.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/decision-templates-20260509-063006",
+      "created_at": "2026-05-09T06:35:00Z",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "test -f slices/decisions/TMP-026-webspa-admin-source-reproducibility.md",
+          "test -f slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+          "test -f slices/decisions/TMP-035-notification-message-outbox-schema.md",
+          "test -f slices/decisions/TMP-036-postback-outbox-schema.md",
+          "test -f slices/decisions/TMP-037-landing-web-dependency-remediation.md",
+          "test -f slices/decisions/TMP-038-local-main-integration-strategy.md",
+          "jq empty slices/manifest.json agent/state/TMP-043.work-order.json agent/state/TMP-043.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight with worktree-local temp config",
+          "agent-supervisor auto-loop --max-rounds 1 with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-043-release-decision-templates/value-gate-report.md"
+      },
+      "notes": "Created pending ADR templates for the remaining release-verification approval gates; every template remains proposed and records no approval."
     }
   ],
-  "updated_at": "2026-05-09T06:25:00Z"
+  "updated_at": "2026-05-09T06:35:00Z"
 }

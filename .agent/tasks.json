@@ -2927,6 +2927,110 @@
       ],
       "updated_at": "2026-05-09T06:25:00Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-043-release-decision-templates/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Pending ADR templates exist for TMP-026, TMP-034, TMP-035, TMP-036, TMP-037, and TMP-038."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/decisions/TMP-026-webspa-admin-source-reproducibility.md",
+            "slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+            "slices/decisions/TMP-035-notification-message-outbox-schema.md",
+            "slices/decisions/TMP-036-postback-outbox-schema.md",
+            "slices/decisions/TMP-037-landing-web-dependency-remediation.md",
+            "slices/decisions/TMP-038-local-main-integration-strategy.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Each template states Status: proposed and Approval recorded: no."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "git diff --name-only file-scope review"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No service, migration, SQL, compose, dependency, package, credential, submodule, runtime, or branch-integration files change."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        {
+          "blocker": "Operator approvals or maintainer decisions are still required before blocked implementation slices can run.",
+          "disposition": "blocked",
+          "item": "Release-verification approval gates",
+          "next_task_id": null,
+          "reason": "This slice creates pending templates only and records no approval.",
+          "severity": "high"
+        }
+      ],
+      "branch": "agent/codex/decision-templates-20260509-063006",
+      "children": [],
+      "completed": [
+        "Created pending ADR templates for TMP-026, TMP-034, TMP-035, TMP-036, TMP-037, and TMP-038.",
+        "Updated the decisions README to list the release-blocker templates.",
+        "Preserved all approval gates and avoided runtime/source changes."
+      ],
+      "created_at": "2026-05-09T06:35:00Z",
+      "details": "Create pending ADR templates for the remaining release-verification approval gates.",
+      "evidence": {
+        "commands": [],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-043-release-decision-templates.md",
+          "agent/state/TMP-043.handoff.json",
+          "agent/state/TMP-043.work-order.json",
+          "slices/decisions/README.md",
+          "slices/decisions/TMP-026-webspa-admin-source-reproducibility.md",
+          "slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+          "slices/decisions/TMP-035-notification-message-outbox-schema.md",
+          "slices/decisions/TMP-036-postback-outbox-schema.md",
+          "slices/decisions/TMP-037-landing-web-dependency-remediation.md",
+          "slices/decisions/TMP-038-local-main-integration-strategy.md",
+          "slices/manifest.json",
+          "slices/TMP-043-release-decision-templates/domain-brief.md",
+          "slices/TMP-043-release-decision-templates/notes.md",
+          "slices/TMP-043-release-decision-templates/slice.yaml",
+          "slices/TMP-043-release-decision-templates/spec.md",
+          "slices/TMP-043-release-decision-templates/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-043",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Release decision ADR templates",
+      "unresolved": [
+        {
+          "blocker": "Operator approvals or maintainer decisions are still required.",
+          "disposition": "blocked",
+          "item": "Remaining release-verification implementation blockers",
+          "next_task_id": null,
+          "reason": "TMP-043 creates templates only; it does not approve blocked work.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T06:35:00Z",
+      "worktree": null
     }
   ],
   "version": 1
