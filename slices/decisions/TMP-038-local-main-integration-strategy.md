@@ -6,7 +6,7 @@ Approval recorded: no
 
 ## Context
 
-The primary checkout `main` is clean but diverged from `origin/main`. The most recent refreshed count after PR #28 is `51 ahead / 37 behind`.
+The primary checkout `main` is clean but diverged from `origin/main`. The most recent refreshed count is `51 ahead / 38 behind` as of 2026-05-09T08:44:16Z, with `origin/main` at `bad5fe156f876938ff10895a5a330178c95bb8de`.
 
 Earlier isolated merge probing found broad add/add conflicts. Branch resets, conflict resolution, or deletion could discard local-only history, so maintainer direction is required.
 
