@@ -1,0 +1,50 @@
+story:
+  id: "TMP-024"
+  title: "Slice registry evidence is truthful"
+  actor: "platform-operator"
+  action: "inspect full-system verification slice state"
+  outcome: "TMP-022 and TMP-023 manifest entries point to their own accepted evidence"
+  as_a: "platform-operator"
+  i_want_to: "trust the slice registry after verification"
+  so_that: "release-readiness decisions are based on correct slice state and evidence paths"
+
+entrypoints:
+  - "slices/manifest.json"
+
+acceptance_criteria:
+  happy:
+    - scenario: "TMP-022 evidence points to landing-web build"
+      given: ["TMP-022 is a landing-web dynamic route defect slice"]
+      when: "the operator inspects slices/manifest.json"
+      then: "TMP-022 automated verification is cd services/landing-web && npm run build"
+      evidence: "jq manifest query"
+    - scenario: "TMP-023 evidence points to common tests"
+      given: ["TMP-023 has accepted common package test evidence"]
+      when: "the operator inspects slices/manifest.json"
+      then: "TMP-023 state is done and automated verification is cd common && go test ./..."
+      evidence: "jq manifest query"
+  failures:
+    - scenario: "Evidence path mismatch"
+      given: ["a done slice points at another slice's value-gate report"]
+      when: "release status is reviewed"
+      then: "the mismatch is corrected before handoff"
+      evidence: "value-gate report"
+  invariants:
+    - rule: "Slice state must match accepted handoff evidence"
+      preserved_by: "manifest fields align with T-TMP-022 and T-TMP-023 task evidence"
+      violated_when: "a passed defect slice remains planned or points at another slice's DoD"
+      test: "jq manifest query"
+
+out_of_scope:
+  - "source code changes"
+  - "dependency or vendor changes"
+  - "runtime behavior changes"
+
+size_check:
+  files_touched: 5
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-024-slice-registry-evidence-reconciliation/value-gate-report.md"
