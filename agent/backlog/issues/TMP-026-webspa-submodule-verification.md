@@ -2,7 +2,7 @@
 id: TMP-026
 title: "webspa-admin submodule verification"
 class: operational_slice
-status: ready
+status: blocked
 scope_limit: "Verify webspa-admin submodule metadata, prove whether the pinned checkout can be initialized, and record the exact blocker if it cannot."
 merge_policy: "Merge only after submodule status, HVC, slice-harness, and available webspa-admin verification commands pass or record a concrete blocker."
 evidence_required:

@@ -2,7 +2,7 @@
 id: TMP-021
 title: "Release verification matrix"
 class: operational_slice
-status: ready
+status: blocked
 scope_limit: "Create an evidence matrix for discovered runnable components, implemented tenant-platform features, harness state, and runtime/build health. Do not implement product features inside this slice; create focused defect slices for concrete failures that require code changes."
 merge_policy: "Merge only after the full-system verification matrix, supervisor preflight, HVC, representative build/test commands, and value-gate evidence are recorded."
 evidence_required:
