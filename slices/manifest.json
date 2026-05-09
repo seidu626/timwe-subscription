@@ -646,7 +646,39 @@
         "dod_path": "slices/TMP-025-tmp021-metadata-reconciliation/value-gate-report.md"
       },
       "notes": ""
+    },
+    {
+      "id": "TMP-026",
+      "external_id": "TMP-026",
+      "name": "webspa-admin submodule verification",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-026-webspa-submodule-verification.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "blocked",
+      "branch": "agent/codex/full-system-webspa-20260509-0153",
+      "created_at": "2026-05-09T01:55:52.120415+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "sed -n '1,60p' .gitmodules",
+          "git ls-files -s frontend/webspa-admin .gitmodules",
+          "git submodule update --init --recursive frontend/webspa-admin",
+          "git submodule status --recursive frontend/webspa-admin",
+          "jq empty slices/manifest.json agent/state/TMP-026.work-order.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness sync --dry-run"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-026-webspa-submodule-verification/value-gate-report.md"
+      },
+      "notes": "Blocked: .gitmodules maps frontend/webspa-admin, but the configured submodule remote does not contain pinned gitlink commit 2ad95b18ecff4d8b23e5d1b7152975c477d5137a."
     }
   ],
-  "updated_at": "2026-05-09T01:47:03Z"
+  "updated_at": "2026-05-09T01:55:52.120428+00:00"
 }

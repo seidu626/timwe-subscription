@@ -35,7 +35,7 @@ Audit 3 result: PASS for artifact integrity, BLOCKED for release readiness.
 ## Blocking Gates
 
 - notification and subscription-partner vendor/dependency metadata repairs require explicit dependency/vendor approval.
-- webspa-admin gitlink cannot be initialized because `.gitmodules` mapping is missing.
+- webspa-admin gitlink cannot be initialized because the configured submodule remote does not contain pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`.
 - compose runtime start is blocked by missing env values and secret-shaped checked-in config.
 - local main and origin/main diverge with add/add conflicts; clean PR branches use `origin/main` as source of truth.
 

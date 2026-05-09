@@ -1,0 +1,48 @@
+story:
+  id: "TMP-026"
+  title: "webspa-admin submodule verification"
+  actor: "platform-operator"
+  action: "initialize the admin frontend gitlink"
+  outcome: "admin frontend verification has a precise submodule checkout decision"
+  as_a: "platform-operator"
+  i_want_to: "verify the admin frontend checkout from the superproject"
+  so_that: "full-system release checks do not rely on stale submodule metadata assumptions"
+
+entrypoints:
+  - "frontend/webspa-admin"
+  - ".gitmodules"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Submodule mapping is present"
+      given: ["the operator checks .gitmodules"]
+      when: "frontend/webspa-admin is inspected"
+      then: "the path maps to the configured CoreUI remote"
+      evidence: "sed -n '1,60p' .gitmodules"
+  failures:
+    - scenario: "Pinned gitlink commit is unavailable"
+      given: ["the superproject pins frontend/webspa-admin to 2ad95b18ecff4d8b23e5d1b7152975c477d5137a"]
+      when: "git submodule update --init --recursive frontend/webspa-admin runs"
+      then: "the command fails with upload-pack not our ref for the pinned commit"
+      evidence: "value-gate report"
+  invariants:
+    - rule: "This slice must not mutate the admin frontend source or gitlink pointer"
+      preserved_by: "failed checkout is deinitialized and frontend/webspa-admin is not committed as modified"
+      violated_when: "the superproject records a different submodule commit"
+      test: "git status --short --branch"
+
+out_of_scope:
+  - "frontend source edits"
+  - "dependency or vendor changes"
+  - "submodule pointer replacement"
+  - "remote publishing"
+
+size_check:
+  files_touched: 7
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "BLOCKED with exact upstream decision before handoff"
+  report_path: "slices/TMP-026-webspa-submodule-verification/value-gate-report.md"
+

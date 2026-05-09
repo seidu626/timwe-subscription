@@ -34,7 +34,7 @@ Scope exclusions:
 | cadence-engine | worker/admin HTTP | `services/cadence-engine/go.mod`, `cmd/cadence-engine/main.go` | readonly module-mode build | `go test ./...` | `make start-cadence-engine` | admin HTTP on `:8091` | Postgres | passed |
 | postback-dispatcher | worker | `services/postback-dispatcher/go.mod`, `cmd/main.go` | readonly module-mode build | `go test ./...` | compose service | worker starts against DB | Postgres | passed |
 | landing-web | Next.js frontend | `services/landing-web/package.json`, `app/**` | `npm run build` | build/typecheck; no route tests present | `npm run dev` / `npm start` | Next route build output | Node 24.15.0, npm 11.12.1, acquisition API at runtime | fixed |
-| webspa-admin | admin frontend gitlink | `frontend/webspa-admin` gitlink | unavailable | unavailable | unavailable | unavailable | submodule mapping missing | blocked |
+| webspa-admin | admin frontend gitlink | `frontend/webspa-admin` gitlink | unavailable | unavailable | unavailable | unavailable | pinned gitlink commit unavailable from configured submodule remote | blocked |
 | KrakenD gateway | gateway | `krakend/**`, `Makefile` | `make docker-build-krakend` | `make krakend-query-forwarding-check` | compose service | `krakend check` not run; query-forwarding check run | Docker/Podman, KrakenD image | partially verified |
 | docker compose dev stack | local integration stack | `docker-compose.yml` | `docker compose -f docker-compose.yml config` | config render | `make compose-up` | compose healthchecks | required env vars and external network | blocked |
 | tenant migration runner | migration/ops script | `scripts/db-migrate-tenant-platform.sh` | `bash -n scripts/db-migrate-tenant-platform.sh` | `make -n db-migrate-tenant-platform-dry-run` | `make db-migrate-tenant-platform-dry-run` | dry-run output against DB | Postgres credentials | partially verified |
@@ -66,7 +66,7 @@ Scope exclusions:
 | Docker/Compose | `docker-compose.yml` | yes: Podman Docker emulation, Compose `5.1.3` | Rendered compose config; did not start stack because required env/network/secrets are incomplete. |
 | Postgres/Redis live dependencies | compose and service configs | no/unknown | Mark live runtime and DB migration checks blocked unless env vars and local stack are provided. |
 | TIMWE/Auth0/provider credentials | compose/service configs | no | External-provider flows marked blocked or partially verified by tests only. |
-| webspa-admin submodule content | gitlink `frontend/webspa-admin` | no | Blocked: `git submodule status` fails because `.gitmodules` has no mapping for the gitlink. |
+| webspa-admin submodule content | gitlink `frontend/webspa-admin` | no | Blocked: `.gitmodules` maps the path, but `git submodule update --init --recursive frontend/webspa-admin` cannot fetch pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a` from the configured remote. |
 | landing-web dependencies | `package-lock.json` | yes after `npm ci` | Build passed; audit reports unresolved Next/PostCSS vulnerabilities. |
 
 ## Service Verification Matrix
@@ -83,7 +83,7 @@ Scope exclusions:
 | cadence-engine | passed | passed | not run live | n/a | not run | not run live | passed | `go test ./...` passed; readonly build passed. |
 | postback-dispatcher | passed | passed | not run live | n/a | not run | not run live | passed | `go test ./...` passed; readonly build passed. |
 | landing-web | fixed | build/typecheck passed | not run live | n/a | not run | route build output passed | fixed | Initial `npm run build` failed; TMP-022 patch made `npm run build` pass. |
-| webspa-admin | blocked | blocked | blocked | n/a | blocked | blocked | blocked | gitlink exists but `.gitmodules` mapping is missing. |
+| webspa-admin | blocked | blocked | blocked | n/a | blocked | blocked | blocked | gitlink exists and `.gitmodules` maps it, but the configured remote does not contain pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`. |
 | docker compose dev stack | config rendered with warnings | n/a | blocked | n/a | not run | blocked | blocked | `docker compose config` renders but required env vars are blank and one secret-shaped DB credential appears in config output. |
 
 ## Feature Verification Matrix
@@ -147,7 +147,7 @@ Scope exclusions:
 | Check | Reason | Exact command or requirement to unblock |
 |---|---|---|
 | Verify latest `origin/main` and local `main` as one integrated state | Local and remote main histories conflict heavily. | Human-directed integration strategy for `main...origin/main`; the clean PR branch intentionally uses `origin/main` as source of truth. |
-| webspa-admin build and UI runtime | `frontend/webspa-admin` is a gitlink but `.gitmodules` has no mapping, so the submodule cannot be initialized in this worktree. | Restore `.gitmodules` mapping or replace the gitlink with tracked source before running admin build/UI checks. |
+| webspa-admin build and UI runtime | `frontend/webspa-admin` is a gitlink; `.gitmodules` maps it, but `git submodule update --init --recursive frontend/webspa-admin` fails because the configured remote does not contain pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`. | Publish the pinned admin commit to an accessible remote, repoint the gitlink to an available commit after review, or replace the gitlink strategy before running admin build/UI checks. |
 | compose runtime start | Required env vars are blank in rendered config; starting would run with missing DB, TIMWE, Auth0/JWT, notification worker, and pgAdmin settings. | Provide local `.env` or export required variables, then run `docker compose up` and service health checks. |
 | dependency vulnerability remediation | `npm audit` fix requires breaking Next upgrade to `next@16.2.6`. | Explicit approval for dependency upgrade and follow-up UI regression check. |
 | notification vendor/go.sum repair | Fix likely touches `services/notification/go.sum` and/or vendor tree. | Explicit approval for dependency/vendor metadata changes. |
@@ -158,7 +158,7 @@ Scope exclusions:
 - Local and remote `main` diverge with overlapping histories.
 - Compose config contains blank required env vars and a secret-shaped checked-in service credential; do not treat compose runtime as production-safe until config is sanitized.
 - Build success is not enough for tenant feature verification; several live flows remain blocked by missing local infrastructure and credentials.
-- Admin frontend cannot be verified from this checkout because the gitlink has no submodule mapping.
+- Admin frontend cannot be verified from this checkout because the pinned gitlink commit is unavailable from the configured submodule remote.
 
 ## Gaps for /slice-plan
 
@@ -166,5 +166,5 @@ Scope exclusions:
 |---|---|---|---|
 | notification API module | default and readonly tests fail | vertical_defect_slice / bounded_enabler | Requires dependency/vendor metadata strategy before code fixes. |
 | subscription-partner canonical vendor mode | default build/test fails but readonly mode passes | vertical_defect_slice / bounded_enabler | Decide whether canonical builds should use module mode or vendor tree should include shared common package/deps. |
-| webspa-admin | gitlink has no `.gitmodules` mapping | operational_slice | Restore admin UI source/mapping before UI verification. |
+| webspa-admin | pinned gitlink commit is unavailable from the configured submodule remote | operational_slice | Decide whether to publish the admin commit, repoint the gitlink, or replace the gitlink strategy before UI verification. |
 | compose runtime | missing env values and secret-shaped config | operational_slice | Provide safe local env and remove checked-in secret-shaped compose value. |
