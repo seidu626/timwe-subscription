@@ -20,7 +20,7 @@ actor: repo-maintainer
 outcome: "The divergent primary local main branch is reconciled with origin/main through an explicit integration strategy instead of accidental merge conflict resolution."
 entrypoint: "/home/xper626/workspace/apps/timwe-subscription main branch"
 trigger: "Verifier compares primary checkout main against origin/main during full-system verification."
-broken_outcome: "Primary local main is ahead 51 and behind origin/main by 23, and an isolated merge probe produced broad add/add conflicts."
+broken_outcome: "Primary local main is clean but diverged from origin/main at snapshot 2026-05-09T04:14:53Z: main is ahead 51 and behind 24, primary head is ab22b15, origin/main is 2f4bcd1, merge-base is b865229, and an isolated merge probe produced broad add/add conflicts."
 expected_behavior: "A maintainer chooses whether to preserve local-only history, reset to remote, or manually integrate the divergent histories before treating primary main as verified."
 system_path:
   - "Full-system verifier reads the release matrix blocker."
@@ -44,6 +44,7 @@ file_scope:
   - "agent/state/TMP-038.work-order.json"
   - "agent/state/TMP-038.handoff.json"
   - "slices/manifest.json"
+  - "docs/agent/full-system-verification-2026-05-09.md"
   - "slices/TMP-038-local-main-integration-strategy/**"
   - ".agent/**"
   - ".harness/**"
