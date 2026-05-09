@@ -242,6 +242,285 @@
       "unresolved": [],
       "updated_at": "2026-05-08T10:39:43Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "docs/agent/full-system-verification-2026-05-09.md",
+            "slices/TMP-021-full-system-verification/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Document full-system service inventory, verification commands, pass/fail status, risks, and unresolved blockers."
+        },
+        {
+          "blocker": "Dependency/vendor repairs, missing submodule mapping, env readiness, and main/origin divergence remain outside this slice's safe edit scope.",
+          "evidence": [
+            "docs/agent/full-system-verification-2026-05-09.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": "Release verification is blocked by explicit approval gates and repository integration state.",
+          "status": "blocked",
+          "text": "Run repository-level verification and identify blockers without making dependency, vendor, secret, or merge-conflict changes."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        "notification and subscription-partner vendor/dependency metadata repairs require explicit dependency/vendor approval",
+        "webspa-admin gitlink cannot be initialized because .gitmodules mapping is missing",
+        "compose runtime start is blocked by missing env values and secret-shaped checked-in config",
+        "local main and origin/main diverge with add/add conflicts"
+      ],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "docs/agent/full-system-verification-2026-05-09.md populated with service and feature matrices",
+        "TMP-022 landing-web build fixed and verified",
+        "TMP-023 common package tests fixed and verified",
+        "Created a full-system release verification matrix across Go services, landing-web, compose/runtime config, harness state, and repo integration.",
+        "Recorded blocked verification outcomes and command evidence in slice artifacts."
+      ],
+      "created_at": "2026-05-09T00:56:05Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok: true; stale superseded ledger rows only",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:12:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "no blockers",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:12:00Z"
+          },
+          {
+            "command": "slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:12:00Z"
+          }
+        ],
+        "commits": [
+          "d297ba1"
+        ],
+        "files": [
+          "agent/backlog/issues/TMP-021-full-system-verification.md",
+          "agent/state/TMP-021.work-order.json",
+          "docs/agent/full-system-verification-2026-05-09.md",
+          "slices/TMP-021-full-system-verification/notes.md",
+          "slices/TMP-021-full-system-verification/slice.yaml",
+          "slices/TMP-021-full-system-verification/value-gate-report.md",
+          "slices/manifest.json"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-021",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "blocked",
+      "title": "Release verification matrix",
+      "unresolved": [
+        {
+          "blocker": "Dependency/vendor approval required.",
+          "disposition": "blocked",
+          "item": "Repair notification and subscription-partner module/vendor metadata.",
+          "next_task_id": null,
+          "reason": "Dependency and vendor changes are approval-gated.",
+          "severity": "high"
+        },
+        {
+          "blocker": "Missing .gitmodules mapping.",
+          "disposition": "blocked",
+          "item": "Initialize or remove frontend/webspa-admin gitlink.",
+          "next_task_id": null,
+          "reason": "Repository metadata is inconsistent.",
+          "severity": "high"
+        },
+        {
+          "blocker": "Missing env values and secret-shaped checked-in config.",
+          "disposition": "blocked",
+          "item": "Run compose runtime smoke.",
+          "next_task_id": null,
+          "reason": "Runtime start would require secret/config decisions.",
+          "severity": "high"
+        },
+        {
+          "blocker": "origin/main merge conflicts.",
+          "disposition": "blocked",
+          "item": "Verify against merged remote state.",
+          "next_task_id": null,
+          "reason": "Merge produced broad add/add conflicts and was aborted.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T01:19:09Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "services/landing-web/app/lp/[tenant]/page.tsx",
+            "services/landing-web/app/lp/[tenant]/[slug]/page.tsx",
+            "services/landing-web/app/api/campaigns/[tenant]/route.ts",
+            "services/landing-web/app/api/campaigns/[tenant]/[slug]/route.ts",
+            "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Landing web must build after resolving conflicting App Router dynamic segment names."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Renamed same-depth App Router dynamic routes to [tenant] compatibility folders",
+        "Mapped single-segment params back to campaign slug",
+        "Verified cd services/landing-web && npm run build",
+        "Renamed landing-web dynamic route folders from slug/slug conflicts to tenant/slug.",
+        "Preserved legacy single-segment campaign behavior by treating /lp/[tenant] as the campaign slug path.",
+        "Updated campaign API route params and metadata handling for the new segment names."
+      ],
+      "created_at": "2026-05-09T01:03:54Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "cd services/landing-web && npm run build",
+            "exit_code": 0,
+            "output_excerpt": "build passed with /api/campaigns/[tenant], /api/campaigns/[tenant]/[slug], /lp/[tenant], /lp/[tenant]/[slug]",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:12:00Z"
+          }
+        ],
+        "commits": [
+          "d297ba1"
+        ],
+        "files": [
+          "agent/backlog/issues/TMP-022-landing-web-dynamic-route-build.md",
+          "agent/state/TMP-022.work-order.json",
+          "services/landing-web/app/api/campaigns/[tenant]/[slug]/route.ts",
+          "services/landing-web/app/api/campaigns/[tenant]/route.ts",
+          "services/landing-web/app/lp/[tenant]/LandingPageClient.tsx",
+          "services/landing-web/app/lp/[tenant]/[slug]/page.tsx",
+          "services/landing-web/app/lp/[tenant]/page.tsx",
+          "slices/TMP-022-landing-web-dynamic-route-build/domain-brief.md",
+          "slices/TMP-022-landing-web-dynamic-route-build/notes.md",
+          "slices/TMP-022-landing-web-dynamic-route-build/slice.yaml",
+          "slices/TMP-022-landing-web-dynamic-route-build/spec.md",
+          "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md",
+          "slices/manifest.json"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-022",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Landing web dynamic route build failure",
+      "unresolved": [],
+      "updated_at": "2026-05-09T01:19:03Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "common/openApiGenerator.go",
+            "common/postgres/database_test.go",
+            "common/auth/tenantctx/trusted_service_test.go",
+            "slices/TMP-023-common-package-test-failures/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "common package tests must pass without dependency or vendor rewrites."
+        }
+      ],
+      "attempts": 0,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Excluded tool-only OpenAPI generator helper from normal builds",
+        "Updated postgres tests for current NewPGXPool signature",
+        "Aligned nonce replay test clock and verified cd common && go test ./...",
+        "Excluded the OpenAPI generator helper from normal package builds with a tools-only build tag.",
+        "Updated postgres tests for the current NewPGXPool signature.",
+        "Aligned trusted-service nonce replay test clock setup with verifier time."
+      ],
+      "created_at": "2026-05-09T01:09:47Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "cd common && go test ./...",
+            "exit_code": 0,
+            "output_excerpt": "all common package tests passed",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:12:00Z"
+          }
+        ],
+        "commits": [
+          "d297ba1"
+        ],
+        "files": [
+          "agent/backlog/issues/TMP-023-common-package-test-failures.md",
+          "agent/state/TMP-023.work-order.json",
+          "common/auth/tenantctx/trusted_service_test.go",
+          "common/openApiGenerator.go",
+          "common/postgres/database_test.go",
+          "slices/TMP-023-common-package-test-failures/domain-brief.md",
+          "slices/TMP-023-common-package-test-failures/notes.md",
+          "slices/TMP-023-common-package-test-failures/slice.yaml",
+          "slices/TMP-023-common-package-test-failures/spec.md",
+          "slices/TMP-023-common-package-test-failures/value-gate-report.md",
+          "slices/manifest.json"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-023",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Common package test failures",
+      "unresolved": [
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "worker returned without accepted handoff",
+          "next_task_id": "T-TMP-023",
+          "reason": "closeout gate",
+          "session_id": "codex-20260509-005155",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T01:19:06Z",
+      "worktree": null
     }
   ],
   "version": 1

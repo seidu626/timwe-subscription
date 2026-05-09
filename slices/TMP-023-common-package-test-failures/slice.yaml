@@ -1,0 +1,46 @@
+story:
+  id: "TMP-023"
+  title: "Common library tests pass"
+  actor: "platform-operator"
+  action: "run common package verification"
+  outcome: "shared tenant auth and database helpers are reliable for dependent services"
+  as_a: "platform-operator"
+  i_want_to: "run common library tests successfully"
+  so_that: "service verification is not blocked by shared package failures"
+
+entrypoints:
+  - "common/openApiGenerator.go"
+  - "common/postgres/database_test.go"
+  - "common/auth/tenantctx/trusted_service_test.go"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Common tests pass"
+      given: ["the common package source is checked out"]
+      when: "operator runs go test ./..."
+      then: "all common package tests pass"
+      evidence: "cd common && go test ./..."
+  failures:
+    - scenario: "Replay nonce accepted twice"
+      given: ["trusted service middleware receives a repeated nonce"]
+      when: "the second request is served"
+      then: "middleware returns 401"
+      evidence: "TestMiddlewareRejectsReplayNonce"
+  invariants:
+    - rule: "Trusted service nonce replay is rejected"
+      preserved_by: "nonce store clock aligned with request validation clock in tests"
+      violated_when: "second identical request receives 204"
+      test: "TestMiddlewareRejectsReplayNonce"
+
+out_of_scope:
+  - "dependency changes"
+  - "service package fixes"
+
+size_check:
+  files_touched: 5
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-023-common-package-test-failures/value-gate-report.md"

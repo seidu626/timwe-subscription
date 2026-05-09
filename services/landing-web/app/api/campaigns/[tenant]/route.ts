@@ -4,12 +4,12 @@ const ACQUISITION_API_URL = process.env.ACQUISITION_API_URL || 'http://localhost
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: { tenant: string } }
 ) {
-  const { slug } = params
+  const slug = params.tenant
 
   try {
-    const response = await fetch(`${ACQUISITION_API_URL}/v1/campaigns/${slug}`, {
+    const response = await fetch(`${ACQUISITION_API_URL}/v1/campaigns/${encodeURIComponent(slug)}`, {
       headers: {
         'Content-Type': 'application/json',
       },

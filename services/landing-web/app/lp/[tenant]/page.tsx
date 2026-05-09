@@ -3,13 +3,13 @@ import type { Metadata } from 'next'
 import LandingPageClient from './LandingPageClient'
 
 export async function generateMetadata(
-  { params }: { params: { slug: string } }
+  { params }: { params: { tenant: string } }
 ): Promise<Metadata> {
-  const slug = params.slug
+  const slug = params.tenant
   const ACQUISITION_API_URL = process.env.ACQUISITION_API_URL || 'http://localhost:8084'
 
   try {
-    const response = await fetch(`${ACQUISITION_API_URL}/v1/campaigns/${slug}`, {
+    const response = await fetch(`${ACQUISITION_API_URL}/v1/campaigns/${encodeURIComponent(slug)}`, {
       next: { revalidate: 3600 }
     })
     

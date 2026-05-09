@@ -1,0 +1,69 @@
+{
+  "work_order_id": "WO-TMP-023-001",
+  "issue_id": "TMP-023",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Shared common library tests pass so tenant auth and database helpers are reliable for dependent services.",
+  "actor": "platform-operator",
+  "entrypoint": "common package test suite",
+  "trigger": "Operator runs `go test ./...` in `common`",
+  "allowed_files": [
+    "common/openApiGenerator.go",
+    "common/postgres/database_test.go",
+    "common/auth/tenantctx/**",
+    "slices/TMP-023-common-package-test-failures/**",
+    "slices/manifest.json",
+    "agent/backlog/issues/TMP-023-common-package-test-failures.md",
+    "agent/state/TMP-023.work-order.json",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "common/go.mod",
+    "common/go.sum",
+    "common/vendor/**",
+    "services/**"
+  ],
+  "acceptance_tests": [
+    "cd common && go test ./...",
+    "test -f slices/TMP-023-common-package-test-failures/value-gate-report.md"
+  ],
+  "required_evidence": [
+    "cd common && go test ./...",
+    "slices/TMP-023-common-package-test-failures/value-gate-report.md"
+  ],
+  "non_goals": [
+    "No dependency updates.",
+    "No vendor regeneration.",
+    "No service API changes."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-023",
+    "title": "Common package test failures",
+    "path": "agent/backlog/issues/TMP-023-common-package-test-failures.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 92,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

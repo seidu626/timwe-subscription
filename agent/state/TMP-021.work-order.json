@@ -1,0 +1,74 @@
+{
+  "work_order_id": "WO-TMP-021-001",
+  "issue_id": "TMP-021",
+  "class": "operational_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Operator has evidence-backed release-readiness status for every discovered runnable component and implemented feature, including passed, fixed, blocked, failed, not applicable, or not implemented rows.",
+  "actor": "platform-operator",
+  "entrypoint": "docs/agent/full-system-verification-2026-05-09.md",
+  "trigger": "Operator requests end-to-end release verification",
+  "allowed_files": [
+    "docs/agent/**",
+    "slices/TMP-021-full-system-verification/**",
+    "slices/manifest.json",
+    "agent/backlog/issues/TMP-021-full-system-verification.md",
+    "agent/state/TMP-021.work-order.json",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "common/**",
+    "frontend/**",
+    "ops/**",
+    "docker-compose*.yml",
+    "Makefile"
+  ],
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "agent-supervisor --config .harness/config.json preflight",
+    "test -f docs/agent/full-system-verification-2026-05-09.md",
+    "test -f slices/TMP-021-full-system-verification/value-gate-report.md"
+  ],
+  "required_evidence": [
+    "agent-supervisor --config .harness/config.json preflight",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-021-full-system-verification/value-gate-report.md"
+  ],
+  "non_goals": [
+    "No production deploy.",
+    "No dependency additions or upgrades.",
+    "No broad refactor."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-021",
+    "title": "Release verification matrix",
+    "path": "agent/backlog/issues/TMP-021-full-system-verification.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 92,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "blockers": [
+    "notification and subscription-partner vendor/dependency metadata repairs require explicit dependency/vendor approval",
+    "webspa-admin gitlink cannot be initialized because .gitmodules mapping is missing",
+    "compose runtime start is blocked by missing env values and secret-shaped checked-in config",
+    "local main and origin/main diverge with add/add conflicts"
+  ],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-20260509-005155",
+  "status": "blocked",
+  "summary": "Release verification matrix completed and blocked items are documented.",
+  "task_id": "T-TMP-021",
+  "unfinished_work": [
+    {
+      "blocker": "Dependency/vendor approval required.",
+      "disposition": "blocked",
+      "item": "Repair notification and subscription-partner module/vendor metadata.",
+      "next_task_id": null,
+      "reason": "Dependency and vendor changes are approval-gated.",
+      "severity": "high"
+    },
+    {
+      "blocker": "Missing .gitmodules mapping.",
+      "disposition": "blocked",
+      "item": "Initialize or remove frontend/webspa-admin gitlink.",
+      "next_task_id": null,
+      "reason": "Repository metadata is inconsistent.",
+      "severity": "high"
+    },
+    {
+      "blocker": "Missing env values and secret-shaped checked-in config.",
+      "disposition": "blocked",
+      "item": "Run compose runtime smoke.",
+      "next_task_id": null,
+      "reason": "Runtime start would require secret/config decisions.",
+      "severity": "high"
+    },
+    {
+      "blocker": "origin/main merge conflicts.",
+      "disposition": "blocked",
+      "item": "Verify against merged remote state.",
+      "next_task_id": null,
+      "reason": "Merge produced broad add/add conflicts and was aborted.",
+      "severity": "high"
+    }
+  ],
+  "written_at": "2026-05-09T01:19:09Z"
+}
