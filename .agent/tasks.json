@@ -1757,6 +1757,171 @@
       ],
       "updated_at": "2026-05-09T03:34:27Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-033-tmp032-ledger-state-reconciliation/notes.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "The pre-repair ledger state is documented as T-TMP-032 running."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "sqlite3 .harness/task-ledger.sqlite \"select id,status,title from tasks where id='T-TMP-032';\"",
+            "T-TMP-032|done|Postback dispatcher compose DB env"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "The repaired ledger state is T-TMP-032 done."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "agent-supervisor list-tasks with worktree-local temp config",
+            "T-TMP-032 done"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "agent-supervisor list-tasks reports T-TMP-032 as done."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "agent-harness list",
+            "T-TMP-032 done"
+          ],
+          "id": "AC-4",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "agent-harness list reports T-TMP-032 as done."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slice-harness sync --dry-run",
+            "no drift detected"
+          ],
+          "id": "AC-5",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "slice-harness sync --dry-run reports no drift."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "git diff --name-only",
+            "changed files limited to .agent, .harness/task-ledger.sqlite, TMP-033 issue/work-order/handoff, slices/manifest.json, and TMP-033 slice evidence"
+          ],
+          "id": "AC-6",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No service, frontend, dependency, migration, compose, or package files changed."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        "Full runtime verification remains blocked by schema provisioning approval: acquisition-api needs base products/userbase tables, notification-worker needs message_outbox, and postback-dispatcher needs postback_outbox in the compose DB.",
+        "webspa-admin remains blocked because the configured submodule remote does not provide pinned commit 2ad95b18ecff4d8b23e5d1b7152975c477d5137a.",
+        "Dependency vulnerability remediation remains approval-gated because npm audit proposes breaking Next/PostCSS upgrades."
+      ],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Captured TMP-033 operational slice and work order for the supervisor ledger drift.",
+        "Preserved the supervisor preflight repair that changes T-TMP-032 from running to done.",
+        "Added TMP-033 slice spec, notes, and value-gate evidence.",
+        "Verified supervisor, agent-harness, slice-harness, HVC, and file-scope checks."
+      ],
+      "created_at": "2026-05-09T03:45:26Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "sqlite3 .harness/task-ledger.sqlite \"select id,status,title from tasks where id='T-TMP-032';\"",
+            "exit_code": 0,
+            "output_excerpt": "T-TMP-032|done|Postback dispatcher compose DB env",
+            "status": "passed",
+            "timestamp": "2026-05-09T03:47:30Z"
+          },
+          {
+            "command": "agent-supervisor preflight --repair && preflight && list-tasks with worktree-local temp config",
+            "exit_code": 0,
+            "output_excerpt": "T-TMP-032 done; only stale superseded non-schedulable repair rows remain",
+            "status": "passed",
+            "timestamp": "2026-05-09T03:47:30Z"
+          },
+          {
+            "command": "agent-harness list",
+            "exit_code": 0,
+            "output_excerpt": "T-TMP-032 done",
+            "status": "passed",
+            "timestamp": "2026-05-09T03:47:30Z"
+          },
+          {
+            "command": "slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T03:47:30Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-033 assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-09T03:47:30Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/T-TMP-033.json",
+          ".agent/tasks.json",
+          ".harness/task-ledger.sqlite",
+          "agent/backlog/issues/TMP-033-tmp032-ledger-state-reconciliation.md",
+          "agent/state/TMP-033.handoff.json",
+          "agent/state/TMP-033.work-order.json",
+          "slices/manifest.json",
+          "slices/TMP-033-tmp032-ledger-state-reconciliation/notes.md",
+          "slices/TMP-033-tmp032-ledger-state-reconciliation/slice.yaml",
+          "slices/TMP-033-tmp032-ledger-state-reconciliation/spec.md",
+          "slices/TMP-033-tmp032-ledger-state-reconciliation/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-033",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "TMP-032 ledger state reconciliation",
+      "unresolved": [
+        {
+          "blocker": "Schema provisioning changes are approval-gated by repo risk boundaries.",
+          "disposition": "out_of_scope",
+          "item": "Make the empty compose DB contain products, userbase, message_outbox, and postback_outbox before service startup/polling.",
+          "next_task_id": null,
+          "reason": "This would touch migration/schema provisioning behavior.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T03:48:44Z",
+      "worktree": null
     }
   ],
   "version": 1

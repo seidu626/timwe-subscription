@@ -1,0 +1,24 @@
+{
+  "branch": "agent/codex/schema-provisioning-assess-20260509-034210",
+  "branches": [
+    "agent/TMP-011-codex c88cd46 ",
+    "agent/TMP-014-codex 8b5a011 ",
+    "agent/TMP-015-codex 70ef96f ",
+    "agent/codex/TMP-008-notification-cadence-20260508-070538 28ababe ",
+    "agent/codex/TMP-009-postback-routing-20260508-064552 315c49c ",
+    "agent/codex/TMP-010-reporting-operations-20260508-093015 d484809 ",
+    "agent/codex/TMP-013-callback-correlation-20260508-065311 ccd4e7e ",
+    "agent/codex/TMP-017-billing-charge-ownership-20260508-074034 8c22d98 ",
+    "agent/codex/TMP-020-observability-20260508-072738 0ef6900 ",
+    "agent/codex/full-system-blocker-audit-20260509-022225 ebe5edc origin/agent/codex/full-system-blocker-audit-20260509-022225",
+    "agent/codex/pending-slices-20260508-095850 e286c92 ",
+    "agent/codex/schema-provisioning-assess-20260509-034210 3e58e9e origin/main",
+    "agent/codex/tenant-platform-roadmap-20260508-014156 7924528 ",
+    "main ab22b15 origin/main"
+  ],
+  "dirty": true,
+  "head": "3e58e9e",
+  "inside_git": true,
+  "status_porcelain": "M .agent/events.jsonl\n M .agent/tasks.json\n M .harness/task-ledger.sqlite\n M slices/manifest.json\n?? .agent/heartbeats/T-TMP-033.json\n?? .agent/sessions/codex-20260509-034210/\n?? agent/backlog/issues/TMP-033-tmp032-ledger-state-reconciliation.md\n?? agent/state/TMP-033.handoff.json\n?? agent/state/TMP-033.work-order.json\n?? slices/TMP-033-tmp032-ledger-state-reconciliation/",
+  "worktrees_porcelain": "worktree /home/xper626/workspace/apps/timwe-subscription\nHEAD ab22b15f7c8f6ea8df951a04f3201027c00de06e\nbranch refs/heads/main\n\nworktree /home/xper626/workspace/apps/worktrees/codex-TMP-008-notification-cadence-20260508-070538\nHEAD 28ababe923a40c4afcb8f7bfc42bbae0a1823926\nbranch refs/heads/agent/codex/TMP-008-notification-cadence-20260508-070538\n\nworktree /home/xper626/workspace/apps/worktrees/codex-TMP-009-postback-routing-20260508-064552\nHEAD 315c49cc6e550d06dfd86313e77a9cad4c67ac43\nbranch refs/heads/agent/codex/TMP-009-postback-routing-20260508-064552\n\nworktree /home/xper626/workspace/apps/worktrees/codex-TMP-013-callback-correlation-20260508-065311\nHEAD ccd4e7e13090d6aaad8d85e0c09a51419c7413fe\nbranch refs/heads/agent/codex/TMP-013-callback-correlation-20260508-065311\n\nworktree /home/xper626/workspace/apps/worktrees/codex-TMP-017-billing-charge-ownership-20260508-074034\nHEAD 8c22d985baa489e96cccd62240e598b40dddafa1\nbranch refs/heads/agent/codex/TMP-017-billing-charge-ownership-20260508-074034\n\nworktree /home/xper626/workspace/apps/worktrees/codex-TMP-020-observability-20260508-072738\nHEAD 0ef6900e093ef04a5bfbd91a95da5a617e794ecf\nbranch refs/heads/agent/codex/TMP-020-observability-20260508-072738\n\nworktree /home/xper626/workspace/apps/worktrees/codex-full-system-blocker-audit-20260509-022225\nHEAD ebe5edc0ac536685f7c4627130811559d623e291\nbranch refs/heads/agent/codex/full-system-blocker-audit-20260509-022225\n\nworktree /home/xper626/workspace/apps/worktrees/codex-schema-provisioning-assess-20260509-034210\nHEAD 3e58e9e3cdb8ee14ec324c76ec5f184b4a8ac111\nbranch refs/heads/agent/codex/schema-provisioning-assess-20260509-034210\n\nworktree /home/xper626/workspace/apps/worktrees/codex-tenant-platform-roadmap-20260508-014156\nHEAD 79245289debaca36cb9fabd2341c2c5bfc0940fa\nbranch refs/heads/agent/codex/tenant-platform-roadmap-20260508-014156"
+}
