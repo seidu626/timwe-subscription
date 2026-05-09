@@ -12,7 +12,7 @@
       "status": "passed"
     },
     {
-      "blocker": "Dependency/vendor repairs, missing submodule mapping, env readiness, and main/origin divergence remain outside this slice's safe edit scope.",
+      "blocker": "webspa-admin submodule, env readiness, and main/origin divergence remain outside this slice's safe edit scope.",
       "criterion": "Run repository-level verification and identify blockers without making dependency, vendor, secret, or merge-conflict changes.",
       "evidence": [
         "docs/agent/full-system-verification-2026-05-09.md"
@@ -23,10 +23,10 @@
     }
   ],
   "blockers": [
-    "notification and subscription-partner vendor/dependency metadata repairs require explicit dependency/vendor approval",
-    "webspa-admin gitlink cannot be initialized because .gitmodules mapping is missing",
+    "webspa-admin gitlink cannot be initialized because the configured submodule remote does not contain pinned commit 2ad95b18ecff4d8b23e5d1b7152975c477d5137a",
     "compose runtime start is blocked by missing env values and secret-shaped checked-in config",
-    "local main and origin/main diverge with add/add conflicts; clean PR branch uses origin/main as source of truth"
+    "local main and origin/main diverge with add/add conflicts; clean PR branches use origin/main as source of truth",
+    "dependency vulnerability remediation requires explicit approval because npm audit proposes a breaking Next/PostCSS upgrade"
   ],
   "changed_files": [
     "agent/backlog/issues/TMP-021-full-system-verification.md",
@@ -48,7 +48,8 @@
   ],
   "completed_work": [
     "Created a full-system release verification matrix across Go services, landing-web, compose/runtime config, harness state, and repo integration.",
-    "Recorded blocked verification outcomes and command evidence in slice artifacts."
+    "Recorded blocked verification outcomes and command evidence in slice artifacts.",
+    "TMP-027 retired stale notification/subscription-partner dependency blocker using current passing test/build evidence."
   ],
   "confidence": {
     "completeness": "medium",
@@ -56,19 +57,19 @@
     "verification": "high"
   },
   "known_gaps": [
-    "Admin frontend cannot be verified until frontend/webspa-admin has a .gitmodules mapping or the gitlink is removed intentionally.",
-    "Notification and subscription-partner dependency/vendor metadata need explicit approval before repair.",
+    "Admin frontend cannot be verified until the pinned frontend/webspa-admin commit is available from the configured submodule remote, the gitlink is repointed after review, or the gitlink strategy is replaced.",
     "Runtime compose smoke cannot proceed until required env values are supplied and checked-in secret-shaped config is resolved.",
-    "The original worktree is based on local main; merging origin/main produced add/add conflicts and was aborted. A clean PR branch was created from origin/main and the verified repair commit was cherry-picked there."
+    "The original worktree is based on local main; merging origin/main produced add/add conflicts and was aborted. A clean PR branch was created from origin/main and the verified repair commit was cherry-picked there.",
+    "Dependency vulnerability remediation remains approval-gated because npm audit proposes a breaking Next/PostCSS upgrade."
   ],
   "next_tasks": [],
-  "operator_message": "Full release verification is blocked by dependency/vendor, submodule, env/secret, and local-main integration gates. The verified repair slices are on clean PR branch agent/codex/full-system-verify-pr-20260509-0129.",
+  "operator_message": "Full release verification remains blocked by webspa-admin submodule, compose env/secret, dependency vulnerability, and local-main integration gates. TMP-027 retired the stale notification/subscription-partner dependency blocker with current passing test/build evidence.",
   "residual_work_policy": "continue_if_safe",
   "risk_notes": [
     "Do not run broad dependency updates or vendor rewrites without approval.",
     "Do not quote checked-in secret-shaped values in reports or user-facing output."
   ],
-  "safe_to_continue": false,
+  "safe_to_continue": true,
   "schema_version": 1,
   "session_id": "codex-20260509-005155",
   "status": "blocked",
@@ -77,19 +78,11 @@
   "task_id": "T-TMP-021",
   "unfinished_work": [
     {
-      "blocker": "Dependency/vendor approval required.",
-      "disposition": "blocked",
-      "item": "Repair notification and subscription-partner module/vendor metadata.",
-      "next_task_id": null,
-      "reason": "Dependency and vendor changes are approval-gated.",
-      "severity": "high"
-    },
-    {
-      "blocker": "Missing .gitmodules mapping.",
+      "blocker": "Pinned submodule commit unavailable from configured remote.",
       "disposition": "blocked",
       "item": "Initialize or remove frontend/webspa-admin gitlink.",
       "next_task_id": null,
-      "reason": "Repository metadata is inconsistent.",
+      "reason": "Repository metadata maps the path, but the remote cannot fetch the pinned admin commit.",
       "severity": "high"
     },
     {
@@ -98,6 +91,14 @@
       "item": "Run compose runtime smoke.",
       "next_task_id": null,
       "reason": "Runtime start would require secret/config decisions.",
+      "severity": "high"
+    },
+    {
+      "blocker": "Breaking dependency upgrade approval required.",
+      "disposition": "blocked",
+      "item": "Remediate landing-web dependency vulnerabilities.",
+      "next_task_id": null,
+      "reason": "npm audit fix proposes a breaking Next/PostCSS upgrade and needs explicit dependency approval plus UI regression verification.",
       "severity": "high"
     },
     {
@@ -131,5 +132,6 @@
       "status": "passed",
       "timestamp": "2026-05-09T01:12:00Z"
     }
-  ]
+  ],
+  "updated_at": "2026-05-09T02:09:58Z"
 }

@@ -258,7 +258,7 @@
           "text": "Document full-system service inventory, verification commands, pass/fail status, risks, and unresolved blockers."
         },
         {
-          "blocker": "Dependency/vendor repairs, missing submodule mapping, env readiness, and main/origin divergence remain outside this slice's safe edit scope.",
+          "blocker": "webspa-admin submodule, env readiness, and main/origin divergence remain outside this slice's safe edit scope.",
           "evidence": [
             "docs/agent/full-system-verification-2026-05-09.md"
           ],
@@ -271,10 +271,10 @@
       ],
       "attempts": 1,
       "blockers": [
-        "notification and subscription-partner vendor/dependency metadata repairs require explicit dependency/vendor approval",
         "webspa-admin gitlink cannot be initialized because the configured submodule remote does not contain pinned commit 2ad95b18ecff4d8b23e5d1b7152975c477d5137a",
         "compose runtime start is blocked by missing env values and secret-shaped checked-in config",
-        "local main and origin/main diverge with add/add conflicts"
+        "local main and origin/main diverge with add/add conflicts",
+        "dependency vulnerability remediation requires explicit approval because npm audit proposes a breaking Next/PostCSS upgrade"
       ],
       "branch": null,
       "children": [],
@@ -283,7 +283,8 @@
         "TMP-022 landing-web build fixed and verified",
         "TMP-023 common package tests fixed and verified",
         "Created a full-system release verification matrix across Go services, landing-web, compose/runtime config, harness state, and repo integration.",
-        "Recorded blocked verification outcomes and command evidence in slice artifacts."
+        "Recorded blocked verification outcomes and command evidence in slice artifacts.",
+        "TMP-027 retired stale notification/subscription-partner dependency blocker using current passing test/build evidence"
       ],
       "created_at": "2026-05-09T00:56:05Z",
       "details": "",
@@ -334,19 +335,11 @@
       "title": "Release verification matrix",
       "unresolved": [
         {
-          "blocker": "Dependency/vendor approval required.",
-          "disposition": "blocked",
-          "item": "Repair notification and subscription-partner module/vendor metadata.",
-          "next_task_id": null,
-          "reason": "Dependency and vendor changes are approval-gated.",
-          "severity": "high"
-        },
-        {
-          "blocker": "Missing .gitmodules mapping.",
+          "blocker": "Pinned submodule commit is unavailable from the configured remote.",
           "disposition": "blocked",
           "item": "Initialize or remove frontend/webspa-admin gitlink.",
           "next_task_id": null,
-          "reason": "Repository metadata is inconsistent.",
+          "reason": "Repository metadata maps the path, but the remote cannot fetch the pinned admin commit.",
           "severity": "high"
         },
         {
@@ -358,6 +351,14 @@
           "severity": "high"
         },
         {
+          "blocker": "Breaking dependency upgrade approval required.",
+          "disposition": "blocked",
+          "item": "Remediate landing-web dependency vulnerabilities.",
+          "next_task_id": null,
+          "reason": "npm audit fix proposes a breaking Next/PostCSS upgrade and needs explicit dependency approval plus UI regression verification.",
+          "severity": "high"
+        },
+        {
           "blocker": "origin/main merge conflicts.",
           "disposition": "blocked",
           "item": "Verify against merged remote state.",
@@ -366,7 +367,7 @@
           "severity": "high"
         }
       ],
-      "updated_at": "2026-05-09T02:01:34Z",
+      "updated_at": "2026-05-09T02:09:58Z",
       "worktree": null
     },
     {
@@ -872,6 +873,169 @@
       "title": "webspa-admin submodule verification",
       "unresolved": [],
       "updated_at": "2026-05-09T02:01:34Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-027-release-matrix-stale-blocker-reconciliation/value-gate-report.md",
+            "docs/agent/full-system-verification-2026-05-09.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Current services/subscription-partner default tests pass and are recorded."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-027-release-matrix-stale-blocker-reconciliation/value-gate-report.md",
+            "docs/agent/full-system-verification-2026-05-09.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Current services/notification default tests pass and are recorded."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-027-release-matrix-stale-blocker-reconciliation/value-gate-report.md",
+            "docs/agent/full-system-verification-2026-05-09.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Current make build-all-local passes and is recorded."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-021-full-system-verification/value-gate-report.md",
+            "agent/state/TMP-021.handoff.json",
+            ".agent/tasks.json"
+          ],
+          "id": "AC-4",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "TMP-021 no longer lists notification/subscription-partner dependency/vendor metadata repair as a current blocker."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "docs/agent/full-system-verification-2026-05-09.md",
+            "slices/TMP-021-full-system-verification/value-gate-report.md",
+            ".agent/tasks.json"
+          ],
+          "id": "AC-5",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Runtime/env, webspa-admin submodule, dependency vulnerability, and local-main divergence blockers remain visible."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Reran subscription-partner default tests on current origin/main.",
+        "Reran notification default tests on current origin/main.",
+        "Reran canonical make build-all-local on current origin/main.",
+        "Retired stale TMP-021 notification/subscription-partner dependency blocker in human and machine-readable evidence.",
+        "Preserved current webspa-admin, compose runtime, dependency vulnerability, and local-main divergence blockers."
+      ],
+      "created_at": "2026-05-09T02:10:25Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "cd services/subscription-partner && go test ./...",
+            "exit_code": 0,
+            "output_excerpt": "handler, repository, and service tests passed; other packages had no test files",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:07:21Z"
+          },
+          {
+            "command": "cd services/notification && go test ./...",
+            "exit_code": 0,
+            "output_excerpt": "dispatcher, handler, observability, repository, service, and transport tests passed",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:07:21Z"
+          },
+          {
+            "command": "make build-all-local",
+            "exit_code": 0,
+            "output_excerpt": "subscription-external, subscription-partner, billing, notification, notification-worker, acquisition-api, and cadence-engine built successfully",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:09:58Z"
+          },
+          {
+            "command": "jq empty slices/manifest.json agent/state/TMP-027.work-order.json .agent/tasks.json agent/state/TMP-021.handoff.json",
+            "exit_code": 0,
+            "output_excerpt": "JSON files valid",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:12:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-027 assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:12:00Z"
+          },
+          {
+            "command": "slice-harness status && slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "TMP-021 and TMP-026 blocked; no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:12:00Z"
+          },
+          {
+            "command": "agent-supervisor preflight --repair with worktree-local temp config",
+            "exit_code": 0,
+            "output_excerpt": "ok true; T-TMP-027 synced to supervisor ledger",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:12:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/T-TMP-027.json",
+          ".agent/tasks.json",
+          ".harness/events.jsonl",
+          ".harness/task-ledger.sqlite",
+          "agent/backlog/issues/TMP-027-release-matrix-stale-blocker-reconciliation.md",
+          "agent/state/TMP-021.handoff.json",
+          "agent/state/TMP-027.handoff.json",
+          "agent/state/TMP-027.work-order.json",
+          "docs/agent/full-system-verification-2026-05-09.md",
+          "slices/TMP-021-full-system-verification/value-gate-report.md",
+          "slices/TMP-027-release-matrix-stale-blocker-reconciliation/domain-brief.md",
+          "slices/TMP-027-release-matrix-stale-blocker-reconciliation/notes.md",
+          "slices/TMP-027-release-matrix-stale-blocker-reconciliation/slice.yaml",
+          "slices/TMP-027-release-matrix-stale-blocker-reconciliation/spec.md",
+          "slices/TMP-027-release-matrix-stale-blocker-reconciliation/value-gate-report.md",
+          "slices/manifest.json"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-027",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Release matrix stale blocker reconciliation",
+      "unresolved": [],
+      "updated_at": "2026-05-09T02:15:52Z",
       "worktree": null
     }
   ],

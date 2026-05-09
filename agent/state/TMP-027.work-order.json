@@ -1,0 +1,77 @@
+{
+  "work_order_id": "WO-TMP-027-001",
+  "issue_id": "TMP-027",
+  "class": "operational_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Operator-inspectable release matrix accurately reflects current Go test and build pass evidence while keeping remaining real blockers visible.",
+  "actor": "platform-operator",
+  "entrypoint": "docs/agent/full-system-verification-2026-05-09.md",
+  "trigger": "Operator reviews current full-system verification state after new origin/main evidence.",
+  "allowed_files": [
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/manifest.json",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/TMP-027-release-matrix-stale-blocker-reconciliation/**",
+    "agent/backlog/issues/TMP-027-release-matrix-stale-blocker-reconciliation.md",
+    "agent/state/TMP-027.work-order.json",
+    "agent/state/TMP-027.handoff.json",
+    "agent/state/TMP-021.handoff.json",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "common/**",
+    "services/**",
+    "frontend/**",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json",
+    "vendor/**"
+  ],
+  "acceptance_tests": [
+    "cd services/subscription-partner && go test ./...",
+    "cd services/notification && go test ./...",
+    "make build-all-local",
+    "jq empty slices/manifest.json agent/state/TMP-027.work-order.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness sync --dry-run"
+  ],
+  "required_evidence": [
+    "cd services/subscription-partner && go test ./...",
+    "cd services/notification && go test ./...",
+    "make build-all-local",
+    "slices/TMP-027-release-matrix-stale-blocker-reconciliation/value-gate-report.md",
+    "agent/state/TMP-021.handoff.json"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-027",
+    "title": "Release matrix stale blocker reconciliation",
+    "path": "agent/backlog/issues/TMP-027-release-matrix-stale-blocker-reconciliation.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

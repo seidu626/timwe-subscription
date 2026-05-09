@@ -20,7 +20,7 @@ Audit 1 result: BLOCKED. The release matrix artifact is complete, but full-syste
 - Git divergence is visible: COVERED by failed `git merge --no-edit origin/main` probe and blocked-check row.
 - Missing runtime dependency handling: COVERED by compose, external provider, and credential blocker rows.
 - Feature verification cannot rely only on builds: COVERED by separate service, feature, and blocked-check matrices.
-- Dependency/vendor repair is approval-gated: COVERED by notification and subscription-partner failure ledger rows.
+- Stale failure retirement is visible: COVERED by TMP-027 command evidence showing notification and subscription-partner default tests plus canonical local build now pass.
 
 Audit 2 result: BLOCKED.
 
@@ -34,9 +34,9 @@ Audit 3 result: PASS for artifact integrity, BLOCKED for release readiness.
 
 ## Blocking Gates
 
-- notification and subscription-partner vendor/dependency metadata repairs require explicit dependency/vendor approval.
 - webspa-admin gitlink cannot be initialized because the configured submodule remote does not contain pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`.
 - compose runtime start is blocked by missing env values and secret-shaped checked-in config.
+- dependency vulnerability remediation requires explicit approval because `npm audit` proposes a breaking Next/PostCSS upgrade.
 - local main and origin/main diverge with add/add conflicts; clean PR branches use `origin/main` as source of truth.
 
 ## Commands
