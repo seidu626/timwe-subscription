@@ -1,0 +1,14 @@
+{
+  "blockers": [
+    "webspa-admin gitlink pins 2ad95b18ecff4d8b23e5d1b7152975c477d5137a, but https://github.com/coreui/coreui-free-angular-admin-template.git does not provide that commit.",
+    "Operator decision required: publish the pinned admin commit to an accessible remote, repoint the gitlink after review, or replace the gitlink strategy."
+  ],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-20260509-015346",
+  "status": "blocked",
+  "summary": "webspa-admin submodule metadata is present, but checkout is blocked by an unavailable pinned commit.",
+  "task_id": "T-TMP-026",
+  "unfinished_work": [],
+  "written_at": "2026-05-09T02:01:34Z"
+}
