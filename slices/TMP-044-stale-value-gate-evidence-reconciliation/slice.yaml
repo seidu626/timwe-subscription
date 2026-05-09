@@ -1,0 +1,53 @@
+story:
+  id: "TMP-044"
+  title: "Operator can distinguish stale value-gate notes from current proof"
+  actor: "platform-operator"
+  action: "review completed slice value-gate reports with superseding evidence notes"
+  outcome: "release-readiness review is based on current command proof without erasing historical blocker context"
+  as_a: "platform-operator"
+  i_want_to: "see current verification evidence beside stale value-gate notes"
+  so_that: "I can tell whether older missing-dependency or module-hygiene blockers still apply"
+
+entrypoints:
+  - "slices/TMP-006-tenant-acquisition-flow/value-gate-report.md"
+  - "slices/TMP-012-public-tenant-routing/value-gate-report.md"
+  - "slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Landing-web stale notes are reconciled"
+      given: ["TMP-006 and TMP-012 contain historical node_modules-missing notes"]
+      when: "current landing-web install and build pass"
+      then: "both reports append superseding evidence without deleting the historical notes"
+      evidence: "npm ci and npm run build output"
+    - scenario: "Notification stale note is reconciled"
+      given: ["TMP-018 contains a historical notification module-hygiene blocker note"]
+      when: "current notification package tests pass"
+      then: "TMP-018 appends superseding evidence without deleting the historical note"
+      evidence: "go test ./... output"
+  failures:
+    - scenario: "Dependency remediation remains approval-gated"
+      given: ["npm ci reports vulnerabilities remediable only with breaking changes"]
+      when: "the reconciliation records current evidence"
+      then: "it points to TMP-037 instead of changing package manifests or lockfiles"
+      evidence: "git diff file-scope review"
+  invariants:
+    - rule: "Evidence reconciliation must not rewrite product behavior"
+      preserved_by: "metadata-only file scope"
+      violated_when: "services, common, frontend, compose, schema, package, or lockfile files change"
+      test: "git diff --name-only file-scope review"
+
+out_of_scope:
+  - "Dependency remediation"
+  - "Runtime schema provisioning"
+  - "Submodule strategy changes"
+  - "Branch integration"
+
+size_check:
+  files_touched: 10
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS"
+  report_path: "slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md"

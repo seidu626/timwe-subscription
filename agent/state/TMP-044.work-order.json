@@ -1,0 +1,80 @@
+{
+  "work_order_id": "WO-TMP-044-001",
+  "issue_id": "TMP-044",
+  "class": "operational_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "TMP-006, TMP-012, and TMP-018 reports identify current superseding verification evidence instead of leaving stale missing-dependency or module-hygiene notes ambiguous.",
+  "actor": "platform-operator",
+  "entrypoint": "slices/*/value-gate-report.md",
+  "trigger": "Full-system audit finds TMP-006, TMP-012, and TMP-018 reports with older blocked verification notes that later checks supersede.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-044-stale-value-gate-evidence-reconciliation.md",
+    "agent/state/TMP-044.work-order.json",
+    "agent/state/TMP-044.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-006-tenant-acquisition-flow/value-gate-report.md",
+    "slices/TMP-012-public-tenant-routing/value-gate-report.md",
+    "slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md",
+    "slices/TMP-044-stale-value-gate-evidence-reconciliation/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "common/**",
+    "frontend/**",
+    "ops/**",
+    "docker-compose*.yml",
+    "Makefile",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json",
+    "*.sql",
+    ".git/**"
+  ],
+  "acceptance_tests": [
+    "cd services/landing-web && npm ci && npm run build",
+    "cd services/notification && go test ./...",
+    "jq empty slices/manifest.json agent/state/TMP-044.work-order.json agent/state/TMP-044.handoff.json .agent/tasks.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness sync --dry-run",
+    "agent-supervisor preflight with worktree-local temp config"
+  ],
+  "required_evidence": [
+    "slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md",
+    "slices/TMP-006-tenant-acquisition-flow/value-gate-report.md",
+    "slices/TMP-012-public-tenant-routing/value-gate-report.md",
+    "slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-044",
+    "title": "Stale value-gate evidence reconciliation",
+    "path": "agent/backlog/issues/TMP-044-stale-value-gate-evidence-reconciliation.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}
