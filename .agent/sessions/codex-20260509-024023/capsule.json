@@ -1,0 +1,23 @@
+{
+  "blockers": [
+    "Compose runtime smoke is blocked before app startup because local Docker/Podman registry auth cannot pull the Go builder image.",
+    "After Docker registry auth/tooling is repaired, real env/provider values are still required for live-flow proof."
+  ],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-20260509-024023",
+  "status": "done",
+  "summary": "Compose smoke Docker auth blocker evidence recorded.",
+  "task_id": "T-TMP-029",
+  "unfinished_work": [
+    {
+      "blocker": "Local Docker/Podman registry auth cannot pull the Go builder image.",
+      "disposition": "out_of_scope",
+      "item": "Run compose app startup and health checks.",
+      "next_task_id": null,
+      "reason": "Bounded compose smoke failed before app containers started.",
+      "severity": "high"
+    }
+  ],
+  "written_at": "2026-05-09T02:49:01Z"
+}

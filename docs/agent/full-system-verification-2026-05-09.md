@@ -63,7 +63,7 @@ Scope exclusions:
 |---|---|---|---|
 | Go toolchain | `go.mod` files | yes: `go1.26.2-X:nodwarf5` | Used for Go tests/builds. |
 | Node/npm | `services/landing-web/package.json` | yes: Node `v24.15.0`, npm `11.12.1` | Ran `npm ci`, `npm run build`, `npm audit`. |
-| Docker/Compose | `docker-compose.yml` | yes: Podman Docker emulation, Compose `5.1.3` | Rendered compose config with `.env.example`; did not start stack because real env/provider values and the external Docker network are still required. |
+| Docker/Compose | `docker-compose.yml` | yes: Podman Docker emulation, Compose `5.1.3` | Rendered compose config with `.env.example`; bounded runtime smoke used a temporary Redis port override and temporary external network but failed before app startup because local Docker registry auth could not pull the Go builder image. |
 | Postgres/Redis live dependencies | compose and service configs | no/unknown | Mark live runtime and DB migration checks blocked unless env vars and local stack are provided. |
 | TIMWE/Auth0/provider credentials | compose/service configs | no | External-provider flows marked blocked or partially verified by tests only. |
 | webspa-admin submodule content | gitlink `frontend/webspa-admin` | no | Blocked: `.gitmodules` maps the path, but `git submodule update --init --recursive frontend/webspa-admin` cannot fetch pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a` from the configured remote. |
@@ -84,7 +84,7 @@ Scope exclusions:
 | postback-dispatcher | passed | passed | not run live | n/a | not run | not run live | passed | `go test ./...` passed; readonly build passed. |
 | landing-web | fixed | build/typecheck passed | not run live | n/a | not run | route build output passed | fixed | Initial `npm run build` failed; TMP-022 patch made `npm run build` pass. |
 | webspa-admin | blocked | blocked | blocked | n/a | blocked | blocked | blocked | gitlink exists and `.gitmodules` maps it, but the configured remote does not contain pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`. |
-| docker compose dev stack | config rendered with example env | n/a | blocked | n/a | not run | blocked | partially verified | `docker compose --env-file .env.example -f docker-compose.yml config` renders; runtime start still needs real env/provider values and local Docker network readiness. |
+| docker compose dev stack | config rendered with example env | n/a | blocked | n/a | blocked before app startup | blocked | partially verified | `docker compose --env-file .env.example -f docker-compose.yml config` renders; bounded runtime smoke avoided the Redis host-port conflict and created `shared-network` temporarily, then failed pulling the Go builder image due local Docker registry auth/tooling. |
 
 ## Feature Verification Matrix
 
@@ -98,7 +98,7 @@ Scope exclusions:
 | landing public tenant routing | Next build | `npm run build` | pass and route output includes legacy and tenant-qualified routes | pass after TMP-022 | fixed | build lists `/lp/[tenant]` and `/lp/[tenant]/[slug]`. |
 | tenant migration dry-run entrypoint | shell/make checks | `bash -n`; `make -n db-migrate-tenant-platform-dry-run` | syntax and target resolve | pass | partially verified | DB-backed dry-run blocked by missing Postgres env. |
 | KrakenD query forwarding | script check | `make krakend-query-forwarding-check` | pass | pass | passed | check passed against `krakend/krakend.json`. |
-| compose runtime stack | compose render | `docker compose --env-file .env.example -f docker-compose.yml config` | config renders from env inputs | pass | partially verified | runtime start and live flows still require real env/provider values. |
+| compose runtime stack | compose render plus bounded smoke | `docker compose --env-file .env.example -f docker-compose.yml config`; bounded `docker compose ... up -d --build ...` smoke | config renders; smoke should reach app startup | config pass; smoke blocked before app startup by Docker builder-image pull auth failure | partially verified | live flows still require app containers to build/start plus real env/provider values. |
 
 ## Commands Run
 
@@ -137,6 +137,8 @@ Scope exclusions:
 | 31 | `make clean` plus `git restore --source=HEAD -- services/notification/notification-worker` | Remove generated build artifacts before evidence-only commit | passed | Worktree returned to evidence-only changes. |
 | 32 | `docker compose --env-file .env.example -f docker-compose.yml config` | Verify compose renders from safe placeholder env scaffold | passed | Config rendered without relying on checked-in subscription DB credential material. |
 | 33 | `rg -n 'APP_DATABASE_POSTGRESQL_HOST=139\|APP_DATABASE_POSTGRESQL_PASSWORD=[^$]' docker-compose.yml \|\| true` | Confirm previous hardcoded subscription DB host/password patterns are absent | passed | No matches. |
+| 34 | bounded `docker compose --project-name timwe_smoke_024125 --env-file .env.example -f docker-compose.yml -f /tmp/timwe-compose-smoke-override.yml up -d --build ...` | Attempt runtime smoke after TMP-028 while avoiding unrelated Redis host-port conflict and creating missing `shared-network` temporarily | blocked | Compose failed before app containers started because local Docker/Podman registry auth could not pull `docker.io/library/golang:1.24-alpine`; cleanup removed the temporary network and override file. |
+| 35 | `docker pull docker.io/library/golang:1.24-alpine` | Reproduce compose builder-image pull failure outside compose | blocked | Same local Docker/Podman registry auth failure reproduced; no credential repair attempted. |
 
 ## Failure Ledger
 
@@ -147,6 +149,7 @@ Scope exclusions:
 | common package fails | `go test ./...` in `common` | Generator API drift, postgres test signature drift, and nonce replay test clock mismatch. | TMP-023 excluded tool-only generator helper, updated postgres tests, and aligned nonce store test clock. | `cd common && go test ./...` passed. | fixed |
 | notification package stale failure | `go test ./...` | Historical dependency/vendor failure no longer reproduces on current `origin/main`. | No source change; TMP-027 retired the stale blocker in evidence. | `cd services/notification && go test ./...` and `make build-all-local` passed. | fixed |
 | subscription-partner stale canonical failure | `go test ./...`, `make build-all-local` | Historical vendor-mode failure no longer reproduces on current `origin/main`. | No source change; TMP-027 retired the stale blocker in evidence. | `cd services/subscription-partner && go test ./...` and `make build-all-local` passed. | fixed |
+| compose smoke fails before app startup | bounded `docker compose ... up -d --build ...`; `docker pull docker.io/library/golang:1.24-alpine` | Local Docker/Podman registry auth cannot pull the Go builder image. | No credential or dependency change made; TMP-029 records evidence and cleanup. | Direct image pull reproduced the same blocker. | blocked by local tooling/auth |
 
 ## Blocked Checks
 
@@ -154,14 +157,14 @@ Scope exclusions:
 |---|---|---|
 | Verify latest `origin/main` and local `main` as one integrated state | Local and remote main histories conflict heavily. | Human-directed integration strategy for `main...origin/main`; the clean PR branch intentionally uses `origin/main` as source of truth. |
 | webspa-admin build and UI runtime | `frontend/webspa-admin` is a gitlink; `.gitmodules` maps it, but `git submodule update --init --recursive frontend/webspa-admin` fails because the configured remote does not contain pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`. | Publish the pinned admin commit to an accessible remote, repoint the gitlink to an available commit after review, or replace the gitlink strategy before running admin build/UI checks. |
-| compose runtime start | Config render now passes with `.env.example`, but starting the stack still needs real env/provider values and local Docker network readiness; placeholder values are not live-flow proof. | Provide real local `.env` or export required variables, ensure the external Docker network exists, then run `docker compose up` and service health checks. |
+| compose runtime start | Config render now passes with `.env.example`; a bounded smoke worked around the Redis host-port conflict and temporarily created `shared-network`, but Docker/Podman failed before app startup while pulling the Go builder image. Placeholder values are still not live-flow proof. | Repair local Docker registry auth/tooling for Docker Hub image pulls, then rerun bounded compose smoke; after app containers start, provide real local `.env`/provider values and run service health checks. |
 | dependency vulnerability remediation | `npm audit` fix requires breaking Next upgrade to `next@16.2.6`. | Explicit approval for dependency upgrade and follow-up UI regression check. |
 | original local-history branch publish | Original branch carries a 332 MB dump and generated binaries from local-only history. | Do not push that branch. Use clean branch `agent/codex/full-system-verify-pr-20260509-0129` instead. |
 
 ## Remaining Risks
 
 - Local and remote `main` diverge with overlapping histories.
-- Compose config renders with `.env.example`, but do not treat compose runtime as verified until services are started with real env/provider values and health checks pass.
+- Compose config renders with `.env.example`, but do not treat compose runtime as verified until Docker builder-image pulls work, services start with real env/provider values, and health checks pass.
 - Build success is not enough for tenant feature verification; several live flows remain blocked by missing local infrastructure and credentials.
 - Admin frontend cannot be verified from this checkout because the pinned gitlink commit is unavailable from the configured submodule remote.
 
@@ -170,4 +173,4 @@ Scope exclusions:
 | Feature/service | Evidence of incompleteness | Suggested slice class | Notes |
 |---|---|---|---|
 | webspa-admin | pinned gitlink commit is unavailable from the configured submodule remote | operational_slice | Decide whether to publish the admin commit, repoint the gitlink, or replace the gitlink strategy before UI verification. |
-| compose runtime | config render passes with `.env.example`; runtime start and live flows remain unverified | operational_slice | Provide real local env/provider values and Docker network readiness, then run compose health checks. |
+| compose runtime | config render passes with `.env.example`; bounded smoke is blocked before app startup by local Docker registry auth/tooling | operational_slice | Repair local Docker registry auth/tooling, then rerun bounded compose smoke and service health checks with real env/provider values. |

@@ -272,7 +272,7 @@
       "attempts": 1,
       "blockers": [
         "webspa-admin gitlink cannot be initialized because the configured submodule remote does not contain pinned commit 2ad95b18ecff4d8b23e5d1b7152975c477d5137a",
-        "compose runtime start is blocked until real env/provider values and required local Docker network are supplied; example env config render passes",
+        "compose runtime start is blocked until local Docker registry auth/tooling can pull builder images and services can start with real env/provider values; example env config render passes",
         "local main and origin/main diverge with add/add conflicts",
         "dependency vulnerability remediation requires explicit approval because npm audit proposes a breaking Next/PostCSS upgrade"
       ],
@@ -343,11 +343,11 @@
           "severity": "high"
         },
         {
-          "blocker": "Real env/provider values and local Docker network are required.",
+          "blocker": "Local Docker registry auth/tooling blocks builder image pulls before app startup; real env/provider values are still required after that is repaired.",
           "disposition": "blocked",
           "item": "Run compose runtime smoke.",
           "next_task_id": null,
-          "reason": "TMP-028 removed checked-in subscription DB credential material and added .env.example, but did not start runtime services or verify provider flows.",
+          "reason": "TMP-028 removed checked-in subscription DB credential material and added .env.example; TMP-029 attempted a bounded smoke but Docker/Podman could not pull the Go builder image before app containers started.",
           "severity": "high"
         },
         {
@@ -1179,6 +1179,187 @@
       "title": "Compose secret and env hygiene",
       "unresolved": [],
       "updated_at": "2026-05-09T02:32:11Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "docs/agent/full-system-verification-2026-05-09.md",
+            "slices/TMP-029-compose-runtime-smoke-tooling-blocker/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Release evidence records the bounded compose smoke attempt after TMP-028."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "docs/agent/full-system-verification-2026-05-09.md",
+            "slices/TMP-029-compose-runtime-smoke-tooling-blocker/notes.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Evidence records the temporary Redis port override, temporary shared-network creation, and cleanup."
+        },
+        {
+          "blocker": "Local Docker/Podman registry auth cannot pull the Go builder image.",
+          "evidence": [
+            "bounded docker compose smoke command",
+            "docker pull docker.io/library/golang:1.24-alpine"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": "The smoke failed before app containers started; no app runtime failure was observed.",
+          "status": "blocked",
+          "text": "Compose smoke reaches app startup and health checks."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "git status file-scope check"
+          ],
+          "id": "AC-4",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No source, compose, dependency, vendor, package manifest, lockfile, or frontend files changed."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        "Compose runtime smoke is blocked before app startup because local Docker/Podman registry auth cannot pull the Go builder image.",
+        "After Docker registry auth/tooling is repaired, real env/provider values are still required for live-flow proof."
+      ],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Ran a bounded compose smoke with a temporary Redis host-port override to avoid an unrelated local port conflict.",
+        "Created the missing external shared-network temporarily for the smoke and cleaned it up afterward.",
+        "Confirmed compose failed before app containers started on local Docker registry auth/tooling while pulling the Go builder image.",
+        "Confirmed direct image pull reproduces the same Docker registry auth/tooling blocker.",
+        "Updated TMP-021 release evidence to distinguish Docker tooling failure from app runtime failure."
+      ],
+      "created_at": "2026-05-09T02:45:13Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "docker compose --env-file .env.example -f docker-compose.yml config",
+            "exit_code": 0,
+            "output_excerpt": "compose config rendered with .env.example",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:40:23Z"
+          },
+          {
+            "command": "bounded docker compose smoke with temporary Redis port override and temporary shared-network",
+            "exit_code": 1,
+            "output_excerpt": "failed before app startup while pulling the Go builder image due local Docker registry auth/tooling",
+            "status": "failed",
+            "timestamp": "2026-05-09T02:41:25Z"
+          },
+          {
+            "command": "docker pull docker.io/library/golang:1.24-alpine",
+            "exit_code": 125,
+            "output_excerpt": "direct image pull reproduced the same local Docker registry auth/tooling blocker",
+            "status": "failed",
+            "timestamp": "2026-05-09T02:43:00Z"
+          },
+          {
+            "command": "docker network inspect shared-network; test ! -e /tmp/timwe-compose-smoke-override.yml",
+            "exit_code": 0,
+            "output_excerpt": "temporary network absent and temporary override file removed",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:43:00Z"
+          },
+          {
+            "command": "jq empty slices/manifest.json agent/state/TMP-029.work-order.json agent/state/TMP-029.handoff.json .agent/tasks.json agent/state/TMP-021.handoff.json",
+            "exit_code": 0,
+            "output_excerpt": "JSON files valid",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:48:30Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-029 assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:48:30Z"
+          },
+          {
+            "command": "slice-harness status && slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "TMP-021 and TMP-026 blocked; no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:48:30Z"
+          },
+          {
+            "command": "agent-supervisor preflight --repair && agent-supervisor preflight with worktree-local temp config",
+            "exit_code": 0,
+            "output_excerpt": "ok true; T-TMP-029 synced to supervisor ledger; only superseded non-schedulable stale rows remain",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:48:30Z"
+          },
+          {
+            "command": "git diff --check",
+            "exit_code": 0,
+            "output_excerpt": "no whitespace errors",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:48:30Z"
+          },
+          {
+            "command": "git status file-scope check for forbidden paths",
+            "exit_code": 0,
+            "output_excerpt": "no source, compose, dependency, vendor, frontend, package manifest, or lockfile files changed",
+            "status": "passed",
+            "timestamp": "2026-05-09T02:48:30Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/T-TMP-029.json",
+          ".agent/tasks.json",
+          ".harness/events.jsonl",
+          "agent/backlog/issues/TMP-029-compose-runtime-smoke-tooling-blocker.md",
+          "agent/state/TMP-021.handoff.json",
+          "agent/state/TMP-029.handoff.json",
+          "agent/state/TMP-029.work-order.json",
+          "docs/agent/full-system-verification-2026-05-09.md",
+          "slices/TMP-021-full-system-verification/value-gate-report.md",
+          "slices/TMP-029-compose-runtime-smoke-tooling-blocker/domain-brief.md",
+          "slices/TMP-029-compose-runtime-smoke-tooling-blocker/notes.md",
+          "slices/TMP-029-compose-runtime-smoke-tooling-blocker/slice.yaml",
+          "slices/TMP-029-compose-runtime-smoke-tooling-blocker/spec.md",
+          "slices/TMP-029-compose-runtime-smoke-tooling-blocker/value-gate-report.md",
+          "slices/manifest.json",
+          ".harness/task-ledger.sqlite"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-029",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Compose smoke Docker auth blocker evidence",
+      "unresolved": [
+        {
+          "blocker": "Local Docker/Podman registry auth cannot pull the Go builder image.",
+          "disposition": "out_of_scope",
+          "item": "Run compose app startup and health checks.",
+          "next_task_id": null,
+          "reason": "Bounded compose smoke failed before app containers started.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T02:49:01Z",
       "worktree": null
     }
   ],
