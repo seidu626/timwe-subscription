@@ -4,46 +4,59 @@
       "acceptance_criteria": [
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-011-migration-and-data-isolation/value-gate-report.md",
+            "scripts/db-migrate-tenant-platform.sh",
+            "docs/tenant-platform-migration-runbook.md"
+          ],
           "id": "AC-1",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "dry-run reports table-level counts and readiness without mutating data"
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-011-migration-and-data-isolation/value-gate-report.md",
+            "scripts/db-migrate-tenant-platform.sh",
+            "docs/tenant-platform-migration-runbook.md"
+          ],
           "id": "AC-2",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "migration backfills eligible legacy rows to tenant_key=legacy-default idempotently"
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-011-migration-and-data-isolation/value-gate-report.md",
+            "scripts/db-migrate-tenant-platform.sh",
+            "docs/tenant-platform-migration-runbook.md"
+          ],
           "id": "AC-3",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "rollback target or reviewed rollback script restores nullable tenant compatibility"
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-011-migration-and-data-isolation/value-gate-report.md",
+            "scripts/db-migrate-tenant-platform.sh",
+            "docs/tenant-platform-migration-runbook.md"
+          ],
           "id": "AC-4",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "value-gate report maps all criteria to named evidence"
         }
       ],
       "attempts": 1,
-      "blockers": [
-        "Verification failed: ['slice-harness status']",
-        "Agent reported blockers: [\"The requested `slice-harness status` verification crashes with `KeyError: 'class'` on planned slices, so that command could not complete in this environment.\"]"
-      ],
+      "blockers": [],
       "branch": null,
       "children": [],
       "completed": [
@@ -73,29 +86,41 @@
       "acceptance_criteria": [
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-014-admin-portal-tenant-workspace/value-gate-report.md",
+            "frontend/webspa-admin nested branch agent/codex/tmp-014-admin-portal-20260508-102936",
+            "npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
+          ],
           "id": "AC-1",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "tenant admins see tenant workspace context and tenant-scoped navigation only"
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-014-admin-portal-tenant-workspace/value-gate-report.md",
+            "frontend/webspa-admin nested branch agent/codex/tmp-014-admin-portal-20260508-102936",
+            "npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
+          ],
           "id": "AC-2",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "URL tampering or missing tenant assignment produces denial or empty-state path"
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-014-admin-portal-tenant-workspace/value-gate-report.md",
+            "frontend/webspa-admin nested branch agent/codex/tmp-014-admin-portal-20260508-102936",
+            "npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
+          ],
           "id": "AC-3",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "value-gate report names tests or manual evidence"
         }
       ],
@@ -130,36 +155,49 @@
       "acceptance_criteria": [
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-015-platform-ops-secret-observability/value-gate-report.md",
+            "ops/monitoring/grafana/provisioning/dashboards/dashboard-tenant-channel-ops.json",
+            "services/notification/internal/observability/tenant_test.go",
+            "ops/monitoring/production-checklist.md"
+          ],
           "id": "AC-1",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "credential-shaped config is documented or guarded without exposing secret material"
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-015-platform-ops-secret-observability/value-gate-report.md",
+            "ops/monitoring/grafana/provisioning/dashboards/dashboard-tenant-channel-ops.json",
+            "services/notification/internal/observability/tenant_test.go",
+            "ops/monitoring/production-checklist.md"
+          ],
           "id": "AC-2",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "tenant/channel observability labels avoid PII and high-cardinality values"
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-015-platform-ops-secret-observability/value-gate-report.md",
+            "ops/monitoring/grafana/provisioning/dashboards/dashboard-tenant-channel-ops.json",
+            "services/notification/internal/observability/tenant_test.go",
+            "ops/monitoring/production-checklist.md"
+          ],
           "id": "AC-3",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "secret backend unavailable and unsafe config failure modes have value-gate evidence"
         }
       ],
       "attempts": 1,
-      "blockers": [
-        "Verification failed: ['slice-harness status']"
-      ],
+      "blockers": [],
       "branch": null,
       "children": [],
       "completed": [
@@ -189,29 +227,44 @@
       "acceptance_criteria": [
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md",
+            "docs/tenant-channel-onboarding.md",
+            "examples/tenant-channel-onboarding/contract-fixtures.json",
+            "slices/TMP-016-partner-channel-onboarding-contracts/contract-review-checklist.md"
+          ],
           "id": "AC-1",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "onboarding document names tenant/channel API, callback, credential, sandbox, and postback contracts"
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md",
+            "docs/tenant-channel-onboarding.md",
+            "examples/tenant-channel-onboarding/contract-fixtures.json",
+            "slices/TMP-016-partner-channel-onboarding-contracts/contract-review-checklist.md"
+          ],
           "id": "AC-2",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "sandbox fixtures include supported and unsupported capability examples plus legacy mapping ambiguity"
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md",
+            "docs/tenant-channel-onboarding.md",
+            "examples/tenant-channel-onboarding/contract-fixtures.json",
+            "slices/TMP-016-partner-channel-onboarding-contracts/contract-review-checklist.md"
+          ],
           "id": "AC-3",
           "next_task_id": null,
           "reason": null,
-          "status": "pending",
+          "status": "passed",
           "text": "value-gate report maps contract criteria to concrete files and examples"
         }
       ],
