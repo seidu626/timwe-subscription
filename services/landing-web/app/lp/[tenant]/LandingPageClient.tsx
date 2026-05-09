@@ -26,10 +26,12 @@ function LandingPageWithSearchParams(): React.JSX.Element {
   const searchParams = useSearchParams()
   const [pixelConfig, setPixelConfig] = useState<PixelConfiguration | undefined>(undefined)
 
-  const slugValue = params?.slug
-  const tenantValue = params?.tenant
-  const slug = typeof slugValue === 'string' ? slugValue : Array.isArray(slugValue) ? slugValue[0] : ''
-  const tenantKey = typeof tenantValue === 'string' ? tenantValue : Array.isArray(tenantValue) ? tenantValue[0] : ''
+  const firstParam = (value: string | string[] | undefined): string =>
+    typeof value === 'string' ? value : Array.isArray(value) ? value[0] ?? '' : ''
+  const tenantParam = firstParam(params?.tenant)
+  const slugParam = firstParam(params?.slug)
+  const slug = slugParam || tenantParam
+  const tenantKey = slugParam ? tenantParam : ''
 
   useEffect(() => {
     captureBootstrapTokenFromUrl()

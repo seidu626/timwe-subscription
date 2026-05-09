@@ -1,6 +1,6 @@
 import React from 'react'
 import type { Metadata } from 'next'
-import LandingPageClient from '../../[slug]/LandingPageClient'
+import LandingPageClient from '../LandingPageClient'
 
 export async function generateMetadata(
   { params }: { params: { tenant: string; slug: string } }

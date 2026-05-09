@@ -1,0 +1,61 @@
+story:
+  id: "TMP-021"
+  title: "Operator can inspect release-readiness evidence"
+  actor: "platform-operator"
+  action: "review a repository verification matrix"
+  outcome: "release readiness is grounded in build, test, runtime, feature, and blocked-check evidence"
+  as_a: "platform-operator"
+  i_want_to: "see concrete verification status for each discovered runnable component and implemented tenant-platform feature"
+  so_that: "I can distinguish passed, failed, blocked, not applicable, and not implemented work before release decisions"
+
+entrypoints:
+  - "docs/agent/full-system-verification-2026-05-09.md"
+  - "slices/TMP-021-full-system-verification/value-gate-report.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Release matrix exists"
+      given: ["repo source, harness state, docs, tests, and service manifests are available"]
+      when: "the operator opens the verification artifact"
+      then: "it lists service inventory, feature inventory, environment readiness, verification results, and blocked checks"
+      evidence: "full-system verification artifact"
+    - scenario: "Control-plane evidence is reconciled"
+      given: ["agent-supervisor and agent-harness metadata are present"]
+      when: "control-plane checks run"
+      then: "ready queue, stale rows, HVC classification, and task states are recorded"
+      evidence: "commands run table and value-gate report"
+  failures:
+    - scenario: "Git state diverges"
+      given: ["local main and origin/main are not cleanly mergeable"]
+      when: "the audit tries to establish shipped truth"
+      then: "the conflict is recorded as a blocked integration check instead of hidden"
+      evidence: "failure ledger"
+    - scenario: "Runtime dependency missing"
+      given: ["database, Redis, Docker, auth, or external provider is unavailable"]
+      when: "a runtime or feature check requires it"
+      then: "the row is marked blocked with the exact unblocking requirement"
+      evidence: "blocked checks table"
+  invariants:
+    - rule: "Build success is not feature verification"
+      preserved_by: "separate service and feature matrices"
+      violated_when: "a feature is marked passed using only compile success"
+      test: "value-gate review"
+    - rule: "Blocked checks remain visible"
+      preserved_by: "blocked checks and gaps tables"
+      violated_when: "environment limitations are omitted from the final status"
+      test: "artifact review"
+
+out_of_scope:
+  - "production deployment"
+  - "dependency additions or upgrades"
+  - "schema rewrites"
+  - "product feature implementation"
+
+size_check:
+  files_touched: 6
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-021-full-system-verification/value-gate-report.md"

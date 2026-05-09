@@ -1,0 +1,51 @@
+story:
+  id: "TMP-022"
+  title: "Subscriber landing routes build for production"
+  actor: "end-subscriber"
+  action: "open a campaign landing URL"
+  outcome: "legacy and tenant-qualified campaign URLs are available in a production build"
+  as_a: "end-subscriber"
+  i_want_to: "open the campaign URL sent by a partner or operator"
+  so_that: "I can complete the subscription acquisition flow"
+
+entrypoints:
+  - "services/landing-web/app/lp/**"
+  - "services/landing-web/app/api/campaigns/**"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Landing web production build"
+      given: ["legacy and tenant-qualified routes exist"]
+      when: "the operator runs npm run build"
+      then: "Next.js compiles route definitions without dynamic segment conflicts"
+      evidence: "npm run build"
+  failures:
+    - scenario: "Legacy route slug lost"
+      given: ["single-segment legacy URL /lp/:slug"]
+      when: "the route folder uses a compatibility parameter name"
+      then: "page code still treats that segment as campaign slug"
+      evidence: "source review and build"
+    - scenario: "Tenant route shape broken"
+      given: ["tenant-qualified URL /lp/:tenant/:slug"]
+      when: "the production build sorts routes"
+      then: "tenant and slug route still compile as separate segments"
+      evidence: "npm run build"
+  invariants:
+    - rule: "URL shape is public API"
+      preserved_by: "folder rename changes parameter names only, not path depth or static segments"
+      violated_when: "legacy or tenant-qualified path is removed"
+      test: "route tree and build review"
+
+out_of_scope:
+  - "landing page redesign"
+  - "dependency upgrade"
+  - "backend acquisition API changes"
+
+size_check:
+  files_touched: 5
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md"

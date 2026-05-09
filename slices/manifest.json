@@ -22,13 +22,20 @@
       "description": "Platform operator creates a tenant and authenticated requests carry tenant context through one protected admin endpoint.",
       "state": "done",
       "priority": "P0",
-      "depends_on": ["TMP-018"],
+      "depends_on": [
+        "TMP-018"
+      ],
       "actor": "platform-operator",
       "entrypoint": "POST /v1/admin/tenants then GET /v1/admin/tenants/current",
       "outcome": "tenant identity exists and protected APIs can resolve tenant context",
       "estimated_files": 14,
       "estimated_endpoints": 2,
-      "failure_modes_to_cover": ["missing tenant claim", "duplicate tenant key", "unknown tenant id", "unauthorized actor"]
+      "failure_modes_to_cover": [
+        "missing tenant claim",
+        "duplicate tenant key",
+        "unknown tenant id",
+        "unauthorized actor"
+      ]
     },
     {
       "id": "TMP-002",
@@ -37,13 +44,20 @@
       "description": "Tenant admin manages products and userbase records scoped to their tenant with audit logs.",
       "state": "done",
       "priority": "P0",
-      "depends_on": ["TMP-001"],
+      "depends_on": [
+        "TMP-001"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "GET /v1/admin/products and GET /v1/admin/userbase",
       "outcome": "admin management data is tenant-filtered and auditable",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["cross-tenant read", "duplicate product per tenant", "invalid userbase import row", "missing authorization"]
+      "failure_modes_to_cover": [
+        "cross-tenant read",
+        "duplicate product per tenant",
+        "invalid userbase import row",
+        "missing authorization"
+      ]
     },
     {
       "id": "TMP-003",
@@ -52,13 +66,20 @@
       "description": "Tenant admin creates channel definitions with provider, country/operator scope, and supported capabilities.",
       "state": "done",
       "priority": "P0",
-      "depends_on": ["TMP-001"],
+      "depends_on": [
+        "TMP-001"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "POST /v1/admin/channels",
       "outcome": "tenant-owned channels can be selected by future campaigns and service routing",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["unsupported capability", "duplicate channel key", "missing provider", "cross-tenant channel access"]
+      "failure_modes_to_cover": [
+        "unsupported capability",
+        "duplicate channel key",
+        "missing provider",
+        "cross-tenant channel access"
+      ]
     },
     {
       "id": "TMP-004",
@@ -67,13 +88,20 @@
       "description": "Tenant admin binds a secret-backed credential reference to a channel without exposing secret material.",
       "state": "done",
       "priority": "P1",
-      "depends_on": ["TMP-003"],
+      "depends_on": [
+        "TMP-003"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "POST /v1/admin/channels/{id}/credentials",
       "outcome": "channel routing can resolve active credential references securely",
       "estimated_files": 12,
       "estimated_endpoints": 2,
-      "failure_modes_to_cover": ["secret backend unavailable", "credential read redaction", "inactive channel", "cross-tenant credential access"]
+      "failure_modes_to_cover": [
+        "secret backend unavailable",
+        "credential read redaction",
+        "inactive channel",
+        "cross-tenant credential access"
+      ]
     },
     {
       "id": "TMP-005",
@@ -82,13 +110,22 @@
       "description": "Tenant admin creates and reads campaigns scoped by tenant and bound to a compatible channel.",
       "state": "done",
       "priority": "P1",
-      "depends_on": ["TMP-002", "TMP-003", "TMP-019"],
+      "depends_on": [
+        "TMP-002",
+        "TMP-003",
+        "TMP-019"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "POST /v1/admin/campaigns",
       "outcome": "campaigns are tenant-scoped and channel-compatible before public use",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["duplicate slug in tenant", "ambiguous public slug", "channel capability mismatch", "disabled campaign access"]
+      "failure_modes_to_cover": [
+        "duplicate slug in tenant",
+        "ambiguous public slug",
+        "channel capability mismatch",
+        "disabled campaign access"
+      ]
     },
     {
       "id": "TMP-006",
@@ -97,13 +134,22 @@
       "description": "End subscriber starts and confirms an acquisition transaction through a tenant campaign.",
       "state": "done",
       "priority": "P1",
-      "depends_on": ["TMP-004", "TMP-005", "TMP-012"],
+      "depends_on": [
+        "TMP-004",
+        "TMP-005",
+        "TMP-012"
+      ],
       "actor": "end-subscriber",
       "entrypoint": "POST /v1/acquisition/transactions",
       "outcome": "transactions, consent, HE, attribution, and next action are tenant-scoped",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["tenant/campaign mismatch", "pending transaction reuse across tenant boundary", "TIMWE dependency failure", "missing consent"]
+      "failure_modes_to_cover": [
+        "tenant/campaign mismatch",
+        "pending transaction reuse across tenant boundary",
+        "TIMWE dependency failure",
+        "missing consent"
+      ]
     },
     {
       "id": "TMP-007",
@@ -114,13 +160,21 @@
       "branch": "agent/codex/tenant-platform-roadmap-20260508-014156",
       "updated_at": "2026-05-08T06:41:49Z",
       "priority": "P2",
-      "depends_on": ["TMP-004", "TMP-006"],
+      "depends_on": [
+        "TMP-004",
+        "TMP-006"
+      ],
       "actor": "api-integrated-partner",
       "entrypoint": "POST /api/external/v1/{channel}/mt and POST /api/v1/subscription-external/admin/optin",
       "outcome": "subscription-external never uses global TIMWE credentials when tenant/channel is required",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["missing tenant/channel", "unsupported operation", "credential lookup failure", "upstream timeout"]
+      "failure_modes_to_cover": [
+        "missing tenant/channel",
+        "unsupported operation",
+        "credential lookup failure",
+        "upstream timeout"
+      ]
     },
     {
       "id": "TMP-008",
@@ -131,13 +185,22 @@
       "branch": "agent/codex/TMP-008-notification-cadence-20260508-070538",
       "updated_at": "2026-05-08T07:20:44Z",
       "priority": "P2",
-      "depends_on": ["TMP-003", "TMP-007", "TMP-013"],
+      "depends_on": [
+        "TMP-003",
+        "TMP-007",
+        "TMP-013"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "GET /v1/admin/cadence/series and GET /api/v1/notification/list",
       "outcome": "notification and cadence workflows are tenant-filtered and channel-aware",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["cross-tenant notification read", "duplicate message outbox job", "worker claim race", "channel send failure"]
+      "failure_modes_to_cover": [
+        "cross-tenant notification read",
+        "duplicate message outbox job",
+        "worker claim race",
+        "channel send failure"
+      ]
     },
     {
       "id": "TMP-009",
@@ -148,13 +211,21 @@
       "branch": "agent/codex/TMP-009-postback-routing-20260508-064552",
       "updated_at": "2026-05-08T06:52:18Z",
       "priority": "P2",
-      "depends_on": ["TMP-005", "TMP-006"],
+      "depends_on": [
+        "TMP-005",
+        "TMP-006"
+      ],
       "actor": "ad-or-traffic-partner",
       "entrypoint": "POST /internal/acquisition/charge-success and GET /v1/admin/postbacks",
       "outcome": "conversion postbacks are tenant/provider-specific and recoverable through tenant-scoped DLQ",
       "estimated_files": 14,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["missing click id", "provider template missing", "postback target timeout", "cross-tenant DLQ access"]
+      "failure_modes_to_cover": [
+        "missing click id",
+        "provider template missing",
+        "postback target timeout",
+        "cross-tenant DLQ access"
+      ]
     },
     {
       "id": "TMP-010",
@@ -165,13 +236,23 @@
       "branch": "agent/codex/TMP-010-reporting-operations-20260508-093015",
       "updated_at": "2026-05-08T09:40:46Z",
       "priority": "P3",
-      "depends_on": ["TMP-006", "TMP-008", "TMP-009", "TMP-017"],
+      "depends_on": [
+        "TMP-006",
+        "TMP-008",
+        "TMP-009",
+        "TMP-017"
+      ],
       "actor": "operations-analyst",
       "entrypoint": "GET /v1/admin/reports/kpis and monitoring endpoints",
       "outcome": "tenant operations can diagnose platform health without cross-tenant data leakage",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["missing tenant filter", "unsupported channel filter", "partial datasource failure", "unauthorized aggregation"]
+      "failure_modes_to_cover": [
+        "missing tenant filter",
+        "unsupported channel filter",
+        "partial datasource failure",
+        "unauthorized aggregation"
+      ]
     },
     {
       "id": "TMP-011",
@@ -182,13 +263,25 @@
       "branch": "agent/codex/pending-slices-20260508-095850",
       "updated_at": "2026-05-08T10:40:00Z",
       "priority": "P3",
-      "depends_on": ["TMP-001", "TMP-002", "TMP-005", "TMP-006", "TMP-008", "TMP-009"],
+      "depends_on": [
+        "TMP-001",
+        "TMP-002",
+        "TMP-005",
+        "TMP-006",
+        "TMP-008",
+        "TMP-009"
+      ],
       "actor": "platform-operator",
       "entrypoint": "make db-migrate-tenant-platform",
       "outcome": "existing production data is backfilled with tenant_id and verified before multi-tenant enforcement",
       "estimated_files": 15,
       "estimated_endpoints": 0,
-      "failure_modes_to_cover": ["unmapped legacy row", "constraint violation", "rollback required", "large table lock risk"]
+      "failure_modes_to_cover": [
+        "unmapped legacy row",
+        "constraint violation",
+        "rollback required",
+        "large table lock risk"
+      ]
     },
     {
       "id": "TMP-012",
@@ -197,13 +290,22 @@
       "description": "Public landing, campaign, HE, callback, and gateway routes resolve tenant deterministically before work begins.",
       "state": "done",
       "priority": "P1",
-      "depends_on": ["TMP-001", "TMP-005", "TMP-018"],
+      "depends_on": [
+        "TMP-001",
+        "TMP-005",
+        "TMP-018"
+      ],
       "actor": "end-subscriber",
       "entrypoint": "GET /lp/{tenant}/{slug} or tenant host mapping",
       "outcome": "public routes cannot choose the wrong tenant when campaign slugs overlap",
       "estimated_files": 15,
       "estimated_endpoints": 4,
-      "failure_modes_to_cover": ["ambiguous campaign slug", "forged tenant header", "disabled tenant", "legacy route compatibility"]
+      "failure_modes_to_cover": [
+        "ambiguous campaign slug",
+        "forged tenant header",
+        "disabled tenant",
+        "legacy route compatibility"
+      ]
     },
     {
       "id": "TMP-013",
@@ -214,13 +316,22 @@
       "branch": "agent/codex/TMP-013-callback-correlation-20260508-065311",
       "updated_at": "2026-05-08T07:00:27Z",
       "priority": "P2",
-      "depends_on": ["TMP-003", "TMP-007", "TMP-012"],
+      "depends_on": [
+        "TMP-003",
+        "TMP-007",
+        "TMP-012"
+      ],
       "actor": "mno-or-timwe-upstream",
       "entrypoint": "POST /api/v1/webhooks/timwe/notification and POST /v1/callbacks/{telco}",
       "outcome": "callbacks update only the intended tenant/channel state or quarantine safely",
       "estimated_files": 15,
       "estimated_endpoints": 4,
-      "failure_modes_to_cover": ["uncorrelatable callback", "cross-tenant mismatch", "replay", "legacy callback mapping"]
+      "failure_modes_to_cover": [
+        "uncorrelatable callback",
+        "cross-tenant mismatch",
+        "replay",
+        "legacy callback mapping"
+      ]
     },
     {
       "id": "TMP-014",
@@ -231,13 +342,22 @@
       "branch": "agent/codex/tmp-014-admin-portal-20260508-102936",
       "updated_at": "2026-05-08T10:40:00Z",
       "priority": "P2",
-      "depends_on": ["TMP-002", "TMP-003", "TMP-005"],
+      "depends_on": [
+        "TMP-002",
+        "TMP-003",
+        "TMP-005"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "frontend/webspa-admin routes and API client",
       "outcome": "tenant admins see and mutate only their tenant resources in the UI",
       "estimated_files": 15,
       "estimated_endpoints": 0,
-      "failure_modes_to_cover": ["URL tampering", "missing tenant assignment", "disabled tenant", "empty tenant workspace"]
+      "failure_modes_to_cover": [
+        "URL tampering",
+        "missing tenant assignment",
+        "disabled tenant",
+        "empty tenant workspace"
+      ]
     },
     {
       "id": "TMP-015",
@@ -248,13 +368,24 @@
       "branch": "agent/codex/pending-slices-20260508-095850",
       "updated_at": "2026-05-08T10:40:00Z",
       "priority": "P3",
-      "depends_on": ["TMP-004", "TMP-007", "TMP-010", "TMP-017", "TMP-020"],
+      "depends_on": [
+        "TMP-004",
+        "TMP-007",
+        "TMP-010",
+        "TMP-017",
+        "TMP-020"
+      ],
       "actor": "platform-operator",
       "entrypoint": "docker-compose/config/docs/ops monitoring",
       "outcome": "tenant channels operate with safe credentials and visible tenant-specific health",
       "estimated_files": 15,
       "estimated_endpoints": 1,
-      "failure_modes_to_cover": ["credential logged", "missing tenant metrics label", "secret backend unavailable", "unsafe local config"]
+      "failure_modes_to_cover": [
+        "credential logged",
+        "missing tenant metrics label",
+        "secret backend unavailable",
+        "unsafe local config"
+      ]
     },
     {
       "id": "TMP-016",
@@ -265,13 +396,24 @@
       "branch": "agent/codex/pending-slices-20260508-095850",
       "updated_at": "2026-05-08T10:40:00Z",
       "priority": "P3",
-      "depends_on": ["TMP-003", "TMP-004", "TMP-007", "TMP-012", "TMP-013"],
+      "depends_on": [
+        "TMP-003",
+        "TMP-004",
+        "TMP-007",
+        "TMP-012",
+        "TMP-013"
+      ],
       "actor": "api-integrated-partner",
       "entrypoint": "docs/tenant-channel-onboarding.md and sandbox fixtures",
       "outcome": "new tenant channels can be onboarded without bespoke engineering discovery",
       "estimated_files": 12,
       "estimated_endpoints": 0,
-      "failure_modes_to_cover": ["breaking contract change", "missing callback signature", "unsupported capability", "legacy mapping ambiguity"]
+      "failure_modes_to_cover": [
+        "breaking contract change",
+        "missing callback signature",
+        "unsupported capability",
+        "legacy mapping ambiguity"
+      ]
     },
     {
       "id": "TMP-017",
@@ -282,13 +424,21 @@
       "branch": "agent/codex/TMP-017-billing-charge-ownership-20260508-074034",
       "updated_at": "2026-05-08T07:50:39Z",
       "priority": "P2",
-      "depends_on": ["TMP-003", "TMP-007"],
+      "depends_on": [
+        "TMP-003",
+        "TMP-007"
+      ],
       "actor": "platform-operator",
       "entrypoint": "subscription-external charge endpoints and services/billing transaction endpoints",
       "outcome": "charge-capable channels do not split tenant billing state across ambiguous services",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["split ownership conflict", "disabled billing dependency", "cross-tenant charge lookup", "legacy renewal charge"]
+      "failure_modes_to_cover": [
+        "split ownership conflict",
+        "disabled billing dependency",
+        "cross-tenant charge lookup",
+        "legacy renewal charge"
+      ]
     },
     {
       "id": "TMP-018",
@@ -303,7 +453,12 @@
       "outcome": "all protected, public, partner, and worker flows rely on one tenant trust boundary",
       "estimated_files": 15,
       "estimated_endpoints": 0,
-      "failure_modes_to_cover": ["audience mismatch", "forged service header", "tenant claim mismatch", "clock skew and replay"]
+      "failure_modes_to_cover": [
+        "audience mismatch",
+        "forged service header",
+        "tenant claim mismatch",
+        "clock skew and replay"
+      ]
     },
     {
       "id": "TMP-019",
@@ -312,13 +467,20 @@
       "description": "Campaign assets and presigned URLs use tenant-scoped object-storage keys and public-safe DTOs.",
       "state": "done",
       "priority": "P1",
-      "depends_on": ["TMP-001"],
+      "depends_on": [
+        "TMP-001"
+      ],
       "actor": "campaign-operator",
       "entrypoint": "POST /v1/admin/campaign-assets/background/presign",
       "outcome": "landing pages cannot read or overwrite another tenant's campaign media",
       "estimated_files": 12,
       "estimated_endpoints": 1,
-      "failure_modes_to_cover": ["cross-tenant asset read", "path traversal", "storage backend failure", "legacy asset mapping"]
+      "failure_modes_to_cover": [
+        "cross-tenant asset read",
+        "path traversal",
+        "storage backend failure",
+        "legacy asset mapping"
+      ]
     },
     {
       "id": "TMP-020",
@@ -329,13 +491,98 @@
       "branch": "agent/codex/TMP-020-observability-20260508-072738",
       "updated_at": "2026-05-08T07:34:39Z",
       "priority": "P0",
-      "depends_on": ["TMP-018", "TMP-001"],
+      "depends_on": [
+        "TMP-018",
+        "TMP-001"
+      ],
       "actor": "operations-analyst",
       "entrypoint": "HTTP middleware logs, Prometheus metrics, worker health",
       "outcome": "operators can diagnose tenant issues without high-cardinality or PII leakage",
       "estimated_files": 14,
       "estimated_endpoints": 1,
-      "failure_modes_to_cover": ["missing tenant label", "PII label attempted", "noisy tenant", "unknown tenant denial"]
+      "failure_modes_to_cover": [
+        "missing tenant label",
+        "PII label attempted",
+        "noisy tenant",
+        "unknown tenant denial"
+      ]
+    },
+    {
+      "id": "TMP-021",
+      "external_id": "TMP-021",
+      "name": "Release verification matrix",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-021-full-system-verification.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-verify-20260509-005155",
+      "created_at": "2026-05-09T00:56:05.714274+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "cd services/landing-web && npm run build"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md"
+      },
+      "notes": ""
+    },
+    {
+      "id": "TMP-022",
+      "external_id": "TMP-022",
+      "name": "Landing web dynamic route build failure",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-022-landing-web-dynamic-route-build.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-verify-20260509-005155",
+      "created_at": "2026-05-09T01:03:54.321175+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "cd common && go test ./..."
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-023-common-package-test-failures/value-gate-report.md"
+      },
+      "notes": ""
+    },
+    {
+      "id": "TMP-023",
+      "external_id": "TMP-023",
+      "name": "Common package test failures",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-023-common-package-test-failures.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "planned",
+      "branch": null,
+      "created_at": "2026-05-09T01:09:46.975697+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [],
+        "manual_smoke": [],
+        "dod_path": null
+      },
+      "notes": ""
     }
-  ]
+  ],
+  "updated_at": "2026-05-09T01:12:15Z"
 }

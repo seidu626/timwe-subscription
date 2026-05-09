@@ -1,0 +1,69 @@
+{
+  "work_order_id": "WO-TMP-022-001",
+  "issue_id": "TMP-022",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Landing pages can be built for production while preserving legacy single-slug and tenant-qualified campaign URLs.",
+  "actor": "end-subscriber",
+  "entrypoint": "services/landing-web/app/lp routes and services/landing-web/app/api/campaigns routes",
+  "trigger": "Operator runs `npm run build` for landing-web",
+  "allowed_files": [
+    "services/landing-web/app/api/campaigns/**",
+    "services/landing-web/app/lp/**",
+    "slices/TMP-022-landing-web-dynamic-route-build/**",
+    "slices/manifest.json",
+    "agent/backlog/issues/TMP-022-landing-web-dynamic-route-build.md",
+    "agent/state/TMP-022.work-order.json",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/landing-web/package.json",
+    "services/landing-web/package-lock.json",
+    "common/**",
+    "services/**/go.mod",
+    "services/**/go.sum"
+  ],
+  "acceptance_tests": [
+    "cd services/landing-web && npm run build",
+    "test -f slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md"
+  ],
+  "required_evidence": [
+    "npm run build",
+    "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md"
+  ],
+  "non_goals": [
+    "No Next.js dependency upgrade.",
+    "No visual redesign.",
+    "No acquisition API contract change."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-022",
+    "title": "Landing web dynamic route build failure",
+    "path": "agent/backlog/issues/TMP-022-landing-web-dynamic-route-build.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 92,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

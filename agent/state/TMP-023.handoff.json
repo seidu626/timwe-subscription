@@ -1,0 +1,68 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "common package tests must pass without dependency or vendor rewrites.",
+      "evidence": [
+        "common/openApiGenerator.go",
+        "common/postgres/database_test.go",
+        "common/auth/tenantctx/trusted_service_test.go",
+        "slices/TMP-023-common-package-test-failures/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    "agent/backlog/issues/TMP-023-common-package-test-failures.md",
+    "agent/state/TMP-023.work-order.json",
+    "common/auth/tenantctx/trusted_service_test.go",
+    "common/openApiGenerator.go",
+    "common/postgres/database_test.go",
+    "slices/TMP-023-common-package-test-failures/domain-brief.md",
+    "slices/TMP-023-common-package-test-failures/notes.md",
+    "slices/TMP-023-common-package-test-failures/slice.yaml",
+    "slices/TMP-023-common-package-test-failures/spec.md",
+    "slices/TMP-023-common-package-test-failures/value-gate-report.md",
+    "slices/manifest.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [],
+  "commits": [
+    "d297ba1"
+  ],
+  "completed_work": [
+    "Excluded the OpenAPI generator helper from normal package builds with a tools-only build tag.",
+    "Updated postgres tests for the current NewPGXPool signature.",
+    "Aligned trusted-service nonce replay test clock setup with verifier time."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [],
+  "next_tasks": [],
+  "operator_message": "common package tests now pass.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "codex-20260509-005155",
+  "status": "done",
+  "summary": "common package test failures repaired.",
+  "supervisor_decision": "done",
+  "task_id": "T-TMP-023",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "cd common && go test ./...",
+      "exit_code": 0,
+      "output_excerpt": "all common package tests passed",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:12:00Z"
+    }
+  ]
+}
