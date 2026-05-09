@@ -270,6 +270,13 @@ services:
       - DATABASE_POSTGRESQL_USER=${PG_USER}
       - DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
+      - DATABASE_POSTGRESQL_SSL_MODE=disable
+      - DB_POSTGRESQL_HOST=database
+      - DB_POSTGRESQL_PORT=5432
+      - DB_POSTGRESQL_USER=${PG_USER}
+      - DB_POSTGRESQL_PASSWORD=${PG_PASSWORD}
+      - DB_POSTGRESQL_DB_NAME=${PG_DB}
+      - DB_POSTGRESQL_SSL_MODE=disable
     depends_on:
       database:
         condition: service_healthy

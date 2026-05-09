@@ -1,0 +1,49 @@
+story:
+  id: "TMP-032"
+  title: "Postback dispatcher compose DB env"
+  actor: "verification-agent"
+  action: "start postback-dispatcher against local compose Postgres"
+  outcome: "the dispatcher connects to DB and starts its worker loop"
+  as_a: "verification-agent"
+  i_want_to: "verify postback-dispatcher startup in compose"
+  so_that: "full-system smoke can distinguish DB env config from postback schema provisioning"
+
+entrypoints:
+  - "docker-compose.yml"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Dispatcher starts"
+      given: ["compose database is healthy"]
+      when: "postback-dispatcher starts"
+      then: "it remains running and logs database connection established"
+      evidence: "targeted postback-dispatcher compose smoke"
+  failures:
+    - scenario: "Env names not bound"
+      given: ["compose only provides DATABASE_POSTGRESQL_* names"]
+      when: "common/config loads DB settings"
+      then: "dispatcher uses default localhost DB settings"
+      evidence: "pre-fix compose smoke blocker"
+  invariants:
+    - rule: "No source or schema changes"
+      preserved_by: "compose-only DB env alias fix"
+      violated_when: "services/postback-dispatcher, common, migrations, dependency, vendor, frontend, package, or credential files change"
+      test: "forbidden file-scope check"
+    - rule: "Postback schema readiness is separate"
+      preserved_by: "recording missing postback_outbox as downstream blocker"
+      violated_when: "dispatcher startup is treated as full postback processing verification"
+      test: "targeted smoke logs"
+
+out_of_scope:
+  - "postback_outbox schema provisioning"
+  - "dispatcher behavior changes"
+  - "external postback delivery verification"
+
+size_check:
+  files_touched: 13
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-032-postback-dispatcher-compose-db-env/value-gate-report.md"
