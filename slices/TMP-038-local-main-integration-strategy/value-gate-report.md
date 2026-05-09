@@ -43,6 +43,7 @@ Audit 2 result: PASS for registry scope, BLOCKED for implementation.
 - Open PRs: none.
 - Open issues: none.
 - Non-destructive conclusion: the blocker remains current; no merge, reset, conflict resolution, source change, dependency change, or runtime change was attempted.
+- Note: exact behind counts can change as `origin/main` receives evidence-only commits; rerun the commands below for the current count before any integration decision.
 
 ## Commands
 

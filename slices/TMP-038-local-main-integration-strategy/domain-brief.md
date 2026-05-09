@@ -9,7 +9,7 @@
 
 ## Story Craft
 
-The story is concrete and testable: Primary local main is currently ahead 51 and behind origin/main by 38 as of the 2026-05-09T08:44:16Z evidence refresh, and an isolated merge probe produced broad add/add conflicts. The expected outcome is: A maintainer chooses whether to preserve local-only history, reset to remote, or manually integrate the divergent histories before treating primary main as verified.
+The story is concrete and testable: Primary local main is diverged from origin/main. The 2026-05-09T08:44:16Z evidence refresh showed 51 ahead / 38 behind, and an isolated merge probe produced broad add/add conflicts; exact behind counts change as origin/main receives evidence-only commits. The expected outcome is: A maintainer chooses whether to preserve local-only history, reset to remote, or manually integrate the divergent histories before treating primary main as verified.
 
 ## Roadmap To Slices
 
