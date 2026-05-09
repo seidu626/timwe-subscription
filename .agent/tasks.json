@@ -2604,6 +2604,131 @@
       "unresolved": [],
       "updated_at": "2026-05-09T05:35:11Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Local nested frontend/webspa-admin checkout is at the pinned gitlink SHA."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Local admin build and ChromeHeadless tests pass."
+        },
+        {
+          "blocker": "Pinned admin commit is not reproducibly fetchable by clean superproject submodule initialization.",
+          "evidence": [
+            "slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md",
+            "slices/TMP-026-webspa-submodule-verification/value-gate-report.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": "TMP-026",
+          "reason": "Clean origin/main submodule initialization still fails with upload-pack: not our ref.",
+          "status": "blocked",
+          "text": "Clean origin/main submodule initialization is still recorded as blocked."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        {
+          "blocker": "Clean superproject submodule initialization remains blocked.",
+          "disposition": "blocked",
+          "item": "webspa-admin source reproducibility",
+          "next_task_id": "TMP-026",
+          "reason": "Publish, repoint, or repository-strategy decision is still required.",
+          "severity": "high"
+        }
+      ],
+      "branch": "agent/codex/source-truth-audit-20260509-054846",
+      "children": [],
+      "completed": [
+        "Recorded local webspa-admin build/test evidence at the pinned gitlink SHA.",
+        "Updated TMP-021 and TMP-026 evidence to distinguish local code health from clean-clone reproducibility.",
+        "Registered TMP-040 with issue, work order, slice spec, value gate, handoff, manifest, and task evidence."
+      ],
+      "created_at": "2026-05-09T05:55:33Z",
+      "details": "Record local verification evidence for the pinned webspa-admin checkout while preserving the clean-clone submodule blocker.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "git -C frontend/webspa-admin rev-parse HEAD",
+            "exit_code": 0,
+            "output_excerpt": "2ad95b18ecff4d8b23e5d1b7152975c477d5137a",
+            "status": "passed",
+            "timestamp": "2026-05-09T05:55:33Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm run build",
+            "exit_code": 0,
+            "output_excerpt": "Application bundle generation complete",
+            "status": "passed",
+            "timestamp": "2026-05-09T05:55:33Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+            "exit_code": 0,
+            "output_excerpt": "TOTAL: 84 SUCCESS",
+            "status": "passed",
+            "timestamp": "2026-05-09T05:55:33Z"
+          },
+          {
+            "command": "git submodule update --init --recursive frontend/webspa-admin",
+            "exit_code": 128,
+            "output_excerpt": "upload-pack: not our ref 2ad95b18ecff4d8b23e5d1b7152975c477d5137a",
+            "status": "blocked",
+            "timestamp": "2026-05-09T05:55:33Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-040-webspa-local-checkout-verification.md",
+          "agent/state/TMP-040.handoff.json",
+          "agent/state/TMP-040.work-order.json",
+          "docs/agent/full-system-verification-2026-05-09.md",
+          "slices/manifest.json",
+          "slices/TMP-021-full-system-verification/value-gate-report.md",
+          "slices/TMP-026-webspa-submodule-verification/value-gate-report.md",
+          "slices/TMP-040-webspa-local-checkout-verification/domain-brief.md",
+          "slices/TMP-040-webspa-local-checkout-verification/notes.md",
+          "slices/TMP-040-webspa-local-checkout-verification/slice.yaml",
+          "slices/TMP-040-webspa-local-checkout-verification/spec.md",
+          "slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-040",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "webspa-admin local checkout verification evidence",
+      "unresolved": [
+        {
+          "blocker": "Clean superproject submodule initialization remains blocked.",
+          "disposition": "blocked",
+          "item": "TMP-026 webspa-admin source reproducibility",
+          "next_task_id": "TMP-026",
+          "reason": "The local pinned checkout builds/tests, but clean origin/main submodule initialization still fails.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T05:55:33Z",
+      "worktree": null
     }
   ],
   "version": 1

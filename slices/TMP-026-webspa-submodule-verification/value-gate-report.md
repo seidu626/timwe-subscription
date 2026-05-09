@@ -22,9 +22,18 @@ Audit 1 result: PASS for metadata presence.
 
 Audit 2 result: BLOCKED.
 
+## Audit 3: Local Nested Checkout Verification
+
+- The primary checkout has a nested `frontend/webspa-admin` repository at the pinned gitlink commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`.
+- `npm run build` passed in that local nested checkout with existing Angular budget/selector warnings only.
+- `CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false` passed with `TOTAL: 84 SUCCESS`.
+- Environment observed: Node `v24.15.0`, npm `11.12.1`, Google Chrome `148.0.7778.96`. Angular CLI reports Node 24 as unsupported.
+
+Audit 3 result: PASS for local pinned checkout code-health evidence, still BLOCKED for clean-clone reproducibility.
+
 ## Blocking Gate
 
-The admin frontend cannot be initialized from the configured submodule remote because the pinned gitlink commit is unavailable there. This requires one of these operator decisions before admin UI build/test evidence can run:
+The admin frontend local nested checkout can build and test, but the superproject cannot be reproduced from a clean `origin/main` checkout because `git submodule update --init --recursive frontend/webspa-admin` still fails with `upload-pack: not our ref 2ad95b18ecff4d8b23e5d1b7152975c477d5137a`. This requires one of these operator decisions before admin UI source checkout can be treated as release/CI ready:
 
 - publish or move the `2ad95b18ecff4d8b23e5d1b7152975c477d5137a` admin commit to an accessible remote and update submodule metadata if needed;
 - repoint the superproject gitlink to a commit available from the configured remote after accepting any feature loss or replacement;
@@ -39,7 +48,9 @@ git submodule update --init --recursive frontend/webspa-admin
 git submodule deinit -f frontend/webspa-admin
 git submodule status --recursive frontend/webspa-admin
 git status --short --branch
+git -C /home/xper626/workspace/apps/timwe-subscription/frontend/webspa-admin rev-parse HEAD
+cd /home/xper626/workspace/apps/timwe-subscription/frontend/webspa-admin && npm run build
+cd /home/xper626/workspace/apps/timwe-subscription/frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false
 ```
 
-Result: BLOCKED by unavailable pinned submodule commit.
-
+Result: PASS for local nested checkout build/test evidence; BLOCKED by unavailable clean submodule checkout.

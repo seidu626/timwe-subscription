@@ -1,0 +1,118 @@
+{
+  "acceptance_results": [
+    {
+      "criterion": "Local nested frontend/webspa-admin checkout is at the pinned gitlink SHA.",
+      "status": "passed",
+      "evidence": [
+        "git -C frontend/webspa-admin rev-parse HEAD returned 2ad95b18ecff4d8b23e5d1b7152975c477d5137a"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Local admin build and ChromeHeadless tests pass.",
+      "status": "passed",
+      "evidence": [
+        "npm run build passed",
+        "CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false passed with TOTAL: 84 SUCCESS"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Clean origin/main submodule initialization is still recorded as blocked.",
+      "status": "blocked",
+      "evidence": [
+        "git submodule update --init --recursive frontend/webspa-admin failed with upload-pack: not our ref 2ad95b18ecff4d8b23e5d1b7152975c477d5137a"
+      ],
+      "blocker": "Pinned admin commit is not reproducibly fetchable by clean superproject submodule initialization.",
+      "reason": "Source distribution strategy still requires publish, repoint, or replacement decision.",
+      "next_task_id": "TMP-026"
+    }
+  ],
+  "blockers": [
+    "TMP-026 remains blocked for clean clone and CI reproducibility."
+  ],
+  "changed_files": [
+    "agent/backlog/issues/TMP-040-webspa-local-checkout-verification.md",
+    "agent/state/TMP-040.handoff.json",
+    "agent/state/TMP-040.work-order.json",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/manifest.json",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/TMP-026-webspa-submodule-verification/value-gate-report.md",
+    "slices/TMP-040-webspa-local-checkout-verification/domain-brief.md",
+    "slices/TMP-040-webspa-local-checkout-verification/notes.md",
+    "slices/TMP-040-webspa-local-checkout-verification/slice.yaml",
+    "slices/TMP-040-webspa-local-checkout-verification/spec.md",
+    "slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md"
+  ],
+  "cleanup_notes": [
+    "No long-running processes were intentionally left running.",
+    "The clean worktree submodule initialization attempt is deinitialized before closeout."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Recorded local webspa-admin build/test evidence at the pinned gitlink SHA.",
+    "Preserved the clean-clone submodule blocker in TMP-021 and TMP-026 evidence.",
+    "Registered TMP-040 as an operational evidence reconciliation slice."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Admin UI clean clone and CI verification remain blocked until TMP-026 is resolved."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-040 narrows the admin UI blocker: the local pinned checkout builds and tests, but the superproject remains unreproducible from a clean submodule checkout.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "This slice is evidence-only.",
+    "No frontend source, dependency, schema, compose, runtime, submodule metadata, or branch integration changes were made."
+  ],
+  "safe_to_continue": false,
+  "schema_version": 1,
+  "session_id": "codex-20260509-055533",
+  "status": "done",
+  "summary": "webspa-admin local checkout verification evidence recorded.",
+  "supervisor_decision": "done",
+  "task_id": "T-TMP-040",
+  "unfinished_work": [
+    "TMP-026 clean-clone submodule reproducibility remains blocked."
+  ],
+  "validation": [
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-040.work-order.json agent/state/TMP-040.handoff.json .agent/tasks.json",
+      "exit_code": 0,
+      "output_excerpt": "JSON valid",
+      "status": "passed",
+      "timestamp": "2026-05-09T05:55:33Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-040 assignment_decision allow; no blocking reasons",
+      "status": "passed",
+      "timestamp": "2026-05-09T05:55:33Z"
+    },
+    {
+      "command": "slice-harness status && slice-harness sync --dry-run",
+      "exit_code": 0,
+      "output_excerpt": "TMP-040 done; seven release-verification blockers remain; no drift detected",
+      "status": "passed",
+      "timestamp": "2026-05-09T05:55:33Z"
+    },
+    {
+      "command": "agent-supervisor preflight --repair then preflight/list-tasks/auto-loop with worktree-local temp config",
+      "exit_code": 0,
+      "output_excerpt": "T-TMP-040 done; preflight ok; auto-loop stopped with No ready tasks",
+      "status": "passed",
+      "timestamp": "2026-05-09T05:55:33Z"
+    }
+  ],
+  "updated_at": "2026-05-09T05:55:33Z"
+}
