@@ -670,6 +670,7 @@
           "hvc check agent/backlog/issues/*.md --fail-on block",
           "agent-supervisor --config .harness/config.json preflight",
           "test -f docs/agent/full-system-verification-2026-05-09.md",
+          "test -f slices/TMP-021-full-system-verification/spec.md",
           "test -f slices/TMP-021-full-system-verification/value-gate-report.md"
         ],
         "manual_smoke": [],
