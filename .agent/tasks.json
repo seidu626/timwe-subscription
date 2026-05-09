@@ -1922,6 +1922,576 @@
       ],
       "updated_at": "2026-05-09T03:48:44Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+          "evidence": [
+            "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": "Implementation requires the named approval or operator decision before file changes.",
+          "status": "blocked",
+          "text": "Schema/migration change approval is recorded before implementation."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-034-acquisition-runtime-schema-provisioning/spec.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "A future implementation reruns targeted acquisition-api compose smoke and /health check."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-034-acquisition-runtime-schema-provisioning/spec.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No schema, migration, compose, source, dependency, or credential file changes are made by this registry slice."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+        "The failing relation products/userbase path requires schema ownership and migration-order decision before implementation."
+      ],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Registered TMP-034 as a blocked full-system verification follow-up slice.",
+        "Recorded domain brief, story/spec, notes, value gate, work order, and handoff."
+      ],
+      "created_at": "2026-05-09T03:59:59Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "jq empty slices/manifest.json agent/state/TMP-034.work-order.json agent/state/TMP-034.handoff.json .agent/tasks.json",
+            "exit_code": 0,
+            "output_excerpt": "JSON valid",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-034 assignment_decision allow",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "git diff --name-only file-scope review",
+            "exit_code": 0,
+            "output_excerpt": "metadata and harness artifacts only",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-034-acquisition-runtime-schema-provisioning.md",
+          "agent/state/TMP-034.handoff.json",
+          "agent/state/TMP-034.work-order.json",
+          "slices/manifest.json",
+          "slices/TMP-034-acquisition-runtime-schema-provisioning/domain-brief.md",
+          "slices/TMP-034-acquisition-runtime-schema-provisioning/notes.md",
+          "slices/TMP-034-acquisition-runtime-schema-provisioning/slice.yaml",
+          "slices/TMP-034-acquisition-runtime-schema-provisioning/spec.md",
+          "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-034",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "blocked",
+      "title": "Acquisition runtime schema provisioning",
+      "unresolved": [
+        {
+          "blocker": "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+          "disposition": "blocked",
+          "item": "Acquisition runtime schema provisioning",
+          "next_task_id": null,
+          "reason": "Approval or operator decision required before implementation.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T04:00:30Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+          "evidence": [
+            "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": "Implementation requires the named approval or operator decision before file changes.",
+          "status": "blocked",
+          "text": "Schema/migration change approval is recorded before implementation."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-035-notification-message-outbox-schema/spec.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "A future implementation reruns targeted notification-worker compose smoke and confirms no message_outbox missing-relation errors."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-035-notification-message-outbox-schema/spec.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No schema, migration, compose, source, dependency, or credential file changes are made by this registry slice."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+        "The message_outbox ownership/provisioning path must be selected before implementation."
+      ],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Registered TMP-035 as a blocked full-system verification follow-up slice.",
+        "Recorded domain brief, story/spec, notes, value gate, work order, and handoff."
+      ],
+      "created_at": "2026-05-09T03:59:59Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "jq empty slices/manifest.json agent/state/TMP-035.work-order.json agent/state/TMP-035.handoff.json .agent/tasks.json",
+            "exit_code": 0,
+            "output_excerpt": "JSON valid",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-035 assignment_decision allow",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "git diff --name-only file-scope review",
+            "exit_code": 0,
+            "output_excerpt": "metadata and harness artifacts only",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-035-notification-message-outbox-schema.md",
+          "agent/state/TMP-035.handoff.json",
+          "agent/state/TMP-035.work-order.json",
+          "slices/manifest.json",
+          "slices/TMP-035-notification-message-outbox-schema/domain-brief.md",
+          "slices/TMP-035-notification-message-outbox-schema/notes.md",
+          "slices/TMP-035-notification-message-outbox-schema/slice.yaml",
+          "slices/TMP-035-notification-message-outbox-schema/spec.md",
+          "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-035",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "blocked",
+      "title": "Notification message outbox schema provisioning",
+      "unresolved": [
+        {
+          "blocker": "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+          "disposition": "blocked",
+          "item": "Notification message outbox schema provisioning",
+          "next_task_id": null,
+          "reason": "Approval or operator decision required before implementation.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T04:00:30Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+          "evidence": [
+            "slices/TMP-036-postback-outbox-schema/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": "Implementation requires the named approval or operator decision before file changes.",
+          "status": "blocked",
+          "text": "Schema/migration change approval is recorded before implementation."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-036-postback-outbox-schema/spec.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "A future implementation reruns targeted postback-dispatcher compose smoke and confirms no postback_outbox missing-relation errors."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-036-postback-outbox-schema/spec.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No schema, migration, compose, source, dependency, or credential file changes are made by this registry slice."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+        "The postback_outbox ownership/provisioning path must be selected before implementation."
+      ],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Registered TMP-036 as a blocked full-system verification follow-up slice.",
+        "Recorded domain brief, story/spec, notes, value gate, work order, and handoff."
+      ],
+      "created_at": "2026-05-09T03:59:59Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "jq empty slices/manifest.json agent/state/TMP-036.work-order.json agent/state/TMP-036.handoff.json .agent/tasks.json",
+            "exit_code": 0,
+            "output_excerpt": "JSON valid",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-036 assignment_decision allow",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "git diff --name-only file-scope review",
+            "exit_code": 0,
+            "output_excerpt": "metadata and harness artifacts only",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-036-postback-outbox-schema.md",
+          "agent/state/TMP-036.handoff.json",
+          "agent/state/TMP-036.work-order.json",
+          "slices/manifest.json",
+          "slices/TMP-036-postback-outbox-schema/domain-brief.md",
+          "slices/TMP-036-postback-outbox-schema/notes.md",
+          "slices/TMP-036-postback-outbox-schema/slice.yaml",
+          "slices/TMP-036-postback-outbox-schema/spec.md",
+          "slices/TMP-036-postback-outbox-schema/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-036",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "blocked",
+      "title": "Postback outbox schema provisioning",
+      "unresolved": [
+        {
+          "blocker": "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+          "disposition": "blocked",
+          "item": "Postback outbox schema provisioning",
+          "next_task_id": null,
+          "reason": "Approval or operator decision required before implementation.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T04:00:30Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": "Dependency changes require explicit user approval by repo policy.",
+          "evidence": [
+            "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": "Implementation requires the named approval or operator decision before file changes.",
+          "status": "blocked",
+          "text": "Explicit dependency-change approval is recorded before implementation."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-037-landing-web-dependency-remediation-approval/spec.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "A future implementation reruns npm audit and landing-web build/UI regression checks."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-037-landing-web-dependency-remediation-approval/spec.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No package, lockfile, frontend, dependency, or runtime files are changed by this registry slice."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        "Dependency changes require explicit user approval by repo policy.",
+        "The proposed remediation is breaking and requires UI regression verification."
+      ],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Registered TMP-037 as a blocked full-system verification follow-up slice.",
+        "Recorded domain brief, story/spec, notes, value gate, work order, and handoff."
+      ],
+      "created_at": "2026-05-09T03:59:59Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "jq empty slices/manifest.json agent/state/TMP-037.work-order.json agent/state/TMP-037.handoff.json .agent/tasks.json",
+            "exit_code": 0,
+            "output_excerpt": "JSON valid",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-037 assignment_decision allow",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "git diff --name-only file-scope review",
+            "exit_code": 0,
+            "output_excerpt": "metadata and harness artifacts only",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-037-landing-web-dependency-remediation-approval.md",
+          "agent/state/TMP-037.handoff.json",
+          "agent/state/TMP-037.work-order.json",
+          "slices/manifest.json",
+          "slices/TMP-037-landing-web-dependency-remediation-approval/domain-brief.md",
+          "slices/TMP-037-landing-web-dependency-remediation-approval/notes.md",
+          "slices/TMP-037-landing-web-dependency-remediation-approval/slice.yaml",
+          "slices/TMP-037-landing-web-dependency-remediation-approval/spec.md",
+          "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-037",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "blocked",
+      "title": "Landing web dependency remediation approval",
+      "unresolved": [
+        {
+          "blocker": "Dependency changes require explicit user approval by repo policy.",
+          "disposition": "blocked",
+          "item": "Landing web dependency remediation approval",
+          "next_task_id": null,
+          "reason": "Approval or operator decision required before implementation.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T04:00:31Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": "Destructive or broad conflict-resolution branch operations require explicit maintainer direction.",
+          "evidence": [
+            "slices/TMP-038-local-main-integration-strategy/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": "Implementation requires the named approval or operator decision before file changes.",
+          "status": "blocked",
+          "text": "A human integration strategy is recorded before destructive or conflict-heavy branch operations."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-038-local-main-integration-strategy/spec.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "A future implementation verifies primary main and origin/main after the chosen strategy."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-038-local-main-integration-strategy/spec.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No branch resets, merges, conflict resolutions, source files, or runtime files are changed by this registry slice."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        "Destructive or broad conflict-resolution branch operations require explicit maintainer direction.",
+        "Primary main contains local-only history that must not be discarded by an agent."
+      ],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Registered TMP-038 as a blocked full-system verification follow-up slice.",
+        "Recorded domain brief, story/spec, notes, value gate, work order, and handoff."
+      ],
+      "created_at": "2026-05-09T03:59:59Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "jq empty slices/manifest.json agent/state/TMP-038.work-order.json agent/state/TMP-038.handoff.json .agent/tasks.json",
+            "exit_code": 0,
+            "output_excerpt": "JSON valid",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-038 assignment_decision allow",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          },
+          {
+            "command": "git diff --name-only file-scope review",
+            "exit_code": 0,
+            "output_excerpt": "metadata and harness artifacts only",
+            "status": "passed",
+            "timestamp": "2026-05-09T04:00:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-038-local-main-integration-strategy.md",
+          "agent/state/TMP-038.handoff.json",
+          "agent/state/TMP-038.work-order.json",
+          "slices/manifest.json",
+          "slices/TMP-038-local-main-integration-strategy/domain-brief.md",
+          "slices/TMP-038-local-main-integration-strategy/notes.md",
+          "slices/TMP-038-local-main-integration-strategy/slice.yaml",
+          "slices/TMP-038-local-main-integration-strategy/spec.md",
+          "slices/TMP-038-local-main-integration-strategy/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-038",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "blocked",
+      "title": "Local main integration strategy",
+      "unresolved": [
+        {
+          "blocker": "Destructive or broad conflict-resolution branch operations require explicit maintainer direction.",
+          "disposition": "blocked",
+          "item": "Local main integration strategy",
+          "next_task_id": null,
+          "reason": "Approval or operator decision required before implementation.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T04:00:31Z",
+      "worktree": null
     }
   ],
   "version": 1
