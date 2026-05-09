@@ -1277,7 +1277,43 @@
         "dod_path": "slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md"
       },
       "notes": "Recorded that the local pinned webspa-admin checkout builds and passes 84/84 ChromeHeadless tests while clean submodule initialization remains blocked."
+    },
+    {
+      "id": "TMP-041",
+      "external_id": "TMP-041",
+      "name": "Runtime schema blocker source inventory",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-041-runtime-schema-source-inventory.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/blocker-audit-20260509-060342",
+      "created_at": "2026-05-09T06:05:49Z",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-041-runtime-schema-source-inventory/value-gate-report.md",
+          "jq empty slices/manifest.json agent/state/TMP-041.work-order.json agent/state/TMP-041.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight with worktree-local temp config",
+          "agent-supervisor auto-loop --max-rounds 1 with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [
+          "rg -n \"CREATE TABLE.*products|CREATE TABLE.*userbase|CREATE TABLE.*message_outbox|CREATE TABLE.*postback_outbox\" services/pg_schema.sql services/subscription-external/migrations/006_web_acquisition_campaigns.sql services/subscription-external/migrations/011_message_cadence_engine.sql services/acquisition-api/migrations/create_postback_tables.sql"
+        ],
+        "dod_path": "slices/TMP-041-runtime-schema-source-inventory/value-gate-report.md"
+      },
+      "notes": "Mapped TMP-034/TMP-035/TMP-036 missing-relation blockers to existing SQL sources and preserved the migration orchestration approval gate."
     }
   ],
-  "updated_at": "2026-05-09T05:55:33Z"
+  "updated_at": "2026-05-09T06:05:49Z"
 }

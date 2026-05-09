@@ -2729,6 +2729,110 @@
       ],
       "updated_at": "2026-05-09T05:55:33Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-041-runtime-schema-source-inventory/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "TMP-034, TMP-035, and TMP-036 evidence maps each missing relation to existing SQL source files."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-041-runtime-schema-source-inventory/value-gate-report.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Duplicate postback_outbox definitions and hand-maintained pg_schema risks are recorded."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "git diff --name-only file-scope review"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No service, migration, SQL, compose, dependency, package, credential, runtime, or branch-integration files change."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        {
+          "blocker": "Approved migration provisioning/orchestration is still required before runtime verification can pass.",
+          "disposition": "blocked",
+          "item": "TMP-034/TMP-035/TMP-036 runtime schema provisioning",
+          "next_task_id": null,
+          "reason": "This slice is evidence-only and does not apply SQL or choose canonical migration ordering.",
+          "severity": "high"
+        }
+      ],
+      "branch": "agent/codex/blocker-audit-20260509-060342",
+      "children": [],
+      "completed": [
+        "Mapped TMP-034/TMP-035/TMP-036 missing relations to existing SQL source files.",
+        "Recorded duplicate postback_outbox schema sources and pg_schema hand-maintained DDL risk.",
+        "Updated release evidence to name migration orchestration as the remaining gate."
+      ],
+      "created_at": "2026-05-09T06:05:49Z",
+      "details": "Record exact existing SQL sources behind runtime schema blockers without changing schema, migrations, compose, runtime code, or dependencies.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "rg -n \"CREATE TABLE.*products|CREATE TABLE.*userbase|CREATE TABLE.*message_outbox|CREATE TABLE.*postback_outbox\" services/pg_schema.sql services/subscription-external/migrations/006_web_acquisition_campaigns.sql services/subscription-external/migrations/011_message_cadence_engine.sql services/acquisition-api/migrations/create_postback_tables.sql",
+            "exit_code": 0,
+            "output_excerpt": "products/userbase/message_outbox/postback_outbox definitions found",
+            "status": "passed",
+            "timestamp": "2026-05-09T06:05:49Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-041-runtime-schema-source-inventory.md",
+          "agent/state/TMP-041.handoff.json",
+          "agent/state/TMP-041.work-order.json",
+          "docs/agent/full-system-verification-2026-05-09.md",
+          "slices/manifest.json",
+          "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md",
+          "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md",
+          "slices/TMP-036-postback-outbox-schema/value-gate-report.md",
+          "slices/TMP-041-runtime-schema-source-inventory/domain-brief.md",
+          "slices/TMP-041-runtime-schema-source-inventory/notes.md",
+          "slices/TMP-041-runtime-schema-source-inventory/slice.yaml",
+          "slices/TMP-041-runtime-schema-source-inventory/spec.md",
+          "slices/TMP-041-runtime-schema-source-inventory/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-041",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Runtime schema blocker source inventory",
+      "unresolved": [
+        {
+          "blocker": "Approved migration provisioning/orchestration is still required.",
+          "disposition": "blocked",
+          "item": "Compose runtime schema readiness",
+          "next_task_id": null,
+          "reason": "Existing SQL sources are identified, but applying them and choosing canonical ordering is approval-gated.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T06:05:49Z",
+      "worktree": null
     }
   ],
   "version": 1

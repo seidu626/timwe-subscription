@@ -24,6 +24,8 @@ Audit 2 result: PASS for registry scope, BLOCKED for implementation.
 ## Blocking Gate
 
 - Schema/migration provisioning is approval-gated by repo risk boundaries.
+- `services/acquisition-api/migrations/create_postback_tables.sql` and `services/subscription-external/migrations/006_web_acquisition_campaigns.sql` both contain `postback_outbox` definitions.
+- The duplicate definitions make canonical schema ownership and migration ordering explicit release decisions before automation.
 - The postback_outbox ownership/provisioning path must be selected before implementation.
 
 ## Commands
@@ -34,6 +36,7 @@ hvc check agent/backlog/issues/*.md --fail-on block
 slice-harness status
 slice-harness sync --dry-run
 git diff --name-only
+rg -n "CREATE TABLE.*postback_outbox" services/acquisition-api/migrations/create_postback_tables.sql services/subscription-external/migrations/006_web_acquisition_campaigns.sql
 ```
 
 Result: BLOCKED by the gate above.

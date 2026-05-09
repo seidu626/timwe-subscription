@@ -1,0 +1,119 @@
+{
+  "acceptance_results": [
+    {
+      "criterion": "TMP-034, TMP-035, and TMP-036 evidence maps each missing relation to existing SQL source files.",
+      "status": "passed",
+      "evidence": [
+        "services/pg_schema.sql defines userbase and products",
+        "services/subscription-external/migrations/011_message_cadence_engine.sql defines message_outbox",
+        "services/acquisition-api/migrations/create_postback_tables.sql and services/subscription-external/migrations/006_web_acquisition_campaigns.sql define postback_outbox"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Duplicate and hand-maintained SQL source risks are recorded.",
+      "status": "passed",
+      "evidence": [
+        "slices/TMP-041-runtime-schema-source-inventory/value-gate-report.md"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "No service, SQL, compose, dependency, package, credential, runtime, or branch-integration files changed.",
+      "status": "passed",
+      "evidence": [
+        "git diff --name-only file-scope review"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    }
+  ],
+  "blockers": [
+    "TMP-034, TMP-035, and TMP-036 remain blocked until approved migration provisioning/orchestration is implemented and verified."
+  ],
+  "changed_files": [
+    "agent/backlog/issues/TMP-041-runtime-schema-source-inventory.md",
+    "agent/state/TMP-041.handoff.json",
+    "agent/state/TMP-041.work-order.json",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/manifest.json",
+    "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md",
+    "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md",
+    "slices/TMP-036-postback-outbox-schema/value-gate-report.md",
+    "slices/TMP-041-runtime-schema-source-inventory/domain-brief.md",
+    "slices/TMP-041-runtime-schema-source-inventory/notes.md",
+    "slices/TMP-041-runtime-schema-source-inventory/slice.yaml",
+    "slices/TMP-041-runtime-schema-source-inventory/spec.md",
+    "slices/TMP-041-runtime-schema-source-inventory/value-gate-report.md"
+  ],
+  "cleanup_notes": [
+    "No long-running processes were started."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Mapped schema-related runtime blockers to existing SQL source files.",
+    "Recorded duplicate postback_outbox source risk and pg_schema hand-maintained DDL risk.",
+    "Preserved the migration provisioning approval gate."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "No migration provisioning/orchestration artifact has been approved or implemented."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-041 narrows the schema blockers: SQL sources exist, but the compose runtime still needs an approved canonical provisioning path.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "This slice is evidence-only.",
+    "Duplicate postback_outbox definitions require a canonical migration decision before automation."
+  ],
+  "safe_to_continue": false,
+  "schema_version": 1,
+  "session_id": "codex-20260509-060549",
+  "status": "done",
+  "summary": "Runtime schema blocker source inventory recorded.",
+  "supervisor_decision": "done",
+  "task_id": "T-TMP-041",
+  "unfinished_work": [
+    "TMP-034/TMP-035/TMP-036 migration provisioning remains blocked pending approval."
+  ],
+  "validation": [
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-041.work-order.json agent/state/TMP-041.handoff.json .agent/tasks.json",
+      "exit_code": 0,
+      "output_excerpt": "JSON valid",
+      "status": "passed",
+      "timestamp": "2026-05-09T06:05:49Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-041 assignment_decision allow; no blocking reasons",
+      "status": "passed",
+      "timestamp": "2026-05-09T06:05:49Z"
+    },
+    {
+      "command": "slice-harness status && slice-harness sync --dry-run",
+      "exit_code": 0,
+      "output_excerpt": "TMP-041 done; seven release-verification blockers remain; no drift detected",
+      "status": "passed",
+      "timestamp": "2026-05-09T06:05:49Z"
+    },
+    {
+      "command": "agent-supervisor preflight --repair then preflight with worktree-local temp config",
+      "exit_code": 0,
+      "output_excerpt": "T-TMP-041 done; preflight ok; only non-schedulable superseded ledger rows remain",
+      "status": "passed",
+      "timestamp": "2026-05-09T06:05:49Z"
+    }
+  ],
+  "updated_at": "2026-05-09T06:05:49Z"
+}

@@ -24,6 +24,8 @@ Audit 2 result: PASS for registry scope, BLOCKED for implementation.
 ## Blocking Gate
 
 - Schema/migration provisioning is approval-gated by repo risk boundaries.
+- `services/pg_schema.sql` contains the base `userbase` and `products` table definitions, so the current blocker is not an unknown table-design gap.
+- `services/pg_schema.sql` is hand-maintained DDL and includes unrelated duplicate declarations, so it still requires an approved canonical provisioning path before the compose runtime can use it.
 - The failing relation products/userbase path requires schema ownership and migration-order decision before implementation.
 
 ## Commands
@@ -34,6 +36,7 @@ hvc check agent/backlog/issues/*.md --fail-on block
 slice-harness status
 slice-harness sync --dry-run
 git diff --name-only
+rg -n "CREATE TABLE.*products|CREATE TABLE.*userbase" services/pg_schema.sql
 ```
 
 Result: BLOCKED by the gate above.
