@@ -35,7 +35,14 @@
         "duplicate tenant key",
         "unknown tenant id",
         "unauthorized actor"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-001-tenant-context/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-001-tenant-context/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-002",
@@ -57,7 +64,14 @@
         "duplicate product per tenant",
         "invalid userbase import row",
         "missing authorization"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-002-tenant-admin-management/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-002-tenant-admin-management/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-003",
@@ -79,7 +93,14 @@
         "duplicate channel key",
         "missing provider",
         "cross-tenant channel access"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-003-channel-catalog/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-003-channel-catalog/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-004",
@@ -101,7 +122,14 @@
         "credential read redaction",
         "inactive channel",
         "cross-tenant credential access"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-004-channel-credential-binding/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-004-channel-credential-binding/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-005",
@@ -125,7 +153,14 @@
         "ambiguous public slug",
         "channel capability mismatch",
         "disabled campaign access"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-005-tenant-campaigns/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-005-tenant-campaigns/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-006",
@@ -149,7 +184,14 @@
         "pending transaction reuse across tenant boundary",
         "TIMWE dependency failure",
         "missing consent"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-006-tenant-acquisition-flow/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-006-tenant-acquisition-flow/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-007",
@@ -174,7 +216,14 @@
         "unsupported operation",
         "credential lookup failure",
         "upstream timeout"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-007-channel-subscription-routing/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-007-channel-subscription-routing/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-008",
@@ -200,7 +249,14 @@
         "duplicate message outbox job",
         "worker claim race",
         "channel send failure"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-008-notification-and-cadence-routing/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-008-notification-and-cadence-routing/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-009",
@@ -225,7 +281,14 @@
         "provider template missing",
         "postback target timeout",
         "cross-tenant DLQ access"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-009-postback-and-attribution-routing/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-009-postback-and-attribution-routing/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-010",
@@ -252,7 +315,14 @@
         "unsupported channel filter",
         "partial datasource failure",
         "unauthorized aggregation"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-010-tenant-reporting-and-ops/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-010-tenant-reporting-and-ops/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-011",
@@ -281,7 +351,14 @@
         "constraint violation",
         "rollback required",
         "large table lock risk"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-011-migration-and-data-isolation/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-011-migration-and-data-isolation/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-012",
@@ -305,7 +382,14 @@
         "forged tenant header",
         "disabled tenant",
         "legacy route compatibility"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-012-public-tenant-routing/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-012-public-tenant-routing/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-013",
@@ -331,7 +415,14 @@
         "cross-tenant mismatch",
         "replay",
         "legacy callback mapping"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-013-inbound-callback-correlation/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-013-inbound-callback-correlation/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-014",
@@ -357,7 +448,14 @@
         "missing tenant assignment",
         "disabled tenant",
         "empty tenant workspace"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-014-admin-portal-tenant-workspace/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-014-admin-portal-tenant-workspace/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-015",
@@ -385,7 +483,14 @@
         "missing tenant metrics label",
         "secret backend unavailable",
         "unsafe local config"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-015-platform-ops-secret-observability/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-015-platform-ops-secret-observability/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-016",
@@ -413,7 +518,14 @@
         "missing callback signature",
         "unsupported capability",
         "legacy mapping ambiguity"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-017",
@@ -438,7 +550,14 @@
         "disabled billing dependency",
         "cross-tenant charge lookup",
         "legacy renewal charge"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-017-billing-charge-ownership/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-017-billing-charge-ownership/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-018",
@@ -458,7 +577,14 @@
         "forged service header",
         "tenant claim mismatch",
         "clock skew and replay"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-019",
@@ -480,7 +606,14 @@
         "path traversal",
         "storage backend failure",
         "legacy asset mapping"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-019-tenant-asset-namespacing/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-019-tenant-asset-namespacing/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-020",
@@ -505,7 +638,14 @@
         "PII label attempted",
         "noisy tenant",
         "unknown tenant denial"
-      ]
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-020-tenant-observability-baseline/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-020-tenant-observability-baseline/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-021",
