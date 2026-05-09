@@ -1,0 +1,29 @@
+id: TMP-042
+title: Release blocker decision packet
+class: operational_slice
+actor: platform-operator
+action: consolidate blocked release-verification decisions
+outcome: remaining blockers have explicit operator decision options and post-approval proof
+entrypoints:
+  - docs/agent/full-system-verification-2026-05-09.md
+  - agent/state/TMP-026.handoff.json
+  - agent/state/TMP-034.handoff.json
+  - agent/state/TMP-035.handoff.json
+  - agent/state/TMP-036.handoff.json
+  - agent/state/TMP-037.handoff.json
+  - agent/state/TMP-038.handoff.json
+invariants:
+  - blocked work remains blocked until a durable approval artifact exists
+  - decision packets do not mutate runtime code, schemas, dependencies, gitlinks, or branch history
+acceptance:
+  - decision packet exists
+  - all seven blocked slices are covered
+  - each decision row has options and post-approval proof
+  - no forbidden runtime or source files change
+verification:
+  - test -f docs/agent/release-decision-packet-2026-05-09.md
+  - test -f slices/TMP-042-release-decision-packet/value-gate-report.md
+  - jq empty slices/manifest.json agent/state/TMP-042.work-order.json agent/state/TMP-042.handoff.json .agent/tasks.json
+  - hvc check agent/backlog/issues/*.md --fail-on block
+  - slice-harness status
+  - slice-harness sync --dry-run

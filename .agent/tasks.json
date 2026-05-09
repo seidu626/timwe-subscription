@@ -2833,6 +2833,100 @@
       ],
       "updated_at": "2026-05-09T06:05:49Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "docs/agent/release-decision-packet-2026-05-09.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Release decision packet lists TMP-021, TMP-026, TMP-034, TMP-035, TMP-036, TMP-037, and TMP-038."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "docs/agent/release-decision-packet-2026-05-09.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Each blocker row names operator choices and required post-approval verification proof."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "git diff --name-only file-scope review"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No service, migration, SQL, compose, dependency, package, credential, submodule, runtime, or branch-integration files change."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        {
+          "blocker": "Operator approvals or maintainer decisions are still required before blocked implementation slices can run.",
+          "disposition": "blocked",
+          "item": "TMP-021/TMP-026/TMP-034/TMP-035/TMP-036/TMP-037/TMP-038 release verification blockers",
+          "next_task_id": null,
+          "reason": "This slice consolidates decision options but does not approve or implement them.",
+          "severity": "high"
+        }
+      ],
+      "branch": "agent/codex/decision-packet-20260509-062213",
+      "children": [],
+      "completed": [
+        "Created docs/agent/release-decision-packet-2026-05-09.md.",
+        "Mapped each remaining blocker to decision options and post-approval proof.",
+        "Preserved the existing approval gates and avoided runtime/source changes."
+      ],
+      "created_at": "2026-05-09T06:25:00Z",
+      "details": "Create a consolidated decision packet for the remaining approval-gated full-system verification blockers.",
+      "evidence": {
+        "commands": [],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-042-release-decision-packet.md",
+          "agent/state/TMP-042.handoff.json",
+          "agent/state/TMP-042.work-order.json",
+          "docs/agent/release-decision-packet-2026-05-09.md",
+          "docs/agent/full-system-verification-2026-05-09.md",
+          "slices/manifest.json",
+          "slices/TMP-042-release-decision-packet/domain-brief.md",
+          "slices/TMP-042-release-decision-packet/notes.md",
+          "slices/TMP-042-release-decision-packet/slice.yaml",
+          "slices/TMP-042-release-decision-packet/spec.md",
+          "slices/TMP-042-release-decision-packet/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-042",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Release blocker decision packet",
+      "unresolved": [
+        {
+          "blocker": "Operator approvals or maintainer decisions are still required.",
+          "disposition": "blocked",
+          "item": "Remaining release-verification implementation blockers",
+          "next_task_id": null,
+          "reason": "TMP-042 records the decision packet only; it does not approve blocked work.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T06:25:00Z",
+      "worktree": null
     }
   ],
   "version": 1

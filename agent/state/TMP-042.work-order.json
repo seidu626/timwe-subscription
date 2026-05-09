@@ -1,0 +1,95 @@
+{
+  "work_order_id": "WO-TMP-042-001",
+  "issue_id": "TMP-042",
+  "class": "operational_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "review",
+  "vertical_outcome": "The remaining full-system verification blockers are reduced to explicit decision records with choices, affected slices, and verification proof required after approval.",
+  "actor": "platform-operator",
+  "entrypoint": "Full-system verification blocked queue",
+  "trigger": "Supervisor reports no ready tasks while release verification remains blocked.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-042-release-decision-packet.md",
+    "agent/state/TMP-042.work-order.json",
+    "agent/state/TMP-042.handoff.json",
+    "docs/agent/release-decision-packet-2026-05-09.md",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/manifest.json",
+    "slices/TMP-042-release-decision-packet/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "common/**",
+    "frontend/**",
+    "ops/**",
+    "docker-compose*.yml",
+    "Makefile",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json",
+    "*.sql",
+    ".git/**"
+  ],
+  "acceptance_tests": [
+    "test -f docs/agent/release-decision-packet-2026-05-09.md",
+    "test -f slices/TMP-042-release-decision-packet/value-gate-report.md",
+    "jq empty slices/manifest.json agent/state/TMP-042.work-order.json agent/state/TMP-042.handoff.json .agent/tasks.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "required_evidence": [
+    "docs/agent/release-decision-packet-2026-05-09.md",
+    "slices/TMP-042-release-decision-packet/value-gate-report.md",
+    "agent/state/TMP-042.handoff.json"
+  ],
+  "non_goals": [
+    "schema changes",
+    "migration changes",
+    "compose changes",
+    "dependency changes",
+    "package manifest or lockfile changes",
+    "submodule changes",
+    "branch integration"
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-042",
+    "title": "Release blocker decision packet",
+    "path": "agent/backlog/issues/TMP-042-release-decision-packet.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "review",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [
+      "broadness_signal:full",
+      "broadness_signal:system"
+    ],
+    "schema_errors": [],
+    "recommended_action": {
+      "consider_split": true,
+      "broadness_signals": [
+        "full",
+        "system"
+      ]
+    }
+  }
+}
