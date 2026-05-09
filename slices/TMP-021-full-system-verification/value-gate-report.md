@@ -35,7 +35,7 @@ Audit 3 result: PASS for artifact integrity, BLOCKED for release readiness.
 ## Blocking Gates
 
 - webspa-admin gitlink cannot be initialized because the configured submodule remote does not contain pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`.
-- compose runtime start is blocked by missing env values and secret-shaped checked-in config.
+- compose runtime start is blocked until real env/provider values and required local Docker network are supplied; TMP-028 verified config rendering with `.env.example`.
 - dependency vulnerability remediation requires explicit approval because `npm audit` proposes a breaking Next/PostCSS upgrade.
 - local main and origin/main diverge with add/add conflicts; clean PR branches use `origin/main` as source of truth.
 

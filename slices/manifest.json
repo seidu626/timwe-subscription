@@ -709,7 +709,37 @@
         "dod_path": "slices/TMP-027-release-matrix-stale-blocker-reconciliation/value-gate-report.md"
       },
       "notes": "Current Go test and canonical build evidence is visible while webspa-admin, compose runtime, dependency vulnerability, and local-main blockers remain visible."
+    },
+    {
+      "id": "TMP-028",
+      "external_id": "TMP-028",
+      "name": "Compose secret and env hygiene",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-028-compose-secret-env-hygiene.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-blocker-audit-20260509-022225",
+      "created_at": "2026-05-09T02:25:13.593117+00:00",
+      "shipped_at": "2026-05-09T02:31:19Z",
+      "shipped_to": "agent/codex/full-system-blocker-audit-20260509-022225",
+      "verification": {
+        "automated": [
+          "docker compose --env-file .env.example -f docker-compose.yml config",
+          "rg -n 'APP_DATABASE_POSTGRESQL_HOST=139|APP_DATABASE_POSTGRESQL_PASSWORD=[^$]' docker-compose.yml || true",
+          "jq empty slices/manifest.json agent/state/TMP-028.work-order.json agent/state/TMP-028.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status && slice-harness sync --dry-run"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-028-compose-secret-env-hygiene/value-gate-report.md"
+      },
+      "notes": "Removed checked-in subscription DB credential material from docker-compose.yml, defaulted local routing to the Docker database service, and verified compose config renders with .env.example; runtime start still needs real env/provider values."
     }
   ],
-  "updated_at": "2026-05-09T02:10:25.888330+00:00"
+  "updated_at": "2026-05-09T02:31:19Z"
 }
