@@ -634,6 +634,118 @@
       "unresolved": [],
       "updated_at": "2026-05-09T01:41:21Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/manifest.json"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "TMP-021 manifest state is blocked."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/manifest.json",
+            "slices/TMP-021-full-system-verification/value-gate-report.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "TMP-021 manifest verification and DoD point to TMP-021 release-verification evidence."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-021-full-system-verification/value-gate-report.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "TMP-021 value-gate report is BLOCKED with exact release-readiness blockers."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "TMP-021 manifest state set to blocked",
+        "TMP-021 manifest verification points to TMP-021 value-gate evidence",
+        "TMP-021 value-gate report updated from PENDING to BLOCKED",
+        "Set TMP-021 manifest state to blocked.",
+        "Repointed TMP-021 manifest verification and DoD path to TMP-021 full-system evidence.",
+        "Updated TMP-021 value-gate report from PENDING to BLOCKED with explicit blockers.",
+        "Added TMP-025 operational slice evidence for the reconciliation."
+      ],
+      "created_at": "2026-05-09T01:46:53Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "jq empty slices/manifest.json",
+            "exit_code": 0,
+            "output_excerpt": "manifest JSON valid",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:49:00Z"
+          },
+          {
+            "command": "slice-harness status && slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "TMP-021 is blocked; no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:49:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-025 assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:49:00Z"
+          },
+          {
+            "command": "agent-supervisor preflight --repair with worktree-local temp config",
+            "exit_code": 0,
+            "output_excerpt": "ok true; T-TMP-025 synced to supervisor ledger",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:49:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/T-TMP-025.json",
+          ".agent/tasks.json",
+          ".harness/task-ledger.sqlite",
+          "agent/backlog/issues/TMP-025-tmp021-metadata-reconciliation.md",
+          "agent/state/TMP-025.handoff.json",
+          "agent/state/TMP-025.work-order.json",
+          "slices/TMP-021-full-system-verification/value-gate-report.md",
+          "slices/TMP-025-tmp021-metadata-reconciliation/notes.md",
+          "slices/TMP-025-tmp021-metadata-reconciliation/slice.yaml",
+          "slices/TMP-025-tmp021-metadata-reconciliation/spec.md",
+          "slices/TMP-025-tmp021-metadata-reconciliation/value-gate-report.md",
+          "slices/manifest.json"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-025",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "TMP-021 release matrix metadata reconciliation",
+      "unresolved": [],
+      "updated_at": "2026-05-09T01:50:14Z",
+      "worktree": null
     }
   ],
   "version": 1

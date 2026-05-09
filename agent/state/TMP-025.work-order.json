@@ -1,0 +1,68 @@
+{
+  "work_order_id": "WO-TMP-025-001",
+  "issue_id": "TMP-025",
+  "class": "operational_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Release verification status shows TMP-021 blocked with its own evidence instead of another slice's landing-web evidence.",
+  "actor": "platform-operator",
+  "entrypoint": "slices/manifest.json and TMP-021 value-gate report",
+  "trigger": "Operator inspects release-readiness status after full-system verification.",
+  "allowed_files": [
+    "slices/manifest.json",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/TMP-025-tmp021-metadata-reconciliation/**",
+    "agent/backlog/issues/TMP-025-tmp021-metadata-reconciliation.md",
+    "agent/state/TMP-025.work-order.json",
+    ".agent/**"
+  ],
+  "forbidden_files": [
+    "common/**",
+    "services/**",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json"
+  ],
+  "acceptance_tests": [
+    "jq '.slices[] | select(.id==\"TMP-021\")' slices/manifest.json",
+    "test -f slices/TMP-021-full-system-verification/value-gate-report.md",
+    "jq empty slices/manifest.json",
+    "slice-harness status"
+  ],
+  "required_evidence": [
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "slice-harness sync --dry-run",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-025",
+    "title": "TMP-021 release matrix metadata reconciliation",
+    "path": "agent/backlog/issues/TMP-025-tmp021-metadata-reconciliation.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}
