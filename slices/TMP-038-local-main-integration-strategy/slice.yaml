@@ -16,7 +16,7 @@ acceptance_criteria:
     - scenario: "Current blocker remains unresolved"
       given: ["Verifier compares primary checkout main against origin/main during full-system verification."]
       when: "the verifier checks the current system"
-      then: "Primary local main is ahead 51 and behind origin/main by 23, and an isolated merge probe produced broad add/add conflicts."
+      then: "Primary local main is diverged from origin/main; recorded evidence snapshots showed broad ahead/behind divergence, and an isolated merge probe produced broad add/add conflicts."
       evidence: "git status --short --branch in primary checkout"
   invariants:
     - rule: "No approval-gated implementation happens in this registry slice"
@@ -28,7 +28,7 @@ out_of_scope:
   - "schema, dependency, compose, runtime, source, or destructive git changes"
 
 size_check:
-  files_touched: 5
+  files_touched: 7
   migrations: 0
   endpoints: 0
 

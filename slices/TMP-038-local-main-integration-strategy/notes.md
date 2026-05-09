@@ -12,3 +12,4 @@
 - 2026-05-09T04:14:53Z evidence refresh: Claude foreground critique approved a narrow metadata refresh and flagged that `docs/agent/full-system-verification-2026-05-09.md` should be added to the allowed file scope before editing it.
 - 2026-05-09T04:14:53Z primary checkout evidence: clean `main...origin/main [ahead 51, behind 24]`, primary head `ab22b15f7c8f6ea8df951a04f3201027c00de06e`, remote head `2f4bcd1fafd09c3c7d485ccc8f8ddc3d09c63115`, merge-base `b86522933b13108dd7165f0f91618a59c378d5bc`, and no open PRs.
 - 2026-05-09T08:44:16Z primary checkout evidence: clean `main...origin/main [ahead 51, behind 38]`, primary head `ab22b15f7c8f6ea8df951a04f3201027c00de06e`, remote head `bad5fe156f876938ff10895a5a330178c95bb8de`, no open PRs, and no open issues.
+- PR #30 later advanced `origin/main`; exact ahead/behind counts must be refreshed from the post-decision proof commands before any integration decision.
