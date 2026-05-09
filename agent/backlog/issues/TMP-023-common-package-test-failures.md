@@ -2,7 +2,7 @@
 id: TMP-023
 title: "Common package test failures"
 class: vertical_defect_slice
-status: ready
+status: done
 scope_limit: "Fix common package compile/test failures without changing dependency versions, vendor trees, or service behavior."
 merge_policy: "Merge only after HVC and `go test ./...` pass in `common`."
 evidence_required:

@@ -2,7 +2,7 @@
 id: TMP-027
 title: "Release matrix stale blocker reconciliation"
 class: operational_slice
-status: ready
+status: done
 scope_limit: "Reconcile TMP-021 release-verification evidence after current origin/main proves subscription-partner and notification default tests plus canonical local build pass."
 merge_policy: "Merge only after HVC, slice-harness, supervisor preflight, JSON validation, and evidence artifact checks pass."
 evidence_required:

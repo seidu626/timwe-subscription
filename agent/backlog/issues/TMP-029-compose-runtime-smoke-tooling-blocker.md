@@ -2,7 +2,7 @@
 id: TMP-029
 title: "Compose smoke Docker auth blocker evidence"
 class: operational_slice
-status: ready
+status: done
 scope_limit: "Record the bounded compose runtime smoke attempt that advanced past config rendering but failed before app startup on local Docker registry auth/tooling."
 merge_policy: "Merge only after HVC, JSON validation, slice-harness, supervisor preflight, and evidence-only scope checks pass."
 evidence_required:

@@ -2,7 +2,7 @@
 id: TMP-022
 title: "Landing web dynamic route build failure"
 class: vertical_defect_slice
-status: ready
+status: done
 scope_limit: "Fix the Next.js dynamic segment naming conflict that prevents the landing-web production build. Preserve existing public URL shapes and do not change acquisition API behavior."
 merge_policy: "Merge only after HVC, landing-web build, and value-gate evidence pass."
 evidence_required:

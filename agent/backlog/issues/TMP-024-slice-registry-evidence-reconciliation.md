@@ -2,7 +2,7 @@
 id: TMP-024
 title: "Slice registry evidence reconciliation"
 class: operational_slice
-status: ready
+status: done
 scope_limit: "Reconcile shipped slice registry metadata with already-accepted TMP-022 and TMP-023 evidence."
 merge_policy: "Merge only after manifest JSON, HVC, and slice-harness status/sync checks pass."
 evidence_required:

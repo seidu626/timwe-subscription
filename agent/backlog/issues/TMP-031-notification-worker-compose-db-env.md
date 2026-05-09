@@ -2,7 +2,7 @@
 id: TMP-031
 title: "Notification worker compose DB env"
 class: vertical_defect_slice
-status: ready
+status: done
 scope_limit: "Fix notification-worker compose runtime DB connection configuration so the worker can ping the local compose Postgres without source, dependency, vendor, package, frontend, credential, or schema changes."
 merge_policy: "Merge only after compose config render, targeted notification-worker smoke, HVC, JSON validation, slice-harness, supervisor preflight, and source-scope checks pass."
 evidence_required:
