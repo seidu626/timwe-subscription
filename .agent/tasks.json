@@ -2526,6 +2526,84 @@
       ],
       "updated_at": "2026-05-09T04:00:31Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-039-operational-domain-brief-reconciliation/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "TMP-021, TMP-024, TMP-025, TMP-026, and TMP-033 each have a domain-brief.md."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-039-operational-domain-brief-reconciliation/spec.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Each added domain brief names actor, business outcome, domain invariant, entrypoint, trigger, and risk."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "git diff --name-only file-scope review"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No product source, runtime, schema, compose, dependency, package, or branch-integration files change."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": "agent/codex/tmp039-domain-briefs-20260509-0535",
+      "children": [],
+      "completed": [
+        "Added missing domain briefs for TMP-021, TMP-024, TMP-025, TMP-026, and TMP-033.",
+        "Registered TMP-039 with issue, work order, slice spec, value gate, handoff, manifest, and task evidence."
+      ],
+      "created_at": "2026-05-09T05:35:11Z",
+      "details": "Reconcile missing domain grounding evidence for manifest-backed operational verification slices without changing runtime behavior.",
+      "evidence": {
+        "commands": [],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-039-operational-domain-brief-reconciliation.md",
+          "agent/state/TMP-039.handoff.json",
+          "agent/state/TMP-039.work-order.json",
+          "slices/manifest.json",
+          "slices/TMP-021-full-system-verification/domain-brief.md",
+          "slices/TMP-024-slice-registry-evidence-reconciliation/domain-brief.md",
+          "slices/TMP-025-tmp021-metadata-reconciliation/domain-brief.md",
+          "slices/TMP-026-webspa-submodule-verification/domain-brief.md",
+          "slices/TMP-033-tmp032-ledger-state-reconciliation/domain-brief.md",
+          "slices/TMP-039-operational-domain-brief-reconciliation/domain-brief.md",
+          "slices/TMP-039-operational-domain-brief-reconciliation/notes.md",
+          "slices/TMP-039-operational-domain-brief-reconciliation/slice.yaml",
+          "slices/TMP-039-operational-domain-brief-reconciliation/spec.md",
+          "slices/TMP-039-operational-domain-brief-reconciliation/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-039",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Operational slice domain brief reconciliation",
+      "unresolved": [],
+      "updated_at": "2026-05-09T05:35:11Z",
+      "worktree": null
     }
   ],
   "version": 1
