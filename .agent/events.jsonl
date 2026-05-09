@@ -103,3 +103,13 @@
 {"agent": null, "payload": {"next_task": null, "safe_to_continue": false, "stop_reason": "no_unblocked_tasks"}, "task_id": null, "time": "2026-05-09T02:01:35Z", "type": "supervisor.report"}
 {"agent": null, "payload": {"path": "/home/xper626/workspace/apps/worktrees/codex-full-system-webspa-20260509-0153/.agent/sessions/supervisor-20260509T020135Z-0b2cde0c", "session_id": "supervisor-20260509T020135Z-0b2cde0c"}, "task_id": null, "time": "2026-05-09T02:01:35Z", "type": "session.capsule"}
 {"agent": "codex", "payload": {"accepted_handoff": true, "session_id": "codex-20260509-015346", "status": "accepted", "task_id": "T-TMP-026"}, "task_id": "T-TMP-026", "time": "2026-05-09T02:01:35Z", "type": "session.closeout"}
+{"agent": null, "payload": {"parent_id": null, "priority": 0, "title": "Release matrix stale blocker reconciliation"}, "task_id": "T-TMP-027", "time": "2026-05-09T02:10:25Z", "type": "task.created"}
+{"agent": "codex", "payload": {"old_status": "queued", "reason": null}, "task_id": "T-TMP-027", "time": "2026-05-09T02:10:25Z", "type": "task.claimed"}
+{"agent": "codex", "payload": {"last_action": "", "state": "claimed"}, "task_id": "T-TMP-027", "time": "2026-05-09T02:10:25Z", "type": "heartbeat"}
+{"agent": "codex", "payload": {"old_status": "claimed", "reason": null}, "task_id": "T-TMP-027", "time": "2026-05-09T02:10:26Z", "type": "task.in_progress"}
+{"agent": "codex", "payload": {"last_action": "", "state": "in_progress"}, "task_id": "T-TMP-027", "time": "2026-05-09T02:10:26Z", "type": "heartbeat"}
+{"agent": null, "payload": {"session_id": "codex-20260509-020550", "summary": "Release matrix stale blocker evidence reconciled."}, "task_id": "T-TMP-027", "time": "2026-05-09T02:15:52Z", "type": "handoff.done"}
+{"agent": null, "payload": {"handoff_path": "agent/state/TMP-027.handoff.json", "session_id": "codex-20260509-020550", "status": "done"}, "task_id": "T-TMP-027", "time": "2026-05-09T02:15:52Z", "type": "completion_gate.accepted"}
+{"agent": null, "payload": {"next_task": null, "safe_to_continue": false, "stop_reason": "no_unblocked_tasks"}, "task_id": null, "time": "2026-05-09T02:15:52Z", "type": "supervisor.report"}
+{"agent": null, "payload": {"path": "/home/xper626/workspace/apps/worktrees/codex-full-system-continue-20260509-020544/.agent/sessions/supervisor-20260509T021552Z-90148f3f", "session_id": "supervisor-20260509T021552Z-90148f3f"}, "task_id": null, "time": "2026-05-09T02:15:52Z", "type": "session.capsule"}
+{"agent": "codex", "payload": {"accepted_handoff": true, "session_id": "codex-20260509-020550", "status": "accepted", "task_id": "T-TMP-027"}, "task_id": "T-TMP-027", "time": "2026-05-09T02:15:52Z", "type": "session.closeout"}

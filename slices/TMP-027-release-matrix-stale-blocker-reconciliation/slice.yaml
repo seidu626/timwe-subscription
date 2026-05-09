@@ -1,0 +1,63 @@
+story:
+  id: "TMP-027"
+  title: "Release matrix reflects current blocker state"
+  actor: "platform-operator"
+  action: "review current full-system verification evidence"
+  outcome: "current Go test and build pass evidence is visible while remaining real blockers stay visible"
+  as_a: "platform-operator"
+  i_want_to: "see current build and test evidence in the release matrix"
+  so_that: "I can focus release decisions on blockers that still exist"
+
+entrypoints:
+  - "docs/agent/full-system-verification-2026-05-09.md"
+  - "slices/TMP-021-full-system-verification/value-gate-report.md"
+  - "agent/state/TMP-021.handoff.json"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Current Go verification passes"
+      given: ["current origin/main checkout"]
+      when: "subscription-partner tests, notification tests, and canonical local build run"
+      then: "all three commands pass"
+      evidence: "TMP-027 value-gate report"
+    - scenario: "Stale blocker retired"
+      given: ["the release matrix previously listed dependency/vendor repairs as active blockers"]
+      when: "the matrix is reconciled"
+      then: "that blocker is removed from TMP-021 and replaced with current passing evidence"
+      evidence: "full-system verification artifact"
+  failures:
+    - scenario: "Unrelated blocker hidden"
+      given: ["compose runtime, webspa-admin, dependency vulnerability, or local-main divergence still blocks full release readiness"]
+      when: "the stale blocker is retired"
+      then: "those blockers remain listed"
+      evidence: "blocked checks table"
+    - scenario: "Generated binary drift"
+      given: ["make build-all-local writes service binaries"]
+      when: "the slice is committed"
+      then: "no service binary or source file is modified"
+      evidence: "git status and git diff review"
+  invariants:
+    - rule: "Release evidence must reflect current source truth"
+      preserved_by: "rerun commands before updating TMP-021"
+      violated_when: "a historical failure remains listed after current commands pass"
+      test: "value-gate report"
+    - rule: "Retiring one blocker must not imply full readiness"
+      preserved_by: "remaining blockers stay visible"
+      violated_when: "runtime/submodule/security/integration gates are removed without proof"
+      test: "blocked checks review"
+
+out_of_scope:
+  - "source code changes"
+  - "dependency or vendor changes"
+  - "frontend source changes"
+  - "runtime compose startup"
+  - "local main integration"
+
+size_check:
+  files_touched: 12
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-027-release-matrix-stale-blocker-reconciliation/value-gate-report.md"
