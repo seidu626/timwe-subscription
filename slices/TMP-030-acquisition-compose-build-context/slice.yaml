@@ -1,0 +1,51 @@
+story:
+  id: "TMP-030"
+  title: "Acquisition API compose build context"
+  actor: "verification-agent"
+  action: "build the acquisition API compose image"
+  outcome: "the image build resolves the repo-local common module without stale vendor requirements"
+  as_a: "verification-agent"
+  i_want_to: "build the acquisition API image through compose"
+  so_that: "full-system compose smoke can progress to application startup checks"
+
+entrypoints:
+  - "docker-compose.yml"
+  - "services/acquisition-api/Dockerfile"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Acquisition image builds"
+      given: ["compose uses .env.example and temporary local overrides"]
+      when: "the verifier builds acquisition-api"
+      then: "the image build completes without a service-local vendor tree"
+      evidence: "docker compose build acquisition-api with isolated auth"
+  failures:
+    - scenario: "Build context lacks common module"
+      given: ["the service go.mod replaces common via ../../common"]
+      when: "compose builds from a service-only context"
+      then: "the build cannot resolve the module graph"
+      evidence: "pre-fix compose build failure"
+  invariants:
+    - rule: "No dependency, vendor, or Go source changes"
+      preserved_by: "Dockerfile and compose-only build-context fix"
+      violated_when: "go.mod, go.sum, vendor, or service source files change"
+      test: "git status forbidden file-scope check"
+    - rule: "Runtime defects are separate from image-build defects"
+      preserved_by: "recording acquisition schema bootstrap as downstream blocker"
+      violated_when: "full runtime readiness is claimed from image build success alone"
+      test: "targeted acquisition runtime probe"
+
+out_of_scope:
+  - "schema migration ordering fixes"
+  - "dependency or vendor regeneration"
+  - "Docker credential repair"
+  - "live provider flow verification"
+
+size_check:
+  files_touched: 14
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-030-acquisition-compose-build-context/value-gate-report.md"

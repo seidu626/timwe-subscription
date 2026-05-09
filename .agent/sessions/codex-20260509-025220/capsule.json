@@ -1,0 +1,24 @@
+{
+  "blockers": [
+    "Acquisition API runtime probe exits during admin schema bootstrap because add_admin_management_tables.sql expects relation products.",
+    "Notification worker exits in compose on DB SSL mode mismatch.",
+    "Postback dispatcher retries against localhost DB instead of the compose database service."
+  ],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-20260509-025220",
+  "status": "done",
+  "summary": "Acquisition API compose build-context defect fixed and verified.",
+  "task_id": "T-TMP-030",
+  "unfinished_work": [
+    {
+      "blocker": "Admin schema migration expects relation products before it exists in compose runtime.",
+      "disposition": "out_of_scope",
+      "item": "Acquire acquisition-api runtime health.",
+      "next_task_id": null,
+      "reason": "Targeted runtime probe reproduced this after image build passed.",
+      "severity": "high"
+    }
+  ],
+  "written_at": "2026-05-09T03:15:39Z"
+}
