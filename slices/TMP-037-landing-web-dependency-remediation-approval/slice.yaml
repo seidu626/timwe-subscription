@@ -1,0 +1,37 @@
+story:
+  id: "TMP-037"
+  title: "Landing web dependency remediation approval"
+  actor: "platform-operator"
+  action: "clear TMP-037 blocker"
+  outcome: "Landing-web dependency vulnerability remediation has an explicit approval gate before breaking Next/PostCSS upgrades are attempted."
+  as_a: "platform-operator"
+  i_want_to: "track this blocker as a first-class slice"
+  so_that: "full-system verification cannot hide unresolved approval-gated work"
+
+entrypoints:
+  - "services/landing-web/package.json and package-lock.json"
+
+acceptance_criteria:
+  failures:
+    - scenario: "Current blocker remains unresolved"
+      given: ["Verifier runs npm audit after landing-web build passes."]
+      when: "the verifier checks the current system"
+      then: "npm audit reports Next/PostCSS advisories and npm audit fix proposes a breaking Next upgrade to next@16.2.6."
+      evidence: "npm audit --audit-level=moderate"
+  invariants:
+    - rule: "No approval-gated implementation happens in this registry slice"
+      preserved_by: "file-scope check"
+      violated_when: "source, schema, dependency, compose, or branch-operation files are changed"
+      test: "git diff --name-only"
+
+out_of_scope:
+  - "schema, dependency, compose, runtime, source, or destructive git changes"
+
+size_check:
+  files_touched: 5
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "BLOCKED before approval gate clears"
+  report_path: "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"

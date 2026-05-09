@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "task_id": "T-TMP-037",
+  "status": "blocked",
+  "supervisor_decision": "blocked_pending_operator_approval",
+  "summary": "Landing web dependency remediation approval registered as a blocked follow-up slice.",
+  "session_id": "codex-20260509-035546",
+  "updated_at": "2026-05-09T03:58:00Z",
+  "acceptance_results": [
+    {
+      "criterion": "Explicit dependency-change approval is recorded before implementation.",
+      "status": "blocked",
+      "blocker": "Dependency changes require explicit user approval by repo policy.",
+      "reason": "Implementation requires the named approval or operator decision before file changes.",
+      "evidence": [
+        "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
+      ],
+      "next_task_id": null
+    },
+    {
+      "criterion": "A future implementation reruns npm audit and landing-web build/UI regression checks.",
+      "status": "passed",
+      "blocker": null,
+      "reason": null,
+      "evidence": [
+        "slices/TMP-037-landing-web-dependency-remediation-approval/spec.md"
+      ],
+      "next_task_id": null
+    },
+    {
+      "criterion": "No package, lockfile, frontend, dependency, or runtime files are changed by this registry slice.",
+      "status": "passed",
+      "blocker": null,
+      "reason": null,
+      "evidence": [
+        "slices/TMP-037-landing-web-dependency-remediation-approval/spec.md"
+      ],
+      "next_task_id": null
+    }
+  ],
+  "blockers": [
+    "Dependency changes require explicit user approval by repo policy.",
+    "The proposed remediation is breaking and requires UI regression verification."
+  ],
+  "changed_files": [
+    "agent/backlog/issues/TMP-037-landing-web-dependency-remediation-approval.md",
+    "agent/state/TMP-037.handoff.json",
+    "agent/state/TMP-037.work-order.json",
+    "slices/manifest.json",
+    "slices/TMP-037-landing-web-dependency-remediation-approval/domain-brief.md",
+    "slices/TMP-037-landing-web-dependency-remediation-approval/notes.md",
+    "slices/TMP-037-landing-web-dependency-remediation-approval/slice.yaml",
+    "slices/TMP-037-landing-web-dependency-remediation-approval/spec.md",
+    "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No long-running processes were started for this metadata-only blocker registration."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Registered TMP-037 as a blocked full-system verification follow-up slice.",
+    "Recorded domain brief, story/spec, notes, value gate, work order, and handoff."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "not_started_blocked",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Landing web dependency remediation approval implementation remains blocked by the approval or operator decision gate."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-037 records Landing web dependency remediation approval as blocked; no implementation files changed.",
+  "residual_work_policy": "blocked_until_approval",
+  "risk_notes": [
+    "Dependency changes require explicit user approval by repo policy.",
+    "The proposed remediation is breaking and requires UI regression verification."
+  ],
+  "safe_to_continue": false,
+  "unfinished_work": [
+    {
+      "item": "Landing web dependency remediation approval",
+      "disposition": "blocked",
+      "blocker": "Dependency changes require explicit user approval by repo policy.",
+      "reason": "Approval or operator decision required before implementation.",
+      "severity": "high",
+      "next_task_id": null
+    }
+  ],
+  "validation": [
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-037.work-order.json agent/state/TMP-037.handoff.json .agent/tasks.json",
+      "exit_code": 0,
+      "output_excerpt": "JSON valid",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-037 assignment_decision allow",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    },
+    {
+      "command": "slice-harness sync --dry-run",
+      "exit_code": 0,
+      "output_excerpt": "no drift detected",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    },
+    {
+      "command": "git diff --name-only file-scope review",
+      "exit_code": 0,
+      "output_excerpt": "metadata and harness artifacts only",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    }
+  ]
+}

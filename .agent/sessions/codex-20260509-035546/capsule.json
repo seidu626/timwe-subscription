@@ -1,0 +1,23 @@
+{
+  "blockers": [
+    "Destructive or broad conflict-resolution branch operations require explicit maintainer direction.",
+    "Primary main contains local-only history that must not be discarded by an agent."
+  ],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-20260509-035546",
+  "status": "blocked",
+  "summary": "Local main integration strategy registered as a blocked follow-up slice.",
+  "task_id": "T-TMP-038",
+  "unfinished_work": [
+    {
+      "blocker": "Destructive or broad conflict-resolution branch operations require explicit maintainer direction.",
+      "disposition": "blocked",
+      "item": "Local main integration strategy",
+      "next_task_id": null,
+      "reason": "Approval or operator decision required before implementation.",
+      "severity": "high"
+    }
+  ],
+  "written_at": "2026-05-09T04:00:31Z"
+}

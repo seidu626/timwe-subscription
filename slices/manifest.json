@@ -901,7 +901,167 @@
         "dod_path": "slices/TMP-033-tmp032-ledger-state-reconciliation/value-gate-report.md"
       },
       "notes": "Reconciled supervisor ledger state so T-TMP-032 is done, matching merged TMP-032 handoff, manifest, and agent task evidence."
+    },
+    {
+      "id": "TMP-034",
+      "external_id": "TMP-034",
+      "name": "Acquisition runtime schema provisioning",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-034-acquisition-runtime-schema-provisioning.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "blocked",
+      "branch": "agent/codex/blocker-slice-registry-20260509-035546",
+      "created_at": "2026-05-09T03:59:59.291917+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json agent/state/TMP-034.work-order.json agent/state/TMP-034.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && preflight with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md"
+      },
+      "notes": "Blocked follow-up slice registered from full-system verification; implementation requires the named approval or operator decision gate."
+    },
+    {
+      "id": "TMP-035",
+      "external_id": "TMP-035",
+      "name": "Notification message outbox schema provisioning",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-035-notification-message-outbox-schema.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "blocked",
+      "branch": "agent/codex/blocker-slice-registry-20260509-035546",
+      "created_at": "2026-05-09T03:59:59.409758+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json agent/state/TMP-035.work-order.json agent/state/TMP-035.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && preflight with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"
+      },
+      "notes": "Blocked follow-up slice registered from full-system verification; implementation requires the named approval or operator decision gate."
+    },
+    {
+      "id": "TMP-036",
+      "external_id": "TMP-036",
+      "name": "Postback outbox schema provisioning",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-036-postback-outbox-schema.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "blocked",
+      "branch": "agent/codex/blocker-slice-registry-20260509-035546",
+      "created_at": "2026-05-09T03:59:59.523654+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json agent/state/TMP-036.work-order.json agent/state/TMP-036.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && preflight with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-036-postback-outbox-schema/value-gate-report.md"
+      },
+      "notes": "Blocked follow-up slice registered from full-system verification; implementation requires the named approval or operator decision gate."
+    },
+    {
+      "id": "TMP-037",
+      "external_id": "TMP-037",
+      "name": "Landing web dependency remediation approval",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-037-landing-web-dependency-remediation-approval.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "blocked",
+      "branch": "agent/codex/blocker-slice-registry-20260509-035546",
+      "created_at": "2026-05-09T03:59:59.645645+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json agent/state/TMP-037.work-order.json agent/state/TMP-037.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && preflight with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
+      },
+      "notes": "Blocked follow-up slice registered from full-system verification; implementation requires the named approval or operator decision gate."
+    },
+    {
+      "id": "TMP-038",
+      "external_id": "TMP-038",
+      "name": "Local main integration strategy",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-038-local-main-integration-strategy.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "blocked",
+      "branch": "agent/codex/blocker-slice-registry-20260509-035546",
+      "created_at": "2026-05-09T03:59:59.780461+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json agent/state/TMP-038.work-order.json agent/state/TMP-038.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && preflight with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-038-local-main-integration-strategy/value-gate-report.md"
+      },
+      "notes": "Blocked follow-up slice registered from full-system verification; implementation requires the named approval or operator decision gate."
     }
   ],
-  "updated_at": "2026-05-09T03:47:30Z"
+  "updated_at": "2026-05-09T04:00:00Z"
 }

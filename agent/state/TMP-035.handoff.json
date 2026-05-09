@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "task_id": "T-TMP-035",
+  "status": "blocked",
+  "supervisor_decision": "blocked_pending_operator_approval",
+  "summary": "Notification message outbox schema provisioning registered as a blocked follow-up slice.",
+  "session_id": "codex-20260509-035546",
+  "updated_at": "2026-05-09T03:58:00Z",
+  "acceptance_results": [
+    {
+      "criterion": "Schema/migration change approval is recorded before implementation.",
+      "status": "blocked",
+      "blocker": "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+      "reason": "Implementation requires the named approval or operator decision before file changes.",
+      "evidence": [
+        "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"
+      ],
+      "next_task_id": null
+    },
+    {
+      "criterion": "A future implementation reruns targeted notification-worker compose smoke and confirms no message_outbox missing-relation errors.",
+      "status": "passed",
+      "blocker": null,
+      "reason": null,
+      "evidence": [
+        "slices/TMP-035-notification-message-outbox-schema/spec.md"
+      ],
+      "next_task_id": null
+    },
+    {
+      "criterion": "No schema, migration, compose, source, dependency, or credential file changes are made by this registry slice.",
+      "status": "passed",
+      "blocker": null,
+      "reason": null,
+      "evidence": [
+        "slices/TMP-035-notification-message-outbox-schema/spec.md"
+      ],
+      "next_task_id": null
+    }
+  ],
+  "blockers": [
+    "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+    "The message_outbox ownership/provisioning path must be selected before implementation."
+  ],
+  "changed_files": [
+    "agent/backlog/issues/TMP-035-notification-message-outbox-schema.md",
+    "agent/state/TMP-035.handoff.json",
+    "agent/state/TMP-035.work-order.json",
+    "slices/manifest.json",
+    "slices/TMP-035-notification-message-outbox-schema/domain-brief.md",
+    "slices/TMP-035-notification-message-outbox-schema/notes.md",
+    "slices/TMP-035-notification-message-outbox-schema/slice.yaml",
+    "slices/TMP-035-notification-message-outbox-schema/spec.md",
+    "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No long-running processes were started for this metadata-only blocker registration."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Registered TMP-035 as a blocked full-system verification follow-up slice.",
+    "Recorded domain brief, story/spec, notes, value gate, work order, and handoff."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "not_started_blocked",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Notification message outbox schema provisioning implementation remains blocked by the approval or operator decision gate."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-035 records Notification message outbox schema provisioning as blocked; no implementation files changed.",
+  "residual_work_policy": "blocked_until_approval",
+  "risk_notes": [
+    "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+    "The message_outbox ownership/provisioning path must be selected before implementation."
+  ],
+  "safe_to_continue": false,
+  "unfinished_work": [
+    {
+      "item": "Notification message outbox schema provisioning",
+      "disposition": "blocked",
+      "blocker": "Schema/migration provisioning is approval-gated by repo risk boundaries.",
+      "reason": "Approval or operator decision required before implementation.",
+      "severity": "high",
+      "next_task_id": null
+    }
+  ],
+  "validation": [
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-035.work-order.json agent/state/TMP-035.handoff.json .agent/tasks.json",
+      "exit_code": 0,
+      "output_excerpt": "JSON valid",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-035 assignment_decision allow",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    },
+    {
+      "command": "slice-harness sync --dry-run",
+      "exit_code": 0,
+      "output_excerpt": "no drift detected",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    },
+    {
+      "command": "git diff --name-only file-scope review",
+      "exit_code": 0,
+      "output_excerpt": "metadata and harness artifacts only",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    }
+  ]
+}

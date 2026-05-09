@@ -1,0 +1,37 @@
+story:
+  id: "TMP-034"
+  title: "Acquisition runtime schema provisioning"
+  actor: "platform-operator"
+  action: "clear TMP-034 blocker"
+  outcome: "Acquisition API starts in the compose runtime with base products/userbase schema available before admin migrations run."
+  as_a: "platform-operator"
+  i_want_to: "track this blocker as a first-class slice"
+  so_that: "full-system verification cannot hide unresolved approval-gated work"
+
+entrypoints:
+  - "docker compose acquisition-api runtime startup"
+
+acceptance_criteria:
+  failures:
+    - scenario: "Current blocker remains unresolved"
+      given: ["Verifier runs bounded compose runtime smoke after TMP-030 image build fix."]
+      when: "the verifier checks the current system"
+      then: "Acquisition API exits during admin schema bootstrap because add_admin_management_tables.sql expects relation products in the empty compose DB."
+      evidence: "targeted acquisition-api runtime probe"
+  invariants:
+    - rule: "No approval-gated implementation happens in this registry slice"
+      preserved_by: "file-scope check"
+      violated_when: "source, schema, dependency, compose, or branch-operation files are changed"
+      test: "git diff --name-only"
+
+out_of_scope:
+  - "schema, dependency, compose, runtime, source, or destructive git changes"
+
+size_check:
+  files_touched: 5
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "BLOCKED before approval gate clears"
+  report_path: "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md"
