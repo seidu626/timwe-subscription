@@ -3,11 +3,14 @@ FROM docker.io/library/golang:1.24-alpine AS builder
 
 WORKDIR /build
 
-# Copy everything including vendor
-COPY . .
+COPY common/go.mod common/go.sum /common/
+COPY services/acquisition-api/go.mod services/acquisition-api/go.sum ./
+RUN go mod download
 
-# Build the application using vendored dependencies
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo -o acquisition-api ./cmd/main.go
+COPY common /common
+COPY services/acquisition-api/ .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=readonly -a -installsuffix cgo -o acquisition-api ./cmd/main.go
 
 # Final stage
 FROM docker.io/library/alpine:latest
@@ -20,8 +23,8 @@ WORKDIR /app
 COPY --from=builder /build/acquisition-api .
 
 # Copy config
-COPY config.yaml .
-COPY migrations ./migrations
+COPY services/acquisition-api/config.yaml .
+COPY services/acquisition-api/migrations ./migrations
 
 EXPOSE 8084
 

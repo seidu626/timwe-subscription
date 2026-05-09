@@ -202,8 +202,8 @@ services:
 
   acquisition-api:
     build:
-      context: ./services/acquisition-api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/acquisition-api/Dockerfile
     container_name: acquisition-api
     ports:
       - "8084:8084"
