@@ -2,7 +2,7 @@
 id: TMP-028
 title: "Compose secret and env hygiene"
 class: operational_slice
-status: ready
+status: done
 scope_limit: "Remove checked-in subscription DB credential material from docker-compose.yml and provide safe local env scaffolding without starting runtime services."
 merge_policy: "Merge only after compose config renders with the example env file, HVC, slice-harness, supervisor preflight, and source-scope checks pass."
 evidence_required:

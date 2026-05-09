@@ -2,7 +2,7 @@
 id: TMP-030
 title: "Acquisition API compose build context"
 class: vertical_defect_slice
-status: ready
+status: done
 scope_limit: "Fix acquisition-api Docker Compose image build so the Dockerfile can resolve the repo-local common module without dependency, vendor, package, or service source changes."
 merge_policy: "Merge only after acquisition-api Docker image build, HVC, JSON validation, slice-harness, supervisor preflight, and source-scope checks pass."
 evidence_required:

@@ -2,7 +2,7 @@
 id: TMP-032
 title: "Postback dispatcher compose DB env"
 class: vertical_defect_slice
-status: ready
+status: done
 scope_limit: "Fix postback-dispatcher compose runtime DB env names so the common config loader reads the local compose database settings without source, dependency, vendor, package, frontend, credential, or schema changes."
 merge_policy: "Merge only after compose config render, targeted postback-dispatcher smoke, HVC, JSON validation, slice-harness, supervisor preflight, and source-scope checks pass."
 evidence_required:

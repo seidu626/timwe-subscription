@@ -2,7 +2,7 @@
 id: TMP-025
 title: "TMP-021 release matrix metadata reconciliation"
 class: operational_slice
-status: ready
+status: done
 scope_limit: "Reconcile TMP-021 manifest and value-gate metadata with its accepted blocked handoff."
 merge_policy: "Merge only after manifest JSON, HVC, and slice-harness status/sync checks pass."
 evidence_required:

@@ -2,7 +2,7 @@
 id: TMP-033
 title: "TMP-032 ledger state reconciliation"
 class: operational_slice
-status: ready
+status: done
 scope_limit: "Reconcile the supervisor ledger row for T-TMP-032 with already-merged TMP-032 handoff, manifest, and agent task evidence. Do not change runtime code, schema, migrations, dependencies, or service configuration."
 merge_policy: "Merge only after supervisor preflight, agent-harness, slice-harness, HVC, and direct SQLite evidence show T-TMP-032 as done."
 evidence_required:
