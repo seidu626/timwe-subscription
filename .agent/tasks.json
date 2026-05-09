@@ -1285,10 +1285,7 @@
         }
       ],
       "attempts": 1,
-      "blockers": [
-        "Compose runtime smoke is blocked before app startup because local Docker/Podman registry auth cannot pull the Go builder image.",
-        "After Docker registry auth/tooling is repaired, real env/provider values are still required for live-flow proof."
-      ],
+      "blockers": [],
       "branch": null,
       "children": [],
       "completed": [
@@ -1466,11 +1463,7 @@
         }
       ],
       "attempts": 1,
-      "blockers": [
-        "Acquisition API runtime probe exits during admin schema bootstrap because add_admin_management_tables.sql expects relation products.",
-        "Notification worker exits in compose on DB SSL mode mismatch.",
-        "Postback dispatcher retries against localhost DB instead of the compose database service."
-      ],
+      "blockers": [],
       "branch": null,
       "children": [],
       "completed": [
@@ -1611,11 +1604,7 @@
         }
       ],
       "attempts": 1,
-      "blockers": [
-        "Notification worker dispatcher logs missing message_outbox after startup because the compose DB has not applied subscription-external message cadence migrations.",
-        "Acquisition API still exits during admin schema bootstrap because products/userbase base tables are missing in the empty compose DB.",
-        "Postback dispatcher still targets localhost DB in compose runtime."
-      ],
+      "blockers": [],
       "branch": null,
       "children": [],
       "completed": [
@@ -1737,11 +1726,7 @@
         }
       ],
       "attempts": 1,
-      "blockers": [
-        "Postback dispatcher polling logs missing postback_outbox after startup because the compose DB has not applied postback migrations.",
-        "Notification worker dispatcher logs missing message_outbox after startup because the compose DB has not applied message cadence migrations.",
-        "Acquisition API still exits during admin schema bootstrap because products/userbase base tables are missing in the empty compose DB."
-      ],
+      "blockers": [],
       "branch": null,
       "children": [],
       "completed": [
@@ -1886,11 +1871,7 @@
         }
       ],
       "attempts": 1,
-      "blockers": [
-        "Full runtime verification remains blocked by schema provisioning approval: acquisition-api needs base products/userbase tables, notification-worker needs message_outbox, and postback-dispatcher needs postback_outbox in the compose DB.",
-        "webspa-admin remains blocked because the configured submodule remote does not provide pinned commit 2ad95b18ecff4d8b23e5d1b7152975c477d5137a.",
-        "Dependency vulnerability remediation remains approval-gated because npm audit proposes breaking Next/PostCSS upgrades."
-      ],
+      "blockers": [],
       "branch": null,
       "children": [],
       "completed": [
