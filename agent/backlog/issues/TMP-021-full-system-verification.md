@@ -36,7 +36,13 @@ verification_layers:
   - build
   - tests
   - runtime-smoke
-blocked_by: []
+blocked_by:
+  - "TMP-026"
+  - "TMP-034"
+  - "TMP-035"
+  - "TMP-036"
+  - "TMP-037"
+  - "TMP-038"
 blocks: []
 parallel_group: tenant-platform-verification
 file_scope:
