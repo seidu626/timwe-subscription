@@ -1,0 +1,79 @@
+{
+  "work_order_id": "WO-TMP-040-001",
+  "issue_id": "TMP-040",
+  "class": "operational_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Release-verification evidence distinguishes local admin UI build/test health from clean-clone submodule reproducibility.",
+  "actor": "platform-operator",
+  "entrypoint": "frontend/webspa-admin gitlink and local nested checkout",
+  "trigger": "Verifier discovers the primary checkout has a nested webspa-admin repository at the pinned gitlink SHA.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-040-webspa-local-checkout-verification.md",
+    "agent/state/TMP-040.work-order.json",
+    "agent/state/TMP-040.handoff.json",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/manifest.json",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/TMP-026-webspa-submodule-verification/value-gate-report.md",
+    "slices/TMP-040-webspa-local-checkout-verification/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "frontend/**",
+    "services/**",
+    "common/**",
+    "ops/**",
+    "docker-compose*.yml",
+    "Makefile",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json",
+    ".git/**"
+  ],
+  "acceptance_tests": [
+    "test -f slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md",
+    "jq empty slices/manifest.json agent/state/TMP-040.work-order.json agent/state/TMP-040.handoff.json .agent/tasks.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "required_evidence": [
+    "git -C frontend/webspa-admin rev-parse HEAD",
+    "npm run build in the local nested frontend/webspa-admin checkout",
+    "CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false in the local nested frontend/webspa-admin checkout",
+    "git submodule update --init --recursive frontend/webspa-admin in a clean origin/main worktree",
+    "slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-040",
+    "title": "webspa-admin local checkout verification evidence",
+    "path": "agent/backlog/issues/TMP-040-webspa-local-checkout-verification.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

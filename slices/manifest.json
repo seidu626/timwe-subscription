@@ -1239,7 +1239,45 @@
         "dod_path": "slices/TMP-039-operational-domain-brief-reconciliation/value-gate-report.md"
       },
       "notes": "Added missing domain briefs for manifest-backed operational slices TMP-021, TMP-024, TMP-025, TMP-026, and TMP-033."
+    },
+    {
+      "id": "TMP-040",
+      "external_id": "TMP-040",
+      "name": "webspa-admin local checkout verification evidence",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-040-webspa-local-checkout-verification.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/source-truth-audit-20260509-054846",
+      "created_at": "2026-05-09T05:55:33Z",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md",
+          "jq empty slices/manifest.json agent/state/TMP-040.work-order.json agent/state/TMP-040.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight with worktree-local temp config",
+          "agent-supervisor auto-loop --max-rounds 1 with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [
+          "cd /home/xper626/workspace/apps/timwe-subscription/frontend/webspa-admin && npm run build",
+          "cd /home/xper626/workspace/apps/timwe-subscription/frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+          "git submodule update --init --recursive frontend/webspa-admin in clean origin/main worktree"
+        ],
+        "dod_path": "slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md"
+      },
+      "notes": "Recorded that the local pinned webspa-admin checkout builds and passes 84/84 ChromeHeadless tests while clean submodule initialization remains blocked."
     }
   ],
-  "updated_at": "2026-05-09T05:35:11Z"
+  "updated_at": "2026-05-09T05:55:33Z"
 }

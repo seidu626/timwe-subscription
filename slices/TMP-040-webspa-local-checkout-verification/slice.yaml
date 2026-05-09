@@ -1,0 +1,23 @@
+id: TMP-040
+title: webspa-admin local checkout verification evidence
+class: operational_slice
+actor: platform-operator
+action: distinguish local admin UI verification from clean-clone submodule reproducibility
+outcome: release evidence records both the passing local build/test signal and the remaining gitlink blocker
+entrypoints:
+  - frontend/webspa-admin gitlink
+  - primary checkout nested frontend/webspa-admin repository
+invariants:
+  - local checkout health does not prove clean clone reproducibility
+  - release readiness keeps unreproducible source checkout as blocked
+acceptance:
+  - local nested checkout is at gitlink 2ad95b18ecff4d8b23e5d1b7152975c477d5137a
+  - local admin build and ChromeHeadless tests pass
+  - clean origin/main submodule initialization still records the upload-pack blocker
+  - no frontend, dependency, schema, compose, runtime, or branch metadata changes are made
+verification:
+  - test -f slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md
+  - jq empty slices/manifest.json agent/state/TMP-040.work-order.json agent/state/TMP-040.handoff.json .agent/tasks.json
+  - hvc check agent/backlog/issues/*.md --fail-on block
+  - slice-harness status
+  - slice-harness sync --dry-run
