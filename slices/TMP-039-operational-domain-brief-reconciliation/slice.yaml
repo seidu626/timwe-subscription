@@ -1,0 +1,42 @@
+story:
+  id: "TMP-039"
+  title: "Operational slice domain brief reconciliation"
+  actor: "platform-operator"
+  action: "inspect full-system verification slice evidence"
+  outcome: "domain grounding is present for each manifest-backed operational slice that previously lacked it"
+  as_a: "platform-operator"
+  i_want_to: "see domain briefs for operational verification slices"
+  so_that: "release-readiness evidence is tied to actors, outcomes, invariants, entrypoints, and risks"
+
+entrypoints:
+  - "slices/TMP-021-full-system-verification/domain-brief.md"
+  - "slices/TMP-024-slice-registry-evidence-reconciliation/domain-brief.md"
+  - "slices/TMP-025-tmp021-metadata-reconciliation/domain-brief.md"
+  - "slices/TMP-026-webspa-submodule-verification/domain-brief.md"
+  - "slices/TMP-033-tmp032-ledger-state-reconciliation/domain-brief.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Missing operational domain briefs are present"
+      given: ["Manifest-backed operational slices TMP-021, TMP-024, TMP-025, TMP-026, and TMP-033 lack domain-brief.md"]
+      when: "the verifier checks slice evidence directories"
+      then: "each target slice has a domain-brief.md"
+      evidence: "test -f checks for each target file"
+  invariants:
+    - rule: "Metadata reconciliation must not change product behavior"
+      preserved_by: "file-scope review and forbidden path list"
+      violated_when: "services, common, frontend, compose, schema, dependency, or package files change"
+      test: "git diff --name-only"
+
+out_of_scope:
+  - "source, runtime, schema, compose, dependency, package, or branch integration changes"
+  - "clearing approval-gated blockers"
+
+size_check:
+  files_touched: 12
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS for evidence reconciliation"
+  report_path: "slices/TMP-039-operational-domain-brief-reconciliation/value-gate-report.md"
