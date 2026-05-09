@@ -521,6 +521,119 @@
       ],
       "updated_at": "2026-05-09T01:19:06Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/manifest.json",
+            "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "TMP-022 automated verification points to landing-web build evidence."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/manifest.json",
+            "slices/TMP-023-common-package-test-failures/value-gate-report.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "TMP-023 is done and points to common package test evidence."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "git diff --stat",
+            "git diff --name-only"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No source, dependency, vendor, or package manifest files changed."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "TMP-022 verification now points to landing-web build evidence",
+        "TMP-023 is done with common package test evidence",
+        "TMP-024 operational slice artifacts and work order created",
+        "Corrected TMP-022 manifest verification command and DoD path.",
+        "Marked TMP-023 done with common package test verification and DoD path.",
+        "Added TMP-024 operational slice evidence for registry reconciliation.",
+        "Repaired worktree-local supervisor ledger drift using a temporary config that pointed repo_path at the follow-up worktree."
+      ],
+      "created_at": "2026-05-09T01:38:58Z",
+      "details": "",
+      "evidence": {
+        "commands": [
+          {
+            "command": "jq empty slices/manifest.json",
+            "exit_code": 0,
+            "output_excerpt": "manifest JSON valid",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:39:30Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-024 assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:39:30Z"
+          },
+          {
+            "command": "slice-harness status && slice-harness sync --dry-run",
+            "exit_code": 0,
+            "output_excerpt": "no drift detected",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:39:30Z"
+          },
+          {
+            "command": "agent-supervisor preflight --repair with worktree-local temp config",
+            "exit_code": 0,
+            "output_excerpt": "ok true; agent_tasks_missing_from_supervisor_ledger repaired",
+            "status": "passed",
+            "timestamp": "2026-05-09T01:40:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/T-TMP-024.json",
+          ".agent/tasks.json",
+          ".harness/task-ledger.sqlite",
+          "agent/backlog/issues/TMP-024-slice-registry-evidence-reconciliation.md",
+          "agent/state/TMP-024.handoff.json",
+          "agent/state/TMP-024.work-order.json",
+          "slices/TMP-024-slice-registry-evidence-reconciliation/notes.md",
+          "slices/TMP-024-slice-registry-evidence-reconciliation/slice.yaml",
+          "slices/TMP-024-slice-registry-evidence-reconciliation/spec.md",
+          "slices/TMP-024-slice-registry-evidence-reconciliation/value-gate-report.md",
+          "slices/manifest.json"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-024",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Slice registry evidence reconciliation",
+      "unresolved": [],
+      "updated_at": "2026-05-09T01:41:21Z",
+      "worktree": null
     }
   ],
   "version": 1
