@@ -1,0 +1,136 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "postback-dispatcher compose env includes DB_POSTGRESQL_* names consumed by common/config.",
+      "evidence": [
+        "docker-compose.yml",
+        "slices/TMP-032-postback-dispatcher-compose-db-env/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "Compose config renders with .env.example.",
+      "evidence": [
+        "docker compose --env-file .env.example -f docker-compose.yml config"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "Targeted postback-dispatcher smoke connects to DB and starts dispatcher.",
+      "evidence": [
+        "targeted postback-dispatcher compose smoke",
+        "Database connection established",
+        "Postback dispatcher started",
+        "Starting postback dispatcher"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "No source, dependency, vendor, package, frontend, credential, or schema files changed.",
+      "evidence": [
+        "git status forbidden file-scope check"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    }
+  ],
+  "blockers": [
+    "Postback dispatcher polling logs missing postback_outbox after startup because the compose DB has not applied postback migrations.",
+    "Notification worker dispatcher logs missing message_outbox after startup because the compose DB has not applied message cadence migrations.",
+    "Acquisition API still exits during admin schema bootstrap because products/userbase base tables are missing in the empty compose DB."
+  ],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/heartbeats/T-TMP-032.json",
+    ".agent/tasks.json",
+    ".harness/events.jsonl",
+    "agent/backlog/issues/TMP-032-postback-dispatcher-compose-db-env.md",
+    "agent/state/TMP-021.handoff.json",
+    "agent/state/TMP-032.handoff.json",
+    "agent/state/TMP-032.work-order.json",
+    "docker-compose.yml",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/TMP-032-postback-dispatcher-compose-db-env/domain-brief.md",
+    "slices/TMP-032-postback-dispatcher-compose-db-env/notes.md",
+    "slices/TMP-032-postback-dispatcher-compose-db-env/slice.yaml",
+    "slices/TMP-032-postback-dispatcher-compose-db-env/spec.md",
+    "slices/TMP-032-postback-dispatcher-compose-db-env/value-gate-report.md",
+    "slices/manifest.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "Targeted compose project was stopped with docker compose down -v --remove-orphans.",
+    "Temporary shared-network was removed when this smoke created it.",
+    "Temporary Docker auth files were removed by shell trap."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Added DB_POSTGRESQL_* aliases and sslmode env to postback-dispatcher compose service.",
+    "Verified compose config renders with .env.example.",
+    "Ran targeted postback-dispatcher compose smoke; dispatcher remained running, connected to DB, and started polling.",
+    "Recorded downstream missing postback_outbox schema as a separate blocker."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "postback_outbox schema provisioning is still required for successful dispatcher polling.",
+    "message_outbox and acquisition base schema provisioning remain.",
+    "Provider delivery/live-flow verification still requires real env/provider values."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-032 fixed postback-dispatcher compose DB env and startup. Dispatcher now connects to DB and starts; the remaining postback blocker is missing postback_outbox schema provisioning.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "No postback source, common source, dependency, vendor, package, frontend, credential, or schema files were changed.",
+    "Missing postback_outbox is a schema provisioning issue and was not changed in this compose-only slice."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "codex-20260509-033050",
+  "status": "done",
+  "summary": "Postback dispatcher compose DB env fixed and startup verified.",
+  "supervisor_decision": "done",
+  "task_id": "T-TMP-032",
+  "unfinished_work": [
+    {
+      "blocker": "postback_outbox table is missing in the empty compose DB.",
+      "disposition": "out_of_scope",
+      "item": "Verify postback polling without schema errors.",
+      "next_task_id": null,
+      "reason": "Targeted dispatcher smoke proved startup and DB connection, then polling logged missing relation.",
+      "severity": "high"
+    }
+  ],
+  "validation": [
+    {
+      "command": "docker compose --env-file .env.example -f docker-compose.yml config",
+      "exit_code": 0,
+      "output_excerpt": "compose config rendered",
+      "status": "passed",
+      "timestamp": "2026-05-09T03:30:00Z"
+    },
+    {
+      "command": "targeted postback-dispatcher compose smoke",
+      "exit_code": 0,
+      "output_excerpt": "postback_dispatcher_state=running; Database connection established; Postback dispatcher started",
+      "status": "passed",
+      "timestamp": "2026-05-09T03:30:00Z"
+    }
+  ],
+  "updated_at": "2026-05-09T03:30:37Z"
+}
