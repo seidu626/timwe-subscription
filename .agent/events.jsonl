@@ -123,3 +123,15 @@
 {"agent": null, "payload": {"next_task": null, "safe_to_continue": false, "stop_reason": "no_unblocked_tasks"}, "task_id": null, "time": "2026-05-09T02:32:11Z", "type": "supervisor.report"}
 {"agent": null, "payload": {"path": "/home/xper626/workspace/apps/worktrees/codex-full-system-blocker-audit-20260509-022225/.agent/sessions/supervisor-20260509T023211Z-9bd6bf37", "session_id": "supervisor-20260509T023211Z-9bd6bf37"}, "task_id": null, "time": "2026-05-09T02:32:11Z", "type": "session.capsule"}
 {"agent": "codex", "payload": {"accepted_handoff": true, "session_id": "codex-20260509-022242", "status": "accepted", "task_id": "T-TMP-028"}, "task_id": "T-TMP-028", "time": "2026-05-09T02:32:11Z", "type": "session.closeout"}
+{"agent": null, "payload": {"parent_id": null, "priority": 0, "title": "Compose smoke Docker auth blocker evidence"}, "task_id": "T-TMP-029", "time": "2026-05-09T02:45:13Z", "type": "task.created"}
+{"agent": "codex", "payload": {"old_status": "queued", "reason": null}, "task_id": "T-TMP-029", "time": "2026-05-09T02:45:13Z", "type": "task.claimed"}
+{"agent": "codex", "payload": {"last_action": "", "state": "claimed"}, "task_id": "T-TMP-029", "time": "2026-05-09T02:45:13Z", "type": "heartbeat"}
+{"agent": "codex", "payload": {"old_status": "claimed", "reason": null}, "task_id": "T-TMP-029", "time": "2026-05-09T02:45:13Z", "type": "task.in_progress"}
+{"agent": "codex", "payload": {"last_action": "", "state": "in_progress"}, "task_id": "T-TMP-029", "time": "2026-05-09T02:45:13Z", "type": "heartbeat"}
+{"agent": null, "payload": {"session_id": "codex-20260509-024023", "summary": "Compose smoke Docker auth blocker evidence recorded."}, "task_id": "T-TMP-029", "time": "2026-05-09T02:47:57Z", "type": "handoff.done"}
+{"agent": null, "payload": {"handoff_path": "agent/state/TMP-029.handoff.json", "session_id": "codex-20260509-024023", "status": "done"}, "task_id": "T-TMP-029", "time": "2026-05-09T02:47:57Z", "type": "completion_gate.accepted"}
+{"agent": null, "payload": {"next_task": null, "safe_to_continue": false, "stop_reason": "no_unblocked_tasks"}, "task_id": null, "time": "2026-05-09T02:47:57Z", "type": "supervisor.report"}
+{"agent": null, "payload": {"path": "/home/xper626/workspace/apps/worktrees/codex-compose-smoke-20260509-024023/.agent/sessions/supervisor-20260509T024757Z-a818680e", "session_id": "supervisor-20260509T024757Z-a818680e"}, "task_id": null, "time": "2026-05-09T02:47:57Z", "type": "session.capsule"}
+{"agent": "codex", "payload": {"accepted_handoff": true, "session_id": "codex-20260509-024023", "status": "accepted", "task_id": "T-TMP-029"}, "task_id": "T-TMP-029", "time": "2026-05-09T02:47:57Z", "type": "session.closeout"}
+{"agent": null, "payload": {"session_id": "codex-20260509-024023", "summary": "Compose smoke Docker auth blocker evidence recorded."}, "task_id": "T-TMP-029", "time": "2026-05-09T02:49:01Z", "type": "handoff.done"}
+{"agent": null, "payload": {"handoff_path": "agent/state/TMP-029.handoff.json", "session_id": "codex-20260509-024023", "status": "done"}, "task_id": "T-TMP-029", "time": "2026-05-09T02:49:01Z", "type": "completion_gate.accepted"}

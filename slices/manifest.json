@@ -739,7 +739,38 @@
         "dod_path": "slices/TMP-028-compose-secret-env-hygiene/value-gate-report.md"
       },
       "notes": "Removed checked-in subscription DB credential material from docker-compose.yml, defaulted local routing to the Docker database service, and verified compose config renders with .env.example; runtime start still needs real env/provider values."
+    },
+    {
+      "id": "TMP-029",
+      "external_id": "TMP-029",
+      "name": "Compose smoke Docker auth blocker evidence",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-029-compose-runtime-smoke-tooling-blocker.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/compose-smoke-20260509-024023",
+      "created_at": "2026-05-09T02:45:13.019457+00:00",
+      "shipped_at": "2026-05-09T02:44:23Z",
+      "shipped_to": "agent/codex/compose-smoke-20260509-024023",
+      "verification": {
+        "automated": [
+          "docker compose --env-file .env.example -f docker-compose.yml config",
+          "bounded docker compose smoke with temporary Redis port override and temporary shared-network",
+          "docker pull docker.io/library/golang:1.24-alpine",
+          "jq empty slices/manifest.json agent/state/TMP-029.work-order.json agent/state/TMP-029.handoff.json .agent/tasks.json agent/state/TMP-021.handoff.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status && slice-harness sync --dry-run"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-029-compose-runtime-smoke-tooling-blocker/value-gate-report.md"
+      },
+      "notes": "Recorded bounded compose smoke evidence: config render passes, temporary local scaffolding cleaned up, but Docker/Podman registry auth blocks pulling the Go builder image before app containers start."
     }
   ],
-  "updated_at": "2026-05-09T02:31:19Z"
+  "updated_at": "2026-05-09T02:44:23Z"
 }

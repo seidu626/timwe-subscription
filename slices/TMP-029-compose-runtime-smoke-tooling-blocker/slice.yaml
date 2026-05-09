@@ -1,0 +1,52 @@
+story:
+  id: "TMP-029"
+  title: "Compose smoke records Docker auth blocker"
+  actor: "verification-agent"
+  action: "record bounded compose smoke evidence"
+  outcome: "local Docker auth/tooling failure is distinguished from app runtime failure"
+  as_a: "verification-agent"
+  i_want_to: "record the compose smoke blocker precisely"
+  so_that: "operators can fix the correct local prerequisite before rerunning app health checks"
+
+entrypoints:
+  - "docs/agent/full-system-verification-2026-05-09.md"
+  - "slices/TMP-021-full-system-verification/value-gate-report.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Smoke evidence is current"
+      given: ["TMP-028 compose config render passes"]
+      when: "a bounded compose runtime smoke is attempted"
+      then: "release evidence records the temporary override, network setup, Docker auth failure, and cleanup"
+      evidence: "docs/agent/full-system-verification-2026-05-09.md"
+  failures:
+    - scenario: "Registry auth blocks build image pull"
+      given: ["local Docker/Podman registry auth is invalid"]
+      when: "compose builds app service images"
+      then: "the smoke is blocked before app containers start"
+      evidence: "docker compose smoke command and direct docker pull reproduction"
+  invariants:
+    - rule: "Config render is not runtime verification"
+      preserved_by: "compose runtime remains blocked"
+      violated_when: "runtime readiness is marked passed without app startup and health evidence"
+      test: "value-gate review"
+    - rule: "No credential/tooling mutation in evidence slice"
+      preserved_by: "no docker auth repair and no source changes"
+      violated_when: "the slice changes credentials, dependencies, or compose source"
+      test: "file-scope check"
+
+out_of_scope:
+  - "Docker registry auth repair"
+  - "dependency or base-image changes"
+  - "docker-compose.yml edits"
+  - "provider/live-flow verification"
+
+size_check:
+  files_touched: 12
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-029-compose-runtime-smoke-tooling-blocker/value-gate-report.md"
+
