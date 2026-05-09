@@ -1,0 +1,112 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "TMP-021 manifest state is blocked.",
+      "evidence": [
+        "slices/manifest.json"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "TMP-021 manifest verification and DoD point to TMP-021 release-verification evidence.",
+      "evidence": [
+        "slices/manifest.json",
+        "slices/TMP-021-full-system-verification/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "TMP-021 value-gate report is BLOCKED with exact release-readiness blockers.",
+      "evidence": [
+        "slices/TMP-021-full-system-verification/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/heartbeats/T-TMP-025.json",
+    ".agent/tasks.json",
+    ".harness/task-ledger.sqlite",
+    "agent/backlog/issues/TMP-025-tmp021-metadata-reconciliation.md",
+    "agent/state/TMP-025.handoff.json",
+    "agent/state/TMP-025.work-order.json",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/TMP-025-tmp021-metadata-reconciliation/notes.md",
+    "slices/TMP-025-tmp021-metadata-reconciliation/slice.yaml",
+    "slices/TMP-025-tmp021-metadata-reconciliation/spec.md",
+    "slices/TMP-025-tmp021-metadata-reconciliation/value-gate-report.md",
+    "slices/manifest.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [],
+  "commits": [],
+  "completed_work": [
+    "Set TMP-021 manifest state to blocked.",
+    "Repointed TMP-021 manifest verification and DoD path to TMP-021 full-system evidence.",
+    "Updated TMP-021 value-gate report from PENDING to BLOCKED with explicit blockers.",
+    "Added TMP-025 operational slice evidence for the reconciliation."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Full-system release readiness remains blocked by the gates listed in TMP-021; this slice only reconciles metadata truth."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-021 release matrix metadata now reflects blocked full-system readiness and points to its own value-gate evidence.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "No source, dependency, vendor, package manifest, or runtime behavior files changed."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "codex-20260509-014426",
+  "status": "done",
+  "summary": "TMP-021 registry and value-gate metadata reconciled.",
+  "supervisor_decision": "done",
+  "task_id": "T-TMP-025",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "jq empty slices/manifest.json",
+      "exit_code": 0,
+      "output_excerpt": "manifest JSON valid",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:49:00Z"
+    },
+    {
+      "command": "slice-harness status && slice-harness sync --dry-run",
+      "exit_code": 0,
+      "output_excerpt": "TMP-021 is blocked; no drift detected",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:49:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-025 assignment_decision allow; no blocking reasons",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:49:00Z"
+    },
+    {
+      "command": "agent-supervisor preflight --repair with worktree-local temp config",
+      "exit_code": 0,
+      "output_excerpt": "ok true; T-TMP-025 synced to supervisor ledger",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:49:00Z"
+    }
+  ]
+}

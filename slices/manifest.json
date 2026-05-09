@@ -519,17 +519,21 @@
       "demo": "",
       "depends_on": [],
       "layers": [],
-      "state": "done",
+      "state": "blocked",
       "branch": "agent/codex/full-system-verify-20260509-005155",
       "created_at": "2026-05-09T00:56:05.714274+00:00",
       "shipped_at": null,
       "shipped_to": null,
       "verification": {
         "automated": [
-          "cd services/landing-web && npm run build"
+          "jq empty slices/manifest.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "agent-supervisor --config .harness/config.json preflight",
+          "test -f docs/agent/full-system-verification-2026-05-09.md",
+          "test -f slices/TMP-021-full-system-verification/value-gate-report.md"
         ],
         "manual_smoke": [],
-        "dod_path": "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md"
+        "dod_path": "slices/TMP-021-full-system-verification/value-gate-report.md"
       },
       "notes": ""
     },
@@ -613,7 +617,36 @@
         "dod_path": "slices/TMP-024-slice-registry-evidence-reconciliation/value-gate-report.md"
       },
       "notes": ""
+    },
+    {
+      "id": "TMP-025",
+      "external_id": "TMP-025",
+      "name": "TMP-021 release matrix metadata reconciliation",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-025-tmp021-metadata-reconciliation.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-followups-2-20260509-0144",
+      "created_at": "2026-05-09T01:46:52.979441+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "hvc check agent/backlog/issues/*.md --fail-on block"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-025-tmp021-metadata-reconciliation/value-gate-report.md"
+      },
+      "notes": ""
     }
   ],
-  "updated_at": "2026-05-09T01:39:30Z"
+  "updated_at": "2026-05-09T01:47:03Z"
 }
