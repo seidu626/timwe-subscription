@@ -6,7 +6,7 @@ Classify and track the local-main integration decision blocker. Do not merge, re
 
 ## Broken Behavior
 
-Primary local main is ahead 51 and behind origin/main by 23, and an isolated merge probe produced broad add/add conflicts.
+Primary local main is currently ahead 51 and behind origin/main by 38 as of the 2026-05-09T08:44:16Z evidence refresh, and an isolated merge probe produced broad add/add conflicts.
 
 ## Expected Behavior
 
