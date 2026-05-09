@@ -1,0 +1,49 @@
+story:
+  id: "TMP-031"
+  title: "Notification worker compose DB env"
+  actor: "verification-agent"
+  action: "start notification-worker against local compose Postgres"
+  outcome: "the worker pings DB successfully and starts metrics/dispatcher"
+  as_a: "verification-agent"
+  i_want_to: "verify notification-worker startup in compose"
+  so_that: "full-system smoke can distinguish DB connection config from message schema provisioning"
+
+entrypoints:
+  - "docker-compose.yml"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Worker starts"
+      given: ["compose database is healthy"]
+      when: "notification-worker starts"
+      then: "it remains running and logs notification worker started"
+      evidence: "targeted notification-worker compose smoke"
+  failures:
+    - scenario: "Incomplete DB env"
+      given: ["worker only receives DB host"]
+      when: "worker pings Postgres"
+      then: "startup exits before dispatcher and metrics"
+      evidence: "pre-fix compose smoke blocker"
+  invariants:
+    - rule: "No source or schema changes"
+      preserved_by: "compose-only DB env fix"
+      violated_when: "services/notification, migrations, dependency, vendor, frontend, package, or credential files change"
+      test: "forbidden file-scope check"
+    - rule: "Message schema readiness is separate"
+      preserved_by: "recording missing message_outbox as downstream blocker"
+      violated_when: "worker startup is treated as full message processing verification"
+      test: "targeted smoke logs"
+
+out_of_scope:
+  - "message_outbox schema provisioning"
+  - "notification dispatcher behavior changes"
+  - "provider/live-flow delivery verification"
+
+size_check:
+  files_touched: 13
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-031-notification-worker-compose-db-env/value-gate-report.md"

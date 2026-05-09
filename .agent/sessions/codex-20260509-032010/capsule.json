@@ -1,0 +1,24 @@
+{
+  "blockers": [
+    "Notification worker dispatcher logs missing message_outbox after startup because the compose DB has not applied subscription-external message cadence migrations.",
+    "Acquisition API still exits during admin schema bootstrap because products/userbase base tables are missing in the empty compose DB.",
+    "Postback dispatcher still targets localhost DB in compose runtime."
+  ],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-20260509-032010",
+  "status": "done",
+  "summary": "Notification worker compose DB env fixed and startup verified.",
+  "task_id": "T-TMP-031",
+  "unfinished_work": [
+    {
+      "blocker": "message_outbox table is missing in the empty compose DB.",
+      "disposition": "out_of_scope",
+      "item": "Verify notification dispatcher polling without schema errors.",
+      "next_task_id": null,
+      "reason": "Targeted worker smoke proved startup and metrics, then dispatcher logged missing relation.",
+      "severity": "high"
+    }
+  ],
+  "written_at": "2026-05-09T03:25:48Z"
+}

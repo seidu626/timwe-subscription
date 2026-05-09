@@ -272,7 +272,7 @@
       "attempts": 1,
       "blockers": [
         "webspa-admin gitlink cannot be initialized because the configured submodule remote does not contain pinned commit 2ad95b18ecff4d8b23e5d1b7152975c477d5137a",
-        "compose runtime start now reaches app startup with temporary isolated Docker auth, but acquisition-api exits during admin schema bootstrap, notification-worker exits on DB SSL mode mismatch, postback-dispatcher targets localhost DB, and real env/provider values are still required",
+        "compose runtime start now reaches app startup with temporary isolated Docker auth, and notification-worker startup is fixed, but acquisition-api exits during admin schema bootstrap, notification-worker dispatcher lacks message_outbox, postback-dispatcher targets localhost DB, and real env/provider values are still required",
         "local main and origin/main diverge with add/add conflicts",
         "dependency vulnerability remediation requires explicit approval because npm audit proposes a breaking Next/PostCSS upgrade"
       ],
@@ -347,7 +347,7 @@
           "disposition": "blocked",
           "item": "Run compose runtime smoke.",
           "next_task_id": null,
-          "reason": "TMP-030 fixed acquisition-api image build and reached app startup; acquisition-api exits during admin schema bootstrap, notification-worker exits on DB SSL mode mismatch, postback-dispatcher targets localhost DB, and real env/provider values are still required.",
+          "reason": "TMP-030 fixed acquisition-api image build and reached app startup; TMP-031 fixed notification-worker DB env/startup; acquisition-api exits during admin schema bootstrap, notification-worker dispatcher lacks message_outbox, postback-dispatcher targets localhost DB, and real env/provider values are still required.",
           "severity": "high"
         },
         {
@@ -1494,6 +1494,142 @@
         }
       ],
       "updated_at": "2026-05-09T03:15:39Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+      {
+        "blocker": null,
+        "evidence": [
+          "docker compose --env-file .env.example -f docker-compose.yml config"
+        ],
+        "id": "AC-1",
+        "next_task_id": null,
+        "reason": null,
+        "status": "passed",
+        "text": "Compose config renders."
+      },
+        {
+          "blocker": null,
+          "evidence": [
+            "targeted notification-worker compose smoke",
+            "notification worker started",
+            "notification worker metrics endpoint started"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Targeted notification-worker smoke starts worker and metrics."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "git status forbidden file-scope check"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No service source, dependency, vendor, package, frontend, credential, or schema files changed."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "docker-compose.yml",
+            "slices/TMP-031-notification-worker-compose-db-env/value-gate-report.md"
+          ],
+          "id": "AC-4",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "notification-worker compose env includes local Postgres host, port, user, password, database, and sslmode=disable."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "docker compose --env-file .env.example -f docker-compose.yml config"
+          ],
+          "id": "AC-5",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Compose config renders with .env.example."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [
+        "Notification worker dispatcher logs missing message_outbox after startup because the compose DB has not applied subscription-external message cadence migrations.",
+        "Acquisition API still exits during admin schema bootstrap because products/userbase base tables are missing in the empty compose DB.",
+        "Postback dispatcher still targets localhost DB in compose runtime."
+      ],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Added explicit local Postgres port, user, password, database, and sslmode env to notification-worker compose service.",
+        "Verified compose config renders with .env.example.",
+        "Ran targeted notification-worker compose smoke; worker remained running and logged worker plus metrics startup.",
+        "Recorded downstream missing message_outbox schema as a separate blocker."
+      ],
+      "created_at": "2026-05-09T03:20:42Z",
+      "details": "Fix notification-worker compose DB env so worker can ping local compose Postgres.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "docker compose --env-file .env.example -f docker-compose.yml config",
+            "exit_code": 0,
+            "output_excerpt": "compose config rendered",
+            "status": "passed",
+            "timestamp": "2026-05-09T03:22:00Z"
+          },
+          {
+            "command": "targeted notification-worker compose smoke",
+            "exit_code": 0,
+            "output_excerpt": "notification_worker_state=running; notification worker started; metrics endpoint started",
+            "status": "passed",
+            "timestamp": "2026-05-09T03:22:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/T-TMP-031.json",
+          ".agent/tasks.json",
+          ".harness/events.jsonl",
+          "agent/backlog/issues/TMP-031-notification-worker-compose-db-env.md",
+          "agent/state/TMP-021.handoff.json",
+          "agent/state/TMP-031.handoff.json",
+          "agent/state/TMP-031.work-order.json",
+          "docker-compose.yml",
+          "docs/agent/full-system-verification-2026-05-09.md",
+          "slices/TMP-021-full-system-verification/value-gate-report.md",
+          "slices/TMP-031-notification-worker-compose-db-env/domain-brief.md",
+          "slices/TMP-031-notification-worker-compose-db-env/notes.md",
+          "slices/TMP-031-notification-worker-compose-db-env/slice.yaml",
+          "slices/TMP-031-notification-worker-compose-db-env/spec.md",
+          "slices/TMP-031-notification-worker-compose-db-env/value-gate-report.md",
+          "slices/manifest.json"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-031",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Notification worker compose DB env",
+      "unresolved": [
+        {
+          "blocker": "message_outbox table is missing in the empty compose DB.",
+          "disposition": "out_of_scope",
+          "item": "Verify notification dispatcher polling without schema errors.",
+          "next_task_id": null,
+          "reason": "Targeted worker smoke proved startup and metrics, then dispatcher logged missing relation.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T03:25:48Z",
       "worktree": null
     }
   ],
