@@ -36,7 +36,7 @@ Scope exclusions:
 | landing-web | Next.js frontend | `services/landing-web/package.json`, `app/**` | `npm run build` | build/typecheck; no route tests present | `npm run dev` / `npm start` | Next route build output | Node 24.15.0, npm 11.12.1, acquisition API at runtime | fixed |
 | webspa-admin | admin frontend gitlink | `frontend/webspa-admin` gitlink | unavailable | unavailable | unavailable | unavailable | pinned gitlink commit unavailable from configured submodule remote | blocked |
 | KrakenD gateway | gateway | `krakend/**`, `Makefile` | `make docker-build-krakend` | `make krakend-query-forwarding-check` | compose service | `krakend check` not run; query-forwarding check run | Docker/Podman, KrakenD image | partially verified |
-| docker compose dev stack | local integration stack | `docker-compose.yml` | `docker compose -f docker-compose.yml config` | config render | `make compose-up` | compose healthchecks | required env vars and external network | blocked |
+| docker compose dev stack | local integration stack | `docker-compose.yml` | `docker compose --env-file .env.example -f docker-compose.yml config` | config render | `make compose-up` | compose healthchecks | real env/provider values and external network | partially verified |
 | tenant migration runner | migration/ops script | `scripts/db-migrate-tenant-platform.sh` | `bash -n scripts/db-migrate-tenant-platform.sh` | `make -n db-migrate-tenant-platform-dry-run` | `make db-migrate-tenant-platform-dry-run` | dry-run output against DB | Postgres credentials | partially verified |
 
 ## Feature Inventory
@@ -63,7 +63,7 @@ Scope exclusions:
 |---|---|---|---|
 | Go toolchain | `go.mod` files | yes: `go1.26.2-X:nodwarf5` | Used for Go tests/builds. |
 | Node/npm | `services/landing-web/package.json` | yes: Node `v24.15.0`, npm `11.12.1` | Ran `npm ci`, `npm run build`, `npm audit`. |
-| Docker/Compose | `docker-compose.yml` | yes: Podman Docker emulation, Compose `5.1.3` | Rendered compose config; did not start stack because required env/network/secrets are incomplete. |
+| Docker/Compose | `docker-compose.yml` | yes: Podman Docker emulation, Compose `5.1.3` | Rendered compose config with `.env.example`; did not start stack because real env/provider values and the external Docker network are still required. |
 | Postgres/Redis live dependencies | compose and service configs | no/unknown | Mark live runtime and DB migration checks blocked unless env vars and local stack are provided. |
 | TIMWE/Auth0/provider credentials | compose/service configs | no | External-provider flows marked blocked or partially verified by tests only. |
 | webspa-admin submodule content | gitlink `frontend/webspa-admin` | no | Blocked: `.gitmodules` maps the path, but `git submodule update --init --recursive frontend/webspa-admin` cannot fetch pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a` from the configured remote. |
@@ -84,7 +84,7 @@ Scope exclusions:
 | postback-dispatcher | passed | passed | not run live | n/a | not run | not run live | passed | `go test ./...` passed; readonly build passed. |
 | landing-web | fixed | build/typecheck passed | not run live | n/a | not run | route build output passed | fixed | Initial `npm run build` failed; TMP-022 patch made `npm run build` pass. |
 | webspa-admin | blocked | blocked | blocked | n/a | blocked | blocked | blocked | gitlink exists and `.gitmodules` maps it, but the configured remote does not contain pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`. |
-| docker compose dev stack | config rendered with warnings | n/a | blocked | n/a | not run | blocked | blocked | `docker compose config` renders but required env vars are blank and one secret-shaped DB credential appears in config output. |
+| docker compose dev stack | config rendered with example env | n/a | blocked | n/a | not run | blocked | partially verified | `docker compose --env-file .env.example -f docker-compose.yml config` renders; runtime start still needs real env/provider values and local Docker network readiness. |
 
 ## Feature Verification Matrix
 
@@ -98,7 +98,7 @@ Scope exclusions:
 | landing public tenant routing | Next build | `npm run build` | pass and route output includes legacy and tenant-qualified routes | pass after TMP-022 | fixed | build lists `/lp/[tenant]` and `/lp/[tenant]/[slug]`. |
 | tenant migration dry-run entrypoint | shell/make checks | `bash -n`; `make -n db-migrate-tenant-platform-dry-run` | syntax and target resolve | pass | partially verified | DB-backed dry-run blocked by missing Postgres env. |
 | KrakenD query forwarding | script check | `make krakend-query-forwarding-check` | pass | pass | passed | check passed against `krakend/krakend.json`. |
-| compose runtime stack | compose render | `docker compose -f docker-compose.yml config` | usable config with required env | rendered with blank env warnings | blocked | missing env vars and secret-shaped config risk. |
+| compose runtime stack | compose render | `docker compose --env-file .env.example -f docker-compose.yml config` | config renders from env inputs | pass | partially verified | runtime start and live flows still require real env/provider values. |
 
 ## Commands Run
 
@@ -135,6 +135,8 @@ Scope exclusions:
 | 29 | `cd services/notification && go test ./...` | Re-run notification default tests on current `origin/main` | passed | Dispatcher, handler, observability, repository, service, and transport tests passed. |
 | 30 | `make build-all-local` | Re-run canonical local service build on current `origin/main` | passed | subscription-external, subscription-partner, billing, notification API, notification worker, acquisition-api, and cadence-engine built successfully. |
 | 31 | `make clean` plus `git restore --source=HEAD -- services/notification/notification-worker` | Remove generated build artifacts before evidence-only commit | passed | Worktree returned to evidence-only changes. |
+| 32 | `docker compose --env-file .env.example -f docker-compose.yml config` | Verify compose renders from safe placeholder env scaffold | passed | Config rendered without relying on checked-in subscription DB credential material. |
+| 33 | `rg -n 'APP_DATABASE_POSTGRESQL_HOST=139\|APP_DATABASE_POSTGRESQL_PASSWORD=[^$]' docker-compose.yml \|\| true` | Confirm previous hardcoded subscription DB host/password patterns are absent | passed | No matches. |
 
 ## Failure Ledger
 
@@ -152,14 +154,14 @@ Scope exclusions:
 |---|---|---|
 | Verify latest `origin/main` and local `main` as one integrated state | Local and remote main histories conflict heavily. | Human-directed integration strategy for `main...origin/main`; the clean PR branch intentionally uses `origin/main` as source of truth. |
 | webspa-admin build and UI runtime | `frontend/webspa-admin` is a gitlink; `.gitmodules` maps it, but `git submodule update --init --recursive frontend/webspa-admin` fails because the configured remote does not contain pinned commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`. | Publish the pinned admin commit to an accessible remote, repoint the gitlink to an available commit after review, or replace the gitlink strategy before running admin build/UI checks. |
-| compose runtime start | Required env vars are blank in rendered config; starting would run with missing DB, TIMWE, Auth0/JWT, notification worker, and pgAdmin settings. | Provide local `.env` or export required variables, then run `docker compose up` and service health checks. |
+| compose runtime start | Config render now passes with `.env.example`, but starting the stack still needs real env/provider values and local Docker network readiness; placeholder values are not live-flow proof. | Provide real local `.env` or export required variables, ensure the external Docker network exists, then run `docker compose up` and service health checks. |
 | dependency vulnerability remediation | `npm audit` fix requires breaking Next upgrade to `next@16.2.6`. | Explicit approval for dependency upgrade and follow-up UI regression check. |
 | original local-history branch publish | Original branch carries a 332 MB dump and generated binaries from local-only history. | Do not push that branch. Use clean branch `agent/codex/full-system-verify-pr-20260509-0129` instead. |
 
 ## Remaining Risks
 
 - Local and remote `main` diverge with overlapping histories.
-- Compose config contains blank required env vars and a secret-shaped checked-in service credential; do not treat compose runtime as production-safe until config is sanitized.
+- Compose config renders with `.env.example`, but do not treat compose runtime as verified until services are started with real env/provider values and health checks pass.
 - Build success is not enough for tenant feature verification; several live flows remain blocked by missing local infrastructure and credentials.
 - Admin frontend cannot be verified from this checkout because the pinned gitlink commit is unavailable from the configured submodule remote.
 
@@ -168,4 +170,4 @@ Scope exclusions:
 | Feature/service | Evidence of incompleteness | Suggested slice class | Notes |
 |---|---|---|---|
 | webspa-admin | pinned gitlink commit is unavailable from the configured submodule remote | operational_slice | Decide whether to publish the admin commit, repoint the gitlink, or replace the gitlink strategy before UI verification. |
-| compose runtime | missing env values and secret-shaped config | operational_slice | Provide safe local env and remove checked-in secret-shaped compose value. |
+| compose runtime | config render passes with `.env.example`; runtime start and live flows remain unverified | operational_slice | Provide real local env/provider values and Docker network readiness, then run compose health checks. |
