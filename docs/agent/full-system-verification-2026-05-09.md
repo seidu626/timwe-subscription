@@ -124,13 +124,19 @@ Scope exclusions:
 | 18 | `make krakend-query-forwarding-check` | Gateway config check | passed | Query forwarding check passed. |
 | 19 | `bash -n scripts/db-migrate-tenant-platform.sh` | Migration script syntax | passed | Shell syntax valid. |
 | 20 | `make -n db-migrate-tenant-platform-dry-run` | Migration target resolution | passed | Target resolves to the migration script dry-run. |
-| 21 | `git push -u origin agent/codex/full-system-verify-20260509-005155` | Publish isolated verification branch | blocked | SSH push hung with no output; terminated owned `git`/`ssh` process group and recorded as unavailable. |
+| 21 | `git push --progress -u origin HEAD` from `agent/codex/full-system-verify-20260509-005155` | Publish original isolated verification branch | blocked | Push transferred past 200 MiB because the branch carried 52 commits from local `main`, including a 332 MB dump and generated binaries absent from `origin/main`; push was terminated for oversized history risk. |
+| 22 | `git worktree add ../worktrees/codex-full-system-verify-pr-20260509-0129 -b agent/codex/full-system-verify-pr-20260509-0129 origin/main` | Create clean PR branch from remote source of truth | passed | New branch starts at `origin/main` commit `791ae9d`. |
+| 23 | `git cherry-pick -x 5984863` | Move verified audit and repair commit onto clean PR branch | passed | Produced clean branch commit `356c449` before this evidence reconciliation. |
+| 24 | `git rev-list --objects origin/main..HEAD \| git cat-file --batch-check=... \| sort -k3 -nr \| head` | Confirm clean branch has no oversized objects | passed | Largest new blob is `docs/agent/full-system-verification-2026-05-09.md` at 21,832 bytes. |
+| 25 | `jq empty slices/manifest.json && hvc check agent/backlog/issues/*.md --fail-on block && slice-harness sync --dry-run` | Re-run manifest, classifier, and slice drift gates on clean branch | passed | HVC allowed TMP-021/022/023 and `slice-harness sync --dry-run` reported no drift. |
+| 26 | `cd common && go test ./...` | Re-run common package test repair on clean branch | passed | All common packages passed or had no test files. |
+| 27 | `cd services/landing-web && npm ci && npm run build` | Re-run landing-web dependency install and production build on clean branch | passed with audit warning | Build passed and routes include `/api/campaigns/[tenant]`, `/api/campaigns/[tenant]/[slug]`, `/lp/[tenant]`, and `/lp/[tenant]/[slug]`; npm still reports 1 moderate and 1 high vulnerability. |
 
 ## Failure Ledger
 
 | Failure | Command/check | Root cause | Patch | Re-verification | Status |
 |---|---|---|---|---|---|
-| Local branch cannot fast-forward or cleanly merge `origin/main` | `git merge --no-edit origin/main` | Local `main` and `origin/main` contain divergent overlapping history with add/add conflicts, including generated/vendor files and slice evidence. | None in this audit; merge conflict is repository integration work, not a verification-doc fix. | `git merge --abort` restored the isolated branch to pre-merge state. | blocked |
+| Local branch cannot fast-forward or cleanly merge `origin/main` | `git merge --no-edit origin/main` | Local `main` and `origin/main` contain divergent overlapping history with add/add conflicts, including generated/vendor files and slice evidence. | Created clean PR branch from `origin/main` and cherry-picked only the verified audit/repair commit. | Clean branch has no oversized blobs and re-ran manifest, HVC, common tests, and landing-web build. | fixed for PR branch; local main integration still blocked |
 | landing-web production build failed | `npm run build` | Next.js App Router rejected sibling dynamic segment names `[slug]` and `[tenant]` at the same route level. | TMP-022 renamed single-segment dynamic folders to `[tenant]` and mapped absent `slug` to the single segment. | `npm run build` passed. | fixed |
 | common package fails | `go test ./...` in `common` | Generator API drift, postgres test signature drift, and nonce replay test clock mismatch. | TMP-023 excluded tool-only generator helper, updated postgres tests, and aligned nonce store test clock. | `cd common && go test ./...` passed. | fixed |
 | notification package fails | `go test ./...` and readonly mode | Vendor directory is inconsistent with go.mod, and readonly module mode lacks auth dependency checksums. | Dependency/vendor remediation requires approval because it touches module metadata/vendor state. | Not fixed. | blocked |
@@ -140,12 +146,12 @@ Scope exclusions:
 
 | Check | Reason | Exact command or requirement to unblock |
 |---|---|---|
-| Verify latest `origin/main` and local `main` as one integrated state | Local and remote main histories conflict heavily. | Human-directed integration strategy for `main...origin/main`, or a clean branch based on the intended source of truth. |
+| Verify latest `origin/main` and local `main` as one integrated state | Local and remote main histories conflict heavily. | Human-directed integration strategy for `main...origin/main`; the clean PR branch intentionally uses `origin/main` as source of truth. |
 | webspa-admin build and UI runtime | `frontend/webspa-admin` is a gitlink but `.gitmodules` has no mapping, so the submodule cannot be initialized in this worktree. | Restore `.gitmodules` mapping or replace the gitlink with tracked source before running admin build/UI checks. |
 | compose runtime start | Required env vars are blank in rendered config; starting would run with missing DB, TIMWE, Auth0/JWT, notification worker, and pgAdmin settings. | Provide local `.env` or export required variables, then run `docker compose up` and service health checks. |
 | dependency vulnerability remediation | `npm audit` fix requires breaking Next upgrade to `next@16.2.6`. | Explicit approval for dependency upgrade and follow-up UI regression check. |
 | notification vendor/go.sum repair | Fix likely touches `services/notification/go.sum` and/or vendor tree. | Explicit approval for dependency/vendor metadata changes. |
-| branch publish | SSH push to GitHub hung in this environment. | Retry with working GitHub SSH/network credentials or push from the main operator shell. |
+| original local-history branch publish | Original branch carries a 332 MB dump and generated binaries from local-only history. | Do not push that branch. Use clean branch `agent/codex/full-system-verify-pr-20260509-0129` instead. |
 
 ## Remaining Risks
 

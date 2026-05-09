@@ -31,7 +31,8 @@
   "child_handoffs": [],
   "cleanup_notes": [],
   "commits": [
-    "d297ba1"
+    "5984863",
+    "356c449"
   ],
   "completed_work": [
     "Excluded the OpenAPI generator helper from normal package builds with a tools-only build tag.",
@@ -60,7 +61,7 @@
     {
       "command": "cd common && go test ./...",
       "exit_code": 0,
-      "output_excerpt": "all common package tests passed",
+      "output_excerpt": "all common package tests passed on clean origin/main branch",
       "status": "passed",
       "timestamp": "2026-05-09T01:12:00Z"
     }

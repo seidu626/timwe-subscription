@@ -34,7 +34,8 @@
   "child_handoffs": [],
   "cleanup_notes": [],
   "commits": [
-    "d297ba1"
+    "5984863",
+    "356c449"
   ],
   "completed_work": [
     "Renamed landing-web dynamic route folders from slug/slug conflicts to tenant/slug.",
@@ -67,7 +68,7 @@
     {
       "command": "cd services/landing-web && npm run build",
       "exit_code": 0,
-      "output_excerpt": "build passed with /api/campaigns/[tenant], /api/campaigns/[tenant]/[slug], /lp/[tenant], /lp/[tenant]/[slug]",
+      "output_excerpt": "build passed on clean origin/main branch with /api/campaigns/[tenant], /api/campaigns/[tenant]/[slug], /lp/[tenant], /lp/[tenant]/[slug]",
       "status": "passed",
       "timestamp": "2026-05-09T01:12:00Z"
     }

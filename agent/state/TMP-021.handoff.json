@@ -26,7 +26,7 @@
     "notification and subscription-partner vendor/dependency metadata repairs require explicit dependency/vendor approval",
     "webspa-admin gitlink cannot be initialized because .gitmodules mapping is missing",
     "compose runtime start is blocked by missing env values and secret-shaped checked-in config",
-    "local main and origin/main diverge with add/add conflicts"
+    "local main and origin/main diverge with add/add conflicts; clean PR branch uses origin/main as source of truth"
   ],
   "changed_files": [
     "agent/backlog/issues/TMP-021-full-system-verification.md",
@@ -40,10 +40,11 @@
   "child_handoffs": [],
   "cleanup_notes": [
     "Removed temporary build directory /tmp/agent-build-timwe-20260509.",
-    "No lingering git push, ssh github, next build, or npm run build processes were found."
+    "Original local-history push was terminated after identifying oversized unpushed history; clean PR branch has no oversized new blobs."
   ],
   "commits": [
-    "d297ba1"
+    "5984863",
+    "356c449"
   ],
   "completed_work": [
     "Created a full-system release verification matrix across Go services, landing-web, compose/runtime config, harness state, and repo integration.",
@@ -58,10 +59,10 @@
     "Admin frontend cannot be verified until frontend/webspa-admin has a .gitmodules mapping or the gitlink is removed intentionally.",
     "Notification and subscription-partner dependency/vendor metadata need explicit approval before repair.",
     "Runtime compose smoke cannot proceed until required env values are supplied and checked-in secret-shaped config is resolved.",
-    "The worktree is based on local main; merging origin/main produced add/add conflicts and was aborted."
+    "The original worktree is based on local main; merging origin/main produced add/add conflicts and was aborted. A clean PR branch was created from origin/main and the verified repair commit was cherry-picked there."
   ],
   "next_tasks": [],
-  "operator_message": "Full release verification is blocked by dependency/vendor, submodule, env/secret, and branch divergence gates. The verified repair slices are committed locally on agent/codex/full-system-verify-20260509-005155.",
+  "operator_message": "Full release verification is blocked by dependency/vendor, submodule, env/secret, and local-main integration gates. The verified repair slices are on clean PR branch agent/codex/full-system-verify-pr-20260509-0129.",
   "residual_work_policy": "continue_if_safe",
   "risk_notes": [
     "Do not run broad dependency updates or vendor rewrites without approval.",
