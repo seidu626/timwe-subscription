@@ -11,6 +11,12 @@ These ADR placeholders capture decisions that block or materially shape implemen
 | ADR-005 | Tenant isolation model: shared DB/repository enforcement, PostgreSQL RLS, schema-per-tenant, database-per-tenant | TMP-001, TMP-002, TMP-011 |
 | ADR-006 | Charge ownership: subscription-external, billing service, or explicit split | TMP-017, TMP-007, TMP-010 |
 | ADR-007 | Admin portal delivery posture: API-only first, thin UI per slice, or full workspace rollout | TMP-014 and tenant-admin usability |
+| TMP-026 | webspa-admin source reproducibility | TMP-026, TMP-021 |
+| TMP-034 | Acquisition runtime schema provisioning | TMP-034, TMP-021 |
+| TMP-035 | Notification message outbox schema provisioning | TMP-035, TMP-021 |
+| TMP-036 | Postback outbox schema ownership and provisioning | TMP-036, TMP-021 |
+| TMP-037 | Landing web dependency remediation | TMP-037, TMP-021 |
+| TMP-038 | Local main integration strategy | TMP-038, TMP-021 |
 
 Minimum ADR fields:
 

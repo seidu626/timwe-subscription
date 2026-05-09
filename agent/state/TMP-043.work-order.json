@@ -1,0 +1,99 @@
+{
+  "work_order_id": "WO-TMP-043-001",
+  "issue_id": "TMP-043",
+  "class": "operational_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "The remaining release-verification approvals have fillable pending ADR templates without implying approval.",
+  "actor": "platform-operator",
+  "entrypoint": "docs/agent/release-decision-packet-2026-05-09.md",
+  "trigger": "Decision packet identifies approval artifacts as the next gate.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-043-release-decision-templates.md",
+    "agent/state/TMP-043.work-order.json",
+    "agent/state/TMP-043.handoff.json",
+    "slices/manifest.json",
+    "slices/decisions/README.md",
+    "slices/decisions/TMP-026-webspa-admin-source-reproducibility.md",
+    "slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+    "slices/decisions/TMP-035-notification-message-outbox-schema.md",
+    "slices/decisions/TMP-036-postback-outbox-schema.md",
+    "slices/decisions/TMP-037-landing-web-dependency-remediation.md",
+    "slices/decisions/TMP-038-local-main-integration-strategy.md",
+    "slices/TMP-043-release-decision-templates/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "common/**",
+    "frontend/**",
+    "ops/**",
+    "docker-compose*.yml",
+    "Makefile",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json",
+    "*.sql",
+    ".git/**"
+  ],
+  "acceptance_tests": [
+    "test -f slices/decisions/TMP-026-webspa-admin-source-reproducibility.md",
+    "test -f slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+    "test -f slices/decisions/TMP-035-notification-message-outbox-schema.md",
+    "test -f slices/decisions/TMP-036-postback-outbox-schema.md",
+    "test -f slices/decisions/TMP-037-landing-web-dependency-remediation.md",
+    "test -f slices/decisions/TMP-038-local-main-integration-strategy.md",
+    "jq empty slices/manifest.json agent/state/TMP-043.work-order.json agent/state/TMP-043.handoff.json .agent/tasks.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "required_evidence": [
+    "slices/decisions/TMP-026-webspa-admin-source-reproducibility.md",
+    "slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+    "slices/decisions/TMP-035-notification-message-outbox-schema.md",
+    "slices/decisions/TMP-036-postback-outbox-schema.md",
+    "slices/decisions/TMP-037-landing-web-dependency-remediation.md",
+    "slices/decisions/TMP-038-local-main-integration-strategy.md",
+    "slices/TMP-043-release-decision-templates/value-gate-report.md"
+  ],
+  "non_goals": [
+    "approval recording",
+    "schema changes",
+    "migration changes",
+    "compose changes",
+    "dependency changes",
+    "submodule changes",
+    "branch integration"
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-043",
+    "title": "Release decision ADR templates",
+    "path": "agent/backlog/issues/TMP-043-release-decision-templates.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}
