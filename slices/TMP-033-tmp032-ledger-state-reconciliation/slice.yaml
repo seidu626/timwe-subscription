@@ -1,0 +1,50 @@
+story:
+  id: "TMP-033"
+  title: "TMP-032 ledger state is truthful"
+  actor: "platform-operator"
+  action: "inspect supervisor task state after TMP-032 merges"
+  outcome: "T-TMP-032 is reported as done instead of running"
+  as_a: "platform-operator"
+  i_want_to: "trust the supervisor ledger after postback dispatcher compose work merges"
+  so_that: "release verification does not reopen already-closed TMP-032 work"
+
+entrypoints:
+  - ".harness/task-ledger.sqlite"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Ledger status matches accepted TMP-032 handoff"
+      given: ["TMP-032 handoff and manifest evidence are already done"]
+      when: "the operator queries .harness/task-ledger.sqlite"
+      then: "T-TMP-032 status is done"
+      evidence: "sqlite3 ledger query"
+    - scenario: "Supervisor and agent-harness agree"
+      given: ["the ledger has been repaired from .agent/tasks.json"]
+      when: "the operator runs list commands"
+      then: "agent-supervisor list-tasks and agent-harness list both show T-TMP-032 done"
+      evidence: "control-plane command output"
+  failures:
+    - scenario: "Ledger still reports running"
+      given: ["T-TMP-032 remains running in the supervisor ledger"]
+      when: "release verification reads task state"
+      then: "the slice remains blocked until preflight repair is applied and validated"
+      evidence: "pre-repair sqlite query"
+  invariants:
+    - rule: "Metadata-only repair must not touch runtime code, schema, dependencies, compose, or package files"
+      preserved_by: "git diff review and file scope"
+      violated_when: "any forbidden source/runtime path changes"
+      test: "git diff --name-only"
+
+out_of_scope:
+  - "runtime service behavior changes"
+  - "schema or migration provisioning"
+  - "dependency, package, or compose changes"
+
+size_check:
+  files_touched: 8
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-033-tmp032-ledger-state-reconciliation/value-gate-report.md"

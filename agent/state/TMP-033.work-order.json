@@ -1,0 +1,77 @@
+{
+  "work_order_id": "WO-TMP-033-001",
+  "issue_id": "TMP-033",
+  "class": "operational_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Supervisor dashboards no longer report TMP-032 as running after the postback dispatcher compose DB env slice has merged and closed.",
+  "actor": "platform-operator",
+  "entrypoint": ".harness/task-ledger.sqlite",
+  "trigger": "Post-merge full-system verification detects T-TMP-032 still running in the supervisor ledger.",
+  "allowed_files": [
+    ".agent/**",
+    ".harness/task-ledger.sqlite",
+    "agent/backlog/issues/TMP-033-tmp032-ledger-state-reconciliation.md",
+    "agent/state/TMP-033.work-order.json",
+    "agent/state/TMP-033.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-033-tmp032-ledger-state-reconciliation/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "common/**",
+    "frontend/**",
+    "ops/**",
+    "docker-compose*.yml",
+    "Makefile",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json"
+  ],
+  "acceptance_tests": [
+    "sqlite3 .harness/task-ledger.sqlite 'select id,status from tasks where id=\"T-TMP-032\";'",
+    "agent-supervisor preflight with worktree-local temp config",
+    "agent-supervisor list-tasks with worktree-local temp config",
+    "agent-harness list",
+    "slice-harness sync --dry-run",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "required_evidence": [
+    "sqlite3 .harness/task-ledger.sqlite 'select id,status from tasks where id=\"T-TMP-032\";'",
+    "agent-supervisor preflight with worktree-local temp config",
+    "agent-supervisor list-tasks with worktree-local temp config",
+    "agent-harness list",
+    "slice-harness sync --dry-run",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-033",
+    "title": "TMP-032 ledger state reconciliation",
+    "path": "agent/backlog/issues/TMP-033-tmp032-ledger-state-reconciliation.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}
