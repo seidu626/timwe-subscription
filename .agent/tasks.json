@@ -3031,6 +3031,99 @@
       ],
       "updated_at": "2026-05-09T06:35:00Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-006-tenant-acquisition-flow/value-gate-report.md",
+            "slices/TMP-012-public-tenant-routing/value-gate-report.md",
+            "slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "TMP-006 and TMP-012 value-gate reports append current landing-web install/build evidence."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md",
+            "slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "TMP-018 value-gate report appends current notification package test evidence."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "git diff --name-only file-scope review"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No product source, schema, dependency manifest, lockfile, compose, credential, submodule, or branch-integration files change."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": "agent/codex/artifact-audit-20260509-101738",
+      "children": [],
+      "completed": [
+        "Reran current landing-web locked install and production build.",
+        "Reran current notification package tests.",
+        "Appended superseding evidence notes to TMP-006, TMP-012, and TMP-018 value-gate reports."
+      ],
+      "created_at": "2026-05-09T10:18:00Z",
+      "details": "Reconcile stale completed-slice value-gate notes with current superseding verification evidence.",
+      "evidence": {
+        "commands": [
+          "cd services/notification && go test ./...",
+          "cd services/landing-web && npm ci",
+          "cd services/landing-web && npm run build"
+        ],
+        "commits": [],
+        "files": [
+          "agent/backlog/issues/TMP-044-stale-value-gate-evidence-reconciliation.md",
+          "agent/state/TMP-044.handoff.json",
+          "agent/state/TMP-044.work-order.json",
+          "slices/manifest.json",
+          "slices/TMP-006-tenant-acquisition-flow/value-gate-report.md",
+          "slices/TMP-012-public-tenant-routing/value-gate-report.md",
+          "slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md",
+          "slices/TMP-044-stale-value-gate-evidence-reconciliation/domain-brief.md",
+          "slices/TMP-044-stale-value-gate-evidence-reconciliation/notes.md",
+          "slices/TMP-044-stale-value-gate-evidence-reconciliation/slice.yaml",
+          "slices/TMP-044-stale-value-gate-evidence-reconciliation/spec.md",
+          "slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-044",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Stale value-gate evidence reconciliation",
+      "unresolved": [
+        {
+          "blocker": "Full-system release readiness remains blocked by TMP-021 child blockers and approval gates.",
+          "disposition": "blocked",
+          "item": "Release readiness",
+          "next_task_id": null,
+          "reason": "TMP-044 reconciles stale evidence only and does not approve blocked implementation work.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-09T10:18:00Z",
+      "worktree": null
     }
   ],
   "version": 1

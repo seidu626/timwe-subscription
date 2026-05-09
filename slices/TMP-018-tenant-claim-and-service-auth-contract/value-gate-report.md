@@ -107,6 +107,10 @@ Attempted repository vendor guard:
 - `scripts/check-vendor-sync.sh`
 - Result: blocked by existing `services/notification` module hygiene (`golang.org/x/exp/slog` missing go.sum entry via `github.com/sagikazarmark/slog-shim`). TMP-018 does not modify notification; accidental diagnostic go.mod/go.sum changes were reverted.
 
+## Current superseding evidence
+
+TMP-044 reran the current notification verification from `origin/main`. `cd services/notification && go test ./...` passed with 18 tests across 11 packages, so the historical notification module-hygiene note above is no longer a current blocker for this slice. No notification source, module, or sum files changed for this reconciliation.
+
 ## Follow-Up Risks
 
 - The older hardcoded `dgrijalva/jwt-go` middlewares remain out of TMP-018 scope and should be handled by a later security cleanup slice.

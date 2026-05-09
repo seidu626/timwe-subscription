@@ -1,0 +1,71 @@
+{
+  "acceptance_results": [
+    {
+      "criterion": "TMP-006 and TMP-012 value-gate reports append current landing-web install/build evidence.",
+      "status": "passed",
+      "evidence": [
+        "slices/TMP-006-tenant-acquisition-flow/value-gate-report.md",
+        "slices/TMP-012-public-tenant-routing/value-gate-report.md",
+        "slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "TMP-018 value-gate report appends current notification package test evidence.",
+      "status": "passed",
+      "evidence": [
+        "slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md",
+        "slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "No product source, schema, dependency manifest, lockfile, compose, credential, submodule, or branch-integration files change.",
+      "status": "passed",
+      "evidence": [
+        "git diff --name-only file-scope review"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    }
+  ],
+  "blockers": [
+    "Full-system release readiness remains blocked by TMP-021 child blockers and approval gates."
+  ],
+  "changed_files": [
+    "agent/backlog/issues/TMP-044-stale-value-gate-evidence-reconciliation.md",
+    "agent/state/TMP-044.handoff.json",
+    "agent/state/TMP-044.work-order.json",
+    "slices/manifest.json",
+    "slices/TMP-006-tenant-acquisition-flow/value-gate-report.md",
+    "slices/TMP-012-public-tenant-routing/value-gate-report.md",
+    "slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md",
+    "slices/TMP-044-stale-value-gate-evidence-reconciliation/domain-brief.md",
+    "slices/TMP-044-stale-value-gate-evidence-reconciliation/notes.md",
+    "slices/TMP-044-stale-value-gate-evidence-reconciliation/slice.yaml",
+    "slices/TMP-044-stale-value-gate-evidence-reconciliation/spec.md",
+    "slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md"
+  ],
+  "commands": [
+    {
+      "command": "cd services/notification && go test ./...",
+      "result": "passed: 18 tests in 11 packages"
+    },
+    {
+      "command": "cd services/landing-web && npm ci",
+      "result": "passed; npm reported one moderate and one high vulnerability"
+    },
+    {
+      "command": "cd services/landing-web && npm run build",
+      "result": "passed; tenant campaign and landing routes generated"
+    }
+  ],
+  "outcome": "passed",
+  "summary": "Reconciled stale TMP-006, TMP-012, and TMP-018 value-gate notes with current superseding verification evidence.",
+  "timestamp": "2026-05-09T10:18:00Z"
+}
