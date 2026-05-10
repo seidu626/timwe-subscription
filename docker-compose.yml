@@ -20,8 +20,8 @@ services:
       - APP_CACHE_REDIS_DB=0
       - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      database:
-        condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -87,8 +87,8 @@ services:
       - NOTIFICATION_WORKER_MT_BASE_URL=${NOTIFICATION_WORKER_MT_BASE_URL}
       - NOTIFICATION_WORKER_MT_CHANNEL=${NOTIFICATION_WORKER_MT_CHANNEL}
     depends_on:
-      database:
-        condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     networks:
       - backend
       - shared-network
@@ -112,8 +112,8 @@ services:
       - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
       - CADENCE_ADMIN_CORS_ORIGINS=http://localhost:4200
     depends_on:
-      database:
-        condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     networks:
       - backend
       - shared-network
@@ -151,6 +151,26 @@ services:
       - shared-network
     volumes:
       - db_data:/var/lib/postgresql/data
+
+  db-bootstrap:
+    image: postgres:${POSTGRESQL_VERSION}
+    container_name: subscription_manager_db_bootstrap
+    environment:
+      PGHOST: database
+      PGPORT: "5432"
+      PGUSER: ${PG_USER}
+      PGPASSWORD: ${PG_PASSWORD}
+      PGDATABASE: ${PG_DB}
+      COMPOSE_DB_BOOTSTRAP_WORKSPACE: /workspace
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - shared-network
+    volumes:
+      - .:/workspace:ro
+    command: ["/bin/sh", "/workspace/scripts/compose-db-bootstrap.sh"]
+    restart: "no"
 
   pgadmin:
     container_name: pgadmin
@@ -237,8 +257,8 @@ services:
       - CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES=${CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES:-2097152}
       - CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY=${CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY:-10m}
     depends_on:
-      database:
-        condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
       minio-init:
         condition: service_completed_successfully
     networks:
@@ -278,8 +298,8 @@ services:
       - DB_POSTGRESQL_DB_NAME=${PG_DB}
       - DB_POSTGRESQL_SSL_MODE=disable
     depends_on:
-      database:
-        condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     networks:
       - backend
       - shared-network

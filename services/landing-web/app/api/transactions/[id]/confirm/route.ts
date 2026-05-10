@@ -4,9 +4,9 @@ const ACQUISITION_API_URL = process.env.ACQUISITION_API_URL || 'http://localhost
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params
+  const { id } = await params
 
   try {
     const body = await request.json()

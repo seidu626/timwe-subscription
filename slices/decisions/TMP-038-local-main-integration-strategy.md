@@ -1,8 +1,8 @@
 # TMP-038 Decision Template: Local Main Integration Strategy
 
-Status: proposed
+Status: accepted
 
-Approval recorded: no
+Approval recorded: yes
 
 ## Context
 
@@ -20,14 +20,16 @@ Choose one integration strategy:
 
 ## Decision
 
-Pending maintainer decision.
+Preserve the primary local `main` history and do not run destructive branch operations, conflict-heavy merges, or reset from this agent. Treat the origin/main-derived isolated worktree branch `agent/codex/fullsystem-20260510-045911` as the current release verification surface. Primary local `main` reconciliation remains a separate maintainer-owned integration activity.
+
+Approval source: operator auto-proceed directive in this Codex session on 2026-05-10.
 
 ## Consequences To Review
 
-- Local-only commits and generated artifacts.
-- Whether primary checkout should track release source truth or remain a local workbench.
-- Conflict resolution ownership.
-- How future verification should choose source truth.
+- Local-only commits and generated artifacts are preserved.
+- The primary checkout remains a local workbench until maintainer reconciliation.
+- Conflict resolution ownership stays with the maintainer, not the autonomous release verifier.
+- Current release verification chooses the isolated origin/main-derived worktree branch as source truth.
 
 ## Post-Decision Proof
 

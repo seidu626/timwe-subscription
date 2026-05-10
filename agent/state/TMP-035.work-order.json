@@ -41,12 +41,11 @@
     "targeted notification-worker compose smoke",
     "docs/agent/full-system-verification-2026-05-09.md",
     "slices/TMP-031-notification-worker-compose-db-env/value-gate-report.md",
-    "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"
+    "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
   ],
   "non_goals": [],
-  "blocking_dependencies": [
-    "operator-approval"
-  ],
+  "blocking_dependencies": [],
   "reclassification_triggers": [],
   "classification_result": {
     "issue_id": "TMP-035",

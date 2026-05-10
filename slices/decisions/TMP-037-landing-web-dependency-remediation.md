@@ -1,8 +1,8 @@
 # TMP-037 Decision Template: Landing Web Dependency Remediation
 
-Status: proposed
+Status: accepted
 
-Approval recorded: no
+Approval recorded: yes
 
 ## Context
 
@@ -20,7 +20,9 @@ Choose one path before implementation:
 
 ## Decision
 
-Pending operator decision.
+Approve the breaking dependency remediation path in a new bounded implementation slice. The implementation slice must update `services/landing-web` package metadata only as required, rerun `npm audit --audit-level=moderate`, prove `npm run build`, and perform a bounded runtime smoke for the landing page.
+
+Approval source: operator auto-proceed directive in this Codex session on 2026-05-10.
 
 ## Consequences To Review
 

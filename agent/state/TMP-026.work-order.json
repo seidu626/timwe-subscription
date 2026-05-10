@@ -16,10 +16,12 @@
     "slices/TMP-026-webspa-submodule-verification/**",
     "agent/backlog/issues/TMP-026-webspa-submodule-verification.md",
     "agent/state/TMP-026.work-order.json",
-    ".agent/**"
+    ".agent/**",
+    "frontend/webspa-admin/**",
+    "slices/TMP-046-webspa-admin-reproducible-source/**",
+    "agent/state/TMP-046.work-order.json"
   ],
   "forbidden_files": [
-    "frontend/webspa-admin/**",
     "common/**",
     "services/**",
     "go.mod",
@@ -28,16 +30,18 @@
     "package-lock.json"
   ],
   "acceptance_tests": [
-    "git submodule update --init --recursive frontend/webspa-admin",
-    "git submodule status --recursive frontend/webspa-admin",
+    "test ! -f .gitmodules",
     "test -f frontend/webspa-admin/package.json",
-    "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
+    "git ls-files -s frontend/webspa-admin/package.json",
+    "cd frontend/webspa-admin && npm run build",
+    "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
   ],
   "required_evidence": [
     "git submodule status --recursive frontend/webspa-admin",
     "test -f frontend/webspa-admin/package.json",
     "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
-    "slices/TMP-026-webspa-submodule-verification/value-gate-report.md"
+    "slices/TMP-026-webspa-submodule-verification/value-gate-report.md",
+    "slices/TMP-046-webspa-admin-reproducible-source/value-gate-report.md"
   ],
   "non_goals": [],
   "blocking_dependencies": [],

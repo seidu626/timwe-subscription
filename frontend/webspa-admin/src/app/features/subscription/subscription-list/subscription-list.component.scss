@@ -1,0 +1,235 @@
+.subscription-table-container {
+  padding: 1.5rem;
+  background: var(--admin-bg);
+  min-height: 100%;
+}
+
+mat-form-field {
+  margin-bottom: 0;
+}
+
+.subscription-filter,
+.operator-console,
+.history-console {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  box-shadow: var(--admin-shadow);
+}
+
+.console-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--admin-text);
+}
+
+.console-header p {
+  margin: 0.3rem 0 0;
+  color: var(--admin-text-muted);
+}
+
+.filters-row,
+.admin-form-grid {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  mat-form-field {
+    &.mat-mdc-form-field {
+      .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
+    }
+  }
+}
+
+.operation-switch {
+  width: max-content;
+}
+
+.headers-field {
+  width: 100%;
+}
+
+.actions-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 0.5rem;
+
+  button[mat-raised-button] {
+    height: 44px;
+    min-width: 140px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background-color: var(--admin-primary) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 0.5rem;
+    font-weight: 500;
+
+    &:hover:not([disabled]) {
+      background-color: var(--admin-primary-dark) !important;
+    }
+
+    &:disabled {
+      background-color: var(--admin-secondary-light) !important;
+      opacity: 0.7;
+    }
+  }
+}
+
+.filter-field {
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+
+.payload-viewer {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  padding: 1rem;
+  background: var(--admin-bg);
+
+  h3,
+  h4 {
+    margin: 0 0 0.75rem;
+    color: var(--admin-text);
+  }
+
+  pre {
+    margin: 0;
+    max-height: 280px;
+    overflow: auto;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+}
+
+.payload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.payload-grid.secondary {
+  margin-top: 1rem;
+}
+
+.detail-viewer {
+  margin-top: 1rem;
+}
+
+.table-container,
+table[mat-table] {
+  width: 100%;
+  background: var(--admin-surface) !important;
+  border-radius: var(--admin-radius-lg);
+  overflow: hidden;
+}
+
+.error-pill,
+.success-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.error-pill {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.success-pill {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+
+  mat-spinner {
+    --mdc-circular-progress-active-indicator-color: var(--admin-primary);
+  }
+
+  p {
+    margin-top: 1rem;
+    color: var(--admin-text-muted);
+    font-weight: 500;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem;
+  color: var(--admin-text-muted);
+
+  mat-icon {
+    font-size: 56px;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  p {
+    margin: 0;
+    font-weight: 500;
+  }
+
+  .hint {
+    margin-top: 0.35rem;
+    font-weight: 400;
+  }
+}
+
+:host-context([data-coreui-theme="dark"]) {
+  .payload-viewer {
+    background: var(--admin-bg);
+
+    h3,
+    h4 {
+      color: var(--admin-text);
+    }
+
+    pre {
+      background: #020617;
+      color: #dbeafe;
+    }
+  }
+
+  .error-pill {
+    background: rgba(248, 113, 113, 0.2);
+    color: #fca5a5;
+  }
+
+  .success-pill {
+    background: rgba(52, 211, 153, 0.2);
+    color: #6ee7b7;
+  }
+}

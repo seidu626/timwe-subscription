@@ -1,0 +1,156 @@
+{
+  "acceptance_results": [
+    {
+      "criterion": "frontend/webspa-admin is a normal tracked source directory with package.json present.",
+      "status": "passed",
+      "evidence": [
+        "test -f frontend/webspa-admin/package.json",
+        "git ls-files -s frontend/webspa-admin/package.json"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": ".gitmodules no longer references the broken webspa-admin submodule.",
+      "status": "passed",
+      "evidence": [
+        "test ! -f .gitmodules"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Admin build and ChromeHeadless tests run from the tracked source directory.",
+      "status": "passed",
+      "evidence": [
+        "cd frontend/webspa-admin && npm run build",
+        "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "TMP-026 clean checkout blocker is reconciled with value-gate evidence.",
+      "status": "passed",
+      "evidence": [
+        "slices/TMP-026-webspa-submodule-verification/value-gate-report.md",
+        "slices/TMP-046-webspa-admin-reproducible-source/value-gate-report.md"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    ".gitmodules",
+    "frontend/webspa-admin/**",
+    "agent/backlog/issues/TMP-026-webspa-submodule-verification.md",
+    "agent/backlog/issues/TMP-046-webspa-admin-reproducible-source.md",
+    "agent/state/TMP-026.work-order.json",
+    "agent/state/TMP-046.work-order.json",
+    "agent/state/TMP-046.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-026-webspa-submodule-verification/value-gate-report.md",
+    "slices/TMP-046-webspa-admin-reproducible-source/domain-brief.md",
+    "slices/TMP-046-webspa-admin-reproducible-source/slice.yaml",
+    "slices/TMP-046-webspa-admin-reproducible-source/spec.md",
+    "slices/TMP-046-webspa-admin-reproducible-source/notes.md",
+    "slices/TMP-046-webspa-admin-reproducible-source/value-gate-report.md",
+    ".agent/tasks.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "node_modules and dist remain ignored by frontend/webspa-admin/.gitignore."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Removed broken .gitmodules submodule metadata and frontend/webspa-admin gitlink.",
+    "Materialized the exact pinned local admin checkout 2ad95b18ecff4d8b23e5d1b7152975c477d5137a as tracked source.",
+    "Verified webspa-admin package install, Angular build, and 84 ChromeHeadless tests from tracked source.",
+    "Reconciled TMP-026 metadata and value-gate report to PASS."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "npm ci reports 79 vulnerabilities and Node engine warnings; dependency remediation remains separate pending work."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-026 is resolved through tracked webspa-admin source; dependency vulnerabilities remain in the separate landing/admin dependency remediation surface.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "This is a deliberate repository-structure change: source is now tracked directly to preserve local tenant admin features that were not available from the public submodule remote."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "20260510-045926",
+  "status": "done",
+  "summary": "Replaced the unreproducible webspa-admin submodule gitlink with the exact pinned tenant-admin source and verified install, build, and ChromeHeadless tests from tracked source.",
+  "supervisor_decision": "ready_for_review",
+  "task_id": "T-TMP-046",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "test ! -f .gitmodules",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": ".gitmodules absent",
+      "timestamp": "2026-05-10T05:22:00Z"
+    },
+    {
+      "command": "test -f frontend/webspa-admin/package.json && git ls-files -s frontend/webspa-admin/package.json",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "100644 tracked package.json",
+      "timestamp": "2026-05-10T05:22:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm ci",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "added 1007 packages; 79 vulnerabilities reported",
+      "timestamp": "2026-05-10T05:17:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm run build",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "Angular build completed with existing warnings",
+      "timestamp": "2026-05-10T05:17:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TOTAL: 84 SUCCESS",
+      "timestamp": "2026-05-10T05:18:00Z"
+    },
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-046.work-order.json agent/state/TMP-046.handoff.json .agent/tasks.json",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "JSON valid",
+      "timestamp": "2026-05-10T05:22:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TMP-046 assignment_decision allow; no blocking reasons",
+      "timestamp": "2026-05-10T05:22:00Z"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "no whitespace errors",
+      "timestamp": "2026-05-10T05:22:00Z"
+    }
+  ]
+}

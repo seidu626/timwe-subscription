@@ -1,0 +1,262 @@
+// ============================================
+// NOTIFICATION LIST COMPONENT - Professional Theme
+// ============================================
+
+.notification-table-container {
+  padding: 1.5rem;
+  background: #f8fafc;
+  min-height: 100%;
+}
+
+mat-form-field {
+  margin-bottom: 0;
+}
+
+// Filter section
+.notification-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+// First row: filter fields
+.filters-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  mat-form-field {
+    // Remove subscript space for cleaner alignment
+    &.mat-mdc-form-field {
+      .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
+    }
+  }
+}
+
+// Second row: action buttons
+.actions-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 0.5rem;
+
+  button[mat-raised-button] {
+    height: 44px;
+    min-width: 140px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background-color: #4f46e5 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+
+    &:hover:not([disabled]) {
+      background-color: #3730a3 !important;
+    }
+
+    &:disabled {
+      background-color: #9ca3af !important;
+      opacity: 0.7;
+    }
+
+    mat-icon {
+      color: white !important;
+    }
+  }
+}
+
+.filter-field {
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+
+// Table styling
+.notification-table,
+table[mat-table] {
+  width: 100%;
+  background: #ffffff !important;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+// Notification type badges
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+
+  &.type-sms {
+    background-color: rgba(14, 165, 233, 0.1);
+    color: #0369a1;
+  }
+
+  &.type-email {
+    background-color: rgba(139, 92, 246, 0.1);
+    color: #6d28d9;
+  }
+
+  &.type-push {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #047857;
+  }
+}
+
+// Status badges
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+
+  &.status-sent {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #047857;
+  }
+
+  &.status-failed {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #991b1b;
+  }
+
+  &.status-pending {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #b45309;
+  }
+
+  &.status-queued {
+    background-color: rgba(100, 116, 139, 0.1);
+    color: #475569;
+  }
+}
+
+// Loading state
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  background: #ffffff;
+  border-radius: 0.75rem;
+
+  mat-spinner {
+    --mdc-circular-progress-active-indicator-color: #4f46e5;
+  }
+
+  p {
+    margin-top: 1rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+}
+
+// Empty state
+.no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+  color: #64748b;
+
+  mat-icon {
+    font-size: 56px;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  p {
+    font-weight: 500;
+  }
+}
+
+// Dark mode overrides
+:host-context([data-coreui-theme="dark"]) {
+  .notification-table-container {
+    background: #0f172a;
+  }
+
+  .notification-filter {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .notification-table,
+  table[mat-table] {
+    background: #1e293b !important;
+  }
+
+  .loading-container {
+    background: #1e293b;
+
+    p {
+      color: #94a3b8;
+    }
+  }
+
+  .no-data {
+    color: #94a3b8;
+  }
+
+  .type-badge {
+    &.type-sms {
+      background-color: rgba(14, 165, 233, 0.2);
+      color: #38bdf8;
+    }
+
+    &.type-email {
+      background-color: rgba(139, 92, 246, 0.2);
+      color: #a78bfa;
+    }
+
+    &.type-push {
+      background-color: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+    }
+  }
+
+  .status-badge {
+    &.status-sent {
+      background-color: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+    }
+
+    &.status-failed {
+      background-color: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    &.status-pending {
+      background-color: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+    }
+
+    &.status-queued {
+      background-color: rgba(100, 116, 139, 0.2);
+      color: #94a3b8;
+    }
+  }
+}

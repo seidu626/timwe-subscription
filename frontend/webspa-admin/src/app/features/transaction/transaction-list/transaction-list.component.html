@@ -1,0 +1,298 @@
+<div class="transaction-list-container">
+  <h2>Acquisition Transactions</h2>
+  <p class="subtitle">View and manage acquisition transactions from landing pages</p>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid" *ngIf="stats">
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <div class="stat-value">{{ stats.total_count | number }}</div>
+        <div class="stat-label">Total</div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="stat-card stat-charged">
+      <mat-card-content>
+        <div class="stat-value">{{ getStatusCount('CHARGED') | number }}</div>
+        <div class="stat-label">Charged</div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="stat-card stat-subscribed">
+      <mat-card-content>
+        <div class="stat-value">{{ getStatusCount('SUBSCRIBED') | number }}</div>
+        <div class="stat-label">Subscribed</div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="stat-card stat-failed">
+      <mat-card-content>
+        <div class="stat-value">{{ getStatusCount('FAILED') | number }}</div>
+        <div class="stat-label">Failed</div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-section">
+    <div class="filters-row">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Campaign</mat-label>
+        <mat-select [(ngModel)]="filters.campaign_slug">
+          <mat-option [value]="''">All Campaigns</mat-option>
+          <mat-option *ngFor="let c of campaigns" [value]="c.slug">{{ c.slug }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="filters.status">
+          <mat-option [value]="''">All Statuses</mat-option>
+          <mat-option *ngFor="let s of statuses" [value]="s">{{ s }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Provider</mat-label>
+        <mat-select [(ngModel)]="filters.provider">
+          <mat-option [value]="''">All Providers</mat-option>
+          <mat-option *ngFor="let p of providers" [value]="p">{{ p }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Start Date</mat-label>
+        <input matInput type="date" [(ngModel)]="filters.start_date">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>End Date</mat-label>
+        <input matInput type="date" [(ngModel)]="filters.end_date">
+      </mat-form-field>
+    </div>
+
+    <div class="filters-actions">
+      <button mat-raised-button color="primary" (click)="applyFilters()" [disabled]="loading">
+        <mat-icon>filter_list</mat-icon>
+        Apply Filters
+      </button>
+      <button mat-stroked-button (click)="clearFilters()" [disabled]="loading">
+        <mat-icon>clear</mat-icon>
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Loading transactions...</p>
+  </div>
+
+  <!-- Table -->
+  <div class="table-container" *ngIf="!loading">
+    <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z4">
+
+      <!-- Created At Column -->
+      <ng-container matColumnDef="created_at">
+        <th mat-header-cell *matHeaderCellDef>Created</th>
+        <td mat-cell *matCellDef="let row">{{ row.created_at | date:'short' }}</td>
+      </ng-container>
+
+      <!-- Campaign Column -->
+      <ng-container matColumnDef="campaign_slug">
+        <th mat-header-cell *matHeaderCellDef>Campaign</th>
+        <td mat-cell *matCellDef="let row">{{ row.campaign_slug }}</td>
+      </ng-container>
+
+      <!-- MSISDN Column -->
+      <ng-container matColumnDef="msisdn">
+        <th mat-header-cell *matHeaderCellDef>MSISDN</th>
+        <td mat-cell *matCellDef="let row" class="msisdn-cell">
+          <span matTooltip="{{ row.msisdn }}">{{ maskMsisdn(row.msisdn) }}</span>
+          <button mat-icon-button (click)="copyToClipboard(row.msisdn)" matTooltip="Copy MSISDN" aria-label="Copy MSISDN">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <!-- Status Column -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let row">
+          <span class="badge" [ngClass]="getStatusClass(row.status)">{{ row.status }}</span>
+        </td>
+      </ng-container>
+
+      <!-- Provider Column -->
+      <ng-container matColumnDef="ad_provider">
+        <th mat-header-cell *matHeaderCellDef>Provider</th>
+        <td mat-cell *matCellDef="let row">{{ row.ad_provider || '-' }}</td>
+      </ng-container>
+
+      <!-- Click ID Column -->
+      <ng-container matColumnDef="click_id">
+        <th mat-header-cell *matHeaderCellDef>Click ID</th>
+        <td mat-cell *matCellDef="let row" class="click-id-cell">
+          <span *ngIf="row.click_id" matTooltip="{{ row.click_id }}">
+            {{ formatClickId(row.click_id) }}
+          </span>
+          <span *ngIf="!row.click_id">-</span>
+        </td>
+      </ng-container>
+
+      <!-- Postback Status Column -->
+      <ng-container matColumnDef="conversion_postback_sent">
+        <th mat-header-cell *matHeaderCellDef>Postback</th>
+        <td mat-cell *matCellDef="let row" class="postback-status-cell">
+          <ng-container [ngSwitch]="row.postback_status">
+            <ng-container *ngSwitchCase="'SUCCESS'">
+              <mat-icon class="postback-sent" aria-hidden="true">check_circle</mat-icon>
+              <span class="postback-status-label">Sent</span>
+            </ng-container>
+            <ng-container *ngSwitchCase="'PENDING'">
+              <mat-icon class="postback-queued" aria-hidden="true">schedule</mat-icon>
+              <span class="postback-status-label">Pending</span>
+            </ng-container>
+            <ng-container *ngSwitchCase="'PROCESSING'">
+              <mat-icon class="postback-processing" aria-hidden="true">sync</mat-icon>
+              <span class="postback-status-label">Processing</span>
+            </ng-container>
+            <ng-container *ngSwitchCase="'FAILED'">
+              <mat-icon class="postback-failed" aria-hidden="true">error</mat-icon>
+              <span class="postback-status-label">Failed</span>
+            </ng-container>
+            <ng-container *ngSwitchCase="'DLQ'">
+              <mat-icon class="postback-dlq" aria-hidden="true">warning</mat-icon>
+              <span class="postback-status-label">DLQ</span>
+            </ng-container>
+            <ng-container *ngSwitchDefault>
+              <mat-icon class="postback-none" aria-hidden="true">radio_button_unchecked</mat-icon>
+              <span class="postback-status-label">None</span>
+            </ng-container>
+          </ng-container>
+        </td>
+      </ng-container>
+
+      <!-- Actions Column -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell *matCellDef="let row" class="actions-cell">
+          <button
+                  mat-stroked-button
+                  class="trigger-postback-button"
+                  [class.trigger-postback-button--queued]="manuallyTriggeredTransactionIds.has(row.id)"
+                  aria-label="Trigger postback"
+                  matTooltip="Trigger Postback"
+                  (click)="triggerPostback(row)"
+                  [disabled]="isTriggerDisabled(row)"
+                  color="primary">
+            <mat-icon>{{ manuallyTriggeredTransactionIds.has(row.id) ? 'check' : 'send' }}</mat-icon>
+            <span>{{ getTriggerLabel(row) }}</span>
+          </button>
+          <button
+                  mat-icon-button
+                  class="secondary-action-button"
+                  [class.active-secondary-action]="selectedTransactionId === row.id"
+                  aria-label="View transaction details"
+                  matTooltip="View Transaction Details"
+                  (click)="toggleTransactionDetails(row)">
+            <mat-icon>info</mat-icon>
+          </button>
+          <button
+                  mat-icon-button
+                  class="secondary-action-button"
+                  aria-label="View postbacks"
+                  matTooltip="View Postbacks"
+                  (click)="viewPostbacks(row.id)">
+            <mat-icon>visibility</mat-icon>
+          </button>
+          <button
+                  mat-icon-button
+                  class="secondary-action-button"
+                  aria-label="Copy transaction ID"
+                  matTooltip="Copy Transaction ID"
+                  (click)="copyToClipboard(row.id)">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+
+    <mat-paginator 
+      [length]="totalCount"
+      [pageSize]="filters.page_size || 20"
+      [pageSizeOptions]="pageSizes"
+      (page)="onPageChange($event)"
+      showFirstLastButtons>
+    </mat-paginator>
+
+    <mat-card
+      *ngIf="selectedTransactionId"
+      class="transaction-detail-card">
+      <mat-card-header>
+        <mat-card-title>Transaction Diagnostics</mat-card-title>
+        <mat-card-subtitle>{{ selectedTransactionId }}</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content *ngIf="transactionDetailLoading" class="detail-loading">
+        <mat-spinner diameter="32"></mat-spinner>
+        <p>Loading transaction details...</p>
+      </mat-card-content>
+
+      <mat-card-content *ngIf="!transactionDetailLoading && transactionDetailError" class="detail-error">
+        <p>{{ transactionDetailError }}</p>
+      </mat-card-content>
+
+      <mat-card-content *ngIf="!transactionDetailLoading && selectedTransaction" class="detail-content">
+        <div class="detail-grid">
+          <div><span class="detail-label">Campaign</span><span>{{ selectedTransaction.campaign_slug }}</span></div>
+          <div><span class="detail-label">Correlation ID</span><span>{{ selectedTransaction.correlation_id }}</span></div>
+          <div><span class="detail-label">Status</span><span>{{ selectedTransaction.status }}</span></div>
+          <div><span class="detail-label">MSISDN</span><span>{{ selectedTransaction.msisdn }}</span></div>
+          <div><span class="detail-label">Provider</span><span>{{ selectedTransaction.ad_provider || '-' }}</span></div>
+          <div><span class="detail-label">Click ID</span><span>{{ selectedTransaction.click_id || '-' }}</span></div>
+          <div><span class="detail-label">Next Action</span><span>{{ selectedTransaction.next_action || '-' }}</span></div>
+          <div><span class="detail-label">TIMWE Transaction</span><span>{{ selectedTransaction.timwe_transaction_id || '-' }}</span></div>
+          <div><span class="detail-label">TIMWE Status</span><span>{{ selectedTransaction.timwe_status || '-' }}</span></div>
+          <div><span class="detail-label">Transaction Auth Code</span><span>{{ selectedTransaction.transaction_auth_code || '-' }}</span></div>
+          <div><span class="detail-label">Charged At</span><span>{{ selectedTransaction.charged_at ? (selectedTransaction.charged_at | date:'medium') : '-' }}</span></div>
+          <div><span class="detail-label">Charge Payout</span><span>{{ selectedTransaction.charge_payout || '-' }}</span></div>
+          <div><span class="detail-label">Postback Sent</span><span>{{ selectedTransaction.conversion_postback_sent ? 'Yes' : 'No' }}</span></div>
+          <div><span class="detail-label">Consent Required</span><span>{{ selectedTransaction.consent_required ? 'Yes' : 'No' }}</span></div>
+          <div><span class="detail-label">Consent Checked</span><span>{{ selectedTransaction.consent_checked ? 'Yes' : 'No' }}</span></div>
+          <div><span class="detail-label">Consent Version</span><span>{{ selectedTransaction.consent_version || '-' }}</span></div>
+          <div><span class="detail-label">Consent Timestamp</span><span>{{ selectedTransaction.consent_timestamp ? (selectedTransaction.consent_timestamp | date:'medium') : '-' }}</span></div>
+          <div><span class="detail-label">HE Source</span><span>{{ selectedTransaction.he_source || '-' }}</span></div>
+          <div><span class="detail-label">HE MSISDN</span><span>{{ selectedTransaction.he_msisdn || '-' }}</span></div>
+          <div><span class="detail-label">HE Operator</span><span>{{ selectedTransaction.he_operator || '-' }}</span></div>
+          <div><span class="detail-label">Offer Product ID</span><span>{{ selectedTransaction.offer_product_id || '-' }}</span></div>
+          <div><span class="detail-label">Pricepoint ID</span><span>{{ selectedTransaction.pricepoint_id || '-' }}</span></div>
+          <div><span class="detail-label">Partner Role ID</span><span>{{ selectedTransaction.partner_role_id || '-' }}</span></div>
+          <div><span class="detail-label">Landing Hash</span><span>{{ selectedTransaction.landing_version_hash || '-' }}</span></div>
+          <div><span class="detail-label">IP Address</span><span>{{ selectedTransaction.ip_address || '-' }}</span></div>
+          <div><span class="detail-label">User Agent</span><span>{{ selectedTransaction.user_agent || '-' }}</span></div>
+          <div><span class="detail-label">Created</span><span>{{ selectedTransaction.created_at | date:'medium' }}</span></div>
+          <div><span class="detail-label">Updated</span><span>{{ selectedTransaction.updated_at | date:'medium' }}</span></div>
+        </div>
+
+        <div *ngIf="formatJson(selectedTransaction.next_action_payload)" class="detail-json-section">
+          <span class="detail-label">Next Action Payload</span>
+          <pre>{{ formatJson(selectedTransaction.next_action_payload) }}</pre>
+        </div>
+
+        <div *ngIf="formatJson(selectedTransaction.attribution_data)" class="detail-json-section">
+          <span class="detail-label">Attribution Data</span>
+          <pre>{{ formatJson(selectedTransaction.attribution_data) }}</pre>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!loading && dataSource.data.length === 0" class="empty-state">
+    <mat-icon>inbox</mat-icon>
+    <p>No transactions found</p>
+    <p class="hint">Try adjusting your filters or check back later</p>
+  </div>
+</div>

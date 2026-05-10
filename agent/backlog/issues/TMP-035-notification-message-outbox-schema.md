@@ -2,14 +2,15 @@
 id: TMP-035
 title: "Notification message outbox schema provisioning"
 class: vertical_defect_slice
-status: blocked
-scope_limit: "Classify and track the approval-gated notification message_outbox schema blocker discovered after TMP-031. Do not change schema, migrations, runtime code, compose files, dependencies, or credentials in this slice."
-merge_policy: "Merge this registry slice only after HVC, slice-harness, supervisor preflight, value-gate evidence, and file-scope checks pass. The underlying implementation remains blocked until the named approval or operator decision is recorded."
+status: done
+scope_limit: "Classify, approve, and resolve the notification-worker message_outbox schema provisioning blocker discovered after TMP-031. Runtime implementation is carried by TMP-045."
+merge_policy: "Merge after HVC, supervisor preflight, value-gate evidence, TMP-045 implementation evidence, and file-scope checks pass."
 evidence_required:
   - "targeted notification-worker compose smoke"
   - "docs/agent/full-system-verification-2026-05-09.md"
   - "slices/TMP-031-notification-worker-compose-db-env/value-gate-report.md"
   - "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"
+  - "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
 acceptance_tests:
   - "jq empty slices/manifest.json"
   - "test -f slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"
@@ -37,8 +38,7 @@ change_layers:
 verification_layers:
   - control-plane
   - metadata
-blocked_by:
-  - "operator-approval"
+blocked_by: []
 blocks:
   - "TMP-021"
 parallel_group: release-verification-blockers
@@ -72,5 +72,5 @@ As a platform-operator, I can see TMP-035 as a distinct blocked slice so the ful
 ## Acceptance Criteria
 
 - Schema/migration change approval is recorded before implementation.
-- A future implementation reruns targeted notification-worker compose smoke and confirms no message_outbox missing-relation errors.
-- No schema, migration, compose, source, dependency, or credential file changes are made by this registry slice.
+- TMP-045 reruns a clean PostgreSQL bootstrap proof and notification-worker empty-poll query proof with no message_outbox schema error.
+- Registry slice source scope remains evidence-only; runtime implementation is isolated to TMP-045.

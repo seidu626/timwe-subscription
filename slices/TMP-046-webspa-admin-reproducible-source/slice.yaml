@@ -1,0 +1,45 @@
+id: TMP-046
+name: webspa-admin-reproducible-source
+class: vertical_defect_slice
+status: done
+actor: platform-operator
+action: "verify admin frontend from clean superproject source"
+outcome: "admin UI build/test no longer depends on an unreachable submodule commit"
+depends_on:
+  - TMP-026
+blocks:
+  - TMP-021
+entrypoint: "frontend/webspa-admin/package.json"
+trigger: "full-system verifier runs admin UI checks"
+story:
+  as_a: platform-operator
+  i_want_to: "have webspa-admin source present in the superproject checkout"
+  so_that: "admin UI verification does not fail on a missing submodule commit"
+acceptance_criteria:
+  happy:
+    - scenario: "Tracked admin source verifies"
+      given:
+        - "superproject checkout has frontend/webspa-admin source"
+      when: "verifier runs npm install, build, and tests"
+      then: "Angular build passes and ChromeHeadless reports 84 successful tests"
+      evidence: "TMP-046 value-gate report"
+  failures:
+    - scenario: "Broken submodule removed"
+      given:
+        - "old gitlink commit is unavailable from the configured remote"
+      when: "verifier checks repository metadata"
+      then: ".gitmodules is absent and frontend/webspa-admin files are tracked source"
+      evidence: "git ls-files -s frontend/webspa-admin"
+  invariants:
+    - rule: "one canonical source path for admin frontend"
+      preserved_by: "delete .gitmodules and replace gitlink with tracked source"
+      violated_when: "gitlink and tracked source coexist"
+      test: "test ! -f .gitmodules and git ls-files -s frontend/webspa-admin/package.json"
+out_of_scope:
+  - "dependency vulnerability remediation"
+  - "admin UI redesign"
+  - "production deployment packaging"
+size_check:
+  files_touched: 500
+  migrations: 0
+  endpoints: 0

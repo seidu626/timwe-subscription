@@ -33,5 +33,5 @@ size_check:
   endpoints: 0
 
 value_gate:
-  required_verdict: "BLOCKED before approval gate clears"
+  required_verdict: "PASS after approval gate clears"
   report_path: "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"

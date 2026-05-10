@@ -3,9 +3,9 @@ import type { Metadata } from 'next'
 import LandingPageClient from './LandingPageClient'
 
 export async function generateMetadata(
-  { params }: { params: { tenant: string } }
+  { params }: { params: Promise<{ tenant: string }> }
 ): Promise<Metadata> {
-  const slug = params.tenant
+  const { tenant: slug } = await params
   const ACQUISITION_API_URL = process.env.ACQUISITION_API_URL || 'http://localhost:8084'
 
   try {

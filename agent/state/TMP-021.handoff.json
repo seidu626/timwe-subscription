@@ -1,137 +1,146 @@
 {
+  "schema_version": 1,
+  "task_id": "T-TMP-021",
+  "status": "done",
+  "supervisor_decision": "ready_for_review",
+  "summary": "Full-system release verification refreshed and all tracked blocker slices are complete in the isolated worktree.",
+  "session_id": "20260510-045926",
+  "updated_at": "2026-05-10T05:40:00Z",
   "acceptance_results": [
     {
-      "blocker": null,
       "criterion": "Document full-system service inventory, verification commands, pass/fail status, risks, and unresolved blockers.",
+      "status": "passed",
       "evidence": [
         "docs/agent/full-system-verification-2026-05-09.md",
         "slices/TMP-021-full-system-verification/value-gate-report.md"
       ],
-      "next_task_id": null,
+      "blocker": null,
       "reason": null,
-      "status": "passed"
+      "next_task_id": null
     },
     {
-      "blocker": "webspa-admin submodule, env readiness, and main/origin divergence remain outside this slice's safe edit scope.",
       "criterion": "Run repository-level verification and identify blockers without making dependency, vendor, secret, or merge-conflict changes.",
+      "status": "passed",
       "evidence": [
-        "docs/agent/full-system-verification-2026-05-09.md"
+        "make build-all-local",
+        "common and service go test sweeps",
+        "landing-web audit/build/runtime smoke",
+        "webspa-admin build and ChromeHeadless tests",
+        "bounded compose runtime smoke"
       ],
-      "next_task_id": null,
-      "reason": "Release verification is blocked by explicit approval gates and repository integration state.",
-      "status": "blocked"
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
     }
   ],
-  "blockers": [
-    "webspa-admin gitlink cannot be initialized because the configured submodule remote does not contain pinned commit 2ad95b18ecff4d8b23e5d1b7152975c477d5137a",
-    "compose runtime start now reaches app startup with temporary isolated Docker auth, and notification-worker plus postback-dispatcher startup are fixed, but acquisition-api exits during admin schema bootstrap, notification-worker dispatcher lacks message_outbox, postback-dispatcher lacks postback_outbox, and real env/provider values are still required",
-    "local main and origin/main diverge with add/add conflicts; clean PR branches use origin/main as source of truth",
-    "dependency vulnerability remediation requires explicit approval because npm audit proposes a breaking Next/PostCSS upgrade"
-  ],
+  "blockers": [],
   "changed_files": [
     "agent/backlog/issues/TMP-021-full-system-verification.md",
     "agent/state/TMP-021.work-order.json",
+    "agent/state/TMP-021.handoff.json",
     "docs/agent/full-system-verification-2026-05-09.md",
-    "slices/TMP-021-full-system-verification/notes.md",
-    "slices/TMP-021-full-system-verification/slice.yaml",
     "slices/TMP-021-full-system-verification/value-gate-report.md",
-    "slices/manifest.json"
+    "slices/manifest.json",
+    ".agent/tasks.json"
   ],
-  "child_handoffs": [],
+  "child_handoffs": [
+    "agent/state/TMP-045.handoff.json",
+    "agent/state/TMP-046.handoff.json",
+    "agent/state/TMP-047.handoff.json"
+  ],
   "cleanup_notes": [
-    "Removed temporary build directory /tmp/agent-build-timwe-20260509.",
-    "Original local-history push was terminated after identifying oversized unpushed history; clean PR branch has no oversized new blobs."
+    "Stopped bounded landing-web runtime server after HTTP 200 proof.",
+    "Tore down `timwe-codex-fullsystem` compose project and removed temporary `shared-network` after runtime smoke."
   ],
-  "commits": [
-    "5984863",
-    "356c449"
-  ],
+  "commits": [],
   "completed_work": [
-    "Created a full-system release verification matrix across Go services, landing-web, compose/runtime config, harness state, and repo integration.",
-    "Recorded blocked verification outcomes and command evidence in slice artifacts.",
-    "TMP-027 retired stale notification/subscription-partner dependency blocker using current passing test/build evidence.",
-    "TMP-028 removed checked-in subscription DB credential material from docker-compose.yml and added .env.example for local config rendering."
+    "Resolved runtime schema blockers through TMP-045 db-bootstrap.",
+    "Resolved webspa-admin reproducibility through TMP-046 tracked source.",
+    "Resolved landing-web dependency audit through TMP-047 Next/React/PostCSS remediation.",
+    "Recorded TMP-038 non-destructive local-main strategy.",
+    "Reran full local build, Go test, frontend build/test, dependency audit, and bounded compose runtime smoke evidence."
   ],
   "confidence": {
-    "completeness": "medium",
-    "implementation": "medium",
+    "completeness": "high",
+    "implementation": "high",
     "verification": "high"
   },
   "known_gaps": [
-    "Admin frontend cannot be verified until the pinned frontend/webspa-admin commit is available from the configured submodule remote, the gitlink is repointed after review, or the gitlink strategy is replaced.",
-    "Runtime compose smoke now reaches app startup with temporary isolated Docker auth; notification-worker and postback-dispatcher startup are fixed, and real env/provider values are still required after acquisition base schema, notification message_outbox schema, and postback_outbox schema blockers are fixed.",
-    "The original worktree is based on local main; merging origin/main produced add/add conflicts and was aborted. A clean PR branch was created from origin/main and the verified repair commit was cherry-picked there.",
-    "Dependency vulnerability remediation remains approval-gated because npm audit proposes a breaking Next/PostCSS upgrade."
+    "Production deploy and live TIMWE/Auth0/provider credential flows were not executed.",
+    "Acquisition-api starts with Redis fallback under .env.example because its runtime Redis config points at 127.0.0.1.",
+    "Next 16 warns that middleware.ts is deprecated in favor of proxy; build and runtime smoke pass."
   ],
   "next_tasks": [],
-  "operator_message": "Full release verification remains blocked by webspa-admin submodule, compose runtime schema provisioning plus env/provider readiness, dependency vulnerability, and local-main integration gates. TMP-030 fixed acquisition-api compose image build; TMP-031 fixed notification-worker DB env/startup; TMP-032 fixed postback-dispatcher DB env/startup. Remaining compose blockers are acquisition base schema, notification message_outbox, and postback_outbox provisioning.",
-  "residual_work_policy": "continue_if_safe",
+  "operator_message": "All tracked release-verification slices are complete in the isolated worktree. Local verification gates pass with the documented runtime caveats.",
+  "residual_work_policy": "complete",
   "risk_notes": [
-    "Do not run broad dependency updates or vendor rewrites without approval."
+    "Primary local main remains divergent and is intentionally preserved; do not reset or merge it from this agent branch without maintainer-owned reconciliation."
   ],
-  "safe_to_continue": true,
-  "schema_version": 1,
-  "session_id": "codex-20260509-005155",
-  "status": "blocked",
-  "summary": "Release verification matrix completed and blocked items are documented.",
-  "supervisor_decision": "blocked_pending_operator_or_repository_unblock",
-  "task_id": "T-TMP-021",
-  "unfinished_work": [
-    {
-      "blocker": "Pinned submodule commit unavailable from configured remote.",
-      "disposition": "blocked",
-      "item": "Initialize or remove frontend/webspa-admin gitlink.",
-      "next_task_id": null,
-      "reason": "Repository metadata maps the path, but the remote cannot fetch the pinned admin commit.",
-      "severity": "high"
-    },
-    {
-      "blocker": "Service-specific compose runtime blockers remain after temporary isolated Docker auth allowed builder-image pulls.",
-      "disposition": "blocked",
-      "item": "Run compose runtime smoke.",
-      "next_task_id": null,
-      "reason": "TMP-030 fixed acquisition-api image build and reached app startup; TMP-031 fixed notification-worker DB env/startup; TMP-032 fixed postback-dispatcher DB env/startup; acquisition-api exits during admin schema bootstrap, notification-worker dispatcher lacks message_outbox, postback-dispatcher lacks postback_outbox, and real env/provider values are still required.",
-      "severity": "high"
-    },
-    {
-      "blocker": "Breaking dependency upgrade approval required.",
-      "disposition": "blocked",
-      "item": "Remediate landing-web dependency vulnerabilities.",
-      "next_task_id": null,
-      "reason": "npm audit fix proposes a breaking Next/PostCSS upgrade and needs explicit dependency approval plus UI regression verification.",
-      "severity": "high"
-    },
-    {
-      "blocker": "origin/main merge conflicts.",
-      "disposition": "blocked",
-      "item": "Verify against merged remote state.",
-      "next_task_id": null,
-      "reason": "Merge produced broad add/add conflicts and was aborted.",
-      "severity": "high"
-    }
-  ],
+  "safe_to_continue": false,
+  "unfinished_work": [],
   "validation": [
     {
-      "command": "agent-supervisor --config .harness/config.json preflight",
+      "command": "make build-all-local",
       "exit_code": 0,
-      "output_excerpt": "ok: true; stale superseded ledger rows only",
       "status": "passed",
-      "timestamp": "2026-05-09T01:12:00Z"
+      "output_excerpt": "subscription-external, subscription-partner, billing, notification, notification-worker, acquisition-api, and cadence-engine built successfully",
+      "timestamp": "2026-05-10T05:34:00Z"
     },
     {
-      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "command": "cd common && go test ./...",
       "exit_code": 0,
-      "output_excerpt": "no blockers",
       "status": "passed",
-      "timestamp": "2026-05-09T01:12:00Z"
+      "output_excerpt": "all common packages passed or had no test files",
+      "timestamp": "2026-05-10T05:34:00Z"
     },
     {
-      "command": "slice-harness sync --dry-run",
+      "command": "go test ./... in all service modules",
       "exit_code": 0,
-      "output_excerpt": "no drift detected",
       "status": "passed",
-      "timestamp": "2026-05-09T01:12:00Z"
+      "output_excerpt": "subscription-external, subscription-partner, billing, notification, acquisition-api, postback-dispatcher, and cadence-engine passed",
+      "timestamp": "2026-05-10T05:35:00Z"
+    },
+    {
+      "command": "cd services/landing-web && npm audit --audit-level=moderate && npm run build",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "found 0 vulnerabilities; Next 16.2.6 build passed",
+      "timestamp": "2026-05-10T05:34:00Z"
+    },
+    {
+      "command": "landing-web standalone runtime smoke",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "HTTP 200 from / on port 3138",
+      "timestamp": "2026-05-10T05:29:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm run build",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "Angular build completed with existing budget/selector warnings",
+      "timestamp": "2026-05-10T05:34:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TOTAL: 84 SUCCESS",
+      "timestamp": "2026-05-10T05:34:00Z"
+    },
+    {
+      "command": "docker compose --env-file .env.example -f docker-compose.yml config --quiet",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "compose config rendered",
+      "timestamp": "2026-05-10T05:33:00Z"
+    },
+    {
+      "command": "bounded docker compose runtime smoke with temporary shared-network",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "db-bootstrap completed; acquisition-api, notification-worker, cadence-engine, and postback-dispatcher were Up",
+      "timestamp": "2026-05-10T05:38:00Z"
     }
-  ],
-  "updated_at": "2026-05-09T02:09:58Z"
+  ]
 }

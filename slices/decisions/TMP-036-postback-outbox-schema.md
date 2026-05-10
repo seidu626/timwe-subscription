@@ -1,8 +1,8 @@
 # TMP-036 Decision Template: Postback Outbox Schema
 
-Status: proposed
+Status: accepted
 
-Approval recorded: no
+Approval recorded: yes - auto-approved by operator directive on 2026-05-10.
 
 ## Context
 
@@ -20,7 +20,7 @@ Choose canonical schema ownership and migration order before implementation:
 
 ## Decision
 
-Pending operator decision.
+Acquisition API owns `postback_outbox` and `postback_attempts` for this runtime path. The compose bootstrap applies `services/acquisition-api/migrations/create_postback_tables.sql` followed by `services/acquisition-api/migrations/add_tenant_postback_routing.sql`; it does not apply the duplicate postback definitions from `services/subscription-external/migrations/006_web_acquisition_campaigns.sql`.
 
 ## Consequences To Review
 
@@ -29,6 +29,8 @@ Pending operator decision.
 - Migration ordering across acquisition and subscription services.
 - Runtime behavior for existing local/CI databases.
 
+Reviewed outcome: `TMP-045` implements and verifies this for local compose/runtime verification only. The subscription-external `006` duplicate remains legacy/compat material to prune or split later.
+
 ## Post-Decision Proof
 
 ```bash
@@ -36,6 +38,8 @@ docker compose --env-file .env.example -f docker-compose.yml config
 # targeted postback-dispatcher compose smoke with approved provisioning path
 # verify no postback_outbox missing-relation logs
 ```
+
+Implemented proof: `slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md`.
 
 ## Slice Impact
 

@@ -41,12 +41,11 @@
     "targeted acquisition-api runtime probe",
     "docs/agent/full-system-verification-2026-05-09.md",
     "slices/TMP-030-acquisition-compose-build-context/value-gate-report.md",
-    "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md"
+    "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
   ],
   "non_goals": [],
-  "blocking_dependencies": [
-    "operator-approval"
-  ],
+  "blocking_dependencies": [],
   "reclassification_triggers": [],
   "classification_result": {
     "issue_id": "TMP-034",

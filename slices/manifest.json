@@ -2,7 +2,7 @@
   "version": 1,
   "roadmap": "tenant-multichannel-platform",
   "generated_at": "2026-05-08T01:50:00Z",
-  "current_slice": "TMP-043",
+  "current_slice": "TMP-021",
   "source_domain_brief": "slices/TMP-000-domain-grounding/domain-brief.md",
   "supporting_documents": [
     "slices/README.md",
@@ -659,24 +659,28 @@
       "demo": "",
       "depends_on": [],
       "layers": [],
-      "state": "blocked",
+      "state": "done",
       "branch": "agent/codex/full-system-verify-20260509-005155",
       "created_at": "2026-05-09T00:56:05.714274+00:00",
-      "shipped_at": null,
-      "shipped_to": null,
+      "shipped_at": "2026-05-10T05:40:00Z",
+      "shipped_to": "worktree",
       "verification": {
         "automated": [
-          "jq empty slices/manifest.json",
-          "hvc check agent/backlog/issues/*.md --fail-on block",
-          "agent-supervisor --config .harness/config.json preflight",
-          "test -f docs/agent/full-system-verification-2026-05-09.md",
-          "test -f slices/TMP-021-full-system-verification/spec.md",
+          "make build-all-local",
+          "cd common && go test ./...",
+          "go test ./... in all service modules",
+          "cd services/landing-web && npm audit --audit-level=moderate && npm run build",
+          "landing-web standalone runtime smoke returns HTTP 200 for /",
+          "cd frontend/webspa-admin && npm run build",
+          "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+          "docker compose --env-file .env.example -f docker-compose.yml config --quiet",
+          "bounded docker compose runtime smoke with temporary shared-network",
           "test -f slices/TMP-021-full-system-verification/value-gate-report.md"
         ],
         "manual_smoke": [],
         "dod_path": "slices/TMP-021-full-system-verification/value-gate-report.md"
       },
-      "notes": "Blocked by unresolved release-verification blockers: webspa-admin gitlink is not fetchable, compose runtime still needs schema provisioning and real env/provider values, dependency remediation needs approval, and primary main diverges from origin/main."
+      "notes": "Full-system local verification refreshed on 2026-05-10; tracked blockers resolved by TMP-045, TMP-046, TMP-047, and TMP-038. Production/live-provider deploy remains out of scope."
     },
     {
       "id": "TMP-022",
@@ -800,7 +804,7 @@
       "demo": "",
       "depends_on": [],
       "layers": [],
-      "state": "blocked",
+      "state": "done",
       "branch": "agent/codex/full-system-webspa-20260509-0153",
       "created_at": "2026-05-09T01:55:52.120415+00:00",
       "shipped_at": null,
@@ -813,12 +817,16 @@
           "git submodule status --recursive frontend/webspa-admin",
           "jq empty slices/manifest.json agent/state/TMP-026.work-order.json",
           "hvc check agent/backlog/issues/*.md --fail-on block",
-          "slice-harness sync --dry-run"
+          "slice-harness sync --dry-run",
+          "test ! -f .gitmodules",
+          "test -f frontend/webspa-admin/package.json",
+          "cd frontend/webspa-admin && npm run build",
+          "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
         ],
         "manual_smoke": [],
         "dod_path": "slices/TMP-026-webspa-submodule-verification/value-gate-report.md"
       },
-      "notes": "Blocked: .gitmodules maps frontend/webspa-admin, but the configured submodule remote does not contain pinned gitlink commit 2ad95b18ecff4d8b23e5d1b7152975c477d5137a."
+      "notes": "Resolved by TMP-046 tracked-source strategy; broken submodule gitlink replaced with pinned admin source and build/test evidence."
     },
     {
       "id": "TMP-027",
@@ -1055,7 +1063,7 @@
       "demo": "",
       "depends_on": [],
       "layers": [],
-      "state": "blocked",
+      "state": "done",
       "branch": "agent/codex/blocker-slice-registry-20260509-035546",
       "created_at": "2026-05-09T03:59:59.291917+00:00",
       "shipped_at": null,
@@ -1068,12 +1076,13 @@
           "slice-harness sync --dry-run",
           "agent-supervisor preflight --repair && preflight with worktree-local temp config",
           "git diff --check",
-          "git diff --name-only file-scope review"
+          "git diff --name-only file-scope review",
+          "test -f slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
         ],
         "manual_smoke": [],
         "dod_path": "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md"
       },
-      "notes": "Blocked: acquisition-api runtime exits during admin schema bootstrap because products/userbase base schema is missing before add_admin_management_tables.sql; schema/migration provisioning requires operator approval."
+      "notes": "Resolved by TMP-045 compose runtime schema bootstrap; approval recorded by operator auto-approval directive on 2026-05-10."
     },
     {
       "id": "TMP-035",
@@ -1087,7 +1096,7 @@
       "demo": "",
       "depends_on": [],
       "layers": [],
-      "state": "blocked",
+      "state": "done",
       "branch": "agent/codex/blocker-slice-registry-20260509-035546",
       "created_at": "2026-05-09T03:59:59.409758+00:00",
       "shipped_at": null,
@@ -1100,12 +1109,13 @@
           "slice-harness sync --dry-run",
           "agent-supervisor preflight --repair && preflight with worktree-local temp config",
           "git diff --check",
-          "git diff --name-only file-scope review"
+          "git diff --name-only file-scope review",
+          "test -f slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
         ],
         "manual_smoke": [],
         "dod_path": "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"
       },
-      "notes": "Blocked: notification-worker starts but dispatcher logs missing message_outbox in the empty compose DB; schema/migration provisioning requires operator approval."
+      "notes": "Resolved by TMP-045 compose runtime schema bootstrap; approval recorded by operator auto-approval directive on 2026-05-10."
     },
     {
       "id": "TMP-036",
@@ -1119,7 +1129,7 @@
       "demo": "",
       "depends_on": [],
       "layers": [],
-      "state": "blocked",
+      "state": "done",
       "branch": "agent/codex/blocker-slice-registry-20260509-035546",
       "created_at": "2026-05-09T03:59:59.523654+00:00",
       "shipped_at": null,
@@ -1132,12 +1142,13 @@
           "slice-harness sync --dry-run",
           "agent-supervisor preflight --repair && preflight with worktree-local temp config",
           "git diff --check",
-          "git diff --name-only file-scope review"
+          "git diff --name-only file-scope review",
+          "test -f slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
         ],
         "manual_smoke": [],
         "dod_path": "slices/TMP-036-postback-outbox-schema/value-gate-report.md"
       },
-      "notes": "Blocked: postback-dispatcher starts but polling logs missing postback_outbox in the empty compose DB; schema/migration provisioning requires operator approval."
+      "notes": "Resolved by TMP-045 compose runtime schema bootstrap; approval recorded by operator auto-approval directive on 2026-05-10."
     },
     {
       "id": "TMP-037",
@@ -1151,11 +1162,11 @@
       "demo": "",
       "depends_on": [],
       "layers": [],
-      "state": "blocked",
+      "state": "done",
       "branch": "agent/codex/blocker-slice-registry-20260509-035546",
       "created_at": "2026-05-09T03:59:59.645645+00:00",
-      "shipped_at": null,
-      "shipped_to": null,
+      "shipped_at": "2026-05-10T05:23:39Z",
+      "shipped_to": "worktree",
       "verification": {
         "automated": [
           "jq empty slices/manifest.json agent/state/TMP-037.work-order.json agent/state/TMP-037.handoff.json .agent/tasks.json",
@@ -1169,7 +1180,7 @@
         "manual_smoke": [],
         "dod_path": "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
       },
-      "notes": "Blocked: npm audit remediation proposes breaking Next/PostCSS upgrades, so dependency changes and UI regression proof require explicit approval."
+      "notes": "Approval recorded by operator auto-proceed directive on 2026-05-10. Package remediation continued in TMP-047."
     },
     {
       "id": "TMP-038",
@@ -1183,11 +1194,11 @@
       "demo": "",
       "depends_on": [],
       "layers": [],
-      "state": "blocked",
+      "state": "done",
       "branch": "agent/codex/blocker-slice-registry-20260509-035546",
       "created_at": "2026-05-09T03:59:59.780461+00:00",
-      "shipped_at": null,
-      "shipped_to": null,
+      "shipped_at": "2026-05-10T05:32:00Z",
+      "shipped_to": "worktree",
       "verification": {
         "automated": [
           "jq empty slices/manifest.json agent/state/TMP-038.work-order.json agent/state/TMP-038.handoff.json .agent/tasks.json",
@@ -1201,7 +1212,7 @@
         "manual_smoke": [],
         "dod_path": "slices/TMP-038-local-main-integration-strategy/value-gate-report.md"
       },
-      "notes": "Blocked: primary local main is clean but diverged from origin/main with broad add/add conflict history; merge/reset/conflict-resolution strategy requires maintainer direction."
+      "notes": "Strategy recorded: preserve primary local main, avoid destructive git operations, and use the isolated origin/main-derived worktree branch as the current release verification surface."
     },
     {
       "id": "TMP-039",
@@ -1423,7 +1434,121 @@
         "dod_path": "slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md"
       },
       "notes": "Annotated TMP-006, TMP-012, and TMP-018 value-gate reports with current superseding landing-web and notification verification evidence."
+    },
+    {
+      "id": "TMP-045",
+      "external_id": "TMP-045",
+      "name": "Compose runtime schema bootstrap",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-045-compose-runtime-schema-bootstrap.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can start compose from an empty database and have runtime schema prerequisites applied before services poll or bootstrap admin schema.",
+      "demo": "Disposable PostgreSQL bootstrap plus notification/cadence/postback empty-poll query proof.",
+      "depends_on": [
+        "TMP-034",
+        "TMP-035",
+        "TMP-036"
+      ],
+      "layers": [
+        "compose",
+        "schema-bootstrap",
+        "evidence"
+      ],
+      "state": "done",
+      "branch": "agent/codex/fullsystem-20260510-045911",
+      "created_at": "2026-05-10T05:12:00Z",
+      "shipped_at": "2026-05-10T05:12:00Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "bash -n scripts/compose-db-bootstrap.sh",
+          "docker compose config --quiet",
+          "disposable PostgreSQL bootstrap proof with scripts/compose-db-bootstrap.sh",
+          "disposable PostgreSQL notification/cadence/postback empty-poll query proof",
+          "cd services/acquisition-api && go test ./internal/repository",
+          "cd services/notification && go test ./...",
+          "cd services/postback-dispatcher && go test ./...",
+          "test -f slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+      },
+      "notes": "Adds a one-shot db-bootstrap service and minimal runtime base SQL while preserving acquisition-api and subscription-external service-owned migrations as canonical."
+    },
+    {
+      "id": "TMP-046",
+      "external_id": "TMP-046",
+      "name": "webspa-admin reproducible source checkout",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-046-webspa-admin-reproducible-source.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can verify webspa-admin from tracked superproject source without fetching an unavailable submodule commit.",
+      "demo": "Tracked package.json plus npm ci, npm run build, and ChromeHeadless 84/84 tests.",
+      "depends_on": [
+        "TMP-026"
+      ],
+      "layers": [
+        "frontend-source",
+        "repo-metadata",
+        "evidence"
+      ],
+      "state": "done",
+      "branch": "agent/codex/fullsystem-20260510-045911",
+      "created_at": "2026-05-10T05:22:00Z",
+      "shipped_at": "2026-05-10T05:22:00Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "test ! -f .gitmodules",
+          "test -f frontend/webspa-admin/package.json",
+          "git ls-files -s frontend/webspa-admin/package.json",
+          "cd frontend/webspa-admin && npm ci",
+          "cd frontend/webspa-admin && npm run build",
+          "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+          "test -f slices/TMP-046-webspa-admin-reproducible-source/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-046-webspa-admin-reproducible-source/value-gate-report.md"
+      },
+      "notes": "Replaces unreachable webspa-admin submodule gitlink with exact pinned local admin source to preserve tenant workspace functionality and make clean checkouts verifiable."
+    },
+    {
+      "id": "TMP-047",
+      "external_id": "TMP-047",
+      "name": "Landing web dependency remediation",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-047-landing-web-dependency-remediation.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can run landing-web dependency verification without Next/PostCSS advisories blocking release.",
+      "demo": "npm audit, Next build, and standalone runtime smoke returning HTTP 200 for /.",
+      "depends_on": [
+        "TMP-037"
+      ],
+      "layers": [
+        "dependency",
+        "frontend-runtime",
+        "evidence"
+      ],
+      "state": "done",
+      "branch": "agent/codex/fullsystem-20260510-045911",
+      "created_at": "2026-05-10T05:30:00Z",
+      "shipped_at": "2026-05-10T05:30:00Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "cd services/landing-web && npm audit --audit-level=moderate",
+          "cd services/landing-web && npm run build",
+          "standalone landing-web runtime smoke returns HTTP 200 for /",
+          "test -f slices/TMP-047-landing-web-dependency-remediation/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-047-landing-web-dependency-remediation/value-gate-report.md"
+      },
+      "notes": "Upgrades landing-web to Next 16/React 19 and overrides transitive PostCSS to a patched version; updates required dynamic route params signatures for Next 16."
     }
   ],
-  "updated_at": "2026-05-09T10:18:00Z"
+  "updated_at": "2026-05-10T05:22:00Z"
 }

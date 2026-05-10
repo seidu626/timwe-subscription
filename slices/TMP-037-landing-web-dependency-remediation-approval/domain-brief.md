@@ -5,7 +5,7 @@
 - Domain invariant: full-system verification must not claim end-to-end readiness while this blocker remains unresolved.
 - Entrypoint: services/landing-web/package.json and package-lock.json
 - Trigger: Verifier runs npm audit after landing-web build passes.
-- Risk: Dependency changes require explicit user approval by repo policy. The proposed remediation is breaking and requires UI regression verification.
+- Risk: Dependency changes required explicit user approval by repo policy. Approval was recorded on 2026-05-10 from the operator auto-proceed directive. The proposed remediation is breaking and requires UI regression verification.
 
 ## Story Craft
 
@@ -13,4 +13,4 @@ The story is concrete and testable: npm audit reports Next/PostCSS advisories an
 
 ## Roadmap To Slices
 
-This is a blocked follow-up slice under TMP-021. It records the smallest independently verifiable blocker without implementing approval-gated changes.
+This is a follow-up slice under TMP-021. It records the smallest independently verifiable approval gate without implementing the package changes directly; the remediation itself belongs in a bounded implementation slice.

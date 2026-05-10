@@ -43,9 +43,7 @@
     "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
   ],
   "non_goals": [],
-  "blocking_dependencies": [
-    "operator-approval"
-  ],
+  "blocking_dependencies": [],
   "reclassification_triggers": [],
   "classification_result": {
     "issue_id": "TMP-037",

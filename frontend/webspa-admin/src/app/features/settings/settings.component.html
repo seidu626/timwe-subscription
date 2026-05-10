@@ -1,0 +1,42 @@
+<div class="settings-container">
+  <mat-toolbar color="primary" class="settings-toolbar">
+    <mat-icon>settings</mat-icon>
+    <span>Settings</span>
+  </mat-toolbar>
+
+  <mat-card class="settings-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>admin_panel_settings</mat-icon>
+        Admin Authentication (Auth0)
+      </mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content>
+      <p class="settings-description">
+        Admin APIs are protected using Auth0 and require an <code>Authorization: Bearer</code> access token.
+      </p>
+
+      <div class="settings-actions">
+        <button *ngIf="!(isAuthenticated$ | async)" mat-raised-button color="primary" type="button" (click)="login()">
+          <mat-icon>login</mat-icon>
+          Login with Auth0
+        </button>
+
+        <button *ngIf="(isAuthenticated$ | async)" mat-stroked-button color="primary" type="button" (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          Logout
+        </button>
+      </div>
+
+      <mat-divider class="my-3"></mat-divider>
+
+      <div *ngIf="(user$ | async) as user" class="info-card-content">
+        <p><strong>Logged in as:</strong> {{ user.email || user.name || user.sub }}</p>
+      </div>
+      <div *ngIf="!(user$ | async)" class="info-card-content">
+        <p><strong>Status:</strong> Not authenticated</p>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

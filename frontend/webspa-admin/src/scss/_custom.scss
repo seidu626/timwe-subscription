@@ -1,0 +1,539 @@
+// ============================================
+// CUSTOM STYLES - Professional Admin Theme
+// ============================================
+
+// Import supporting styles
+@import "charts";
+@import "scrollbar";
+
+// ============================================
+// CSS CUSTOM PROPERTIES (Design Tokens)
+// ============================================
+:root {
+  // Primary palette
+  --admin-primary: #4f46e5;
+  --admin-primary-light: #6366f1;
+  --admin-primary-dark: #3730a3;
+  --admin-primary-rgb: 79, 70, 229;
+
+  // Secondary palette
+  --admin-secondary: #64748b;
+  --admin-secondary-light: #94a3b8;
+  --admin-secondary-dark: #475569;
+
+  // Semantic colors
+  --admin-success: #10b981;
+  --admin-success-light: #34d399;
+  --admin-info: #0ea5e9;
+  --admin-info-light: #38bdf8;
+  --admin-warning: #f59e0b;
+  --admin-warning-light: #fbbf24;
+  --admin-danger: #ef4444;
+  --admin-danger-light: #f87171;
+
+  // Neutral colors
+  --admin-gray-50: #f8fafc;
+  --admin-gray-100: #f1f5f9;
+  --admin-gray-200: #e2e8f0;
+  --admin-gray-300: #cbd5e1;
+  --admin-gray-400: #94a3b8;
+  --admin-gray-500: #64748b;
+  --admin-gray-600: #475569;
+  --admin-gray-700: #334155;
+  --admin-gray-800: #1e293b;
+  --admin-gray-900: #0f172a;
+
+  // Surface colors (light mode)
+  --admin-bg: var(--admin-gray-50);
+  --admin-surface: #ffffff;
+  --admin-surface-elevated: #ffffff;
+  --admin-border: var(--admin-gray-200);
+  --admin-text: var(--admin-gray-800);
+  --admin-text-muted: var(--admin-gray-500);
+
+  // Shadows
+  --admin-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --admin-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --admin-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --admin-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+
+  // Border radius
+  --admin-radius-sm: 0.375rem;
+  --admin-radius: 0.5rem;
+  --admin-radius-lg: 0.75rem;
+  --admin-radius-xl: 1rem;
+
+  // Transitions
+  --admin-transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// Dark mode overrides
+[data-coreui-theme="dark"],
+.dark-mode {
+  --admin-bg: var(--admin-gray-900);
+  --admin-surface: var(--admin-gray-800);
+  --admin-surface-elevated: var(--admin-gray-700);
+  --admin-border: var(--admin-gray-700);
+  --admin-text: var(--admin-gray-100);
+  --admin-text-muted: var(--admin-gray-400);
+
+  --admin-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --admin-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
+  --admin-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+}
+
+// ============================================
+// SIDEBAR STYLING
+// ============================================
+.admin-sidebar {
+  background: linear-gradient(180deg, var(--admin-gray-900) 0%, var(--admin-gray-800) 100%) !important;
+  border-right: 1px solid var(--admin-gray-700) !important;
+
+  .sidebar-header-custom {
+    background: transparent !important;
+    border-bottom-color: var(--admin-gray-700) !important;
+  }
+
+  .sidebar-footer-custom {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-top-color: var(--admin-gray-700) !important;
+    cursor: pointer;
+  }
+}
+
+// Sidebar navigation
+.sidebar-nav {
+  .nav-link {
+    color: var(--admin-gray-300) !important;
+    padding: 0.75rem 1rem;
+    margin: 0.125rem 0.5rem;
+    border-radius: var(--admin-radius);
+    transition: all var(--admin-transition);
+
+    &:hover {
+      color: var(--admin-gray-100) !important;
+      background: rgba(var(--admin-primary-rgb), 0.15) !important;
+    }
+
+    &.active {
+      color: #fff !important;
+      background: var(--admin-primary) !important;
+      box-shadow: var(--admin-shadow);
+    }
+  }
+
+  .nav-icon {
+    color: var(--admin-gray-400) !important;
+    transition: color var(--admin-transition);
+  }
+
+  .nav-link:hover .nav-icon,
+  .nav-link.active .nav-icon {
+    color: inherit !important;
+  }
+
+  .nav-title {
+    color: var(--admin-gray-500) !important;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 1rem 1rem 0.5rem;
+  }
+
+  .nav-group-toggle::after {
+    filter: brightness(0) invert(0.7);
+  }
+}
+
+// ============================================
+// CARD STYLING
+// ============================================
+.card {
+  background: var(--admin-surface) !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: var(--admin-radius-lg) !important;
+  box-shadow: var(--admin-shadow) !important;
+  overflow: hidden;
+}
+
+.card-header {
+  background: var(--admin-surface) !important;
+  border-bottom: 1px solid var(--admin-border) !important;
+  color: var(--admin-text) !important;
+  font-weight: 600;
+  padding: 1rem 1.25rem;
+}
+
+.card-body {
+  color: var(--admin-text);
+}
+
+// ============================================
+// BUTTON STYLING
+// ============================================
+.btn-primary {
+  background: var(--admin-primary) !important;
+  border-color: var(--admin-primary) !important;
+  color: #fff !important;
+  font-weight: 500;
+  box-shadow: var(--admin-shadow-sm);
+  transition: all var(--admin-transition);
+
+  &:hover,
+  &:focus {
+    background: var(--admin-primary-dark) !important;
+    border-color: var(--admin-primary-dark) !important;
+    transform: translateY(-1px);
+    box-shadow: var(--admin-shadow);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.btn-secondary {
+  background: var(--admin-secondary) !important;
+  border-color: var(--admin-secondary) !important;
+  color: #fff !important;
+
+  &:hover,
+  &:focus {
+    background: var(--admin-secondary-dark) !important;
+    border-color: var(--admin-secondary-dark) !important;
+  }
+}
+
+.btn-success {
+  background: var(--admin-success) !important;
+  border-color: var(--admin-success) !important;
+  color: #fff !important;
+}
+
+.btn-danger {
+  background: var(--admin-danger) !important;
+  border-color: var(--admin-danger) !important;
+  color: #fff !important;
+}
+
+.btn-warning {
+  background: var(--admin-warning) !important;
+  border-color: var(--admin-warning) !important;
+  color: var(--admin-gray-900) !important;
+}
+
+.btn-info {
+  background: var(--admin-info) !important;
+  border-color: var(--admin-info) !important;
+  color: #fff !important;
+}
+
+.btn-outline-primary {
+  color: var(--admin-primary) !important;
+  border-color: var(--admin-primary) !important;
+
+  &:hover {
+    background: var(--admin-primary) !important;
+    color: #fff !important;
+  }
+}
+
+// ============================================
+// FORM CONTROLS
+// ============================================
+.form-control,
+.form-select {
+  background: var(--admin-surface) !important;
+  border: 1px solid var(--admin-border) !important;
+  color: var(--admin-text) !important;
+  border-radius: var(--admin-radius) !important;
+  transition: border-color var(--admin-transition), box-shadow var(--admin-transition);
+
+  &:focus {
+    border-color: var(--admin-primary) !important;
+    box-shadow: 0 0 0 3px rgba(var(--admin-primary-rgb), 0.15) !important;
+  }
+
+  &::placeholder {
+    color: var(--admin-text-muted) !important;
+  }
+}
+
+.form-label {
+  color: var(--admin-text) !important;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+// ============================================
+// TABLE STYLING
+// ============================================
+.table {
+  color: var(--admin-text);
+
+  thead {
+    th {
+      background: var(--admin-gray-100) !important;
+      color: var(--admin-text) !important;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--admin-border) !important;
+      padding: 1rem;
+    }
+  }
+
+  tbody {
+    td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--admin-border) !important;
+      vertical-align: middle;
+    }
+
+    tr:hover {
+      background: var(--admin-gray-50) !important;
+    }
+  }
+}
+
+[data-coreui-theme="dark"] .table {
+  thead th {
+    background: var(--admin-gray-800) !important;
+  }
+
+  tbody tr:hover {
+    background: var(--admin-gray-700) !important;
+  }
+}
+
+// ============================================
+// CALENDAR STYLING
+// ============================================
+.calendar-cell.today {
+  --cui-calendar-cell-today-color: var(--admin-primary) !important;
+}
+
+.select-week .calendar-row.current {
+  cursor: pointer;
+}
+
+// ============================================
+// NOTIFICATION SNACKBAR STYLING
+// ============================================
+.default-notification {
+  background-color: var(--admin-gray-100);
+  color: var(--admin-text);
+}
+
+.info-notification {
+  background-color: var(--admin-info);
+  color: white;
+}
+
+.success-notification {
+  background-color: var(--admin-success);
+  color: white;
+}
+
+.warn-notification {
+  background-color: var(--admin-warning);
+  color: var(--admin-gray-900);
+}
+
+.error-notification {
+  background-color: var(--admin-danger);
+  color: white;
+}
+
+// ============================================
+// MISC COMPONENT STYLING
+// ============================================
+.notification-container {
+  width: 100%;
+  height: 180px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  margin-bottom: 25px;
+}
+
+.img-preview .image-container {
+  display: inline-block;
+  position: relative;
+}
+
+.img-preview .image-container button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--admin-danger);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--admin-transition);
+
+  &:hover {
+    background: var(--admin-danger-light);
+  }
+}
+
+.k-dialog-titlebar {
+  background: var(--admin-primary) !important;
+  color: white !important;
+  border: none !important;
+}
+
+// ============================================
+// HEADER STYLING
+// ============================================
+.header {
+  background: var(--admin-surface) !important;
+  border-bottom: 1px solid var(--admin-border) !important;
+
+  .nav-link {
+    color: var(--admin-text-muted) !important;
+    font-weight: 500;
+    transition: color var(--admin-transition);
+
+    &:hover,
+    &.active {
+      color: var(--admin-primary) !important;
+    }
+  }
+}
+
+// ============================================
+// BREADCRUMB STYLING
+// ============================================
+.breadcrumb {
+  background: transparent;
+  padding: 0.5rem 0;
+
+  .breadcrumb-item {
+    color: var(--admin-text-muted);
+
+    a {
+      color: var(--admin-primary);
+      text-decoration: none;
+
+      &:hover {
+        color: var(--admin-primary-dark);
+        text-decoration: underline;
+      }
+    }
+
+    &.active {
+      color: var(--admin-text);
+    }
+  }
+}
+
+// ============================================
+// BADGE STYLING
+// ============================================
+.badge {
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+  border-radius: var(--admin-radius-sm);
+}
+
+.badge-primary,
+.bg-primary {
+  background: var(--admin-primary) !important;
+  color: white !important;
+}
+
+.badge-success,
+.bg-success {
+  background: var(--admin-success) !important;
+  color: white !important;
+}
+
+.badge-warning,
+.bg-warning {
+  background: var(--admin-warning) !important;
+  color: var(--admin-gray-900) !important;
+}
+
+.badge-danger,
+.bg-danger {
+  background: var(--admin-danger) !important;
+  color: white !important;
+}
+
+.badge-info,
+.bg-info {
+  background: var(--admin-info) !important;
+  color: white !important;
+}
+
+// ============================================
+// ALERT STYLING
+// ============================================
+.alert {
+  border-radius: var(--admin-radius);
+  border: none;
+
+  &.alert-primary {
+    background: rgba(var(--admin-primary-rgb), 0.1);
+    color: var(--admin-primary-dark);
+  }
+
+  &.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #065f46;
+  }
+
+  &.alert-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #92400e;
+  }
+
+  &.alert-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: #991b1b;
+  }
+
+  &.alert-info {
+    background: rgba(14, 165, 233, 0.1);
+    color: #075985;
+  }
+}
+
+// ============================================
+// UTILITY CLASSES
+// ============================================
+.text-primary {
+  color: var(--admin-primary) !important;
+}
+
+.text-success {
+  color: var(--admin-success) !important;
+}
+
+.text-warning {
+  color: var(--admin-warning) !important;
+}
+
+.text-danger {
+  color: var(--admin-danger) !important;
+}
+
+.text-info {
+  color: var(--admin-info) !important;
+}
+
+.text-muted {
+  color: var(--admin-text-muted) !important;
+}
+
+.border-primary {
+  border-color: var(--admin-primary) !important;
+}

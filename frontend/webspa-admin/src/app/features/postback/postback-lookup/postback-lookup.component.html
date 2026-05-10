@@ -1,0 +1,426 @@
+<div class="postback-lookup-container">
+  <h2>Postback Lookup</h2>
+  <p class="subtitle">Search by transaction ID, monitor queue health, and manage failed or DLQ postbacks.</p>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid" *ngIf="stats">
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <div class="stat-value">{{ stats.total | number }}</div>
+        <div class="stat-label">Total</div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="stat-card stat-pending">
+      <mat-card-content>
+        <div class="stat-value">{{ stats.pending | number }}</div>
+        <div class="stat-label">Pending</div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="stat-card stat-processing">
+      <mat-card-content>
+        <div class="stat-value">{{ stats.processing | number }}</div>
+        <div class="stat-label">Processing</div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="stat-card stat-success">
+      <mat-card-content>
+        <div class="stat-value">{{ stats.success | number }}</div>
+        <div class="stat-label">Success</div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="stat-card stat-failed">
+      <mat-card-content>
+        <div class="stat-value">{{ stats.failed | number }}</div>
+        <div class="stat-label">Failed</div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="stat-card" [ngClass]="stats.alert ? 'stat-dlq-alert' : 'stat-dlq'">
+      <mat-card-content>
+        <div class="stat-value">{{ stats.dlq | number }}</div>
+        <div class="stat-label">DLQ</div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Search Section -->
+  <div class="search-section">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Transaction ID</mat-label>
+      <input matInput 
+             [(ngModel)]="transactionId" 
+             placeholder="e.g. 327cbb0e-7e2d-4035-8b07-1e9f1f7738e6"
+             (keyup.enter)="searchPostbacks()">
+      <mat-hint>Enter the transaction_id from the acquisition transaction</mat-hint>
+    </mat-form-field>
+
+    <div class="search-actions">
+      <button mat-raised-button color="primary" (click)="searchPostbacks()" [disabled]="loading">
+        <mat-icon>search</mat-icon>
+        Search
+      </button>
+      <button mat-stroked-button (click)="clearSearch()" [disabled]="loading">
+        <mat-icon>clear</mat-icon>
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Loading postbacks...</p>
+  </div>
+
+  <!-- Results Section -->
+  <div *ngIf="!loading && searched && lookupResult" class="results-section">
+    
+    <!-- Summary Card -->
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>Transaction: {{ lookupResult.transaction_id }}</mat-card-title>
+        <mat-card-subtitle>
+          {{ (lookupResult.postbacks && lookupResult.postbacks.length) || 0 }} postback(s), 
+          {{ (lookupResult.attempts && lookupResult.attempts.length) || 0 }} attempt(s)
+        </mat-card-subtitle>
+      </mat-card-header>
+    </mat-card>
+
+    <!-- Postbacks Table -->
+    <h3>Postback Queue (Outbox)</h3>
+    <div class="table-container" *ngIf="postbackDataSource.data.length > 0">
+      <table mat-table [dataSource]="postbackDataSource" matSort class="mat-elevation-z4">
+        
+        <!-- Event Column -->
+        <ng-container matColumnDef="event">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Event</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="badge" [ngClass]="getEventClass(row.event)">{{ row.event }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Provider Column -->
+        <ng-container matColumnDef="provider">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Provider</th>
+          <td mat-cell *matCellDef="let row">{{ row.provider }}</td>
+        </ng-container>
+
+        <!-- Status Column -->
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="badge" [ngClass]="getStatusClass(row.status)">{{ row.status }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Attempt Count Column -->
+        <ng-container matColumnDef="attempt_count">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Attempts</th>
+          <td mat-cell *matCellDef="let row">{{ row.attempt_count }} / {{ row.max_attempts }}</td>
+        </ng-container>
+
+        <!-- Next Retry Column -->
+        <ng-container matColumnDef="next_retry_at">
+          <th mat-header-cell *matHeaderCellDef>Next Retry</th>
+          <td mat-cell *matCellDef="let row">{{ formatRetryAt(row.next_retry_at) }}</td>
+        </ng-container>
+
+        <!-- URL Column -->
+        <ng-container matColumnDef="url_template_rendered">
+          <th mat-header-cell *matHeaderCellDef>Postback URL</th>
+          <td mat-cell *matCellDef="let row" class="url-cell">
+            <span matTooltip="{{ row.url_template_rendered }}" matTooltipClass="url-tooltip">
+              {{ formatUrl(row.url_template_rendered) }}
+            </span>
+            <button mat-icon-button (click)="copyToClipboard(row.url_template_rendered)" matTooltip="Copy URL">
+              <mat-icon>content_copy</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <!-- Created At Column -->
+        <ng-container matColumnDef="created_at">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Created</th>
+          <td mat-cell *matCellDef="let row">{{ row.created_at | date:'medium' }}</td>
+        </ng-container>
+
+        <!-- Updated At Column -->
+        <ng-container matColumnDef="updated_at">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Updated</th>
+          <td mat-cell *matCellDef="let row">{{ row.updated_at | date:'medium' }}</td>
+        </ng-container>
+
+        <!-- Actions Column -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let row">
+            <button mat-icon-button
+                    *ngIf="row.status === 'FAILED' || row.status === 'DLQ'"
+                    matTooltip="Retry Postback"
+                    (click)="retryPostback(row.id)"
+                    [disabled]="isRetrying(row.id)"
+                    color="primary">
+              <mat-icon>replay</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="postbackColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: postbackColumns;"></tr>
+      </table>
+      <mat-paginator #postbackPaginator [pageSizeOptions]="[5, 10, 20]" showFirstLastButtons></mat-paginator>
+    </div>
+
+    <div *ngIf="postbackDataSource.data.length === 0" class="no-data">
+      <mat-icon>inbox</mat-icon>
+      <p>No postbacks queued for this transaction</p>
+      <p class="hint">Conversion postbacks are only created when charge-success is received from subscription-external</p>
+    </div>
+
+    <!-- Attempts Table -->
+    <h3>Delivery Attempts</h3>
+    <div class="table-container" *ngIf="attemptDataSource.data.length > 0">
+      <table mat-table [dataSource]="attemptDataSource" class="mat-elevation-z4">
+        
+        <!-- Attempt Number Column -->
+        <ng-container matColumnDef="attempt_number">
+          <th mat-header-cell *matHeaderCellDef>#</th>
+          <td mat-cell *matCellDef="let row">{{ row.attempt_number }}</td>
+        </ng-container>
+
+        <!-- HTTP Status Column -->
+        <ng-container matColumnDef="http_status">
+          <th mat-header-cell *matHeaderCellDef>HTTP Status</th>
+          <td mat-cell *matCellDef="let row">
+            <span *ngIf="row.http_status" [ngClass]="row.http_status >= 200 && row.http_status < 300 ? 'status-success' : 'status-failed'">
+              {{ row.http_status }}
+            </span>
+            <span *ngIf="!row.http_status">-</span>
+          </td>
+        </ng-container>
+
+        <!-- Duration Column -->
+        <ng-container matColumnDef="duration_ms">
+          <th mat-header-cell *matHeaderCellDef>Duration</th>
+          <td mat-cell *matCellDef="let row">{{ row.duration_ms ? row.duration_ms + 'ms' : '-' }}</td>
+        </ng-container>
+
+        <!-- Error Message Column -->
+        <ng-container matColumnDef="error_message">
+          <th mat-header-cell *matHeaderCellDef>Error</th>
+          <td mat-cell *matCellDef="let row" class="error-cell">
+            <span *ngIf="row.error_message" class="error-text" matTooltip="{{ row.error_message }}">
+              {{ row.error_message | slice:0:50 }}{{ row.error_message.length > 50 ? '...' : '' }}
+            </span>
+            <span *ngIf="!row.error_message">-</span>
+          </td>
+        </ng-container>
+
+        <!-- Response Body Column -->
+        <ng-container matColumnDef="response_body">
+          <th mat-header-cell *matHeaderCellDef>Response</th>
+          <td mat-cell *matCellDef="let row" class="response-cell">
+            <span *ngIf="row.response_body" matTooltip="{{ row.response_body }}">
+              {{ row.response_body | slice:0:30 }}{{ row.response_body.length > 30 ? '...' : '' }}
+            </span>
+            <span *ngIf="!row.response_body">-</span>
+          </td>
+        </ng-container>
+
+        <!-- Created At Column -->
+        <ng-container matColumnDef="created_at">
+          <th mat-header-cell *matHeaderCellDef>Timestamp</th>
+          <td mat-cell *matCellDef="let row">{{ row.created_at | date:'medium' }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="attemptColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: attemptColumns;"></tr>
+      </table>
+      <mat-paginator #attemptPaginator [pageSizeOptions]="[5, 10, 20]" showFirstLastButtons></mat-paginator>
+    </div>
+
+    <div *ngIf="attemptDataSource.data.length === 0" class="no-data">
+      <mat-icon>history</mat-icon>
+      <p>No delivery attempts yet</p>
+      <p class="hint">Attempts are logged when the postback-dispatcher processes the outbox queue</p>
+    </div>
+
+  </div>
+
+  <!-- Status Management Section -->
+  <div class="dlq-section">
+    <div class="dlq-header">
+      <div>
+        <h3>{{ getStatusSectionTitle() }}</h3>
+        <p class="section-description">{{ getStatusSectionDescription() }}</p>
+      </div>
+      <div class="dlq-actions">
+        <mat-form-field appearance="outline" class="status-filter-field">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="selectedStatus" (selectionChange)="onStatusChange()">
+            <mat-option *ngFor="let status of statusOptions" [value]="status">{{ status }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button
+          mat-raised-button
+          color="warn"
+          (click)="bulkRequeueDlq()"
+          [disabled]="!canBulkRequeue() || loadingStatus">
+          <mat-icon>replay_circle_filled</mat-icon>
+          Bulk Requeue DLQ
+        </button>
+        <button mat-stroked-button (click)="refreshStatusPostbacks()" [disabled]="loadingStatus || bulkRequeueLoading">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div class="section-meta">
+      <span class="badge" [ngClass]="getStatusClass(selectedStatus)">{{ selectedStatus }}</span>
+      <span>{{ statusCount | number }} item(s)</span>
+      <span>Showing {{ statusDataSource.data.length | number }} of {{ statusCount | number }} row(s)</span>
+      <span *ngIf="selectedStatus !== 'DLQ'" class="hint-text">Bulk requeue is only supported for DLQ items.</span>
+    </div>
+
+    <div *ngIf="loadingStatus" class="loading-container">
+      <mat-spinner diameter="30"></mat-spinner>
+      <p>Loading {{ selectedStatus }} postbacks...</p>
+    </div>
+
+    <div class="table-container" *ngIf="!loadingStatus && statusDataSource.data.length > 0">
+      <table mat-table [dataSource]="statusDataSource" class="mat-elevation-z4">
+
+        <!-- Event Column -->
+        <ng-container matColumnDef="event">
+          <th mat-header-cell *matHeaderCellDef>Event</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="badge" [ngClass]="getEventClass(row.event)">{{ row.event }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Provider Column -->
+        <ng-container matColumnDef="provider">
+          <th mat-header-cell *matHeaderCellDef>Provider</th>
+          <td mat-cell *matCellDef="let row">{{ row.provider }}</td>
+        </ng-container>
+
+        <!-- Transaction ID Column -->
+        <ng-container matColumnDef="transaction_id">
+          <th mat-header-cell *matHeaderCellDef>Transaction</th>
+          <td mat-cell *matCellDef="let row" class="transaction-id-cell">
+            <span matTooltip="{{ row.transaction_id }}">{{ formatTransactionId(row.transaction_id) }}</span>
+            <button
+              mat-icon-button
+              matTooltip="Inspect transaction postbacks"
+              (click)="inspectTransactionPostbacks(row.transaction_id)">
+              <mat-icon>manage_search</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              matTooltip="Copy transaction ID"
+              (click)="copyToClipboard(row.transaction_id)">
+              <mat-icon>content_copy</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <!-- Next Retry Column -->
+        <ng-container matColumnDef="next_retry_at">
+          <th mat-header-cell *matHeaderCellDef>Next Retry</th>
+          <td mat-cell *matCellDef="let row">{{ formatRetryAt(row.next_retry_at) }}</td>
+        </ng-container>
+
+        <!-- URL Column -->
+        <ng-container matColumnDef="url">
+          <th mat-header-cell *matHeaderCellDef>Postback URL</th>
+          <td mat-cell *matCellDef="let row" class="url-cell">
+            <span matTooltip="{{ row.url_template_rendered }}" matTooltipClass="url-tooltip">
+              {{ formatUrl(row.url_template_rendered) }}
+            </span>
+          </td>
+        </ng-container>
+
+        <!-- Attempt Count Column -->
+        <ng-container matColumnDef="attempt_count">
+          <th mat-header-cell *matHeaderCellDef>Attempts</th>
+          <td mat-cell *matCellDef="let row">{{ row.attempt_count }} / {{ row.max_attempts }}</td>
+        </ng-container>
+
+        <!-- Created At Column -->
+        <ng-container matColumnDef="created_at">
+          <th mat-header-cell *matHeaderCellDef>Created</th>
+          <td mat-cell *matCellDef="let row">{{ row.created_at | date:'medium' }}</td>
+        </ng-container>
+
+        <!-- Actions Column -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let row">
+            <button
+              mat-icon-button
+              matTooltip="Retry Postback"
+              (click)="retryPostback(row.id)"
+              color="primary"
+              [disabled]="!canRetry(row.status) || isRetrying(row.id)">
+              <mat-icon>replay</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="statusColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: statusColumns;"></tr>
+      </table>
+    </div>
+
+    <div *ngIf="!loadingStatus && statusDataSource.data.length === 0" class="no-data">
+      <mat-icon>check_circle</mat-icon>
+      <p>{{ getEmptyStatusTitle() }}</p>
+      <p class="hint">{{ getEmptyStatusHint() }}</p>
+    </div>
+
+    <mat-paginator
+      *ngIf="!loadingStatus && statusCount > 0"
+      [length]="statusCount"
+      [pageIndex]="statusPageIndex"
+      [pageSize]="statusLimit"
+      [pageSizeOptions]="statusLimitOptions"
+      (page)="onStatusPageChange($event)"
+      showFirstLastButtons>
+    </mat-paginator>
+  </div>
+
+  <!-- Help Section -->
+  <mat-expansion-panel class="help-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>help_outline</mat-icon>
+        How Mobplus Postbacks Work
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    <div class="help-content">
+      <h4>Postback Flow</h4>
+      <ol>
+        <li><strong>User subscribes</strong> via landing page with <code>click_id</code> and <code>pub_id</code> from Mobplus tracking URL</li>
+        <li><strong>Transaction created</strong> in acquisition-api with attribution data stored</li>
+        <li><strong>TIMWE processes subscription</strong> and eventually charges the user</li>
+        <li><strong>subscription-external</strong> receives charge-success callback from TIMWE</li>
+        <li><strong>subscription-external</strong> calls <code>POST /internal/acquisition/charge-success</code></li>
+        <li><strong>acquisition-api</strong> marks transaction as CHARGED and queues conversion postback</li>
+        <li><strong>postback-dispatcher</strong> picks up the outbox entry and fires S2S postback to Mobplus</li>
+      </ol>
+      
+      <h4>Postback URL Format</h4>
+      <p>The rendered URL should look like:</p>
+      <code>http://m.mobplus.net/c/p/CAMPAIGN_KEY?txid=CLICK_ID&pub_id=PUB_ID</code>
+      
+      <h4>Status Meanings</h4>
+      <ul>
+        <li><span class="badge status-pending">PENDING</span> - Waiting to be processed</li>
+        <li><span class="badge status-processing">PROCESSING</span> - Currently being sent</li>
+        <li><span class="badge status-success">SUCCESS</span> - Successfully delivered (HTTP 2xx)</li>
+        <li><span class="badge status-failed">FAILED</span> - Delivery failed, may retry</li>
+        <li><span class="badge status-dlq">DLQ</span> - Dead Letter Queue (max retries exceeded)</li>
+      </ul>
+    </div>
+  </mat-expansion-panel>
+</div>

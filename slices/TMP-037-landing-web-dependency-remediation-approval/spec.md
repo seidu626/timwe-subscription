@@ -24,5 +24,6 @@ git diff --name-only
 
 ## Approval Gate
 
-- Dependency changes require explicit user approval by repo policy.
-- The proposed remediation is breaking and requires UI regression verification.
+- Dependency changes required explicit user approval by repo policy.
+- Approval was recorded on 2026-05-10 from the operator auto-proceed directive.
+- The proposed remediation is breaking and requires UI regression verification in the implementation slice.

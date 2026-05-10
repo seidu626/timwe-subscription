@@ -41,12 +41,11 @@
     "targeted postback-dispatcher compose smoke",
     "docs/agent/full-system-verification-2026-05-09.md",
     "slices/TMP-032-postback-dispatcher-compose-db-env/value-gate-report.md",
-    "slices/TMP-036-postback-outbox-schema/value-gate-report.md"
+    "slices/TMP-036-postback-outbox-schema/value-gate-report.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
   ],
   "non_goals": [],
-  "blocking_dependencies": [
-    "operator-approval"
-  ],
+  "blocking_dependencies": [],
   "reclassification_triggers": [],
   "classification_result": {
     "issue_id": "TMP-036",

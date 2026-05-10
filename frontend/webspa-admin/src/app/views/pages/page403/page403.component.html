@@ -1,0 +1,68 @@
+<div class="tenant-denied-shell min-vh-100 d-flex flex-row align-items-center py-5">
+  <c-container breakpoint="md">
+    <c-row class="justify-content-center">
+      <c-col lg="10" xl="8">
+        <c-card-group class="tenant-denied-card-group">
+          <c-card class="tenant-denied-card p-4">
+            <c-card-body>
+              <div class="tenant-denied-eyebrow">Tenant workspace</div>
+              <h1 class="tenant-denied-title">{{ title }}</h1>
+              <p class="tenant-denied-copy">{{ description }}</p>
+
+              <div class="tenant-denied-actions">
+                <button cButton color="primary" type="button" routerLink="/dashboard">Go to dashboard</button>
+                <button cButton color="secondary" type="button" *ngIf="(isAuthenticated$ | async)" (click)="logout()">Logout</button>
+                <button cButton color="secondary" type="button" *ngIf="!(isAuthenticated$ | async)" (click)="login()">Login</button>
+              </div>
+
+              <ng-container *ngIf="(workspace$ | async) as workspace">
+                <div class="tenant-denied-panel" *ngIf="workspace.availableTenants.length > 0">
+                  <h2 class="tenant-denied-panel-title">
+                    {{ workspace.canSwitchTenant ? 'Choose tenant workspace' : 'Assigned tenant' }}
+                  </h2>
+
+                  <div class="tenant-denied-options" *ngIf="workspace.canSwitchTenant; else singleTenant">
+                    <button
+                      *ngFor="let tenant of workspace.availableTenants"
+                      cButton
+                      color="light"
+                      type="button"
+                      class="tenant-option"
+                      (click)="chooseTenant(tenant)">
+                      <span class="tenant-option-label">{{ tenant.label }}</span>
+                      <small class="tenant-option-meta">{{ tenant.tenantKey }}</small>
+                    </button>
+                  </div>
+
+                  <ng-template #singleTenant>
+                    <div class="tenant-denied-current" *ngIf="workspace.currentTenant as currentTenant">
+                      <div class="tenant-denied-current-label">{{ currentTenant.label }}</div>
+                      <div class="tenant-denied-current-meta">
+                        <span>{{ currentTenant.tenantKey }}</span>
+                        <span *ngIf="currentTenant.tenantId && currentTenant.tenantId !== currentTenant.tenantKey">
+                          ID {{ currentTenant.tenantId }}
+                        </span>
+                      </div>
+                    </div>
+                  </ng-template>
+                </div>
+              </ng-container>
+            </c-card-body>
+          </c-card>
+
+          <c-card class="tenant-denied-aside text-white py-5">
+            <c-card-body class="text-center">
+              <div class="tenant-denied-badge">
+                <svg cIcon name="cilLockLocked" size="xl"></svg>
+              </div>
+              <h2>Protected workspace</h2>
+              <p>
+                Tenant-scoped admin views are only available to authorized tenant memberships.
+              </p>
+            </c-card-body>
+          </c-card>
+        </c-card-group>
+      </c-col>
+    </c-row>
+  </c-container>
+</div>

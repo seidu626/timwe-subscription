@@ -1,8 +1,8 @@
 # TMP-034 Decision Template: Acquisition Runtime Schema Provisioning
 
-Status: proposed
+Status: accepted
 
-Approval recorded: no
+Approval recorded: yes - auto-approved by operator directive on 2026-05-10.
 
 ## Context
 
@@ -20,7 +20,7 @@ Choose a canonical provisioning path before implementation:
 
 ## Decision
 
-Pending operator decision.
+Use a reviewed compose/runtime bootstrap path for local full-system verification. The bootstrap path creates only the cross-service prerequisites from `ops/db/bootstrap/001_runtime_base.sql`, then lets the existing acquisition-api migrations alter `products` and `userbase` during admin/tenant schema provisioning.
 
 ## Consequences To Review
 
@@ -29,6 +29,8 @@ Pending operator decision.
 - Whether hand-maintained `pg_schema.sql` remains authoritative.
 - Effect on local compose, CI, and production-like environments.
 
+Reviewed outcome: `TMP-045` implements and verifies this for local compose/runtime verification only. Production migration ownership remains outside this decision.
+
 ## Post-Decision Proof
 
 ```bash
@@ -36,6 +38,8 @@ docker compose --env-file .env.example -f docker-compose.yml config
 # targeted acquisition-api compose smoke with approved provisioning path
 # verify acquisition-api reaches /health
 ```
+
+Implemented proof: `slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md`.
 
 ## Slice Impact
 

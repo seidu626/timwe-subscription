@@ -2,8 +2,33 @@
 
 - Timestamp: 2026-05-09T01:58:30Z
 - Agent: Codex
-- Verdict: BLOCKED
-- Outcome code: outcome:blocked
+- Verdict: PASS
+- Outcome code: outcome:verified
+
+## Superseding Evidence: TMP-046
+
+TMP-046 replaced the unreachable `frontend/webspa-admin` gitlink with the exact tracked source from pinned local commit `2ad95b18ecff4d8b23e5d1b7152975c477d5137a`.
+
+Current verification:
+
+```bash
+test ! -f .gitmodules
+test -f frontend/webspa-admin/package.json
+git ls-files -s frontend/webspa-admin/package.json
+cd frontend/webspa-admin && npm ci
+cd frontend/webspa-admin && npm run build
+cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false
+```
+
+Results:
+
+- `.gitmodules` is absent, so clean checkout no longer invokes the unavailable public CoreUI submodule commit.
+- `frontend/webspa-admin/package.json` is tracked source, not a `160000` gitlink.
+- `npm ci` completed with existing Node engine and vulnerability warnings.
+- `npm run build` passed with existing SCSS budget and selector warnings only.
+- ChromeHeadless tests passed: `TOTAL: 84 SUCCESS`.
+
+TMP-026 is therefore resolved by the tracked-source strategy. The historical blocked audit below is retained for traceability.
 
 ## Audit 1: Submodule Metadata
 

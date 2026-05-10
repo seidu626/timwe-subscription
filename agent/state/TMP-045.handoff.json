@@ -1,0 +1,174 @@
+{
+  "acceptance_results": [
+    {
+      "criterion": "Compose config renders with db-bootstrap as the prerequisite for runtime DB consumers.",
+      "status": "passed",
+      "evidence": [
+        "docker compose --env-file .env.example -f docker-compose.yml config --quiet"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Bootstrap SQL applies cleanly to an empty PostgreSQL database using the ordered canonical migration path.",
+      "status": "passed",
+      "evidence": [
+        "disposable PostgreSQL bootstrap proof with scripts/compose-db-bootstrap.sh"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Notification, cadence, and postback empty poll query shapes run without missing relation or missing column errors.",
+      "status": "passed",
+      "evidence": [
+        "disposable PostgreSQL notification/cadence/postback empty-poll query proof"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Domain brief, story/spec, roadmap entry, and value-gate evidence are recorded.",
+      "status": "passed",
+      "evidence": [
+        "slices/TMP-045-compose-runtime-schema-bootstrap/domain-brief.md",
+        "slices/TMP-045-compose-runtime-schema-bootstrap/slice.yaml",
+        "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md",
+        "slices/manifest.json"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    "docker-compose.yml",
+    "ops/db/bootstrap/001_runtime_base.sql",
+    "scripts/compose-db-bootstrap.sh",
+    "agent/backlog/issues/TMP-034-acquisition-runtime-schema-provisioning.md",
+    "agent/backlog/issues/TMP-035-notification-message-outbox-schema.md",
+    "agent/backlog/issues/TMP-036-postback-outbox-schema.md",
+    "agent/backlog/issues/TMP-045-compose-runtime-schema-bootstrap.md",
+    "agent/state/TMP-034.work-order.json",
+    "agent/state/TMP-035.work-order.json",
+    "agent/state/TMP-036.work-order.json",
+    "agent/state/TMP-045.work-order.json",
+    "agent/state/TMP-045.handoff.json",
+    "slices/manifest.json",
+    "slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+    "slices/decisions/TMP-035-notification-message-outbox-schema.md",
+    "slices/decisions/TMP-036-postback-outbox-schema.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/domain-brief.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/slice.yaml",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/spec.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/notes.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md",
+    ".agent/tasks.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "Disposable PostgreSQL containers were removed after smoke proofs."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Added ops/db/bootstrap/001_runtime_base.sql with minimal cross-service prerequisite tables.",
+    "Added scripts/compose-db-bootstrap.sh to apply ordered canonical SQL migrations with ON_ERROR_STOP=1.",
+    "Added db-bootstrap to docker-compose.yml and made runtime database consumers depend on successful completion.",
+    "Recorded accepted decisions for TMP-034/TMP-035/TMP-036 based on the operator auto-approval directive.",
+    "Added TMP-045 domain/story/spec/value-gate/manifest/work-order evidence.",
+    "Marked TMP-034/TMP-035/TMP-036 schema blockers as resolved in manifest/task metadata."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Production migration orchestration remains outside TMP-045.",
+    "subscription-external 006 still contains duplicate legacy postback DDL and should be split or pruned later."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-034/TMP-035/TMP-036 schema blockers are resolved by TMP-045 for local compose/runtime verification. Remaining release blockers are outside this slice.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "The bootstrap service mounts the repo read-only and applies schema only after PostgreSQL health passes.",
+    "No Go runtime repository code or dependency manifests changed."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "20260510-045926",
+  "status": "done",
+  "summary": "Implemented a one-shot compose database bootstrap for clean runtime schema provisioning and verified acquisition, notification, cadence, and postback empty-database paths.",
+  "supervisor_decision": "ready_for_review",
+  "task_id": "T-TMP-045",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "bash -n scripts/compose-db-bootstrap.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "shell syntax valid",
+      "timestamp": "2026-05-10T05:10:00Z"
+    },
+    {
+      "command": "docker compose --env-file .env.example -f docker-compose.yml config --quiet",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "compose config rendered",
+      "timestamp": "2026-05-10T05:10:00Z"
+    },
+    {
+      "command": "disposable PostgreSQL bootstrap proof with scripts/compose-db-bootstrap.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "bootstrap completed and required relations existed",
+      "timestamp": "2026-05-10T05:07:00Z"
+    },
+    {
+      "command": "disposable PostgreSQL notification/cadence/postback empty-poll query proof",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "all query shapes returned zero rows without schema errors",
+      "timestamp": "2026-05-10T05:08:00Z"
+    },
+    {
+      "command": "cd services/acquisition-api && go test ./internal/repository",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok acquisition-api/internal/repository",
+      "timestamp": "2026-05-10T05:08:00Z"
+    },
+    {
+      "command": "cd services/notification && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "all notification packages passed",
+      "timestamp": "2026-05-10T05:08:00Z"
+    },
+    {
+      "command": "cd services/postback-dispatcher && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "all postback-dispatcher packages passed",
+      "timestamp": "2026-05-10T05:08:00Z"
+    },
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-045.work-order.json agent/state/TMP-045.handoff.json .agent/tasks.json",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "JSON valid",
+      "timestamp": "2026-05-10T05:11:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TMP-045 assignment_decision allow; no blocking reasons",
+      "timestamp": "2026-05-10T05:11:00Z"
+    }
+  ]
+}

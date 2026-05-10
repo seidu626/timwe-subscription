@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "task_id": "T-TMP-047",
+  "status": "done",
+  "supervisor_decision": "ready_for_review",
+  "summary": "Remediated the landing-web Next/PostCSS dependency blocker and verified audit, build, and standalone runtime smoke.",
+  "session_id": "20260510-045926",
+  "acceptance_results": [
+    {
+      "criterion": "services/landing-web npm audit --audit-level=moderate passes",
+      "status": "passed",
+      "evidence": [
+        "cd services/landing-web && npm audit --audit-level=moderate"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "services/landing-web npm run build passes on upgraded dependency set",
+      "status": "passed",
+      "evidence": [
+        "cd services/landing-web && npm run build"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "bounded landing-web runtime smoke returns HTTP 200 for /",
+      "status": "passed",
+      "evidence": [
+        "PORT=3138 node .next/standalone/workspace/apps/worktrees/codex-fullsystem-20260510-045911/services/landing-web/server.js",
+        "curl -sS -o /tmp/timwe-landing-root-standalone.html -w '%{http_code}\\n' http://127.0.0.1:3138/"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "domain/story/value/roadmap slice artifacts and handoff are recorded",
+      "status": "passed",
+      "evidence": [
+        "slices/TMP-047-landing-web-dependency-remediation/domain-brief.md",
+        "slices/TMP-047-landing-web-dependency-remediation/slice.yaml",
+        "slices/TMP-047-landing-web-dependency-remediation/spec.md",
+        "slices/TMP-047-landing-web-dependency-remediation/value-gate-report.md"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    "services/landing-web/package.json",
+    "services/landing-web/package-lock.json",
+    "services/landing-web/next-env.d.ts",
+    "services/landing-web/tsconfig.json",
+    "services/landing-web/app/api/campaigns/[tenant]/route.ts",
+    "services/landing-web/app/api/campaigns/[tenant]/[slug]/route.ts",
+    "services/landing-web/app/api/transactions/[id]/confirm/route.ts",
+    "services/landing-web/app/c/[slug]/page.tsx",
+    "services/landing-web/app/lp/[tenant]/page.tsx",
+    "services/landing-web/app/lp/[tenant]/[slug]/page.tsx",
+    "agent/backlog/issues/TMP-047-landing-web-dependency-remediation.md",
+    "agent/state/TMP-047.work-order.json",
+    "agent/state/TMP-047.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-047-landing-web-dependency-remediation/**",
+    ".agent/tasks.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "Stopped bounded runtime smoke server after HTTP 200 proof."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Upgraded landing-web to Next 16.2.6, React 19.2.6, React DOM 19.2.6, and React 19 type packages.",
+    "Added a narrow npm override for PostCSS 8.5.14 to remediate the transitive advisory in Next 16.2.6.",
+    "Updated Next 16 dynamic route/page params signatures for landing-web route handlers and metadata/redirect pages.",
+    "Verified dependency audit, production build, HVC, and standalone runtime smoke."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Next 16 warns that middleware.ts is deprecated in favor of proxy; build and runtime smoke pass, so this remains non-blocking follow-up material unless the release policy requires zero framework warnings."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-047 resolves the landing-web dependency audit blocker and preserves landing route runtime behavior.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "The dependency upgrade is a major framework upgrade, but the slice verified production build and standalone root route smoke."
+  ],
+  "safe_to_continue": true,
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "cd services/landing-web && npm audit --audit-level=moderate",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "found 0 vulnerabilities",
+      "timestamp": "2026-05-10T05:27:00Z"
+    },
+    {
+      "command": "cd services/landing-web && npm run build",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "Next.js 16.2.6 build compiled, type checked, generated static pages, and finalized route optimization",
+      "timestamp": "2026-05-10T05:28:00Z"
+    },
+    {
+      "command": "cd services/landing-web && PORT=3138 node .next/standalone/workspace/apps/worktrees/codex-fullsystem-20260510-045911/services/landing-web/server.js",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "server ready on http://localhost:3138",
+      "timestamp": "2026-05-10T05:29:00Z"
+    },
+    {
+      "command": "curl -sS -o /tmp/timwe-landing-root-standalone.html -w '%{http_code}\\n' http://127.0.0.1:3138/",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "200",
+      "timestamp": "2026-05-10T05:29:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TMP-047 assignment_decision allow; no blocking reasons",
+      "timestamp": "2026-05-10T05:28:00Z"
+    }
+  ]
+}

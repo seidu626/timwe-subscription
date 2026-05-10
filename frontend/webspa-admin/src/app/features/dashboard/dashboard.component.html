@@ -1,0 +1,17 @@
+<mat-toolbar color="primary">Subscription Dashboard</mat-toolbar>
+
+<div class="filter-section">
+  <app-filter [filters]="filters" (filterChange)="onFilterChange($event)"></app-filter>
+</div>
+
+<mat-tab-group>
+  <mat-tab label="Subscriptions">
+    <app-subscription-list [filters]="activeFilters"></app-subscription-list>
+  </mat-tab>
+  <mat-tab label="Notifications">
+    <app-notification-list [filters]="activeFilters"></app-notification-list>
+  </mat-tab>
+  <mat-tab label="Billing">
+    <app-billing-list [filters]="activeFilters"></app-billing-list>
+  </mat-tab>
+</mat-tab-group>

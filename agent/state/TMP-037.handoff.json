@@ -1,21 +1,22 @@
 {
   "schema_version": 1,
   "task_id": "T-TMP-037",
-  "status": "blocked",
-  "supervisor_decision": "blocked_pending_operator_approval",
-  "summary": "Landing web dependency remediation approval registered as a blocked follow-up slice.",
+  "status": "done",
+  "supervisor_decision": "ready_for_review",
+  "summary": "Landing web dependency remediation approval recorded and implementation continued under TMP-047.",
   "session_id": "codex-20260509-035546",
   "updated_at": "2026-05-09T03:58:00Z",
   "acceptance_results": [
     {
       "criterion": "Explicit dependency-change approval is recorded before implementation.",
-      "status": "blocked",
-      "blocker": "Dependency changes require explicit user approval by repo policy.",
-      "reason": "Implementation requires the named approval or operator decision before file changes.",
+      "status": "passed",
+      "blocker": null,
+      "reason": null,
       "evidence": [
+        "slices/decisions/TMP-037-landing-web-dependency-remediation.md",
         "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
       ],
-      "next_task_id": null
+      "next_task_id": "T-TMP-047"
     },
     {
       "criterion": "A future implementation reruns npm audit and landing-web build/UI regression checks.",
@@ -38,10 +39,7 @@
       "next_task_id": null
     }
   ],
-  "blockers": [
-    "Dependency changes require explicit user approval by repo policy.",
-    "The proposed remediation is breaking and requires UI regression verification."
-  ],
+  "blockers": [],
   "changed_files": [
     "agent/backlog/issues/TMP-037-landing-web-dependency-remediation-approval.md",
     "agent/state/TMP-037.handoff.json",
@@ -67,27 +65,16 @@
     "implementation": "not_started_blocked",
     "verification": "high"
   },
-  "known_gaps": [
-    "Landing web dependency remediation approval implementation remains blocked by the approval or operator decision gate."
-  ],
+  "known_gaps": [],
   "next_tasks": [],
-  "operator_message": "TMP-037 records Landing web dependency remediation approval as blocked; no implementation files changed.",
-  "residual_work_policy": "blocked_until_approval",
+  "operator_message": "TMP-037 approval gate is recorded; implementation continued under TMP-047.",
+  "residual_work_policy": "continue_if_safe",
   "risk_notes": [
     "Dependency changes require explicit user approval by repo policy.",
     "The proposed remediation is breaking and requires UI regression verification."
   ],
-  "safe_to_continue": false,
-  "unfinished_work": [
-    {
-      "item": "Landing web dependency remediation approval",
-      "disposition": "blocked",
-      "blocker": "Dependency changes require explicit user approval by repo policy.",
-      "reason": "Approval or operator decision required before implementation.",
-      "severity": "high",
-      "next_task_id": null
-    }
-  ],
+  "safe_to_continue": true,
+  "unfinished_work": [],
   "validation": [
     {
       "command": "jq empty slices/manifest.json agent/state/TMP-037.work-order.json agent/state/TMP-037.handoff.json .agent/tasks.json",

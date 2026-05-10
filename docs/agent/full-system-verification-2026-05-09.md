@@ -1,5 +1,34 @@
 # Full-System Verification Matrix
 
+## Current Verification Refresh: 2026-05-10
+
+Verdict:
+- Local release-verification slices are complete in isolated branch `agent/codex/fullsystem-20260510-045911`.
+- Previous blockers for webspa-admin reproducibility, compose runtime schema provisioning, landing-web dependency remediation, and local-main strategy have been resolved by TMP-046, TMP-045, TMP-047, and TMP-038 respectively.
+- No destructive merge/reset was performed against the primary checkout. The recorded strategy is to preserve primary local `main` and use this origin/main-derived worktree branch as the current release verification surface.
+
+Current command evidence:
+
+| Area | Command | Result |
+|---|---|---|
+| Control plane | `agent-supervisor` preflight with worktree-local config | passed; only stale superseded rows `TMP-011-repair-1` and `TMP-015-repair-1` remain |
+| Classifier | `hvc check agent/backlog/issues/*.md --fail-on block` | passed |
+| Local service builds | `make build-all-local` | passed |
+| Common tests | `cd common && go test ./...` | passed |
+| Service tests | `go test ./...` in subscription-external, subscription-partner, billing, notification, acquisition-api, postback-dispatcher, and cadence-engine | passed |
+| Landing web audit/build | `cd services/landing-web && npm audit --audit-level=moderate && npm run build` | passed; zero audit vulnerabilities |
+| Landing web runtime | standalone Next server on port 3138 plus `curl /` | passed with HTTP 200 |
+| Admin frontend | `cd frontend/webspa-admin && npm run build` | passed with existing SCSS/selector warnings |
+| Admin tests | `CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false` | passed, `TOTAL: 84 SUCCESS` |
+| Compose config | `docker compose --env-file .env.example -f docker-compose.yml config --quiet` | passed |
+| Compose runtime smoke | temporary `shared-network`, `docker compose --project-name timwe-codex-fullsystem --env-file .env.example -f docker-compose.yml up --build -d database redis db-bootstrap acquisition-api notification-worker cadence-engine postback-dispatcher` | passed for bootstrap and startup; all selected services were `Up` after db-bootstrap completion |
+
+Runtime caveats:
+- Acquisition-api logs a Redis fallback warning because its runtime config still attempts `127.0.0.1:6379`; service startup continues with in-memory fallback.
+- Next 16 logs a deprecation warning for `middleware.ts` in favor of `proxy`; build and runtime smoke pass.
+- Primary local `/home/xper626/workspace/apps/timwe-subscription` still diverges from `origin/main`; TMP-038 records the non-destructive strategy rather than mutating that checkout.
+- Production deploy and live TIMWE/Auth0/provider credential flows were not in scope for this local full-system verification.
+
 ## Objective
 
 Goal:

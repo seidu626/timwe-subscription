@@ -1,0 +1,201 @@
+// ============================================
+// DEFAULT LAYOUT COMPONENT STYLES
+// ============================================
+
+:host {
+  // Scrollbar styling
+  .ng-scrollbar {
+    --scrollbar-padding: 1px;
+    --scrollbar-size: 6px;
+    --scrollbar-thumb-color: rgba(148, 163, 184, 0.4);
+    --scrollbar-thumb-hover-color: rgba(148, 163, 184, 0.6);
+    --scrollbar-hover-size: calc(var(--scrollbar-size) * 1.5);
+    --scrollbar-track-color: transparent;
+    --scrollbar-border-radius: 6px;
+  }
+}
+
+// ============================================
+// SIDEBAR STYLING
+// ============================================
+
+// Main sidebar container
+.admin-sidebar {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+  border-right: 1px solid rgba(51, 65, 85, 0.5) !important;
+  box-shadow: 4px 0 6px -1px rgba(0, 0, 0, 0.1);
+
+  // Sidebar header with logo
+  .sidebar-header-custom {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.5) !important;
+    padding: 0.75rem;
+
+    // Logo container
+    c-sidebar-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      img {
+        border-radius: 8px;
+        object-fit: contain;
+      }
+    }
+  }
+
+  // Sidebar footer
+  .sidebar-footer-custom {
+    background: rgba(0, 0, 0, 0.15) !important;
+    border-top: 1px solid rgba(51, 65, 85, 0.5) !important;
+    cursor: pointer;
+    transition: background 150ms ease;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.25) !important;
+    }
+
+    button {
+      color: #94a3b8 !important;
+
+      &:hover {
+        color: #e2e8f0 !important;
+      }
+    }
+  }
+}
+
+// Sidebar navigation items
+:host ::ng-deep {
+  .sidebar-nav {
+    padding: 0.5rem;
+
+    .nav-group-items {
+      padding-left: 0;
+    }
+
+    .nav-link {
+      color: #cbd5e1 !important;
+      padding: 0.75rem 1rem;
+      margin: 0.125rem 0;
+      border-radius: 0.5rem;
+      transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      font-weight: 500;
+      font-size: 0.9375rem;
+
+      &:hover {
+        color: #f1f5f9 !important;
+        background: rgba(79, 70, 229, 0.15) !important;
+
+        .nav-icon {
+          color: #818cf8 !important;
+        }
+      }
+
+      &.active {
+        color: #ffffff !important;
+        background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%) !important;
+        box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3), 0 2px 4px -2px rgba(79, 70, 229, 0.2);
+
+        .nav-icon {
+          color: #ffffff !important;
+        }
+      }
+    }
+
+    .nav-icon {
+      color: #94a3b8 !important;
+      margin-right: 0.75rem;
+      transition: color 150ms ease;
+    }
+
+    .nav-title {
+      color: #64748b !important;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 1.25rem 1rem 0.5rem;
+      margin-top: 0.5rem;
+
+      &:first-child {
+        margin-top: 0;
+      }
+    }
+
+    // Dropdown/submenu styling
+    .nav-group-toggle {
+      &::after {
+        opacity: 0.5;
+      }
+
+      &:hover::after {
+        opacity: 0.8;
+      }
+    }
+
+    .nav-group.show {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 0.5rem;
+      margin: 0.25rem 0;
+
+      > .nav-group-toggle {
+        color: #f1f5f9 !important;
+
+        .nav-icon {
+          color: #818cf8 !important;
+        }
+      }
+
+      .nav-group-items {
+        .nav-link {
+          padding-left: 2.75rem;
+          font-size: 0.875rem;
+        }
+      }
+    }
+  }
+}
+
+// ============================================
+// MAIN CONTENT AREA
+// ============================================
+
+.wrapper {
+  background: var(--admin-bg, #f8fafc);
+  min-height: 100vh;
+}
+
+.body {
+  padding: 1rem 0 2rem;
+  background:
+    radial-gradient(circle at top, rgba(99, 102, 241, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(241, 245, 249, 0.65));
+}
+
+.admin-page-container {
+  max-width: 1480px;
+}
+
+:host-context([data-coreui-theme='dark']) {
+  .body {
+    background:
+      radial-gradient(circle at top, rgba(79, 70, 229, 0.16), transparent 24%),
+      linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.98));
+  }
+}
+
+// ============================================
+// RESPONSIVE ADJUSTMENTS
+// ============================================
+
+@media (max-width: 991.98px) {
+  .admin-sidebar {
+    // Mobile sidebar adjustments
+    box-shadow: 4px 0 20px -1px rgba(0, 0, 0, 0.25);
+  }
+
+  .body {
+    padding-top: 0.75rem;
+  }
+}

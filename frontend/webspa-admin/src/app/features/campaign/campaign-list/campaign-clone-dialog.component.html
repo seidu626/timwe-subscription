@@ -1,0 +1,23 @@
+<h2 mat-dialog-title>Copy Campaign</h2>
+
+<mat-dialog-content [formGroup]="form" class="clone-dialog-content">
+  <p class="clone-dialog-copy">
+    Create a full copy of <code>{{ data.sourceSlug }}</code> with a new slug.
+  </p>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>New campaign slug</mat-label>
+    <input matInput formControlName="new_slug" autocomplete="off" />
+    <mat-error *ngIf="slugError">{{ slugError }}</mat-error>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Created by (optional)</mat-label>
+    <input matInput formControlName="created_by" autocomplete="off" />
+  </mat-form-field>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-raised-button color="primary" type="button" (click)="submit()">Copy</button>
+</mat-dialog-actions>
