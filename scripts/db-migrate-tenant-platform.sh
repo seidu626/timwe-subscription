@@ -8,10 +8,10 @@ DB_NAME="${DB_NAME:-subscription_manager}"
 DB_USER="${DB_USER:-sm_admin}"
 DB_PASSWORD="${DB_PASSWORD:-}"
 BATCH_SIZE="${BATCH_SIZE:-500}"
-LEGACY_TENANT_KEY="${LEGACY_TENANT_KEY:-legacy-default}"
-LEGACY_TENANT_NAME="${LEGACY_TENANT_NAME:-Legacy Default Tenant}"
-LEGACY_TENANT_COUNTRY="${LEGACY_TENANT_COUNTRY:-GH}"
-LEGACY_TENANT_STATUS="${LEGACY_TENANT_STATUS:-ACTIVE}"
+CANONICAL_TENANT_KEY="${CANONICAL_TENANT_KEY:-nrg}"
+CANONICAL_TENANT_NAME="${CANONICAL_TENANT_NAME:-NRG}"
+CANONICAL_TENANT_COUNTRY="${CANONICAL_TENANT_COUNTRY:-GH}"
+CANONICAL_TENANT_STATUS="${CANONICAL_TENANT_STATUS:-ACTIVE}"
 MODE="${1:-}"
 
 if [[ -z "$MODE" ]]; then
@@ -47,33 +47,8 @@ BACKFILL_TABLES=(
   "message_outbox"
 )
 
-channel_scoped_table() {
-  case "$1" in
-    campaigns|postback_outbox|subscriptions|notifications|admin_subscription_action_logs|product_message_series|message_content_items|subscription_message_state|message_outbox)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
 eligible_predicate_for_table() {
-  local table="$1"
-  if channel_scoped_table "$table"; then
-    echo "tenant_id IS NULL AND channel_id IS NULL"
-  else
-    echo "tenant_id IS NULL"
-  fi
-}
-
-blocked_predicate_for_table() {
-  local table="$1"
-  if channel_scoped_table "$table"; then
-    echo "tenant_id IS NULL AND channel_id IS NOT NULL"
-  else
-    echo ""
-  fi
+  echo "tenant_id IS NULL"
 }
 
 conflict_query_for_table() {
@@ -85,7 +60,7 @@ SELECT COUNT(*)
 FROM (
   SELECT slug
   FROM campaigns
-  WHERE tenant_id IS NULL AND channel_id IS NULL
+  WHERE tenant_id IS NULL
   GROUP BY slug
   HAVING COUNT(*) > 1
 ) AS duplicate_groups
@@ -109,7 +84,7 @@ SELECT COUNT(*)
 FROM (
   SELECT partner_role_id, user_identifier, product_id
   FROM subscriptions
-  WHERE tenant_id IS NULL AND channel_id IS NULL
+  WHERE tenant_id IS NULL
   GROUP BY partner_role_id, user_identifier, product_id
   HAVING COUNT(*) > 1
 ) AS duplicate_groups
@@ -121,7 +96,7 @@ SELECT COUNT(*)
 FROM (
   SELECT partner_role_id, product_id, name
   FROM product_message_series
-  WHERE tenant_id IS NULL AND channel_id IS NULL
+  WHERE tenant_id IS NULL
   GROUP BY partner_role_id, product_id, name
   HAVING COUNT(*) > 1
 ) AS duplicate_groups
@@ -151,11 +126,6 @@ tenant_column_exists() {
   [[ "$(query_scalar "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '${table}' AND column_name = 'tenant_id')")" == "t" ]]
 }
 
-channel_column_exists() {
-  local table="$1"
-  [[ "$(query_scalar "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '${table}' AND column_name = 'channel_id')")" == "t" ]]
-}
-
 ensure_schema_prerequisites() {
   local missing=0
   for table in "${BACKFILL_TABLES[@]}"; do
@@ -169,35 +139,30 @@ ensure_schema_prerequisites() {
       echo "MISSING_COLUMN ${table}.tenant_id"
       missing=1
     fi
-
-    if channel_scoped_table "$table" && ! channel_column_exists "$table"; then
-      echo "MISSING_COLUMN ${table}.channel_id"
-      missing=1
-    fi
   done
 
   return "$missing"
 }
 
-get_default_tenant_id() {
+get_canonical_tenant_id() {
   query_text "
 SELECT id
 FROM tenants
-WHERE tenant_key = '${LEGACY_TENANT_KEY}'
+WHERE tenant_key = '${CANONICAL_TENANT_KEY}'
 LIMIT 1;
 " | tail -n 1
 }
 
-upsert_default_tenant() {
+upsert_canonical_tenant() {
   query_text "
 INSERT INTO tenants (id, tenant_key, name, status, default_country, metadata_json)
 VALUES (
   gen_random_uuid(),
-  '${LEGACY_TENANT_KEY}',
-  '${LEGACY_TENANT_NAME}',
-  '${LEGACY_TENANT_STATUS}',
-  '${LEGACY_TENANT_COUNTRY}',
-  jsonb_build_object('migration', 'TMP-011', 'kind', 'legacy-default')
+  '${CANONICAL_TENANT_KEY}',
+  '${CANONICAL_TENANT_NAME}',
+  '${CANONICAL_TENANT_STATUS}',
+  '${CANONICAL_TENANT_COUNTRY}',
+  jsonb_build_object('migration', 'TMP-050', 'kind', 'canonical-default')
 )
 ON CONFLICT (tenant_key) DO UPDATE SET
   name = EXCLUDED.name,
@@ -215,26 +180,21 @@ count_rows() {
   query_scalar "SELECT COUNT(*) FROM ${table} WHERE ${predicate}"
 }
 
-count_default_rows() {
+count_canonical_rows() {
   local table="$1"
-  if [[ -z "${DEFAULT_TENANT_ID:-}" ]]; then
+  if [[ -z "${CANONICAL_TENANT_ID:-}" ]]; then
     echo 0
     return 0
   fi
-  query_scalar "SELECT COUNT(*) FROM ${table} WHERE tenant_id = '${DEFAULT_TENANT_ID}'::uuid"
+  query_scalar "SELECT COUNT(*) FROM ${table} WHERE tenant_id = '${CANONICAL_TENANT_ID}'::uuid"
 }
 
 report_table_state() {
   local table="$1"
-  local eligible_predicate blocked_predicate eligible_rows blocked_rows default_rows conflict_groups batches status
+  local eligible_predicate eligible_rows canonical_rows conflict_groups batches status
   eligible_predicate="$(eligible_predicate_for_table "$table")"
-  blocked_predicate="$(blocked_predicate_for_table "$table")"
   eligible_rows="$(count_rows "$table" "$eligible_predicate")"
-  default_rows="$(count_default_rows "$table")"
-  blocked_rows="0"
-  if [[ -n "$blocked_predicate" ]]; then
-    blocked_rows="$(count_rows "$table" "$blocked_predicate")"
-  fi
+  canonical_rows="$(count_canonical_rows "$table")"
   conflict_groups="0"
   local conflict_query
   conflict_query="$(conflict_query_for_table "$table")"
@@ -246,15 +206,15 @@ report_table_state() {
     batches=$(( (eligible_rows + BATCH_SIZE - 1) / BATCH_SIZE ))
   fi
   status="READY"
-  if [[ "$blocked_rows" -gt 0 || "$conflict_groups" -gt 0 ]]; then
+  if [[ "$conflict_groups" -gt 0 ]]; then
     status="BLOCKED"
   fi
-  printf "%-28s %14s %14s %14s %14s %14s %s\n" "$table" "$eligible_rows" "$default_rows" "$blocked_rows" "$conflict_groups" "$batches" "$status"
+  printf "%-28s %14s %14s %14s %14s %s\n" "$table" "$eligible_rows" "$canonical_rows" "$conflict_groups" "$batches" "$status"
 }
 
 print_summary_header() {
-  printf "%-28s %14s %14s %14s %14s %14s %s\n" "table" "eligible_rows" "default_rows" "blocked_rows" "conflict_groups" "batches" "status"
-  printf "%-28s %14s %14s %14s %14s %14s %s\n" "-----" "-------------" "------------" "------------" "---------------" "-------" "------"
+  printf "%-28s %14s %14s %14s %14s %s\n" "table" "eligible_rows" "canonical_rows" "conflict_groups" "batches" "status"
+  printf "%-28s %14s %14s %14s %14s %s\n" "-----" "-------------" "--------------" "---------------" "-------" "------"
 }
 
 run_dry_run() {
@@ -262,16 +222,15 @@ run_dry_run() {
   if ! ensure_schema_prerequisites; then
     schema_ready=1
   fi
-  DEFAULT_TENANT_ID="$(get_default_tenant_id)"
+  CANONICAL_TENANT_ID="$(get_canonical_tenant_id)"
   echo "tenant-platform migration dry-run"
-  echo "default_tenant_key=${LEGACY_TENANT_KEY}"
-  if [[ -n "$DEFAULT_TENANT_ID" ]]; then
-    echo "default_tenant_id=${DEFAULT_TENANT_ID}"
-    echo "default_tenant_present=yes"
+  echo "canonical_tenant_key=${CANONICAL_TENANT_KEY}"
+  if [[ -n "$CANONICAL_TENANT_ID" ]]; then
+    echo "canonical_tenant_id=${CANONICAL_TENANT_ID}"
+    echo "canonical_tenant_present=yes"
   else
-    echo "default_tenant_id=missing"
-    echo "default_tenant_present=no"
-    schema_ready=1
+    echo "canonical_tenant_id=will_create_on_apply"
+    echo "canonical_tenant_present=no"
   fi
   echo "batch_size=${BATCH_SIZE}"
   echo ""
@@ -280,12 +239,8 @@ run_dry_run() {
   local any_blocked=0
   local total_eligible=0
   for table in "${BACKFILL_TABLES[@]}"; do
-    local eligible_rows blocked_rows conflict_groups
+    local eligible_rows conflict_groups
     eligible_rows="$(count_rows "$table" "$(eligible_predicate_for_table "$table")")"
-    blocked_rows="0"
-    if channel_scoped_table "$table"; then
-      blocked_rows="$(count_rows "$table" "$(blocked_predicate_for_table "$table")")"
-    fi
     conflict_groups="0"
     local conflict_query
     conflict_query="$(conflict_query_for_table "$table")"
@@ -293,7 +248,7 @@ run_dry_run() {
       conflict_groups="$(query_scalar "$conflict_query")"
     fi
     total_eligible=$((total_eligible + eligible_rows))
-    if [[ "$blocked_rows" -gt 0 || "$conflict_groups" -gt 0 ]]; then
+    if [[ "$conflict_groups" -gt 0 ]]; then
       any_blocked=1
     fi
     report_table_state "$table"
@@ -324,35 +279,7 @@ WITH batch AS (
   LIMIT ${BATCH_SIZE}
 )
 UPDATE ${table} AS target
-SET tenant_id = '${DEFAULT_TENANT_ID}'::uuid
-FROM batch
-WHERE target.ctid = batch.ctid
-RETURNING 1;
-"
-    batch_rows="$(query_text "$batch_sql" | sed '/^$/d' | wc -l | tr -d ' ')"
-    if [[ "$batch_rows" -eq 0 ]]; then
-      break
-    fi
-    total=$((total + batch_rows))
-  done
-  echo "$total"
-}
-
-restore_table() {
-  local table="$1"
-  local total=0
-  while true; do
-    local batch_sql batch_rows
-    batch_sql="
-WITH batch AS (
-  SELECT ctid
-  FROM ${table}
-  WHERE tenant_id = '${DEFAULT_TENANT_ID}'::uuid
-  ORDER BY ctid
-  LIMIT ${BATCH_SIZE}
-)
-UPDATE ${table} AS target
-SET tenant_id = NULL
+SET tenant_id = '${CANONICAL_TENANT_ID}'::uuid
 FROM batch
 WHERE target.ctid = batch.ctid
 RETURNING 1;
@@ -371,23 +298,19 @@ apply_migration() {
     echo "tenant-platform migration aborted because schema prerequisites are missing" >&2
     exit 1
   fi
-  DEFAULT_TENANT_ID="$(upsert_default_tenant)"
+  CANONICAL_TENANT_ID="$(upsert_canonical_tenant)"
 
   local blocked_tables=0
   for table in "${BACKFILL_TABLES[@]}"; do
-    local blocked_rows conflict_groups
-    blocked_rows="0"
-    if channel_scoped_table "$table"; then
-      blocked_rows="$(count_rows "$table" "$(blocked_predicate_for_table "$table")")"
-    fi
+    local conflict_groups
     conflict_groups="0"
     local conflict_query
     conflict_query="$(conflict_query_for_table "$table")"
     if [[ -n "$conflict_query" ]]; then
       conflict_groups="$(query_scalar "$conflict_query")"
     fi
-    if [[ "$blocked_rows" -gt 0 || "$conflict_groups" -gt 0 ]]; then
-      echo "BLOCKED ${table} blocked_rows=${blocked_rows} conflict_groups=${conflict_groups}" >&2
+    if [[ "$conflict_groups" -gt 0 ]]; then
+      echo "BLOCKED ${table} conflict_groups=${conflict_groups}" >&2
       blocked_tables=1
     fi
   done
@@ -398,7 +321,7 @@ apply_migration() {
   fi
 
   echo "applying tenant-platform migration"
-  echo "default_tenant_id=${DEFAULT_TENANT_ID}"
+  echo "canonical_tenant_id=${CANONICAL_TENANT_ID}"
 
   for table in "${BACKFILL_TABLES[@]}"; do
     local predicate moved_rows
@@ -420,39 +343,11 @@ apply_migration() {
   done
 
   if [[ "$remaining" -ne 0 ]]; then
-    echo "tenant-platform migration left eligible legacy rows behind" >&2
+    echo "tenant-platform migration left eligible tenantless rows behind" >&2
     exit 1
   fi
 
   echo "readiness=APPLIED"
-}
-
-rollback_migration() {
-  if ! ensure_schema_prerequisites; then
-    echo "tenant-platform rollback aborted because schema prerequisites are missing" >&2
-    exit 1
-  fi
-  DEFAULT_TENANT_ID="$(upsert_default_tenant)"
-
-  echo "rolling back tenant-platform migration"
-  echo "default_tenant_id=${DEFAULT_TENANT_ID}"
-
-  for table in "${BACKFILL_TABLES[@]}"; do
-    local restored_rows
-    restored_rows="$(restore_table "$table")"
-    printf "%-28s %14s\n" "$table" "$restored_rows"
-  done
-
-  local references=0
-  for table in "${BACKFILL_TABLES[@]}"; do
-    references=$((references + $(count_rows "$table" "tenant_id = '${DEFAULT_TENANT_ID}'::uuid")))
-  done
-
-  if [[ "$references" -eq 0 ]]; then
-    query_text "DELETE FROM tenants WHERE tenant_key = '${LEGACY_TENANT_KEY}';" >/dev/null
-  fi
-
-  echo "readiness=ROLLED_BACK"
 }
 
 case "$MODE" in
@@ -462,20 +357,17 @@ case "$MODE" in
   --apply)
     apply_migration
     ;;
-  --rollback)
-    rollback_migration
-    ;;
   -h|--help|help)
     cat <<EOF
-Usage: $0 [--dry-run|--apply|--rollback]
+Usage: $0 [--dry-run|--apply]
 
 Environment:
   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
   BATCH_SIZE (default 500)
-  LEGACY_TENANT_KEY (default legacy-default)
-  LEGACY_TENANT_NAME (default Legacy Default Tenant)
-  LEGACY_TENANT_COUNTRY (default GH)
-  LEGACY_TENANT_STATUS (default ACTIVE)
+  CANONICAL_TENANT_KEY (default nrg)
+  CANONICAL_TENANT_NAME (default NRG)
+  CANONICAL_TENANT_COUNTRY (default GH)
+  CANONICAL_TENANT_STATUS (default ACTIVE)
 EOF
     ;;
   *)

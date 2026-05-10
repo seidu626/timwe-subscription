@@ -3896,6 +3896,187 @@
       "unresolved": [],
       "updated_at": "2026-05-10T23:31:16Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "scripts/db-migrate-tenant-platform.sh",
+            "bash -n scripts/db-migrate-tenant-platform.sh"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Migration script defaults to tenant_key=nrg and backfills tenant_id IS NULL rows."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "scripts/db-migrate-tenant-platform.sh",
+            "Makefile",
+            "canonical-path rg check"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Migration script has no rollback-to-null mode."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/environments/environment.ts",
+            "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+            "services/acquisition-api/internal/transport/admin_test.go",
+            "services/acquisition-api/internal/handler/reports_handler_test.go"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Active frontend bootstrap defaults and backend tests use nrg instead of legacy-default."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [
+        "TMP-051",
+        "TMP-052"
+      ],
+      "completed": [
+        "Migration defaults to nrg and backfills tenant_id IS NULL rows.",
+        "Rollback-to-null mode and Make target removed.",
+        "Frontend bootstrap defaults and backend selected-tenant tests use nrg.",
+        "Changed tenant migration defaults from legacy-default to nrg.",
+        "Removed active rollback-to-null migration mode and Make target.",
+        "Changed configured table eligibility to tenant_id IS NULL, including rows with channel_id.",
+        "Updated active runbook, onboarding examples, frontend bootstrap defaults, and backend/frontend tests to nrg.",
+        "Recorded TMP-050 issue, work order, slice evidence, and handoff."
+      ],
+      "created_at": "2026-05-10T23:43:25Z",
+      "details": "Replace legacy-default migration/default bootstrap with canonical nrg tenant ownership for tenantless data.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "bash -n scripts/db-migrate-tenant-platform.sh",
+            "exit_code": 0,
+            "output_excerpt": "shell syntax valid",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:47:00Z"
+          },
+          {
+            "command": "canonical-path rg check",
+            "exit_code": 0,
+            "output_excerpt": "no matches for legacy-default, rollback mode, tenant_id NULL restore, or channel-id exclusion in scoped active files",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:47:00Z"
+          },
+          {
+            "command": "cd services/acquisition-api && go test ./internal/transport ./internal/handler",
+            "exit_code": 0,
+            "output_excerpt": "ok internal/transport; ok internal/handler",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:48:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+            "exit_code": 0,
+            "output_excerpt": "TOTAL: 88 SUCCESS",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:49:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-050 assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:49:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "scripts/db-migrate-tenant-platform.sh",
+          "Makefile",
+          "docs/tenant-platform-migration-runbook.md",
+          "docs/tenant-channel-onboarding.md",
+          "frontend/webspa-admin/src/environments/environment.ts",
+          "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+          "services/acquisition-api/internal/transport/admin_test.go",
+          "services/acquisition-api/internal/handler/reports_handler_test.go",
+          "agent/backlog/issues/TMP-050-canonical-nrg-tenant-migration.md",
+          "agent/state/TMP-050.work-order.json",
+          "agent/state/TMP-050.handoff.json",
+          "slices/manifest.json",
+          "slices/TMP-050-canonical-nrg-tenant-migration/**",
+          ".agent/tasks.json"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-050",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Canonical nrg tenant migration",
+      "unresolved": [],
+      "updated_at": "2026-05-10T23:51:23Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [],
+      "attempts": 0,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [],
+      "created_at": "2026-05-10T23:51:23Z",
+      "details": "created from handoff.next_tasks",
+      "evidence": {
+        "commands": [],
+        "commits": [],
+        "files": []
+      },
+      "goal": "",
+      "id": "TMP-051",
+      "owner": null,
+      "parent_id": "T-TMP-050",
+      "priority": 0,
+      "review_findings": [],
+      "status": "queued",
+      "title": "Tenant management admin list/update UI and API",
+      "unresolved": [],
+      "updated_at": "2026-05-10T23:51:23Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [],
+      "attempts": 0,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [],
+      "created_at": "2026-05-10T23:51:23Z",
+      "details": "created from handoff.next_tasks",
+      "evidence": {
+        "commands": [],
+        "commits": [],
+        "files": []
+      },
+      "goal": "",
+      "id": "TMP-052",
+      "owner": null,
+      "parent_id": "T-TMP-050",
+      "priority": 0,
+      "review_findings": [],
+      "status": "queued",
+      "title": "Tenant NOT NULL enforcement and nullable-path audit",
+      "unresolved": [],
+      "updated_at": "2026-05-10T23:51:23Z",
+      "worktree": null
     }
   ],
   "version": 1

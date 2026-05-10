@@ -93,8 +93,8 @@ describe('TenantWorkspaceService', () => {
 
     expect(workspace.status).toBe('ready');
     expect(workspace.platformScoped).toBeTrue();
-    expect(workspace.currentTenant?.tenantKey).toBe('legacy-default');
-    expect(workspace.availableTenants.map((tenant) => tenant.tenantKey)).toContain('legacy-default');
+    expect(workspace.currentTenant?.tenantKey).toBe('nrg');
+    expect(workspace.availableTenants.map((tenant) => tenant.tenantKey)).toContain('nrg');
   });
 
   it('maps bootstrap admin emails from user metadata case-insensitively', () => {
@@ -122,7 +122,7 @@ describe('TenantWorkspaceService', () => {
 
     expect(workspace.status).toBe('ready');
     expect(workspace.platformScoped).toBeTrue();
-    expect(workspace.currentTenant?.tenantKey).toBe('legacy-default');
+    expect(workspace.currentTenant?.tenantKey).toBe('nrg');
   });
 
   it('requires selection when a bootstrap admin has multiple runtime tenant workspaces', () => {

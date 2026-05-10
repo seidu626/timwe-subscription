@@ -40,8 +40,8 @@ export const environment = {
     ],
     tenantWorkspaces: [
       {
-        tenant_key: 'legacy-default',
-        name: 'Legacy Default',
+        tenant_key: 'nrg',
+        name: 'NRG',
       },
     ],
   },

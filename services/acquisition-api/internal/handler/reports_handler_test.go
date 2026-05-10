@@ -168,13 +168,13 @@ func TestParseFilters_ResolvesPlatformSelectedTenantKey(t *testing.T) {
 	defer db.Close()
 
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id")).
-		WithArgs("legacy-default").
+		WithArgs("nrg").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("11111111-1111-1111-1111-111111111111"))
 
 	h := &ReportsHandler{reportsRepo: repository.NewReportsRepository(db, zap.NewNop())}
 	ctx := &fasthttp.RequestCtx{}
 	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
-		TenantKey:      "legacy-default",
+		TenantKey:      "nrg",
 		PlatformScoped: true,
 		TrustSource:    tenantctx.TrustSourceJWT,
 	})

@@ -1,0 +1,7 @@
+{
+  "agent": "codex",
+  "last_action": "Replaced legacy-default tenant migration tooling with canonical nrg dry-run/apply path and verified backend/frontend tests.",
+  "state": "checkpoint",
+  "task_id": "T-TMP-050",
+  "updated_at": "2026-05-10T23:51:08Z"
+}

@@ -10,7 +10,7 @@ Every partner request must carry both tenant and channel identity.
 
 | Field | Required | Example | Notes |
 | --- | --- | --- | --- |
-| `tenant_key` | Yes | `legacy-default` | Stable tenant slug assigned during onboarding. |
+| `tenant_key` | Yes | `nrg` | Stable tenant slug assigned during onboarding. |
 | `channel_key` | Yes | `web-gh-mobplus` | Stable channel slug under the tenant. |
 | `partner_key` | Yes | `mobplus` | Partner identifier used for audit and routing. |
 | `capability` | Yes | `optin`, `confirm`, `mt`, `charge`, `callback`, `postback` | Must be enabled for the tenant channel before use. |
@@ -113,7 +113,7 @@ Postbacks are delivered from the platform to the partner URL configured on the t
 ```json
 {
   "contract_version": "tenant-channel-v1.0.0",
-  "tenant_key": "legacy-default",
+  "tenant_key": "nrg",
   "channel_key": "web-gh-mobplus",
   "partner_key": "mobplus",
   "postback_id": "pb_01JXAMPLE000000000000000",
@@ -128,17 +128,17 @@ Postbacks are delivered from the platform to the partner URL configured on the t
 
 Do not include raw MSISDN values in postback examples.
 
-## Legacy TIMWE Mapping
+## TIMWE Field Mapping
 
-| Legacy Field | Tenant/Channel Contract Field | Posture |
+| Provider Field | Tenant/Channel Contract Field | Posture |
 | --- | --- | --- |
-| `realm` | `tenant_key` | Supported as compatibility input only when mapped explicitly. |
-| `channel` or `entry_channel` | `channel_key` | Supported for current TIMWE-style integrations. |
+| `realm` | `tenant_key` | Must resolve to the configured tenant key. |
+| `channel` or `entry_channel` | `channel_key` | Must resolve to the configured tenant channel key. |
 | `partnerRole` | `partner_key` | Mapped during onboarding. |
 | `txid`, `tracker`, or `click_id` | `click_id` | Preserve original partner value. |
-| unsigned callback | signed callback headers | Deprecated; sandbox must reject missing signatures. |
+| unsigned callback | signed callback headers | Rejected; sandbox must reject missing signatures. |
 
-Ambiguous legacy mappings must fail closed. Operators must choose a single tenant/channel mapping before enabling production traffic.
+Ambiguous provider mappings must fail closed. Operators must choose a single tenant/channel mapping before enabling production traffic.
 
 ## Sandbox Fixtures
 

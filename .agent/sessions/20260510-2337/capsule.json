@@ -1,0 +1,20 @@
+{
+  "blockers": [],
+  "next_tasks": [
+    {
+      "id": "TMP-051",
+      "title": "Tenant management admin list/update UI and API"
+    },
+    {
+      "id": "TMP-052",
+      "title": "Tenant NOT NULL enforcement and nullable-path audit"
+    }
+  ],
+  "safe_to_continue": true,
+  "session_id": "20260510-2337",
+  "status": "done",
+  "summary": "Replaced the legacy-default tenant migration path with canonical nrg tenant ownership and removed active rollback-to-null migration tooling.",
+  "task_id": "T-TMP-050",
+  "unfinished_work": [],
+  "written_at": "2026-05-10T23:51:23Z"
+}

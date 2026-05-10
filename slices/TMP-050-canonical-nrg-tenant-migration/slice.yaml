@@ -1,0 +1,53 @@
+story:
+  id: "TMP-050"
+  title: "Existing tenantless data migrates to nrg"
+  actor: "platform-operator"
+  action: "run the tenant platform migration"
+  outcome: "tenantless production rows are assigned to the canonical nrg tenant"
+  as_a: "platform-operator"
+  i_want_to: "migrate existing tenantless data to nrg"
+  so_that: "the platform has one canonical tenant owner instead of a legacy nullable tenant path"
+
+entrypoints:
+  - "make db-migrate-tenant-platform-dry-run"
+  - "make db-migrate-tenant-platform"
+  - "frontend/webspa-admin/src/environments/environment.ts"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Canonical tenant backfill"
+      given: ["configured tables contain rows where tenant_id IS NULL"]
+      when: "the operator runs make db-migrate-tenant-platform"
+      then: "the script upserts nrg and assigns those rows to nrg"
+      evidence: "scripts/db-migrate-tenant-platform.sh static check and bash -n"
+    - scenario: "Bootstrap admin default workspace"
+      given: ["bootstrap admin email is configured"]
+      when: "webspa-admin resolves workspace defaults"
+      then: "the workspace tenant key is nrg"
+      evidence: "TenantWorkspaceService unit tests"
+  failures:
+    - scenario: "Rollback-to-null path"
+      given: ["operator inspects migration commands"]
+      when: "they list active tenant migration modes"
+      then: "no --rollback or db-rollback-tenant-platform path is present"
+      evidence: "canonical-path rg check"
+  invariants:
+    - rule: "tenantless rows do not stay outside canonical tenant ownership"
+      preserved_by: "eligible_predicate_for_table returns tenant_id IS NULL for configured tables"
+      violated_when: "channel-scoped rows are excluded by channel_id predicates"
+      test: "canonical-path rg check"
+
+out_of_scope:
+  - "live remote database execution"
+  - "tenant list/update admin UI"
+  - "database NOT NULL enforcement"
+
+size_check:
+  files_touched: 12
+  migrations: 1
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-050-canonical-nrg-tenant-migration/value-gate-report.md"
+

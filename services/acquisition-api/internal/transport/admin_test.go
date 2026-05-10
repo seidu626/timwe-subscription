@@ -73,13 +73,13 @@ func TestAdminRequireAppliesBootstrapPlatformEmailAndSelectedTenant(t *testing.T
 
 	var ctx fasthttp.RequestCtx
 	ctx.Request.Header.Set("Authorization", "Bearer "+token)
-	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "legacy-default")
+	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "nrg")
 
 	if !access.require(&ctx) {
 		t.Fatalf("expected admin auth to pass, status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
 	}
 	identity := ctx.UserValue(tenantctx.FastHTTPUserValueKey).(tenantctx.Identity)
-	if !identity.PlatformScoped || !identity.HasPermission("platform:all_tenants") || identity.TenantKey != "legacy-default" {
+	if !identity.PlatformScoped || !identity.HasPermission("platform:all_tenants") || identity.TenantKey != "nrg" {
 		t.Fatalf("identity = %#v", identity)
 	}
 }
@@ -146,7 +146,7 @@ func TestAdminRequireDoesNotBootstrapUnverifiedEmail(t *testing.T) {
 
 	var ctx fasthttp.RequestCtx
 	ctx.Request.Header.Set("Authorization", "Bearer "+token)
-	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "legacy-default")
+	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "nrg")
 
 	if !access.require(&ctx) {
 		t.Fatalf("expected admin auth to pass, status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
@@ -199,7 +199,7 @@ func TestIsTenantCampaignPathRequiresTenantAndSlug(t *testing.T) {
 		t.Fatal("expected tenant campaign path to match")
 	}
 	if isTenantCampaignPath("/v1/campaigns/daily") {
-		t.Fatal("legacy campaign path must not match tenant campaign route")
+		t.Fatal("single-segment campaign path must not match tenant campaign route")
 	}
 }
 

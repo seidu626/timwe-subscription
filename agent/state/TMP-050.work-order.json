@@ -1,0 +1,82 @@
+{
+  "work_order_id": "WO-TMP-050-001",
+  "issue_id": "TMP-050",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "existing tenantless production data is assigned to the canonical nrg tenant with no legacy-default compatibility path.",
+  "actor": "platform-operator",
+  "entrypoint": "make db-migrate-tenant-platform",
+  "trigger": "operator has decided nrg is the canonical default tenant and legacy/default compatibility paths must be pruned.",
+  "allowed_files": [
+    "scripts/db-migrate-tenant-platform.sh",
+    "Makefile",
+    "docs/tenant-platform-migration-runbook.md",
+    "docs/tenant-channel-onboarding.md",
+    "frontend/webspa-admin/src/environments/environment.ts",
+    "frontend/webspa-admin/src/environments/environment.prod.ts",
+    "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+    "services/acquisition-api/internal/transport/admin_test.go",
+    "services/acquisition-api/internal/handler/reports_handler_test.go",
+    "agent/backlog/issues/TMP-050-canonical-nrg-tenant-migration.md",
+    "agent/state/TMP-050.work-order.json",
+    "agent/state/TMP-050.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-050-canonical-nrg-tenant-migration/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/acquisition-api/internal/service/**",
+    "services/acquisition-api/internal/repository/**",
+    "services/subscription-external/internal/**",
+    "services/*/go.mod",
+    "services/*/go.sum",
+    "docker-compose*.yml"
+  ],
+  "acceptance_tests": [
+    "Migration script creates or resolves tenant_key=nrg and backfills every tenant_id IS NULL row in the configured tables.",
+    "Migration script has no rollback mode that restores tenant_id to NULL.",
+    "Active frontend bootstrap defaults and backend tests use nrg instead of legacy-default."
+  ],
+  "required_evidence": [
+    "bash -n scripts/db-migrate-tenant-platform.sh",
+    "rg -n \"legacy-default|LEGACY_TENANT|db-rollback-tenant-platform|--rollback|tenant_id = NULL|channel_id IS NULL|channel_id IS NOT NULL\" scripts/db-migrate-tenant-platform.sh docs/tenant-platform-migration-runbook.md docs/tenant-channel-onboarding.md frontend/webspa-admin/src/environments services/acquisition-api/internal/transport/admin_test.go services/acquisition-api/internal/handler/reports_handler_test.go | cat",
+    "cd services/acquisition-api && go test ./internal/transport ./internal/handler",
+    "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "non_goals": [
+    "Do not run the migration against a live remote database in this agent session.",
+    "Do not add multi-tenant membership tables in this slice.",
+    "Do not implement tenant list/update UI in this slice; that follows after the canonical tenant migration path is safe."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-050",
+    "title": "Canonical nrg tenant migration",
+    "path": "agent/backlog/issues/TMP-050-canonical-nrg-tenant-migration.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 82,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 0,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

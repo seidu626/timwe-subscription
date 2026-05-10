@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "task_id": "T-TMP-050",
+  "status": "done",
+  "supervisor_decision": "ready_for_review",
+  "summary": "Replaced the legacy-default tenant migration path with canonical nrg tenant ownership and removed active rollback-to-null migration tooling.",
+  "session_id": "20260510-2337",
+  "acceptance_results": [
+    {
+      "criterion": "Migration script defaults to tenant_key=nrg and backfills tenant_id IS NULL rows.",
+      "status": "passed",
+      "evidence": [
+        "scripts/db-migrate-tenant-platform.sh",
+        "bash -n scripts/db-migrate-tenant-platform.sh"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Migration script has no rollback-to-null mode.",
+      "status": "passed",
+      "evidence": [
+        "scripts/db-migrate-tenant-platform.sh",
+        "Makefile",
+        "canonical-path rg check"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Active frontend bootstrap defaults and backend tests use nrg instead of legacy-default.",
+      "status": "passed",
+      "evidence": [
+        "frontend/webspa-admin/src/environments/environment.ts",
+        "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+        "services/acquisition-api/internal/transport/admin_test.go",
+        "services/acquisition-api/internal/handler/reports_handler_test.go"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    "scripts/db-migrate-tenant-platform.sh",
+    "Makefile",
+    "docs/tenant-platform-migration-runbook.md",
+    "docs/tenant-channel-onboarding.md",
+    "frontend/webspa-admin/src/environments/environment.ts",
+    "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+    "services/acquisition-api/internal/transport/admin_test.go",
+    "services/acquisition-api/internal/handler/reports_handler_test.go",
+    "agent/backlog/issues/TMP-050-canonical-nrg-tenant-migration.md",
+    "agent/state/TMP-050.work-order.json",
+    "agent/state/TMP-050.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-050-canonical-nrg-tenant-migration/**",
+    ".agent/tasks.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No long-running services were left running.",
+    "npm ci hydrated frontend dependencies in the isolated worktree for test execution."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Changed tenant migration defaults from legacy-default to nrg.",
+    "Removed active rollback-to-null migration mode and Make target.",
+    "Changed configured table eligibility to tenant_id IS NULL, including rows with channel_id.",
+    "Updated active runbook, onboarding examples, frontend bootstrap defaults, and backend/frontend tests to nrg.",
+    "Recorded TMP-050 issue, work order, slice evidence, and handoff."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "The migration was not executed against a remote live database in this agent session.",
+    "Database NOT NULL enforcement and tenant list/update UI are follow-up slices."
+  ],
+  "next_tasks": [
+    {
+      "id": "TMP-051",
+      "title": "Tenant management admin list/update UI and API"
+    },
+    {
+      "id": "TMP-052",
+      "title": "Tenant NOT NULL enforcement and nullable-path audit"
+    }
+  ],
+  "operator_message": "TMP-050 makes nrg the canonical migration/default tenant and removes the active legacy-default rollback path.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "Rollback for migrated production data is now an operational database restore concern, not an active codepath that preserves tenantless ownership."
+  ],
+  "safe_to_continue": true,
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "bash -n scripts/db-migrate-tenant-platform.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "shell syntax valid",
+      "timestamp": "2026-05-10T23:47:00Z"
+    },
+    {
+      "command": "canonical-path rg check",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "no matches for legacy-default, rollback mode, tenant_id NULL restore, or channel-id exclusion in scoped active files",
+      "timestamp": "2026-05-10T23:47:00Z"
+    },
+    {
+      "command": "cd services/acquisition-api && go test ./internal/transport ./internal/handler",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok internal/transport; ok internal/handler",
+      "timestamp": "2026-05-10T23:48:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TOTAL: 88 SUCCESS",
+      "timestamp": "2026-05-10T23:49:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TMP-050 assignment_decision allow; no blocking reasons",
+      "timestamp": "2026-05-10T23:49:00Z"
+    }
+  ]
+}

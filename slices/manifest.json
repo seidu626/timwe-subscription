@@ -1622,7 +1622,47 @@
         "dod_path": "slices/TMP-049-acquisition-campaign-slug-migration-startup/value-gate-report.md"
       },
       "notes": "Generalizes the previous hard-coded acquisition transaction FK drop into catalog-driven removal of all legacy foreign keys that reference public.campaigns(slug), allowing campaigns_slug_key to be removed for tenant-scoped duplicate slugs."
+    },
+    {
+      "id": "TMP-050",
+      "external_id": "TMP-050",
+      "name": "Canonical nrg tenant migration",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-050-canonical-nrg-tenant-migration.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can migrate tenantless production data to the canonical nrg tenant.",
+      "demo": "Migration tooling defaults to nrg, backfills tenant_id IS NULL rows, removes rollback-to-null, and webspa-admin bootstrap defaults use nrg.",
+      "depends_on": [
+        "TMP-011",
+        "TMP-048"
+      ],
+      "layers": [
+        "migration-script",
+        "runbook",
+        "admin-frontend-config",
+        "backend-test",
+        "evidence"
+      ],
+      "state": "done",
+      "branch": "agent/codex/nrg-tenant-20260510-2337",
+      "created_at": "2026-05-10T23:43:25Z",
+      "shipped_at": "2026-05-10T23:49:00Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "bash -n scripts/db-migrate-tenant-platform.sh",
+          "! rg -n \"legacy-default|LEGACY_TENANT|db-rollback-tenant-platform|--rollback|tenant_id = NULL|channel_id IS NULL|channel_id IS NOT NULL\" scripts/db-migrate-tenant-platform.sh docs/tenant-platform-migration-runbook.md docs/tenant-channel-onboarding.md frontend/webspa-admin/src/environments services/acquisition-api/internal/transport/admin_test.go services/acquisition-api/internal/handler/reports_handler_test.go",
+          "cd services/acquisition-api && go test ./internal/transport ./internal/handler",
+          "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "test -f slices/TMP-050-canonical-nrg-tenant-migration/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-050-canonical-nrg-tenant-migration/value-gate-report.md"
+      },
+      "notes": "Collapses the legacy-default tenant migration into canonical nrg ownership and removes active rollback-to-null tooling so tenantless production data no longer has an active compatibility path."
     }
   ],
-  "updated_at": "2026-05-10T23:28:24Z"
+  "updated_at": "2026-05-10T23:49:00Z"
 }
