@@ -1,0 +1,80 @@
+{
+  "work_order_id": "WO-TMP-051-001",
+  "issue_id": "TMP-051",
+  "class": "vertical_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "operators can list and update tenant catalog records from admin API and UI.",
+  "actor": "operator",
+  "entrypoint": "GET /v1/admin/tenants and webspa-admin tenant catalog route",
+  "trigger": "operator requested admin features for tenant catalog records after making nrg canonical.",
+  "allowed_files": [
+    "services/acquisition-api/internal/domain/admin_management.go",
+    "services/acquisition-api/internal/repository/admin_management_repository.go",
+    "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+    "services/acquisition-api/internal/service/admin_management_service.go",
+    "services/acquisition-api/internal/service/admin_management_service_test.go",
+    "services/acquisition-api/internal/handler/admin_management_handler.go",
+    "services/acquisition-api/internal/handler/admin_management_tenant_test.go",
+    "services/acquisition-api/internal/transport/router.go",
+    "services/acquisition-api/internal/transport/admin_test.go",
+    "frontend/webspa-admin/src/app/**",
+    "agent/backlog/issues/TMP-051-tenant-catalog-admin-ui-api.md",
+    "agent/state/TMP-051.work-order.json",
+    "agent/state/TMP-051.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-051-tenant-catalog-admin-ui-api/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "scripts/db-migrate-tenant-platform.sh",
+    "services/subscription-external/**",
+    "docker-compose*.yml",
+    "go.mod",
+    "go.sum"
+  ],
+  "acceptance_tests": [
+    "Operator-scoped admin can list tenants with status/default country metadata.",
+    "Operator-scoped admin can update tenant status/name/default country/metadata.",
+    "Tenant-scoped admin cannot list or mutate tenant catalog.",
+    "webspa-admin exposes tenant catalog navigation and tenant catalog states without bypassing tenant workspace guards."
+  ],
+  "required_evidence": [
+    "cd services/acquisition-api && go test ./internal/handler ./internal/service ./internal/repository ./internal/transport",
+    "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "non_goals": [
+    "Do not add database membership tables in this slice.",
+    "Do not change tenant migration tooling in this slice."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-051",
+    "title": "Tenant catalog admin UI and API",
+    "path": "agent/backlog/issues/TMP-051-tenant-catalog-admin-ui-api.md",
+    "declared_class": "vertical_slice",
+    "detected_class": "vertical_slice",
+    "confidence": 0.86,
+    "verticality_score": 75,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 8,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 0,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

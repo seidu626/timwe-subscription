@@ -1,0 +1,67 @@
+{
+  "work_order_id": "WO-TMP-052-001",
+  "issue_id": "TMP-052",
+  "class": "bounded_enabler",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "tenant nullable ownership paths are classified for canonical nrg enforcement without speculative schema rewrites.",
+  "actor": "platform-operator",
+  "entrypoint": "tenant_id nullable-path audit",
+  "trigger": "operator requested no legacy/compatibility codepaths after canonical nrg migration.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-052-tenant-nullable-path-enforcement.md",
+    "agent/state/TMP-052.work-order.json",
+    "agent/state/TMP-052.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-052-tenant-nullable-path-enforcement/**",
+    "docs/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**/go.mod",
+    "services/**/go.sum",
+    "docker-compose*.yml"
+  ],
+  "acceptance_tests": [
+    "Remaining tenant nullable codepaths are inventoried and classified as delete_now, collapse_into_canonical, keep_as_permanent_capability, or needs_human_decision.",
+    "No enforcement migration is added unless the audit proves it is safe for the touched table set.",
+    "Follow-up implementation slices are emitted for any table group that still needs runtime proof."
+  ],
+  "required_evidence": [
+    "rg -n \"tenant_id IS NULL|tenant_id = NULL|WHERE .*tenant_id IS NULL|tenant_id UUID\" services scripts docs frontend -g '!**/node_modules/**'",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "non_goals": [
+    "Do not force NOT NULL constraints across every table without live data proof.",
+    "Do not mutate a remote database in this agent session."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-052",
+    "title": "Tenant nullable path enforcement",
+    "path": "agent/backlog/issues/TMP-052-tenant-nullable-path-enforcement.md",
+    "declared_class": "bounded_enabler",
+    "detected_class": "bounded_enabler",
+    "confidence": 0.86,
+    "verticality_score": 85,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 8,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}
