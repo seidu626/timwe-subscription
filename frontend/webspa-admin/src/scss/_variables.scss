@@ -1,0 +1,104 @@
+// Variable overrides
+//
+// Custom color scheme for a professional, accessible admin portal.
+
+$enable-deprecation-messages: false !default;
+
+// ============================================
+// COLOR PALETTE - Modern Professional Theme
+// ============================================
+
+// Primary Colors - Indigo/Blue for trust and professionalism
+$primary:         #4f46e5;  // Indigo 600
+$primary-light:   #6366f1;  // Indigo 500
+$primary-dark:    #3730a3;  // Indigo 800
+
+// Secondary/Accent Colors
+$secondary:       #64748b;  // Slate 500
+$secondary-light: #94a3b8;  // Slate 400
+$secondary-dark:  #475569;  // Slate 600
+
+// Semantic Colors - Accessible contrast ratios
+$success:         #10b981;  // Emerald 500
+$success-light:   #34d399;  // Emerald 400
+$success-dark:    #059669;  // Emerald 600
+
+$info:            #0ea5e9;  // Sky 500
+$info-light:      #38bdf8;  // Sky 400
+$info-dark:       #0284c7;  // Sky 600
+
+$warning:         #f59e0b;  // Amber 500
+$warning-light:   #fbbf24;  // Amber 400
+$warning-dark:    #d97706;  // Amber 600
+
+$danger:          #ef4444;  // Red 500
+$danger-light:    #f87171;  // Red 400
+$danger-dark:     #dc2626;  // Red 600
+
+// Neutral Colors - Slate scale for text and backgrounds
+$gray-100:        #f8fafc;  // Slate 50
+$gray-200:        #f1f5f9;  // Slate 100
+$gray-300:        #e2e8f0;  // Slate 200
+$gray-400:        #cbd5e1;  // Slate 300
+$gray-500:        #94a3b8;  // Slate 400
+$gray-600:        #64748b;  // Slate 500
+$gray-700:        #475569;  // Slate 600
+$gray-800:        #334155;  // Slate 700
+$gray-900:        #1e293b;  // Slate 800
+
+// Dark mode specific
+$dark-bg:         #0f172a;  // Slate 900
+$dark-surface:    #1e293b;  // Slate 800
+$dark-border:     #334155;  // Slate 700
+
+// Light mode specific
+$light-bg:        #f8fafc;  // Slate 50
+$light-surface:   #ffffff;
+$light-border:    #e2e8f0;  // Slate 200
+
+// ============================================
+// COREUI VARIABLE OVERRIDES
+// ============================================
+
+// Primary theme color
+$cui-primary:     $primary;
+$cui-secondary:   $secondary;
+$cui-success:     $success;
+$cui-info:        $info;
+$cui-warning:     $warning;
+$cui-danger:      $danger;
+
+// Sidebar colors - Professional dark sidebar
+$sidebar-bg:                      $gray-900;
+$sidebar-color:                   $gray-100;
+$sidebar-border-color:            $dark-border;
+
+$sidebar-nav-link-color:          $gray-300;
+$sidebar-nav-link-hover-color:    $gray-100;
+$sidebar-nav-link-hover-bg:       rgba($primary, 0.15);
+$sidebar-nav-link-active-color:   $gray-100;
+$sidebar-nav-link-active-bg:      $primary;
+
+$sidebar-nav-title-color:         $gray-500;
+$sidebar-nav-icon-color:          $gray-400;
+$sidebar-nav-icon-hover-color:    $primary-light;
+
+// Header colors
+$header-bg:                       $light-surface;
+$header-border-color:             $light-border;
+
+// Body colors
+$body-bg:                         $gray-100;
+$body-color:                      $gray-800;
+
+// Card colors
+$card-bg:                         $light-surface;
+$card-border-color:               $light-border;
+
+// Form controls
+$input-bg:                        $light-surface;
+$input-border-color:              $gray-400;
+$input-focus-border-color:        $primary;
+
+// Enable dark mode
+$enable-dark-mode: true;

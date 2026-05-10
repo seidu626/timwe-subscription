@@ -1,0 +1,76 @@
+{
+  "work_order_id": "WO-TMP-034-001",
+  "issue_id": "TMP-034",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Acquisition API starts in the compose runtime with base products/userbase schema available before admin migrations run.",
+  "actor": "platform-operator",
+  "entrypoint": "docker compose acquisition-api runtime startup",
+  "trigger": "Verifier runs bounded compose runtime smoke after TMP-030 image build fix.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-034-acquisition-runtime-schema-provisioning.md",
+    "agent/state/TMP-034.work-order.json",
+    "agent/state/TMP-034.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-034-acquisition-runtime-schema-provisioning/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "common/**",
+    "frontend/**",
+    "ops/**",
+    "docker-compose*.yml",
+    "Makefile",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json",
+    "*.sql"
+  ],
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "test -f slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "required_evidence": [
+    "targeted acquisition-api runtime probe",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-030-acquisition-compose-build-context/value-gate-report.md",
+    "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-034",
+    "title": "Acquisition runtime schema provisioning",
+    "path": "agent/backlog/issues/TMP-034-acquisition-runtime-schema-provisioning.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

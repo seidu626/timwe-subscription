@@ -1,0 +1,134 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": ".gitmodules maps frontend/webspa-admin to the configured submodule remote.",
+      "evidence": [
+        ".gitmodules",
+        "slices/TMP-026-webspa-submodule-verification/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": "The configured submodule remote does not contain pinned commit 2ad95b18ecff4d8b23e5d1b7152975c477d5137a.",
+      "criterion": "git submodule update --init --recursive frontend/webspa-admin succeeds.",
+      "evidence": [
+        "slices/TMP-026-webspa-submodule-verification/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": "git submodule update failed with upload-pack not our ref for the pinned commit.",
+      "status": "blocked"
+    },
+    {
+      "blocker": "Admin checkout did not initialize, so package.json and admin test/build commands cannot run.",
+      "criterion": "frontend/webspa-admin/package.json exists and admin verification command runs.",
+      "evidence": [
+        "slices/TMP-026-webspa-submodule-verification/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": "The submodule checkout must be made fetchable before UI verification can run.",
+      "status": "blocked"
+    }
+  ],
+  "blockers": [
+    "webspa-admin gitlink pins 2ad95b18ecff4d8b23e5d1b7152975c477d5137a, but https://github.com/coreui/coreui-free-angular-admin-template.git does not provide that commit.",
+    "Operator decision required: publish the pinned admin commit to an accessible remote, repoint the gitlink after review, or replace the gitlink strategy."
+  ],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/heartbeats/T-TMP-026.json",
+    ".agent/tasks.json",
+    ".harness/task-ledger.sqlite",
+    "agent/backlog/issues/TMP-026-webspa-submodule-verification.md",
+    "agent/state/TMP-026.handoff.json",
+    "agent/state/TMP-026.work-order.json",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/TMP-026-webspa-submodule-verification/notes.md",
+    "slices/TMP-026-webspa-submodule-verification/slice.yaml",
+    "slices/TMP-026-webspa-submodule-verification/spec.md",
+    "slices/TMP-026-webspa-submodule-verification/value-gate-report.md",
+    "slices/manifest.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "Deinitialized the failed frontend/webspa-admin submodule checkout so no submodule pointer change is committed."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Verified .gitmodules is present and maps frontend/webspa-admin.",
+    "Ran submodule initialization and captured the exact unavailable-pinned-commit failure.",
+    "Corrected TMP-021 full-system evidence from stale missing-.gitmodules wording to the actual remote commit blocker.",
+    "Added TMP-026 slice evidence and blocked manifest state."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Admin UI build/test verification remains blocked until the pinned submodule commit is available from an accessible remote or the gitlink strategy changes."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-026 replaced the stale missing-.gitmodules blocker with the real webspa-admin blocker: the superproject pins a local-only admin commit that the configured submodule remote cannot fetch.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "No source files inside frontend/webspa-admin were edited.",
+    "No dependency, vendor, package manifest, or lockfile changes were made.",
+    "No submodule pointer change was committed."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "codex-20260509-015346",
+  "status": "blocked",
+  "summary": "webspa-admin submodule metadata is present, but checkout is blocked by an unavailable pinned commit.",
+  "supervisor_decision": "blocked",
+  "task_id": "T-TMP-026",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "git submodule update --init --recursive frontend/webspa-admin",
+      "exit_code": 128,
+      "output_excerpt": "fatal: remote error: upload-pack: not our ref 2ad95b18ecff4d8b23e5d1b7152975c477d5137a",
+      "status": "failed",
+      "timestamp": "2026-05-09T01:58:30Z"
+    },
+    {
+      "command": "git submodule deinit -f frontend/webspa-admin && git submodule status --recursive frontend/webspa-admin",
+      "exit_code": 0,
+      "output_excerpt": "-2ad95b18ecff4d8b23e5d1b7152975c477d5137a frontend/webspa-admin",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:58:30Z"
+    },
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-026.work-order.json",
+      "exit_code": 0,
+      "output_excerpt": "manifest and work order JSON valid",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:59:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-026 assignment_decision allow; no blocking reasons",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:59:00Z"
+    },
+    {
+      "command": "slice-harness sync --dry-run",
+      "exit_code": 0,
+      "output_excerpt": "no drift detected",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:59:00Z"
+    },
+    {
+      "command": "agent-supervisor preflight --repair with worktree-local temp config",
+      "exit_code": 0,
+      "output_excerpt": "ok true; T-TMP-026 synced to supervisor ledger",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:59:00Z"
+    }
+  ]
+}

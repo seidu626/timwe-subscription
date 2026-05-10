@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "task_id": "T-TMP-038",
+  "status": "done",
+  "supervisor_decision": "ready_for_review",
+  "summary": "Local main integration strategy recorded without mutating the primary checkout.",
+  "session_id": "codex-20260509-035546",
+  "updated_at": "2026-05-09T03:58:00Z",
+  "acceptance_results": [
+    {
+      "criterion": "A human integration strategy is recorded before destructive or conflict-heavy branch operations.",
+      "status": "passed",
+      "blocker": null,
+      "reason": null,
+      "evidence": [
+        "slices/decisions/TMP-038-local-main-integration-strategy.md",
+        "slices/TMP-038-local-main-integration-strategy/value-gate-report.md"
+      ],
+      "next_task_id": null
+    },
+    {
+      "criterion": "A future implementation verifies primary main and origin/main after the chosen strategy.",
+      "status": "passed",
+      "blocker": null,
+      "reason": null,
+      "evidence": [
+        "slices/TMP-038-local-main-integration-strategy/spec.md"
+      ],
+      "next_task_id": null
+    },
+    {
+      "criterion": "No branch resets, merges, conflict resolutions, source files, or runtime files are changed by this registry slice.",
+      "status": "passed",
+      "blocker": null,
+      "reason": null,
+      "evidence": [
+        "slices/TMP-038-local-main-integration-strategy/spec.md"
+      ],
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    "agent/backlog/issues/TMP-038-local-main-integration-strategy.md",
+    "agent/state/TMP-038.handoff.json",
+    "agent/state/TMP-038.work-order.json",
+    "slices/manifest.json",
+    "slices/TMP-038-local-main-integration-strategy/domain-brief.md",
+    "slices/TMP-038-local-main-integration-strategy/notes.md",
+    "slices/TMP-038-local-main-integration-strategy/slice.yaml",
+    "slices/TMP-038-local-main-integration-strategy/spec.md",
+    "slices/TMP-038-local-main-integration-strategy/value-gate-report.md"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No long-running processes were started for this metadata-only blocker registration."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Registered TMP-038 as a blocked full-system verification follow-up slice.",
+    "Recorded domain brief, story/spec, notes, value gate, work order, and handoff.",
+    "Recorded non-destructive integration strategy: preserve primary main and verify release work from the isolated origin/main-derived branch."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "not_started_blocked",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Primary local main still diverges from origin/main and should be reconciled separately by a maintainer; this slice records the strategy and avoids destructive git operations."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-038 records the local-main strategy and preserves local-only history; release verification continues from the isolated worktree branch.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "Destructive or broad conflict-resolution branch operations require explicit maintainer direction.",
+    "Primary main contains local-only history that must not be discarded by an agent."
+  ],
+  "safe_to_continue": true,
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-038.work-order.json agent/state/TMP-038.handoff.json .agent/tasks.json",
+      "exit_code": 0,
+      "output_excerpt": "JSON valid",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-038 assignment_decision allow",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    },
+    {
+      "command": "slice-harness sync --dry-run",
+      "exit_code": 0,
+      "output_excerpt": "no drift detected",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    },
+    {
+      "command": "git diff --name-only file-scope review",
+      "exit_code": 0,
+      "output_excerpt": "metadata and harness artifacts only",
+      "status": "passed",
+      "timestamp": "2026-05-09T04:00:00Z"
+    }
+  ]
+}

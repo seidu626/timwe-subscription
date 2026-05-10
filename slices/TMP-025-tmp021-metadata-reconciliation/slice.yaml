@@ -1,0 +1,51 @@
+story:
+  id: "TMP-025"
+  title: "TMP-021 release matrix status is truthful"
+  actor: "platform-operator"
+  action: "inspect release verification status"
+  outcome: "TMP-021 is blocked with its own full-system evidence and blockers"
+  as_a: "platform-operator"
+  i_want_to: "see the release matrix status point to its own evidence"
+  so_that: "I do not mistake landing-web build evidence for full-system release readiness"
+
+entrypoints:
+  - "slices/manifest.json"
+  - "slices/TMP-021-full-system-verification/value-gate-report.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "TMP-021 is blocked with own DoD"
+      given: ["TMP-021 accepted handoff is blocked"]
+      when: "the operator inspects the manifest"
+      then: "TMP-021 state is blocked and DoD points to TMP-021 value gate"
+      evidence: "jq manifest query"
+    - scenario: "TMP-021 value gate reflects terminal state"
+      given: ["full-system verification has unresolved blockers"]
+      when: "the operator opens the value-gate report"
+      then: "verdict is BLOCKED with exact blocking gates"
+      evidence: "value-gate report"
+  failures:
+    - scenario: "Wrong slice evidence"
+      given: ["TMP-021 points at TMP-022 landing-web evidence"]
+      when: "release readiness is evaluated"
+      then: "the registry is corrected before handoff"
+      evidence: "manifest query"
+  invariants:
+    - rule: "Full-system readiness cannot be proven by one service build"
+      preserved_by: "TMP-021 points to full-system matrix and blocked gates"
+      violated_when: "TMP-021 DoD points to TMP-022 landing-web value gate"
+      test: "jq manifest query"
+
+out_of_scope:
+  - "source code changes"
+  - "dependency or vendor changes"
+  - "runtime behavior changes"
+
+size_check:
+  files_touched: 5
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-025-tmp021-metadata-reconciliation/value-gate-report.md"

@@ -1,0 +1,67 @@
+// ============================================
+// SCROLLBAR STYLING - Professional Theme
+// ============================================
+
+// Firefox scrollbar
+@supports (scrollbar-width: thin) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--admin-gray-400, #94a3b8) transparent;
+  }
+}
+
+// Webkit scrollbar (Chrome, Safari, Edge)
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 100vw;
+  margin-block: 0.25em;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--admin-gray-400, #94a3b8);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 100vw;
+  transition: background 150ms ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--admin-gray-500, #64748b);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+// Dark mode scrollbar
+[data-coreui-theme="dark"] {
+  &::-webkit-scrollbar-thumb {
+    background: var(--admin-gray-600, #475569);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--admin-gray-500, #64748b);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+}
+
+// ng-scrollbar component styles
+.ng-scroll-content {
+  display: flex !important;
+}
+
+.ng-scrollbar:not(.overflow) .ng-scrollbar-wrapper[verticalused="false"] {
+  .ng-scroll-viewport {
+    display: flex;
+  }
+}

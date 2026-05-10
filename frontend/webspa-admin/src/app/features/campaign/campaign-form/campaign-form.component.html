@@ -1,0 +1,554 @@
+<div class="campaign-form-container">
+  <section class="campaign-page-hero">
+    <div class="hero-copy">
+      <p class="hero-eyebrow">Campaign Workspace</p>
+      <div class="hero-heading">
+        <h1>{{ isEditMode ? 'Edit Campaign' : 'Create Campaign' }}</h1>
+        <span *ngIf="isEditMode" class="slug-display">{{ slug }}</span>
+      </div>
+      <p class="hero-description">
+        Configure routing, pricing, compliance, landing presentation, and callback behavior without dropping into raw config unless you need to.
+      </p>
+    </div>
+
+    <div class="hero-stats" aria-label="Campaign summary">
+      <div class="hero-stat">
+        <span class="hero-stat-label">Flow</span>
+        <strong>{{ getFlowTypeLabel(form.get('flow_type')?.value) }}</strong>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-label">Landing URLs</span>
+        <strong>{{ landingPageUrlCount }}</strong>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-label">Postbacks</span>
+        <strong>{{ postbackRuleCount }}</strong>
+      </div>
+      <div class="hero-stat" [class.hero-stat-enabled]="form.get('enabled')?.value">
+        <span class="hero-stat-label">Status</span>
+        <strong>{{ statusLabel }}</strong>
+      </div>
+    </div>
+  </section>
+
+  <div *ngIf="loading" class="loading-spinner">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <div *ngIf="error" class="error-alert" role="alert" aria-live="polite">
+    <mat-icon aria-hidden="true">error</mat-icon>
+    <span>{{ error }}</span>
+  </div>
+
+  <form *ngIf="!loading" [formGroup]="form" (ngSubmit)="onSubmit()" class="campaign-form">
+    <div class="campaign-layout">
+      <div class="campaign-main">
+        <mat-card class="form-section" data-section-id="section-basic" id="section-basic">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon aria-hidden="true">campaign</mat-icon>
+              Basic Information
+            </mat-card-title>
+            <mat-card-subtitle>Slug, locale, and operator metadata used for routing, reporting, and landing page generation.</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Slug</mat-label>
+                <input matInput formControlName="slug" name="slug" autocomplete="off" spellcheck="false">
+                <mat-hint>Lowercase, numbers, hyphens only (e.g. my-campaign-slug)</mat-hint>
+                <mat-error *ngIf="isFieldInvalid('slug')">{{ getFieldError('slug') }}</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Country (e.g. GH)</mat-label>
+                <input matInput formControlName="country" name="country" maxlength="10" autocomplete="off" spellcheck="false">
+                <mat-error *ngIf="isFieldInvalid('country')">{{ getFieldError('country') }}</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Language (e.g. en)</mat-label>
+                <input matInput formControlName="language" name="language" autocomplete="off" spellcheck="false">
+                <mat-error *ngIf="isFieldInvalid('language')">{{ getFieldError('language') }}</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Operator</mat-label>
+                <input matInput formControlName="operator" name="operator" autocomplete="off">
+              </mat-form-field>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="form-section" data-section-id="section-product" id="section-product">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon aria-hidden="true">inventory_2</mat-icon>
+              Product Mapping
+            </mat-card-title>
+            <mat-card-subtitle>Attach this campaign to the commercial identifiers used downstream by TIMWE and partners.</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Offer Product ID</mat-label>
+                <input matInput type="number" formControlName="offer_product_id" name="offer_product_id" inputmode="numeric">
+                <mat-error *ngIf="isFieldInvalid('offer_product_id')">{{ getFieldError('offer_product_id') }}</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Pricepoint ID</mat-label>
+                <input matInput type="number" formControlName="pricepoint_id" name="pricepoint_id" inputmode="numeric">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Partner Role ID</mat-label>
+                <input matInput type="number" formControlName="partner_role_id" name="partner_role_id" inputmode="numeric">
+              </mat-form-field>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <div class="main-grid">
+          <mat-card class="form-section" data-section-id="section-flow" id="section-flow">
+            <mat-card-header>
+              <mat-card-title>
+                <mat-icon aria-hidden="true">alt_route</mat-icon>
+                Flow Configuration
+              </mat-card-title>
+              <mat-card-subtitle>Define how the subscriber enters the journey and what credentials are required.</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="form-field">
+                  <mat-label>Flow Type</mat-label>
+                  <mat-select formControlName="flow_type" name="flow_type">
+                    <mat-option *ngFor="let ft of flowTypes" [value]="ft.value">
+                      {{ ft.label }}
+                    </mat-option>
+                  </mat-select>
+                  <mat-error *ngIf="isFieldInvalid('flow_type')">{{ getFieldError('flow_type') }}</mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="form-field">
+                  <mat-label>Short Code</mat-label>
+                  <input matInput formControlName="short_code" name="short_code" autocomplete="off" spellcheck="false">
+                  <mat-hint>Required for Click to SMS campaigns.</mat-hint>
+                  <mat-error *ngIf="isFieldInvalid('short_code')">Required for Click to SMS</mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="form-field">
+                  <mat-label>SMS Keyword</mat-label>
+                  <input matInput formControlName="sms_keyword" name="sms_keyword" autocomplete="off" spellcheck="false">
+                  <mat-hint>Keyword sent by the subscriber when the flow uses SMS initiation.</mat-hint>
+                  <mat-error *ngIf="isFieldInvalid('sms_keyword')">Required for Click to SMS</mat-error>
+                </mat-form-field>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="form-section" data-section-id="section-pricing" id="section-pricing">
+            <mat-card-header>
+              <mat-card-title>
+                <mat-icon aria-hidden="true">payments</mat-icon>
+                Pricing
+              </mat-card-title>
+              <mat-card-subtitle>Keep the commercial promise explicit for both the admin team and the landing page copy.</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="form-field">
+                  <mat-label>Price</mat-label>
+                  <input matInput type="number" step="0.01" formControlName="price" name="price" inputmode="decimal">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="form-field">
+                  <mat-label>Billing Cycle</mat-label>
+                  <mat-select formControlName="billing_cycle" name="billing_cycle">
+                    <mat-option value="">None</mat-option>
+                    <mat-option *ngFor="let cycle of billingCycles" [value]="cycle">
+                      {{ cycle }}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+
+        <mat-card class="form-section" data-section-id="section-compliance" id="section-compliance">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon aria-hidden="true">verified_user</mat-icon>
+              Compliance
+            </mat-card-title>
+            <mat-card-subtitle>Terms, consent, and explanatory copy shown to the subscriber before charging begins.</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field form-field-wide">
+                <mat-label>Terms URL</mat-label>
+                <input matInput type="url" formControlName="terms_url" name="terms_url" autocomplete="off" spellcheck="false">
+                <mat-hint>e.g. https://example.com/terms</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Consent Version</mat-label>
+                <input matInput formControlName="consent_version" name="consent_version" autocomplete="off" spellcheck="false">
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field form-field-full">
+                <mat-label>Inline Terms Text</mat-label>
+                <textarea matInput formControlName="inline_terms_text" name="inline_terms_text" rows="3"></textarea>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row checkbox-row">
+              <mat-checkbox formControlName="consent_required" color="primary">
+                Consent Required
+              </mat-checkbox>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="form-section advanced-card" data-section-id="section-advanced" id="section-advanced">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon aria-hidden="true">tune</mat-icon>
+              Advanced Configuration
+            </mat-card-title>
+            <mat-card-subtitle>Landing presentation, media, attribution rules, callbacks, and traffic guardrails.</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content class="advanced-card-content">
+            <section class="advanced-block" [class.advanced-block-collapsed]="!advancedSectionState['landing']">
+              <div class="advanced-block-header" (click)="toggleAdvancedSection('landing')" role="button" [attr.aria-expanded]="advancedSectionState['landing']" tabindex="0" (keydown.enter)="toggleAdvancedSection('landing')" (keydown.space)="toggleAdvancedSection('landing'); $event.preventDefault()">
+                <div>
+                  <h3>Landing Experience</h3>
+                  <p>Shape the public landing page with URLs, background media, and localized copy.</p>
+                </div>
+                <div class="advanced-header-actions">
+                  <span class="advanced-chip">{{ landingPageUrlCount }} URL{{ landingPageUrlCount === 1 ? '' : 's' }}</span>
+                  <mat-icon class="collapse-icon" aria-hidden="true">{{ advancedSectionState['landing'] ? 'expand_less' : 'expand_more' }}</mat-icon>
+                </div>
+              </div>
+
+              <div class="advanced-block-body" *ngIf="advancedSectionState['landing']">
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="form-field form-field-full">
+                  <mat-label>Landing Page URLs (one per line)</mat-label>
+                  <textarea matInput formControlName="landing_page_urls" name="landing_page_urls" rows="3" spellcheck="false"></textarea>
+                  <mat-hint>e.g. https://landing.example.com/lp/my-campaign. Leave empty to use the default /lp/{{ '{' }}slug{{ '}' }}.</mat-hint>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row color-row">
+                <mat-form-field appearance="outline" class="form-field">
+                  <mat-label>Theme Color (#RRGGBB)</mat-label>
+                  <input matInput formControlName="theme_color" name="theme_color" placeholder="#FFCC00" autocomplete="off" spellcheck="false">
+                  <span matSuffix *ngIf="themeColorSwatch" class="color-swatch" [style.background]="themeColorSwatch" aria-hidden="true"></span>
+                  <mat-error *ngIf="isFieldInvalid('theme_color')">Theme color must be in #RRGGBB format</mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="form-field form-field-wide">
+                  <mat-label>Background Image URL</mat-label>
+                  <input matInput type="url" formControlName="background_image_url" name="background_image_url" placeholder="https://cdn.example.com/bg.webp" autocomplete="off" spellcheck="false">
+                  <mat-hint>HTTPS URL used as landing page background. Leave blank for the default theme background.</mat-hint>
+                  <mat-error *ngIf="isFieldInvalid('background_image_url')">Must be a valid http(s) URL</mat-error>
+                </mat-form-field>
+              </div>
+
+              <div class="upload-panel">
+                <div class="upload-panel-copy">
+                  <strong>Background Image Upload</strong>
+                  <span>JPEG, PNG, or WebP up to 2 MB. Uploading replaces the current background asset URL.</span>
+                </div>
+
+                <div class="upload-panel-actions">
+                  <label class="upload-button" for="background-image-upload">Choose File</label>
+                  <input
+                    id="background-image-upload"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    (change)="onBackgroundFileSelected($event)"
+                    [disabled]="backgroundUploadInProgress"
+                  />
+                  <button mat-stroked-button type="button" (click)="removeBackgroundImage()" [disabled]="!backgroundPreviewUrl || backgroundUploadInProgress">
+                    Remove Image
+                  </button>
+                  <mat-spinner *ngIf="backgroundUploadInProgress" diameter="20"></mat-spinner>
+                </div>
+              </div>
+
+              <div *ngIf="backgroundUploadError" class="upload-error" aria-live="polite">{{ backgroundUploadError }}</div>
+
+              <div class="background-preview" *ngIf="backgroundPreviewUrl">
+                <img [src]="backgroundPreviewUrl" alt="Campaign background preview">
+              </div>
+              </div>
+            </section>
+
+            <section class="advanced-block" [class.advanced-block-collapsed]="!advancedSectionState['attribution']">
+              <div class="advanced-block-header" (click)="toggleAdvancedSection('attribution')" role="button" [attr.aria-expanded]="advancedSectionState['attribution']" tabindex="0" (keydown.enter)="toggleAdvancedSection('attribution')" (keydown.space)="toggleAdvancedSection('attribution'); $event.preventDefault()">
+                <div>
+                  <h3>Attribution & Postbacks</h3>
+                  <p>Map inbound identifiers and define how conversions or subscriptions are reported back to partners.</p>
+                </div>
+                <div class="advanced-header-actions">
+                  <span class="advanced-chip">{{ postbackRuleCount }} Rule{{ postbackRuleCount === 1 ? '' : 's' }}</span>
+                  <mat-icon class="collapse-icon" aria-hidden="true">{{ advancedSectionState['attribution'] ? 'expand_less' : 'expand_more' }}</mat-icon>
+                </div>
+              </div>
+
+              <div class="advanced-block-body" *ngIf="advancedSectionState['attribution']">
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="form-field form-field-full json-field" [class.json-valid]="jsonFieldValidity['attribution_mapping'] === true" [class.json-invalid]="jsonFieldValidity['attribution_mapping'] === false">
+                  <mat-label>Attribution Mapping (JSON)</mat-label>
+                  <textarea matInput formControlName="attribution_mapping" name="attribution_mapping" rows="5" spellcheck="false"></textarea>
+                  <mat-hint>Maps URL params to attribution fields. Example: {{"{"}} "click_id": "click_id", "txid": "click_id" {{"}"}}</mat-hint>
+                  <mat-icon matSuffix *ngIf="jsonFieldValidity['attribution_mapping'] === true" class="json-indicator json-indicator-valid" aria-label="Valid JSON">check_circle</mat-icon>
+                  <mat-icon matSuffix *ngIf="jsonFieldValidity['attribution_mapping'] === false" class="json-indicator json-indicator-invalid" aria-label="Invalid JSON">error</mat-icon>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row postback-section">
+                <div class="postback-header">
+                  <div>
+                    <h4>Postback Rules</h4>
+                    <p>Use the visual builder for common cases, or switch to raw JSON when you need exact control.</p>
+                  </div>
+                  <button mat-stroked-button type="button" (click)="togglePostbackRawMode()">
+                    <mat-icon aria-hidden="true">{{ postbackRawMode ? 'view_module' : 'code' }}</mat-icon>
+                    {{ postbackRawMode ? 'Visual Editor' : 'Raw JSON' }}
+                  </button>
+                </div>
+
+                <mat-form-field *ngIf="postbackRawMode" appearance="outline" class="form-field form-field-full">
+                  <mat-label>Postback Rules (JSON)</mat-label>
+                  <textarea matInput formControlName="postback_rules" name="postback_rules" rows="8" spellcheck="false"></textarea>
+                  <mat-hint>Edit raw JSON. Switch to Visual Editor to use the form builder.</mat-hint>
+                </mat-form-field>
+
+                <div *ngIf="!postbackRawMode" class="postback-entries">
+                  <div *ngFor="let entry of postbackEntries; let i = index" class="postback-entry">
+                    <div class="postback-entry-row">
+                      <mat-form-field appearance="outline" class="postback-field postback-field-event">
+                        <mat-label>Event</mat-label>
+                        <mat-select [(ngModel)]="entry.event" [ngModelOptions]="{standalone: true}" (ngModelChange)="syncPostbackEntriesToForm()">
+                          <mat-option *ngFor="let e of postbackEvents" [value]="e">{{ e }}</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="postback-field postback-field-provider">
+                        <mat-label>Provider</mat-label>
+                        <input matInput [(ngModel)]="entry.provider" [ngModelOptions]="{standalone: true}" (ngModelChange)="syncPostbackEntriesToForm()" [attr.list]="'provider-list-' + i" placeholder="e.g. mobplus" spellcheck="false">
+                        <datalist [id]="'provider-list-' + i">
+                          <option *ngFor="let p of postbackProviders" [value]="p"></option>
+                        </datalist>
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="postback-field postback-field-method">
+                        <mat-label>Method</mat-label>
+                        <mat-select [(ngModel)]="entry.method" [ngModelOptions]="{standalone: true}" (ngModelChange)="syncPostbackEntriesToForm()">
+                          <mat-option *ngFor="let m of postbackMethods" [value]="m">{{ m }}</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+
+                      <button
+                        mat-icon-button
+                        type="button"
+                        color="warn"
+                        (click)="removePostbackEntry(i)"
+                        matTooltip="Remove rule"
+                        [attr.aria-label]="'Remove postback rule ' + (i + 1)">
+                        <mat-icon aria-hidden="true">delete</mat-icon>
+                      </button>
+                    </div>
+
+                    <mat-form-field appearance="outline" class="form-field form-field-full">
+                      <mat-label>URL Template</mat-label>
+                      <input matInput type="url" [(ngModel)]="entry.url" [ngModelOptions]="{standalone: true}" (ngModelChange)="syncPostbackEntriesToForm()" placeholder="https://example.com/postback?txid={click_id}" autocomplete="off" spellcheck="false">
+                    </mat-form-field>
+
+                    <div class="variable-chips-row">
+                      <span class="variable-chips-label">Variables:</span>
+                      <span *ngFor="let v of postbackVariables">
+                        <a href="javascript:void(0)" (click)="insertVariable(i, v)" class="variable-chip">{{ v }}</a>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div *ngIf="postbackEntries.length === 0" class="postback-empty">
+                    <mat-icon aria-hidden="true" class="postback-empty-icon">webhook</mat-icon>
+                    <strong>No postback rules yet</strong>
+                    <p>Add a rule to report conversions or subscriptions back to partners.</p>
+                  </div>
+
+                  <button mat-stroked-button type="button" color="primary" (click)="addPostbackEntry()" class="add-postback-button">
+                    <mat-icon aria-hidden="true">add</mat-icon>
+                    Add Postback Rule
+                  </button>
+                </div>
+              </div>
+              </div>
+            </section>
+
+            <section class="advanced-block" [class.advanced-block-collapsed]="!advancedSectionState['guardrails']">
+              <div class="advanced-block-header" (click)="toggleAdvancedSection('guardrails')" role="button" [attr.aria-expanded]="advancedSectionState['guardrails']" tabindex="0" (keydown.enter)="toggleAdvancedSection('guardrails')" (keydown.space)="toggleAdvancedSection('guardrails'); $event.preventDefault()">
+                <div>
+                  <h3>Guardrails & Landing Copy</h3>
+                  <p>Define throttles, localized copy, and optional allowlists that protect the campaign from bad traffic.</p>
+                </div>
+                <div class="advanced-header-actions">
+                  <span class="advanced-chip">JSON + Lists</span>
+                  <mat-icon class="collapse-icon" aria-hidden="true">{{ advancedSectionState['guardrails'] ? 'expand_less' : 'expand_more' }}</mat-icon>
+                </div>
+              </div>
+
+              <div class="advanced-block-body" *ngIf="advancedSectionState['guardrails']">
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="form-field form-field-full json-field" [class.json-valid]="jsonFieldValidity['throttles'] === true" [class.json-invalid]="jsonFieldValidity['throttles'] === false">
+                  <mat-label>Throttles (JSON)</mat-label>
+                  <textarea matInput formControlName="throttles" name="throttles" rows="3" spellcheck="false"></textarea>
+                  <mat-hint>Example: {{"{"}} "per_msisdn_per_day": 3, "per_ip_per_day": 10 {{"}"}}</mat-hint>
+                  <mat-icon matSuffix *ngIf="jsonFieldValidity['throttles'] === true" class="json-indicator json-indicator-valid" aria-label="Valid JSON">check_circle</mat-icon>
+                  <mat-icon matSuffix *ngIf="jsonFieldValidity['throttles'] === false" class="json-indicator json-indicator-invalid" aria-label="Invalid JSON">error</mat-icon>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="form-field form-field-full json-field" [class.json-valid]="jsonFieldValidity['lp_copy'] === true" [class.json-invalid]="jsonFieldValidity['lp_copy'] === false">
+                  <mat-label>LP Copy (JSON)</mat-label>
+                  <textarea matInput formControlName="lp_copy" name="lp_copy" rows="10" spellcheck="false"></textarea>
+                  <mat-hint>Campaign-specific landing text. Requires lp_copy.en with all template fields.</mat-hint>
+                  <mat-icon matSuffix *ngIf="jsonFieldValidity['lp_copy'] === true" class="json-indicator json-indicator-valid" aria-label="Valid JSON">check_circle</mat-icon>
+                  <mat-icon matSuffix *ngIf="jsonFieldValidity['lp_copy'] === false" class="json-indicator json-indicator-invalid" aria-label="Invalid JSON">error</mat-icon>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="form-field">
+                  <mat-label>Allowed Referrers (one per line)</mat-label>
+                  <textarea matInput formControlName="allowed_referrers" name="allowed_referrers" rows="3" spellcheck="false"></textarea>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="form-field">
+                  <mat-label>Allowed Sources (one per line)</mat-label>
+                  <textarea matInput formControlName="allowed_sources" name="allowed_sources" rows="3" spellcheck="false"></textarea>
+                </mat-form-field>
+              </div>
+              </div>
+            </section>
+          </mat-card-content>
+        </mat-card>
+
+        <div class="form-actions mobile-actions">
+          <button mat-stroked-button type="button" (click)="onCancel()">Cancel</button>
+          <button mat-raised-button color="primary" type="submit" [disabled]="submitting || backgroundUploadInProgress">
+            <mat-spinner *ngIf="submitting" diameter="20"></mat-spinner>
+            <span *ngIf="!submitting">{{ isEditMode ? 'Update Campaign' : 'Create Campaign' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <aside class="campaign-sidebar">
+        <mat-card class="side-panel">
+          <div class="side-panel-sticky">
+            <div class="side-panel-header">
+              <span class="status-badge" [class.status-badge-enabled]="form.get('enabled')?.value">{{ statusLabel }}</span>
+              <p>{{ statusDescription }}</p>
+            </div>
+
+            <div class="status-toggle-row">
+              <div>
+                <strong>Campaign Visibility</strong>
+                <span>Toggle whether the campaign is available to landing pages.</span>
+              </div>
+              <mat-slide-toggle formControlName="enabled" color="primary" aria-label="Toggle campaign enabled state"></mat-slide-toggle>
+            </div>
+
+            <div class="desktop-actions">
+              <button mat-stroked-button type="button" (click)="onCancel()">Cancel</button>
+              <button mat-raised-button color="primary" type="submit" [disabled]="submitting || backgroundUploadInProgress">
+                <mat-spinner *ngIf="submitting" diameter="20"></mat-spinner>
+                <span *ngIf="!submitting">{{ isEditMode ? 'Update Campaign' : 'Create Campaign' }}</span>
+              </button>
+            </div>
+
+            <p class="save-status" aria-live="polite">
+              {{ hasUnsavedChanges() ? 'You have unsaved changes.' : 'No unsaved changes.' }}
+            </p>
+
+            <mat-divider></mat-divider>
+
+            <nav class="section-nav" aria-label="Form sections">
+              <h3>Sections</h3>
+              <a *ngFor="let sec of formSections"
+                 class="section-nav-item"
+                 [class.section-nav-item-active]="activeSectionId === sec.id"
+                 (click)="scrollToSection(sec.id)"
+                 role="button"
+                 tabindex="0"
+                 (keydown.enter)="scrollToSection(sec.id)">
+                <mat-icon aria-hidden="true">{{ sec.icon }}</mat-icon>
+                <span>{{ sec.label }}</span>
+              </a>
+            </nav>
+
+            <mat-divider></mat-divider>
+
+            <div class="readiness-panel">
+              <div class="readiness-header">
+                <h3>Launch Readiness</h3>
+                <div class="readiness-ring" [attr.aria-label]="readinessPercent + '% complete'">
+                  <svg viewBox="0 0 36 36" class="readiness-ring-svg">
+                    <path class="readiness-ring-bg"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="readiness-ring-fill"
+                      [attr.stroke-dasharray]="readinessPercent + ', 100'"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  </svg>
+                  <span class="readiness-ring-text">{{ readinessPercent }}%</span>
+                </div>
+              </div>
+              <div class="readiness-list">
+                <div *ngFor="let item of completionItems" class="readiness-item" [class.readiness-item-complete]="item.complete">
+                  <mat-icon aria-hidden="true">{{ item.complete ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  <div>
+                    <strong>{{ item.label }}</strong>
+                    <span>{{ item.hint }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <mat-divider></mat-divider>
+
+            <div class="summary-panel">
+              <h3>Configuration Snapshot</h3>
+              <div class="summary-grid">
+                <div class="summary-item">
+                  <span class="summary-label">Country</span>
+                  <strong>{{ form.get('country')?.value || 'Not Set' }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span class="summary-label">Language</span>
+                  <strong>{{ form.get('language')?.value || 'Not Set' }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span class="summary-label">Referrers</span>
+                  <strong>{{ allowedReferrerCount }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span class="summary-label">Sources</span>
+                  <strong>{{ allowedSourceCount }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </mat-card>
+      </aside>
+    </div>
+  </form>
+</div>

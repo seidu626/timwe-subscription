@@ -1,0 +1,63 @@
+story:
+  id: "TMP-028"
+  title: "Compose renders without checked-in subscription DB credentials"
+  actor: "platform-operator"
+  action: "render the local compose configuration"
+  outcome: "subscription database settings come from environment inputs instead of repository-embedded credential material"
+  as_a: "platform-operator"
+  i_want_to: "render local compose config from environment values"
+  so_that: "I can verify runtime configuration without relying on checked-in credential material"
+
+entrypoints:
+  - "docker-compose.yml"
+  - ".env.example"
+  - "docs/agent/full-system-verification-2026-05-09.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Compose config renders with example env"
+      given: ["safe placeholder values exist in .env.example"]
+      when: "the operator runs docker compose config with the example env file"
+      then: "compose renders successfully"
+      evidence: "docker compose --env-file .env.example -f docker-compose.yml config"
+    - scenario: "Subscription DB config comes from env"
+      given: ["docker-compose.yml subscription service is inspected"]
+      when: "database environment entries are reviewed"
+      then: "credential-bearing fields use env inputs, host/port use service-native optional overrides, and SSL mode remains literal"
+      evidence: "docker-compose.yml diff and pattern search"
+  failures:
+    - scenario: "Runtime still lacks real values"
+      given: ["example placeholders are not production credentials"]
+      when: "release readiness is reviewed"
+      then: "runtime start remains blocked until real env/provider values are supplied"
+      evidence: "TMP-021 value-gate report"
+    - scenario: "Credential material reintroduced"
+      given: ["compose file is searched"]
+      when: "hardcoded subscription DB host/password patterns are checked"
+      then: "no matching checked-in values are found"
+      evidence: "rg pattern check"
+  invariants:
+    - rule: "Runtime config must not depend on checked-in credential material"
+      preserved_by: "subscription service uses env inputs for credential-bearing values"
+      violated_when: "a password-like literal is committed in compose"
+      test: "pattern search"
+    - rule: "Config render is not runtime verification"
+      preserved_by: "TMP-021 keeps runtime start blocked"
+      violated_when: "compose runtime is marked passed without startup evidence"
+      test: "value-gate review"
+
+out_of_scope:
+  - "real credential handling"
+  - "compose runtime start"
+  - "provider integration verification"
+  - "service source changes"
+  - "dependency or vendor changes"
+
+size_check:
+  files_touched: 12
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-028-compose-secret-env-hygiene/value-gate-report.md"

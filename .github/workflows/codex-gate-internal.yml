@@ -33,9 +33,22 @@ jobs:
           # Merge commits have at least one parent; first parent is typically the base branch.
           git diff --no-color HEAD^1..HEAD > pr.diff || true
 
+      - name: Check Codex configuration
+        id: codex_config
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "${OPENAI_API_KEY}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "OPENAI_API_KEY is not configured; skipping optional Codex gate."
+          fi
+
       # Run Codex as the last step in the job when possible (recommended by the Codex Action security guidance).
       - name: Run Codex gate (structured JSON)
         id: codex
+        if: ${{ steps.codex_config.outputs.configured == 'true' }}
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}

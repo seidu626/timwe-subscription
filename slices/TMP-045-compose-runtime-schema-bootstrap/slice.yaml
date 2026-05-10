@@ -1,0 +1,66 @@
+id: TMP-045
+name: compose-runtime-schema-bootstrap
+class: vertical_defect_slice
+status: done
+actor: platform-operator
+action: "start the compose runtime from an empty PostgreSQL database"
+outcome: "runtime services start after database schema prerequisites are applied"
+depends_on:
+  - TMP-034
+  - TMP-035
+  - TMP-036
+blocks:
+  - TMP-021
+entrypoint: "docker compose up db-bootstrap acquisition-api notification-worker cadence-engine postback-dispatcher"
+trigger: "full-system verifier exercises compose runtime startup"
+story:
+  as_a: platform-operator
+  i_want_to: "have compose apply required schema before runtime services start"
+  so_that: "missing relation errors do not mask real release readiness issues"
+acceptance_criteria:
+  happy:
+    - scenario: "Bootstrap completes before dependent services"
+      given:
+        - "PostgreSQL is healthy in compose"
+        - "runtime services depend on db-bootstrap completion"
+      when: "db-bootstrap runs"
+      then: "base, acquisition-owned, and cadence-owned SQL files apply with ON_ERROR_STOP=1"
+      evidence: "disposable PostgreSQL bootstrap proof"
+  failures:
+    - scenario: "Missing DB environment"
+      given:
+        - "a required PG* variable is empty"
+      when: "compose-db-bootstrap.sh starts"
+      then: "the script exits before applying partial schema"
+      evidence: "script environment guard"
+    - scenario: "Worker empty queue"
+      given:
+        - "the database has no pending notification, cadence, or postback rows"
+      when: "worker poll query shapes run"
+      then: "queries return zero rows without missing schema errors"
+      evidence: "disposable PostgreSQL query proof"
+  edges:
+    - scenario: "Postback duplicate migration avoided"
+      given:
+        - "subscription-external 006 also defines postback tables"
+      when: "bootstrap chooses canonical postback order"
+      then: "only acquisition-api create_postback_tables.sql and tenant routing migration own postback provisioning"
+      evidence: "bootstrap file order and value-gate report"
+  invariants:
+    - rule: "service-owned migrations remain canonical"
+      preserved_by: "runtime base SQL contains prerequisites only"
+      violated_when: "message_outbox or postback_outbox are redefined in runtime base"
+      test: "manual file inspection plus disposable bootstrap proof"
+    - rule: "workers start after bootstrap completion"
+      preserved_by: "depends_on service_completed_successfully"
+      violated_when: "workers depend only on database service_healthy"
+      test: "docker compose config render"
+out_of_scope:
+  - "production migration orchestration"
+  - "webspa-admin submodule reproducibility"
+  - "local main branch integration"
+  - "dependency vulnerability remediation"
+size_check:
+  files_touched: 12
+  migrations: 1
+  endpoints: 0

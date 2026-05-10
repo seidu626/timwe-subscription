@@ -232,17 +232,23 @@ func InitConfig(logger *zap.Logger, path string, files []string) *Config {
 	cfg = &Config{}
 	cfg.DynamicConfigs = make(map[string]interface{})
 
-	// Explicitly bind database environment variables (required for nested struct unmarshaling)
-	_ = v.BindEnv("DATABASE.POSTGRESQL.HOST", "APP_DATABASE_POSTGRESQL_HOST")
-	_ = v.BindEnv("DATABASE.POSTGRESQL.PORT", "APP_DATABASE_POSTGRESQL_PORT")
-	_ = v.BindEnv("DATABASE.POSTGRESQL.USER", "APP_DATABASE_POSTGRESQL_USER")
-	_ = v.BindEnv("DATABASE.POSTGRESQL.PASSWORD", "APP_DATABASE_POSTGRESQL_PASSWORD")
-	_ = v.BindEnv("DATABASE.POSTGRESQL.DB_NAME", "APP_DATABASE_POSTGRESQL_DB_NAME")
-	_ = v.BindEnv("DATABASE.POSTGRESQL.SSL_MODE", "APP_DATABASE_POSTGRESQL_SSL_MODE")
+	// Auto-load .env from common locations (project root, current dir, parent dirs)
+	autoLoadDotEnv(logger)
 
-	// Bind cache/Redis environment variables
-	_ = v.BindEnv("CACHE.REDIS.HOST", "APP_CACHE_REDIS_HOST")
-	_ = v.BindEnv("CACHE.REDIS.PORT", "APP_CACHE_REDIS_PORT")
+	// Explicitly bind database environment variables (required for nested struct unmarshaling).
+	// Support both APP_* and legacy DB.POSTGRESQL.*/.env-style keys used by services.
+	_ = v.BindEnv("DATABASE.POSTGRESQL.HOST", "APP_DATABASE_POSTGRESQL_HOST", "DB.POSTGRESQL.HOST", "DB_POSTGRESQL_HOST", "PGHOST")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.PORT", "APP_DATABASE_POSTGRESQL_PORT", "DB.POSTGRESQL.PORT", "DB_POSTGRESQL_PORT", "PGPORT")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.USER", "APP_DATABASE_POSTGRESQL_USER", "DB.POSTGRESQL.USER", "DB_POSTGRESQL_USER", "PG_USER", "PGUSER")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.PASSWORD", "APP_DATABASE_POSTGRESQL_PASSWORD", "DB.POSTGRESQL.PASSWORD", "DB_POSTGRESQL_PASSWORD", "PG_PASSWORD", "PGPASSWORD")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.DB_NAME", "APP_DATABASE_POSTGRESQL_DB_NAME", "DB.POSTGRESQL.DB_NAME", "DB_POSTGRESQL_DB_NAME", "PG_DB", "PGDATABASE")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.SSL_MODE", "APP_DATABASE_POSTGRESQL_SSL_MODE", "DB.POSTGRESQL.SSL_MODE", "DB_POSTGRESQL_SSL_MODE", "PGSSLMODE")
+
+	// Bind cache/Redis environment variables (APP_* and legacy CACHE.REDIS.* keys).
+	_ = v.BindEnv("CACHE.REDIS.HOST", "APP_CACHE_REDIS_HOST", "CACHE.REDIS.HOST", "CACHE_REDIS_HOST", "REDIS_HOST")
+	_ = v.BindEnv("CACHE.REDIS.PORT", "APP_CACHE_REDIS_PORT", "CACHE.REDIS.PORT", "CACHE_REDIS_PORT", "REDIS_PORT")
+	_ = v.BindEnv("CACHE.REDIS.PASS", "APP_CACHE_REDIS_PASS", "APP_CACHE_REDIS_PASSWORD", "CACHE.REDIS.PASS", "CACHE_REDIS_PASS", "REDIS_PASSWORD")
+	_ = v.BindEnv("CACHE.REDIS.DB", "APP_CACHE_REDIS_DB", "CACHE.REDIS.DB", "CACHE_REDIS_DB", "REDIS_DB")
 
 	// Bind auth environment variables
 	_ = v.BindEnv("AUTH.JWT_TOKEN.SECRET", "JWT_SECRET")
@@ -363,6 +369,73 @@ func InitConfig(logger *zap.Logger, path string, files []string) *Config {
 
 // scannerErr returns the error from a scanner (workaround to keep file-local)
 func scannerErr(s *bufio.Scanner) error { return s.Err() }
+
+// autoLoadDotEnv searches for .env files in common locations and loads them into os environment.
+// Search order (first found wins): current dir, parent dirs up to 5 levels, common project paths.
+func autoLoadDotEnv(logger *zap.Logger) {
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		logger.Debug("Could not get working directory for .env auto-load", zap.Error(err))
+		return
+	}
+
+	// Paths to search for .env (relative to cwd or absolute)
+	searchPaths := []string{
+		".env",          // Current directory
+		"../.env",       // Parent (services/<name>/ -> services/)
+		"../../.env",    // Grandparent (services/<name>/ -> project root)
+		"../../../.env", // Great-grandparent
+	}
+
+	for _, relPath := range searchPaths {
+		envPath := relPath
+		if !strings.HasPrefix(relPath, "/") {
+			envPath = fmt.Sprintf("%s/%s", cwd, relPath)
+		}
+
+		if _, statErr := os.Stat(envPath); statErr == nil {
+			if loadErr := loadEnvFile(envPath); loadErr != nil {
+				logger.Debug("Failed to load .env file", zap.String("path", envPath), zap.Error(loadErr))
+			} else {
+				logger.Debug("Auto-loaded .env file", zap.String("path", envPath))
+			}
+			return // Stop after first successful load
+		}
+	}
+
+	logger.Debug("No .env file found in common locations")
+}
+
+// loadEnvFile reads a .env file and sets environment variables.
+func loadEnvFile(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		// Parse KEY=VALUE
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		// Only set if not already set (allow explicit env vars to override .env)
+		if os.Getenv(key) == "" {
+			_ = os.Setenv(key, val)
+		}
+	}
+	return scanner.Err()
+}
 
 // GetDBConnectionString constructs the PostgreSQL connection string from the config.
 func GetDBConnectionString() string {

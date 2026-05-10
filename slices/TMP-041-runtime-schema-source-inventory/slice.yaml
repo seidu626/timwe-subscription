@@ -1,0 +1,24 @@
+id: TMP-041
+title: Runtime schema blocker source inventory
+class: operational_slice
+actor: platform-operator
+action: map runtime missing-relation blockers to existing SQL sources
+outcome: schema-related release blockers are narrowed to approved migration orchestration
+entrypoints:
+  - slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md
+  - slices/TMP-035-notification-message-outbox-schema/value-gate-report.md
+  - slices/TMP-036-postback-outbox-schema/value-gate-report.md
+invariants:
+  - existing SQL definitions do not prove the compose database is provisioned
+  - duplicate schema sources require a canonical application path before automation
+acceptance:
+  - products and userbase SQL sources are recorded
+  - message_outbox SQL source is recorded
+  - postback_outbox duplicate SQL sources are recorded
+  - no SQL, compose, service, dependency, package, runtime, or branch files are changed
+verification:
+  - test -f slices/TMP-041-runtime-schema-source-inventory/value-gate-report.md
+  - jq empty slices/manifest.json agent/state/TMP-041.work-order.json agent/state/TMP-041.handoff.json .agent/tasks.json
+  - hvc check agent/backlog/issues/*.md --fail-on block
+  - slice-harness status
+  - slice-harness sync --dry-run

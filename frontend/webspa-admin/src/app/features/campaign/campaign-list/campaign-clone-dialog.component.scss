@@ -1,0 +1,28 @@
+.clone-dialog-content {
+  min-width: 420px;
+  max-width: 100%;
+}
+
+.clone-dialog-copy {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--admin-gray-600, #475569);
+
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85em;
+    padding: 0.15rem 0.4rem;
+    background-color: var(--admin-gray-100, #f1f5f9);
+    border-radius: 4px;
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .clone-dialog-content {
+    min-width: 0;
+  }
+}

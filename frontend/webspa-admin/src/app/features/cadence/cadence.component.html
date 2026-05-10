@@ -1,0 +1,261 @@
+<mat-toolbar color="primary">Cadence Management</mat-toolbar>
+
+<div class="cadence-container">
+  <mat-card class="mb-3">
+    <mat-card-content>
+      <div *ngIf="error" class="error-alert">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ error }}</span>
+      </div>
+
+      <div class="series-row">
+        <mat-form-field appearance="outline" class="series-select">
+          <mat-label>Series</mat-label>
+          <mat-select [value]="selectedSeriesId" (selectionChange)="onSeriesSelected($event.value)">
+            <mat-option [value]="null">Select series...</mat-option>
+            <mat-option *ngFor="let s of series" [value]="s.id">
+              {{ s.name }} (PR {{ s.partner_role_id }} / P {{ s.product_id }})
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <button mat-stroked-button color="primary" (click)="loadSeries()" [disabled]="loading">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-tab-group>
+    <mat-tab label="Create Series">
+      <mat-card>
+        <mat-card-content>
+          <form [formGroup]="createSeriesForm" class="form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Partner Role ID</mat-label>
+              <input matInput type="number" formControlName="partner_role_id" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Product ID</mat-label>
+              <input matInput type="number" formControlName="product_id" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="wide">
+              <mat-label>Series Name</mat-label>
+              <input matInput type="text" formControlName="name" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Mode</mat-label>
+              <mat-select formControlName="mode">
+                <mat-option value="SEQUENTIAL">SEQUENTIAL</mat-option>
+                <mat-option value="POOL">POOL</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <div class="actions">
+              <button mat-raised-button color="primary" (click)="createSeries()" [disabled]="createSeriesForm.invalid">
+                <mat-icon>add</mat-icon>
+                Create / Upsert
+              </button>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-card>
+    </mat-tab>
+
+    <mat-tab label="Schedule Rule" [disabled]="!selectedSeriesId">
+      <mat-card>
+        <mat-card-content>
+          <form [formGroup]="ruleForm" class="form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Rule Kind</mat-label>
+              <mat-select formControlName="rule_kind">
+                <mat-option value="DAILY">DAILY</mat-option>
+                <mat-option value="WEEKLY">WEEKLY</mat-option>
+                <mat-option value="EVERY_N_DAYS">EVERY_N_DAYS</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Preferred Time (HH:MM)</mat-label>
+              <input matInput type="text" formControlName="preferred_time" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Days Of Week (bitmask)</mat-label>
+              <input matInput type="number" formControlName="days_of_week" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Every N Days</mat-label>
+              <input matInput type="number" formControlName="n_days" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Send Window Start</mat-label>
+              <input matInput type="text" formControlName="send_start_time" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Send Window End</mat-label>
+              <input matInput type="text" formControlName="send_end_time" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="wide">
+              <mat-label>Timezone</mat-label>
+              <input matInput type="text" formControlName="timezone" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Max Per Day</mat-label>
+              <input matInput type="number" formControlName="max_per_day" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Catchup Mode</mat-label>
+              <mat-select formControlName="catchup_mode">
+                <mat-option value="THROTTLE">THROTTLE</mat-option>
+                <mat-option value="SEND">SEND</mat-option>
+                <mat-option value="SKIP">SKIP</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <div class="actions">
+              <button mat-raised-button color="primary" (click)="saveRule()" [disabled]="ruleForm.invalid">
+                <mat-icon>save</mat-icon>
+                Save Rule
+              </button>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-card>
+    </mat-tab>
+
+    <mat-tab label="Content" [disabled]="!selectedSeriesId">
+      <mat-card>
+        <mat-card-content>
+          <form [formGroup]="contentForm" class="form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Content Version</mat-label>
+              <input matInput type="number" formControlName="content_version" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Seq No</mat-label>
+              <input matInput type="number" formControlName="seq_no" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="wide">
+              <mat-label>Message Text</mat-label>
+              <textarea matInput rows="3" formControlName="message_text"></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Active</mat-label>
+              <mat-select formControlName="is_active">
+                <mat-option [value]="true">true</mat-option>
+                <mat-option [value]="false">false</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <div class="actions">
+              <button mat-raised-button color="primary" (click)="saveContent()" [disabled]="contentForm.invalid">
+                <mat-icon>save</mat-icon>
+                Save Content Item
+              </button>
+            </div>
+          </form>
+
+          <div class="table-container mt-3" *ngIf="contentItems?.length">
+            <table mat-table [dataSource]="contentItems" class="content-table">
+              <ng-container matColumnDef="content_version">
+                <th mat-header-cell *matHeaderCellDef>Version</th>
+                <td mat-cell *matCellDef="let row">{{ row.content_version }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="seq_no">
+                <th mat-header-cell *matHeaderCellDef>Seq</th>
+                <td mat-cell *matCellDef="let row">{{ row.seq_no }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="is_active">
+                <th mat-header-cell *matHeaderCellDef>Active</th>
+                <td mat-cell *matCellDef="let row">{{ row.is_active }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="message_text">
+                <th mat-header-cell *matHeaderCellDef>Message</th>
+                <td mat-cell *matCellDef="let row" class="message-cell">{{ row.message_text }}</td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="displayedContentColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedContentColumns;"></tr>
+            </table>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </mat-tab>
+
+    <mat-tab label="CSV Import">
+      <mat-card>
+        <mat-card-content>
+          <div class="import-row">
+            <input type="file" accept=".csv,text/csv" (change)="onFilePicked($event)" />
+            <mat-slide-toggle [(ngModel)]="importDryRun">Dry run</mat-slide-toggle>
+            <button mat-raised-button color="primary" (click)="runImport(importDryRun)" [disabled]="importing">
+              <mat-icon>upload</mat-icon>
+              {{ importDryRun ? 'Validate CSV' : 'Import CSV' }}
+            </button>
+          </div>
+
+          <mat-progress-spinner *ngIf="importing" diameter="30"></mat-progress-spinner>
+
+          <div class="import-result" *ngIf="importResult">
+            <pre>{{ importResult | json }}</pre>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </mat-tab>
+
+    <mat-tab label="Publish Version" [disabled]="!selectedSeriesId">
+      <mat-card>
+        <mat-card-content>
+          <p class="publish-info">
+            Current active content version for <strong>{{ selectedSeries?.name }}</strong>:
+            <strong>{{ selectedSeries?.content_version }}</strong>
+          </p>
+
+          <div class="publish-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Version to Publish</mat-label>
+              <mat-select [(ngModel)]="publishVersionInput">
+                <mat-option *ngFor="let v of getAvailableVersions()" [value]="v">
+                  Version {{ v }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <button mat-raised-button color="accent" (click)="onPublishVersion()" [disabled]="publishingVersion">
+              <mat-icon>publish</mat-icon>
+              Publish Version
+            </button>
+          </div>
+
+          <mat-progress-spinner *ngIf="publishingVersion" diameter="30"></mat-progress-spinner>
+
+          <div class="publish-result" *ngIf="publishResult">
+            <mat-icon color="primary">check_circle</mat-icon>
+            <span>
+              Published! Version changed from <strong>{{ publishResult.previous_version }}</strong>
+              to <strong>{{ publishResult.published_version }}</strong>.
+            </span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </mat-tab>
+  </mat-tab-group>
+</div>
+

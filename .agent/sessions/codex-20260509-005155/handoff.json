@@ -1,0 +1,135 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "Document full-system service inventory, verification commands, pass/fail status, risks, and unresolved blockers.",
+      "evidence": [
+        "docs/agent/full-system-verification-2026-05-09.md",
+        "slices/TMP-021-full-system-verification/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": "Dependency/vendor repairs, missing submodule mapping, env readiness, and main/origin divergence remain outside this slice's safe edit scope.",
+      "criterion": "Run repository-level verification and identify blockers without making dependency, vendor, secret, or merge-conflict changes.",
+      "evidence": [
+        "docs/agent/full-system-verification-2026-05-09.md"
+      ],
+      "next_task_id": null,
+      "reason": "Release verification is blocked by explicit approval gates and repository integration state.",
+      "status": "blocked"
+    }
+  ],
+  "blockers": [
+    "notification and subscription-partner vendor/dependency metadata repairs require explicit dependency/vendor approval",
+    "webspa-admin gitlink cannot be initialized because .gitmodules mapping is missing",
+    "compose runtime start is blocked by missing env values and secret-shaped checked-in config",
+    "local main and origin/main diverge with add/add conflicts; clean PR branch uses origin/main as source of truth"
+  ],
+  "changed_files": [
+    "agent/backlog/issues/TMP-021-full-system-verification.md",
+    "agent/state/TMP-021.work-order.json",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-021-full-system-verification/notes.md",
+    "slices/TMP-021-full-system-verification/slice.yaml",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/manifest.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "Removed temporary build directory /tmp/agent-build-timwe-20260509.",
+    "Original local-history push was terminated after identifying oversized unpushed history; clean PR branch has no oversized new blobs."
+  ],
+  "commits": [
+    "5984863",
+    "356c449"
+  ],
+  "completed_work": [
+    "Created a full-system release verification matrix across Go services, landing-web, compose/runtime config, harness state, and repo integration.",
+    "Recorded blocked verification outcomes and command evidence in slice artifacts."
+  ],
+  "confidence": {
+    "completeness": "medium",
+    "implementation": "medium",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Admin frontend cannot be verified until frontend/webspa-admin has a .gitmodules mapping or the gitlink is removed intentionally.",
+    "Notification and subscription-partner dependency/vendor metadata need explicit approval before repair.",
+    "Runtime compose smoke cannot proceed until required env values are supplied and checked-in secret-shaped config is resolved.",
+    "The original worktree is based on local main; merging origin/main produced add/add conflicts and was aborted. A clean PR branch was created from origin/main and the verified repair commit was cherry-picked there."
+  ],
+  "next_tasks": [],
+  "operator_message": "Full release verification is blocked by dependency/vendor, submodule, env/secret, and local-main integration gates. The verified repair slices are on clean PR branch agent/codex/full-system-verify-pr-20260509-0129.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "Do not run broad dependency updates or vendor rewrites without approval.",
+    "Do not quote checked-in secret-shaped values in reports or user-facing output."
+  ],
+  "safe_to_continue": false,
+  "schema_version": 1,
+  "session_id": "codex-20260509-005155",
+  "status": "blocked",
+  "summary": "Release verification matrix completed and blocked items are documented.",
+  "supervisor_decision": "blocked_pending_operator_or_repository_unblock",
+  "task_id": "T-TMP-021",
+  "unfinished_work": [
+    {
+      "blocker": "Dependency/vendor approval required.",
+      "disposition": "blocked",
+      "item": "Repair notification and subscription-partner module/vendor metadata.",
+      "next_task_id": null,
+      "reason": "Dependency and vendor changes are approval-gated.",
+      "severity": "high"
+    },
+    {
+      "blocker": "Missing .gitmodules mapping.",
+      "disposition": "blocked",
+      "item": "Initialize or remove frontend/webspa-admin gitlink.",
+      "next_task_id": null,
+      "reason": "Repository metadata is inconsistent.",
+      "severity": "high"
+    },
+    {
+      "blocker": "Missing env values and secret-shaped checked-in config.",
+      "disposition": "blocked",
+      "item": "Run compose runtime smoke.",
+      "next_task_id": null,
+      "reason": "Runtime start would require secret/config decisions.",
+      "severity": "high"
+    },
+    {
+      "blocker": "origin/main merge conflicts.",
+      "disposition": "blocked",
+      "item": "Verify against merged remote state.",
+      "next_task_id": null,
+      "reason": "Merge produced broad add/add conflicts and was aborted.",
+      "severity": "high"
+    }
+  ],
+  "validation": [
+    {
+      "command": "agent-supervisor --config .harness/config.json preflight",
+      "exit_code": 0,
+      "output_excerpt": "ok: true; stale superseded ledger rows only",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:12:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "no blockers",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:12:00Z"
+    },
+    {
+      "command": "slice-harness sync --dry-run",
+      "exit_code": 0,
+      "output_excerpt": "no drift detected",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:12:00Z"
+    }
+  ]
+}

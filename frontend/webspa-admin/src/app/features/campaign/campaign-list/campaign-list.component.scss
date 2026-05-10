@@ -1,0 +1,256 @@
+// ============================================
+// CAMPAIGN LIST COMPONENT - Professional Theme
+// ============================================
+
+.campaign-container {
+  padding: 1.5rem;
+  background: var(--admin-bg);
+  min-height: 100%;
+}
+
+.campaign-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+
+  h2 {
+    margin: 0;
+    font-weight: 600;
+    color: var(--admin-text);
+    font-size: 1.5rem;
+  }
+}
+
+.filter-card {
+  margin-bottom: 1.5rem;
+  background: var(--admin-surface) !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: var(--admin-radius-lg) !important;
+  box-shadow: var(--admin-shadow) !important;
+}
+
+// First row: filter fields
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+
+  mat-form-field {
+    // Remove subscript space for cleaner alignment
+    &.mat-mdc-form-field {
+      .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
+    }
+  }
+}
+
+.filter-field {
+  flex: 0 0 160px;
+}
+
+.search-field {
+  flex: 1 1 250px;
+}
+
+// Second row: action buttons
+.actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+
+  // Apply button styling
+  button[mat-raised-button] {
+    height: 44px;
+    min-width: 100px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background-color: var(--admin-primary, #4f46e5) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+
+    &:hover:not([disabled]) {
+      background-color: var(--admin-primary-dark, #3730a3) !important;
+    }
+
+    mat-icon {
+      color: white !important;
+    }
+  }
+
+  // Clear button styling
+  button[mat-stroked-button] {
+    height: 44px;
+    min-width: 100px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    color: var(--admin-text, #1e293b) !important;
+    border-color: var(--admin-border, #e2e8f0) !important;
+    background-color: transparent !important;
+
+    &:hover {
+      background-color: var(--admin-gray-100, #f1f5f9) !important;
+    }
+  }
+}
+
+.error-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
+  border-radius: var(--admin-radius);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: var(--admin-danger);
+  }
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+
+  mat-spinner {
+    --mdc-circular-progress-active-indicator-color: var(--admin-primary);
+  }
+}
+
+.table-card {
+  overflow: hidden;
+  background: var(--admin-surface) !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: var(--admin-radius-lg) !important;
+  box-shadow: var(--admin-shadow) !important;
+}
+
+.campaign-table {
+  width: 100%;
+
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85em;
+    padding: 0.15rem 0.4rem;
+    background-color: var(--admin-gray-100);
+    color: var(--admin-text);
+    border-radius: var(--admin-radius-sm);
+  }
+}
+
+// Flow type badges with improved colors
+.flow-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+
+  &.flow-otp {
+    background-color: rgba(14, 165, 233, 0.1);
+    color: #0369a1;
+  }
+
+  &.flow-click_to_sms {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #b45309;
+  }
+
+  &.flow-redirect {
+    background-color: rgba(139, 92, 246, 0.1);
+    color: #6d28d9;
+  }
+
+  &.flow-mixed {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #047857;
+  }
+}
+
+// Dark mode badge colors
+:host-context([data-coreui-theme="dark"]) {
+  .flow-badge {
+    &.flow-otp {
+      background-color: rgba(14, 165, 233, 0.2);
+      color: #38bdf8;
+    }
+
+    &.flow-click_to_sms {
+      background-color: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+    }
+
+    &.flow-redirect {
+      background-color: rgba(139, 92, 246, 0.2);
+      color: #a78bfa;
+    }
+
+    &.flow-mixed {
+      background-color: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+    }
+  }
+
+  .campaign-table code {
+    background-color: var(--admin-gray-700);
+  }
+
+  // Clear button dark mode
+  .actions-row button[mat-stroked-button] {
+    color: var(--admin-gray-200, #e2e8f0) !important;
+    border-color: var(--admin-gray-600, #475569) !important;
+
+    &:hover {
+      background-color: var(--admin-gray-700, #334155) !important;
+    }
+  }
+}
+
+.no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+  color: var(--admin-text-muted);
+
+  mat-icon {
+    font-size: 56px;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  p {
+    font-weight: 500;
+  }
+}
+
+// Table row hover
+::ng-deep .mat-mdc-row:hover {
+  background-color: var(--admin-gray-50) !important;
+}
+
+:host-context([data-coreui-theme="dark"]) ::ng-deep .mat-mdc-row:hover {
+  background-color: var(--admin-gray-700) !important;
+}

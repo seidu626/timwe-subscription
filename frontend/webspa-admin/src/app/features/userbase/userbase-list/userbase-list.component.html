@@ -1,0 +1,108 @@
+<div class="userbase-page">
+  <h2>Userbase</h2>
+  <p class="subtitle">Manage excluded/segmented MSISDNs and upload bulk userbase files.</p>
+
+  <mat-card class="card">
+    <mat-card-title>Upsert Record</mat-card-title>
+    <mat-card-content>
+      <div class="row">
+        <mat-form-field appearance="outline">
+          <mat-label>MSISDN</mat-label>
+          <input matInput [(ngModel)]="form.msisdn" placeholder="23357xxxxxxx" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Type</mat-label>
+          <mat-select [(ngModel)]="form.type">
+            <mat-option value="BLACKLISTED">BLACKLISTED</mat-option>
+            <mat-option value="PREMIER">PREMIER</mat-option>
+            <mat-option value="STAFF">STAFF</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <div class="actions">
+        <button mat-raised-button color="primary" (click)="upsert()" [disabled]="saving">Save</button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="card">
+    <mat-card-title>Import Userbase</mat-card-title>
+    <mat-card-content>
+      <div class="upload-row">
+        <input type="file" (change)="onFileSelected($event)" accept=".csv,.xlsx" />
+        <button mat-raised-button color="accent" (click)="upload()" [disabled]="saving || !selectedFile">
+          Upload
+        </button>
+      </div>
+
+      <div *ngIf="lastImportResult" class="import-summary">
+        <div><strong>Job:</strong> {{ lastImportResult.job.id }}</div>
+        <div><strong>Status:</strong> {{ lastImportResult.job.status }}</div>
+        <div><strong>Total:</strong> {{ lastImportResult.job.total_rows }}</div>
+        <div><strong>Success:</strong> {{ lastImportResult.job.success_rows }}</div>
+        <div><strong>Failed:</strong> {{ lastImportResult.job.failed_rows }}</div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="card">
+    <mat-card-title>Userbase List</mat-card-title>
+    <mat-card-content>
+      <div class="row filters">
+        <mat-form-field appearance="outline">
+          <mat-label>MSISDN Prefix</mat-label>
+          <input matInput [(ngModel)]="filters.msisdn" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Type</mat-label>
+          <input matInput [(ngModel)]="filters.type" placeholder="BLACKLISTED" />
+        </mat-form-field>
+        <div class="actions">
+          <button mat-raised-button color="primary" (click)="applyFilters()" [disabled]="loading">Apply</button>
+          <button mat-stroked-button (click)="clearFilters()" [disabled]="loading">Clear</button>
+        </div>
+      </div>
+
+      <div *ngIf="loading" class="loading">
+        <mat-spinner diameter="36"></mat-spinner>
+      </div>
+
+      <div *ngIf="!loading">
+        <table mat-table [dataSource]="dataSource" class="mat-elevation-z2">
+          <ng-container matColumnDef="id">
+            <th mat-header-cell *matHeaderCellDef>ID</th>
+            <td mat-cell *matCellDef="let row">{{ row.id }}</td>
+          </ng-container>
+          <ng-container matColumnDef="msisdn">
+            <th mat-header-cell *matHeaderCellDef>MSISDN</th>
+            <td mat-cell *matCellDef="let row">{{ row.msisdn }}</td>
+          </ng-container>
+          <ng-container matColumnDef="type">
+            <th mat-header-cell *matHeaderCellDef>Type</th>
+            <td mat-cell *matCellDef="let row">{{ row.type }}</td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let row">
+              <button mat-icon-button color="warn" (click)="delete(row)" matTooltip="Delete">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+
+        <mat-paginator
+          [length]="totalCount"
+          [pageIndex]="page - 1"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="pageSizes"
+          (page)="onPageChange($event)"
+          showFirstLastButtons>
+        </mat-paginator>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

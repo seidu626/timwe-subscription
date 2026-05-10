@@ -1,0 +1,9 @@
+<div *ngFor="let filter of filters">
+    <mat-form-field appearance="outline">
+      <mat-label>{{ filter.name }}</mat-label>
+      <input *ngIf="filter.type === 'text'" matInput [(ngModel)]="filterValues[filter.key]" (input)="onFilterChange()">
+      <input *ngIf="filter.type === 'date'" matInput [(ngModel)]="filterValues[filter.key]" (dateChange)="onFilterChange()" [matDatepicker]="picker">
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
+  </div>
+  

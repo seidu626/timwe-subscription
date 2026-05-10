@@ -1,0 +1,142 @@
+<div class="product-page">
+  <h2>Products</h2>
+  <p class="subtitle">Manage product catalog used by campaigns and subscriptions.</p>
+
+  <mat-card class="card">
+    <mat-card-title>{{ editingProductId ? 'Edit Product' : 'Create Product' }}</mat-card-title>
+    <mat-card-content>
+      <div class="row">
+        <mat-form-field appearance="outline">
+          <mat-label>Product ID</mat-label>
+          <input matInput [(ngModel)]="form.product_id" placeholder="27188" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Name</mat-label>
+          <input matInput [(ngModel)]="form.name" placeholder="Level 23 Daily" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Price Point ID</mat-label>
+          <input matInput type="number" [(ngModel)]="form.price_point_id" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Price Point Value</mat-label>
+          <input matInput type="number" step="0.01" [(ngModel)]="form.price_point_value" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Short Code</mat-label>
+          <input matInput [(ngModel)]="form.short_code" placeholder="1234" />
+        </mat-form-field>
+      </div>
+      <div class="actions">
+        <button mat-raised-button color="primary" (click)="saveProduct()" [disabled]="saving">
+          {{ editingProductId ? 'Update' : 'Create' }}
+        </button>
+        <button mat-stroked-button (click)="resetForm()" [disabled]="saving">
+          Clear
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="card">
+    <mat-card-title>Batch Upsert</mat-card-title>
+    <mat-card-content>
+      <mat-form-field appearance="outline" class="batch-field">
+        <mat-label>Products JSON Array</mat-label>
+        <textarea matInput rows="8" [(ngModel)]="batchJson"></textarea>
+      </mat-form-field>
+      <div class="actions">
+        <button mat-raised-button color="accent" (click)="runBatchUpsert()" [disabled]="saving">
+          Run Batch Upsert
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="card">
+    <mat-card-title>Product List</mat-card-title>
+    <mat-card-content>
+      <div class="row filters">
+        <mat-form-field appearance="outline">
+          <mat-label>Search</mat-label>
+          <input matInput [(ngModel)]="filters.q" placeholder="Product ID or name" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Short Code</mat-label>
+          <input matInput [(ngModel)]="filters.short_code" placeholder="1234" />
+        </mat-form-field>
+        <div class="actions">
+          <button mat-raised-button color="primary" (click)="applyFilters()" [disabled]="loading">Apply</button>
+          <button mat-stroked-button (click)="clearFilters()" [disabled]="loading">Clear</button>
+        </div>
+      </div>
+
+      <div *ngIf="loading" class="loading">
+        <mat-spinner diameter="36"></mat-spinner>
+      </div>
+
+      <div *ngIf="!loading">
+        <table mat-table [dataSource]="dataSource" class="mat-elevation-z2">
+          <ng-container matColumnDef="id">
+            <th mat-header-cell *matHeaderCellDef>ID</th>
+            <td mat-cell *matCellDef="let row">{{ row.id }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="product_id">
+            <th mat-header-cell *matHeaderCellDef>Product ID</th>
+            <td mat-cell *matCellDef="let row">{{ row.product_id }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>Name</th>
+            <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="price_point_id">
+            <th mat-header-cell *matHeaderCellDef>Price Point ID</th>
+            <td mat-cell *matCellDef="let row">{{ row.price_point_id }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="price_point_value">
+            <th mat-header-cell *matHeaderCellDef>Price Point Value</th>
+            <td mat-cell *matCellDef="let row">{{ row.price_point_value }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="short_code">
+            <th mat-header-cell *matHeaderCellDef>Short Code</th>
+            <td mat-cell *matCellDef="let row">{{ row.short_code }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="created_at">
+            <th mat-header-cell *matHeaderCellDef>Created</th>
+            <td mat-cell *matCellDef="let row">{{ row.created_at | date:'short' }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let row">
+              <button mat-icon-button (click)="editProduct(row)" matTooltip="Edit">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="deleteProduct(row)" matTooltip="Delete">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+
+        <mat-paginator
+          [length]="totalCount"
+          [pageIndex]="page - 1"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="pageSizes"
+          (page)="onPageChange($event)"
+          showFirstLastButtons>
+        </mat-paginator>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

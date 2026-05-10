@@ -1,0 +1,82 @@
+id: TMP-047
+name: landing-web-dependency-remediation
+class: vertical_defect_slice
+status: in_progress
+actor: platform-operator
+action: "rerun landing-web dependency verification"
+outcome: "landing-web dependency advisories are remediated while the public landing route still builds and responds"
+depends_on:
+  - TMP-037
+blocks:
+  - TMP-021
+entrypoint: "services/landing-web/package.json"
+trigger: "npm audit reports Next/PostCSS advisories after TMP-037 approval"
+story:
+  as_a: platform-operator
+  i_want_to: "upgrade the landing-web dependency chain"
+  so_that: "release verification is not blocked by known Next/PostCSS advisories"
+acceptance_criteria:
+  happy:
+    - scenario: "Dependency audit is clean"
+      given:
+        - "TMP-037 approval is recorded"
+        - "landing-web package metadata has been updated"
+      when: "npm audit --audit-level=moderate runs in services/landing-web"
+      then: "npm exits successfully with no moderate-or-higher advisories"
+      evidence: "command output recorded in value-gate report"
+    - scenario: "Landing web still builds"
+      given:
+        - "dependencies are installed from package-lock.json"
+      when: "npm run build runs in services/landing-web"
+      then: "Next build completes successfully"
+      evidence: "command output recorded in value-gate report"
+    - scenario: "Landing route responds"
+      given:
+        - "the built Next app is started locally"
+      when: "HTTP GET / is requested"
+      then: "the app returns HTTP 200"
+      evidence: "runtime smoke command recorded in value-gate report"
+  failures:
+    - scenario: "Audit remains vulnerable"
+      given:
+        - "dependencies are installed"
+      when: "npm audit --audit-level=moderate runs"
+      then: "the value gate fails and TMP-021 remains blocked"
+      evidence: "audit command exit code"
+    - scenario: "Build regression"
+      given:
+        - "upgraded dependencies are installed"
+      when: "npm run build runs"
+      then: "the value gate fails if Next build exits non-zero"
+      evidence: "build command exit code"
+    - scenario: "Runtime regression"
+      given:
+        - "the built app is started"
+      when: "GET / is requested"
+      then: "the value gate fails if HTTP status is not 200"
+      evidence: "curl status code"
+  invariants:
+    - rule: "Release verification must not claim readiness with active moderate-or-higher advisories"
+      preserved_by: "npm audit gate"
+      violated_when: "audit exits non-zero"
+      test: "cd services/landing-web && npm audit --audit-level=moderate"
+    - rule: "Landing-web must remain buildable"
+      preserved_by: "Next build gate"
+      violated_when: "npm run build exits non-zero"
+      test: "cd services/landing-web && npm run build"
+    - rule: "Public landing entrypoint remains reachable"
+      preserved_by: "runtime smoke"
+      violated_when: "GET / returns non-200"
+      test: "bounded runtime smoke returns HTTP 200"
+out_of_scope:
+  - "landing page redesign"
+  - "HE simulation feature changes"
+  - "admin frontend dependency remediation"
+  - "schema, compose, or Go service changes"
+size_check:
+  files_touched: 8
+  migrations: 0
+  endpoints: 0
+value_gate:
+  required_verdict: PASS
+  report_path: "slices/TMP-047-landing-web-dependency-remediation/value-gate-report.md"

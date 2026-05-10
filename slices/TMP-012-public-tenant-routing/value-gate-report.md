@@ -45,3 +45,7 @@ The repository does not contain `scripts/scan-test-quality.sh`; manual checks we
 
 - Host-based tenant mapping and KrakenD config fixture verification are deferred until environment routing details are available.
 - Transaction tenant persistence and callback correlation are deferred to TMP-006 and TMP-013.
+
+## Current superseding evidence
+
+TMP-044 reran the current landing-web verification from `origin/main` after dependencies were installed. `cd services/landing-web && npm ci` passed, and `cd services/landing-web && npm run build` passed with type checking and route generation for `/api/campaigns/[tenant]`, `/api/campaigns/[tenant]/[slug]`, `/lp/[tenant]`, and `/lp/[tenant]/[slug]`. `npm ci` still reports one moderate and one high vulnerability; dependency remediation remains approval-gated by TMP-037.

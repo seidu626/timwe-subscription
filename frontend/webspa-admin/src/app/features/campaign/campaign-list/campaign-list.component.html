@@ -1,0 +1,142 @@
+<div class="campaign-container">
+  <div class="campaign-header">
+    <h2>Campaigns</h2>
+    <button mat-raised-button color="primary" (click)="onCreate()">
+      <mat-icon>add</mat-icon>
+      Create Campaign
+    </button>
+  </div>
+
+  <mat-card class="filter-card">
+    <mat-card-content>
+      <div class="filters-row">
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="filters.enabled">
+            <mat-option value="">All</mat-option>
+            <mat-option value="true">Enabled</mat-option>
+            <mat-option value="false">Disabled</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Country (e.g. GH)</mat-label>
+          <input matInput [(ngModel)]="filters.country">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field search-field">
+          <mat-label>Search campaigns...</mat-label>
+          <input matInput (keyup)="applyFilter($event)">
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+      </div>
+
+      <div class="actions-row">
+        <button mat-raised-button color="primary" (click)="applyFilters()">Apply</button>
+        <button mat-stroked-button (click)="clearFilters()">Clear</button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <div *ngIf="error" class="error-alert">
+    <mat-icon>error</mat-icon>
+    {{ error }}
+  </div>
+
+  <div *ngIf="loading" class="loading-spinner">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <mat-card *ngIf="!loading" class="table-card">
+    <table mat-table [dataSource]="dataSource" matSort class="campaign-table">
+
+      <!-- Slug Column -->
+      <ng-container matColumnDef="slug">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Slug</th>
+        <td mat-cell *matCellDef="let campaign">
+          <code>{{ campaign.slug }}</code>
+        </td>
+      </ng-container>
+
+      <!-- Country Column -->
+      <ng-container matColumnDef="country">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Country</th>
+        <td mat-cell *matCellDef="let campaign">{{ campaign.country }}</td>
+      </ng-container>
+
+      <!-- Language Column -->
+      <ng-container matColumnDef="language">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Language</th>
+        <td mat-cell *matCellDef="let campaign">{{ campaign.language }}</td>
+      </ng-container>
+
+      <!-- Flow Type Column -->
+      <ng-container matColumnDef="flow_type">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Flow Type</th>
+        <td mat-cell *matCellDef="let campaign">
+          <span class="flow-badge" [class]="'flow-' + campaign.flow_type.toLowerCase()">
+            {{ getFlowTypeLabel(campaign.flow_type) }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Price Column -->
+      <ng-container matColumnDef="price">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Price</th>
+        <td mat-cell *matCellDef="let campaign">
+          {{ campaign.price ? (campaign.price | number:'1.2-2') : '-' }}
+          <small *ngIf="campaign.billing_cycle">/ {{ campaign.billing_cycle }}</small>
+        </td>
+      </ng-container>
+
+      <!-- Enabled Column -->
+      <ng-container matColumnDef="enabled">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+        <td mat-cell *matCellDef="let campaign">
+          <mat-slide-toggle
+            [checked]="campaign.enabled"
+            (change)="onToggleEnabled(campaign)"
+            color="primary">
+          </mat-slide-toggle>
+        </td>
+      </ng-container>
+
+      <!-- Updated At Column -->
+      <ng-container matColumnDef="updated_at">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Updated</th>
+        <td mat-cell *matCellDef="let campaign">
+          {{ campaign.updated_at | date:'short' }}
+        </td>
+      </ng-container>
+
+      <!-- Actions Column -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell *matCellDef="let campaign">
+          <button mat-icon-button matTooltip="Edit" (click)="onEdit(campaign)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button matTooltip="Copy campaign" (click)="onClone(campaign)">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+          <button mat-icon-button matTooltip="Preview Landing Page" (click)="onPreview(campaign)">
+            <mat-icon>open_in_new</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+      <!-- No Data Row -->
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell" colspan="8" class="no-data">
+          <mat-icon>inbox</mat-icon>
+          <span>No campaigns found</span>
+        </td>
+      </tr>
+    </table>
+
+    <mat-paginator [pageSizeOptions]="[10, 25, 50]" showFirstLastButtons></mat-paginator>
+  </mat-card>
+</div>

@@ -1,0 +1,103 @@
+:host {
+  .legend {
+    small {
+      font-size: x-small;
+    }
+  }
+
+  .dashboard-header {
+    h2 {
+      margin-bottom: 0.25rem;
+      font-weight: 700;
+    }
+    p {
+      margin-bottom: 0;
+    }
+  }
+
+  .kpi-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .kpi-icon {
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.75rem;
+      color: white;
+    }
+
+    .kpi-content {
+      min-width: 0;
+    }
+
+    .kpi-label {
+      letter-spacing: 0.05em;
+      font-size: 0.75rem;
+    }
+
+    .kpi-value {
+      line-height: 1.2;
+    }
+
+    .kpi-subtitle {
+      opacity: 0.8;
+    }
+
+    &.kpi-views .kpi-icon {
+      background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+    }
+
+    &.kpi-transactions .kpi-icon {
+      background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+    }
+
+    &.kpi-subscribed .kpi-icon {
+      background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+    }
+
+    &.kpi-charged .kpi-icon {
+      background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+    }
+
+    &.kpi-revenue {
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      color: white;
+
+      .kpi-icon {
+        background: rgba(255, 255, 255, 0.2);
+      }
+    }
+  }
+
+  .funnel-summary {
+    .funnel-step {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--cui-border-color, #dee2e6);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .funnel-label {
+        color: var(--cui-body-color, #212529);
+      }
+
+      .funnel-value {
+        color: var(--cui-primary, #321fdb);
+      }
+    }
+  }
+
+  .btn-outline-primary,
+  .btn-outline-secondary {
+    display: inline-flex;
+    align-items: center;
+  }
+}

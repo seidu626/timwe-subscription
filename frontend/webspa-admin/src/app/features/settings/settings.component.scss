@@ -1,0 +1,144 @@
+// ============================================
+// SETTINGS COMPONENT - Professional Theme
+// ============================================
+
+.settings-container {
+  padding: 1.5rem;
+  max-width: 700px;
+  background: var(--admin-bg);
+  min-height: 100%;
+}
+
+.settings-toolbar {
+  margin-bottom: 1.5rem;
+  border-radius: var(--admin-radius-lg);
+  background: var(--admin-primary) !important;
+  color: white !important;
+  box-shadow: var(--admin-shadow);
+  font-weight: 600;
+  font-size: 1.25rem;
+
+  mat-icon {
+    margin-right: 0.5rem;
+  }
+}
+
+.settings-card, .info-card {
+  margin-bottom: 1.5rem;
+  background: var(--admin-surface) !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: var(--admin-radius-lg) !important;
+  box-shadow: var(--admin-shadow) !important;
+
+  mat-card-header {
+    margin-bottom: 1rem;
+    padding: 1rem 1.25rem 0;
+  }
+
+  mat-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--admin-text);
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: var(--admin-primary);
+    }
+  }
+
+  mat-card-content {
+    padding: 0 1.25rem 1.25rem;
+  }
+}
+
+.settings-description {
+  color: var(--admin-text-muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.token-field {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+
+  button {
+    mat-icon {
+      margin-right: 0.25rem;
+    }
+  }
+}
+
+.success-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  margin-top: 1rem;
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #065f46;
+  border-radius: var(--admin-radius);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: var(--admin-success);
+  }
+}
+
+.info-card {
+  background: var(--admin-gray-50) !important;
+  border: 1px solid var(--admin-border) !important;
+
+  mat-card-title mat-icon {
+    color: var(--admin-info);
+  }
+}
+
+// Dark mode info card
+:host-context([data-coreui-theme="dark"]) .info-card {
+  background: var(--admin-gray-800) !important;
+}
+
+.info-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.8;
+  color: var(--admin-text);
+
+  li {
+    margin-bottom: 0.75rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.85em;
+      padding: 0.15rem 0.4rem;
+      background-color: var(--admin-gray-200);
+      color: var(--admin-primary-dark);
+      border-radius: var(--admin-radius-sm);
+    }
+  }
+}
+
+// Dark mode code styling
+:host-context([data-coreui-theme="dark"]) .info-list li code {
+  background-color: var(--admin-gray-700);
+  color: var(--admin-primary-light);
+}

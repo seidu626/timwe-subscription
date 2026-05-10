@@ -145,6 +145,7 @@ func TestMiddlewareAttachesIdentityToRequestContext(t *testing.T) {
 func TestMiddlewareRejectsReplayNonce(t *testing.T) {
 	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
 	store := NewMemoryNonceStore()
+	store.clock = func() time.Time { return now }
 	newRequest := func() *http.Request {
 		req := httptest.NewRequest(http.MethodPost, "/internal", nil)
 		req.Header.Set(HeaderTenantID, "tenant-123")

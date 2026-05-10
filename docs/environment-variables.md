@@ -15,7 +15,7 @@ For services using `APP_` prefix (subscription-partner, notification, cadence-en
 
 | Variable | Description |
 |----------|-------------|
-| `APP_DATABASE_POSTGRESQL_HOST` | Database hostname |
+| `APP_DATABASE_POSTGRESQL_HOST` | Database hostname (Docker Compose default: `database`) |
 | `APP_DATABASE_POSTGRESQL_PORT` | Database port (default: 5432) |
 | `APP_DATABASE_POSTGRESQL_USER` | Database username |
 | `APP_DATABASE_POSTGRESQL_PASSWORD` | Database password |

@@ -1,0 +1,76 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "Landing web must build after resolving conflicting App Router dynamic segment names.",
+      "evidence": [
+        "services/landing-web/app/lp/[tenant]/page.tsx",
+        "services/landing-web/app/lp/[tenant]/[slug]/page.tsx",
+        "services/landing-web/app/api/campaigns/[tenant]/route.ts",
+        "services/landing-web/app/api/campaigns/[tenant]/[slug]/route.ts",
+        "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    "agent/backlog/issues/TMP-022-landing-web-dynamic-route-build.md",
+    "agent/state/TMP-022.work-order.json",
+    "services/landing-web/app/api/campaigns/[tenant]/[slug]/route.ts",
+    "services/landing-web/app/api/campaigns/[tenant]/route.ts",
+    "services/landing-web/app/lp/[tenant]/LandingPageClient.tsx",
+    "services/landing-web/app/lp/[tenant]/[slug]/page.tsx",
+    "services/landing-web/app/lp/[tenant]/page.tsx",
+    "slices/TMP-022-landing-web-dynamic-route-build/domain-brief.md",
+    "slices/TMP-022-landing-web-dynamic-route-build/notes.md",
+    "slices/TMP-022-landing-web-dynamic-route-build/slice.yaml",
+    "slices/TMP-022-landing-web-dynamic-route-build/spec.md",
+    "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md",
+    "slices/manifest.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [],
+  "commits": [
+    "5984863",
+    "356c449"
+  ],
+  "completed_work": [
+    "Renamed landing-web dynamic route folders from slug/slug conflicts to tenant/slug.",
+    "Preserved legacy single-segment campaign behavior by treating /lp/[tenant] as the campaign slug path.",
+    "Updated campaign API route params and metadata handling for the new segment names."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "npm audit still fails on Next/PostCSS advisories; dependency upgrade was not made because it is approval-gated."
+  ],
+  "next_tasks": [],
+  "operator_message": "Landing-web dynamic route conflict is fixed and npm run build passes.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "Analytics and transaction slug semantics should be watched in runtime QA, but the route build failure is resolved."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "codex-20260509-005155",
+  "status": "done",
+  "summary": "Landing-web App Router dynamic route conflict repaired.",
+  "supervisor_decision": "done",
+  "task_id": "T-TMP-022",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "cd services/landing-web && npm run build",
+      "exit_code": 0,
+      "output_excerpt": "build passed on clean origin/main branch with /api/campaigns/[tenant], /api/campaigns/[tenant]/[slug], /lp/[tenant], /lp/[tenant]/[slug]",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:12:00Z"
+    }
+  ]
+}

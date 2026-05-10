@@ -1,0 +1,113 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "TMP-022 automated verification points to landing-web build evidence.",
+      "evidence": [
+        "slices/manifest.json",
+        "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "TMP-023 is done and points to common package test evidence.",
+      "evidence": [
+        "slices/manifest.json",
+        "slices/TMP-023-common-package-test-failures/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "No source, dependency, vendor, or package manifest files changed.",
+      "evidence": [
+        "git diff --stat",
+        "git diff --name-only"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/heartbeats/T-TMP-024.json",
+    ".agent/tasks.json",
+    ".harness/task-ledger.sqlite",
+    "agent/backlog/issues/TMP-024-slice-registry-evidence-reconciliation.md",
+    "agent/state/TMP-024.handoff.json",
+    "agent/state/TMP-024.work-order.json",
+    "slices/TMP-024-slice-registry-evidence-reconciliation/notes.md",
+    "slices/TMP-024-slice-registry-evidence-reconciliation/slice.yaml",
+    "slices/TMP-024-slice-registry-evidence-reconciliation/spec.md",
+    "slices/TMP-024-slice-registry-evidence-reconciliation/value-gate-report.md",
+    "slices/manifest.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [],
+  "commits": [],
+  "completed_work": [
+    "Corrected TMP-022 manifest verification command and DoD path.",
+    "Marked TMP-023 done with common package test verification and DoD path.",
+    "Added TMP-024 operational slice evidence for registry reconciliation.",
+    "Repaired worktree-local supervisor ledger drift using a temporary config that pointed repo_path at the follow-up worktree."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "The tracked .harness/config.json still has an absolute repo_path pointing at the primary checkout; worktree-local supervisor verification used a temporary config."
+  ],
+  "next_tasks": [],
+  "operator_message": "Slice registry evidence is reconciled for TMP-022, TMP-023, and TMP-024.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "This slice intentionally makes no source, dependency, vendor, or runtime behavior changes."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "codex-20260509-013623",
+  "status": "done",
+  "summary": "Slice registry metadata now matches accepted verification evidence.",
+  "supervisor_decision": "done",
+  "task_id": "T-TMP-024",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "jq empty slices/manifest.json",
+      "exit_code": 0,
+      "output_excerpt": "manifest JSON valid",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:39:30Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-024 assignment_decision allow; no blocking reasons",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:39:30Z"
+    },
+    {
+      "command": "slice-harness status && slice-harness sync --dry-run",
+      "exit_code": 0,
+      "output_excerpt": "no drift detected",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:39:30Z"
+    },
+    {
+      "command": "agent-supervisor preflight --repair with worktree-local temp config",
+      "exit_code": 0,
+      "output_excerpt": "ok true; agent_tasks_missing_from_supervisor_ledger repaired",
+      "status": "passed",
+      "timestamp": "2026-05-09T01:40:00Z"
+    }
+  ]
+}

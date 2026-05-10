@@ -7,14 +7,15 @@ import { redirect, notFound } from 'next/navigation'
  * HE bootstrap on HTTP uses /c/:slug for capture, but the canonical landing
  * path is /lp/:slug. This redirect preserves query params (including he_token).
  */
-export default function CampaignRedirect({
+export default async function CampaignRedirect({
   params,
   searchParams,
 }: {
-  params: { slug: string }
-  searchParams: { [key: string]: string | string[] | undefined }
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const slug = params?.slug
+  const { slug } = await params
+  const resolvedSearchParams = await searchParams
 
   // Validate slug exists and is non-empty
   if (!slug || typeof slug !== 'string' || slug.trim() === '') {
@@ -23,7 +24,7 @@ export default function CampaignRedirect({
 
   // Build query string from searchParams (URLSearchParams handles encoding)
   const queryString = new URLSearchParams()
-  for (const [key, value] of Object.entries(searchParams)) {
+  for (const [key, value] of Object.entries(resolvedSearchParams)) {
     if (Array.isArray(value)) {
       value.forEach(v => queryString.append(key, v))
     } else if (value !== undefined) {

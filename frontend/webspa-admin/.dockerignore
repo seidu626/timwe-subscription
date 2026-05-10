@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.github/
+.gitignore
+
+# Test files
+coverage/
+*.spec.ts
+karma.conf.js
+
+# Documentation
+*.md
+!README.md
+
+# Misc
+.editorconfig
+.angular/

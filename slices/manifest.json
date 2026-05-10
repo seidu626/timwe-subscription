@@ -2,7 +2,7 @@
   "version": 1,
   "roadmap": "tenant-multichannel-platform",
   "generated_at": "2026-05-08T01:50:00Z",
-  "current_slice": null,
+  "current_slice": "TMP-021",
   "source_domain_brief": "slices/TMP-000-domain-grounding/domain-brief.md",
   "supporting_documents": [
     "slices/README.md",
@@ -22,13 +22,27 @@
       "description": "Platform operator creates a tenant and authenticated requests carry tenant context through one protected admin endpoint.",
       "state": "done",
       "priority": "P0",
-      "depends_on": ["TMP-018"],
+      "depends_on": [
+        "TMP-018"
+      ],
       "actor": "platform-operator",
       "entrypoint": "POST /v1/admin/tenants then GET /v1/admin/tenants/current",
       "outcome": "tenant identity exists and protected APIs can resolve tenant context",
       "estimated_files": 14,
       "estimated_endpoints": 2,
-      "failure_modes_to_cover": ["missing tenant claim", "duplicate tenant key", "unknown tenant id", "unauthorized actor"]
+      "failure_modes_to_cover": [
+        "missing tenant claim",
+        "duplicate tenant key",
+        "unknown tenant id",
+        "unauthorized actor"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-001-tenant-context/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-001-tenant-context/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-002",
@@ -37,13 +51,27 @@
       "description": "Tenant admin manages products and userbase records scoped to their tenant with audit logs.",
       "state": "done",
       "priority": "P0",
-      "depends_on": ["TMP-001"],
+      "depends_on": [
+        "TMP-001"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "GET /v1/admin/products and GET /v1/admin/userbase",
       "outcome": "admin management data is tenant-filtered and auditable",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["cross-tenant read", "duplicate product per tenant", "invalid userbase import row", "missing authorization"]
+      "failure_modes_to_cover": [
+        "cross-tenant read",
+        "duplicate product per tenant",
+        "invalid userbase import row",
+        "missing authorization"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-002-tenant-admin-management/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-002-tenant-admin-management/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-003",
@@ -52,13 +80,27 @@
       "description": "Tenant admin creates channel definitions with provider, country/operator scope, and supported capabilities.",
       "state": "done",
       "priority": "P0",
-      "depends_on": ["TMP-001"],
+      "depends_on": [
+        "TMP-001"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "POST /v1/admin/channels",
       "outcome": "tenant-owned channels can be selected by future campaigns and service routing",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["unsupported capability", "duplicate channel key", "missing provider", "cross-tenant channel access"]
+      "failure_modes_to_cover": [
+        "unsupported capability",
+        "duplicate channel key",
+        "missing provider",
+        "cross-tenant channel access"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-003-channel-catalog/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-003-channel-catalog/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-004",
@@ -67,13 +109,27 @@
       "description": "Tenant admin binds a secret-backed credential reference to a channel without exposing secret material.",
       "state": "done",
       "priority": "P1",
-      "depends_on": ["TMP-003"],
+      "depends_on": [
+        "TMP-003"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "POST /v1/admin/channels/{id}/credentials",
       "outcome": "channel routing can resolve active credential references securely",
       "estimated_files": 12,
       "estimated_endpoints": 2,
-      "failure_modes_to_cover": ["secret backend unavailable", "credential read redaction", "inactive channel", "cross-tenant credential access"]
+      "failure_modes_to_cover": [
+        "secret backend unavailable",
+        "credential read redaction",
+        "inactive channel",
+        "cross-tenant credential access"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-004-channel-credential-binding/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-004-channel-credential-binding/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-005",
@@ -82,13 +138,29 @@
       "description": "Tenant admin creates and reads campaigns scoped by tenant and bound to a compatible channel.",
       "state": "done",
       "priority": "P1",
-      "depends_on": ["TMP-002", "TMP-003", "TMP-019"],
+      "depends_on": [
+        "TMP-002",
+        "TMP-003",
+        "TMP-019"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "POST /v1/admin/campaigns",
       "outcome": "campaigns are tenant-scoped and channel-compatible before public use",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["duplicate slug in tenant", "ambiguous public slug", "channel capability mismatch", "disabled campaign access"]
+      "failure_modes_to_cover": [
+        "duplicate slug in tenant",
+        "ambiguous public slug",
+        "channel capability mismatch",
+        "disabled campaign access"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-005-tenant-campaigns/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-005-tenant-campaigns/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-006",
@@ -97,13 +169,29 @@
       "description": "End subscriber starts and confirms an acquisition transaction through a tenant campaign.",
       "state": "done",
       "priority": "P1",
-      "depends_on": ["TMP-004", "TMP-005", "TMP-012"],
+      "depends_on": [
+        "TMP-004",
+        "TMP-005",
+        "TMP-012"
+      ],
       "actor": "end-subscriber",
       "entrypoint": "POST /v1/acquisition/transactions",
       "outcome": "transactions, consent, HE, attribution, and next action are tenant-scoped",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["tenant/campaign mismatch", "pending transaction reuse across tenant boundary", "TIMWE dependency failure", "missing consent"]
+      "failure_modes_to_cover": [
+        "tenant/campaign mismatch",
+        "pending transaction reuse across tenant boundary",
+        "TIMWE dependency failure",
+        "missing consent"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-006-tenant-acquisition-flow/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-006-tenant-acquisition-flow/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-007",
@@ -114,13 +202,28 @@
       "branch": "agent/codex/tenant-platform-roadmap-20260508-014156",
       "updated_at": "2026-05-08T06:41:49Z",
       "priority": "P2",
-      "depends_on": ["TMP-004", "TMP-006"],
+      "depends_on": [
+        "TMP-004",
+        "TMP-006"
+      ],
       "actor": "api-integrated-partner",
       "entrypoint": "POST /api/external/v1/{channel}/mt and POST /api/v1/subscription-external/admin/optin",
       "outcome": "subscription-external never uses global TIMWE credentials when tenant/channel is required",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["missing tenant/channel", "unsupported operation", "credential lookup failure", "upstream timeout"]
+      "failure_modes_to_cover": [
+        "missing tenant/channel",
+        "unsupported operation",
+        "credential lookup failure",
+        "upstream timeout"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-007-channel-subscription-routing/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-007-channel-subscription-routing/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-008",
@@ -131,13 +234,29 @@
       "branch": "agent/codex/TMP-008-notification-cadence-20260508-070538",
       "updated_at": "2026-05-08T07:20:44Z",
       "priority": "P2",
-      "depends_on": ["TMP-003", "TMP-007", "TMP-013"],
+      "depends_on": [
+        "TMP-003",
+        "TMP-007",
+        "TMP-013"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "GET /v1/admin/cadence/series and GET /api/v1/notification/list",
       "outcome": "notification and cadence workflows are tenant-filtered and channel-aware",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["cross-tenant notification read", "duplicate message outbox job", "worker claim race", "channel send failure"]
+      "failure_modes_to_cover": [
+        "cross-tenant notification read",
+        "duplicate message outbox job",
+        "worker claim race",
+        "channel send failure"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-008-notification-and-cadence-routing/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-008-notification-and-cadence-routing/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-009",
@@ -148,13 +267,28 @@
       "branch": "agent/codex/TMP-009-postback-routing-20260508-064552",
       "updated_at": "2026-05-08T06:52:18Z",
       "priority": "P2",
-      "depends_on": ["TMP-005", "TMP-006"],
+      "depends_on": [
+        "TMP-005",
+        "TMP-006"
+      ],
       "actor": "ad-or-traffic-partner",
       "entrypoint": "POST /internal/acquisition/charge-success and GET /v1/admin/postbacks",
       "outcome": "conversion postbacks are tenant/provider-specific and recoverable through tenant-scoped DLQ",
       "estimated_files": 14,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["missing click id", "provider template missing", "postback target timeout", "cross-tenant DLQ access"]
+      "failure_modes_to_cover": [
+        "missing click id",
+        "provider template missing",
+        "postback target timeout",
+        "cross-tenant DLQ access"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-009-postback-and-attribution-routing/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-009-postback-and-attribution-routing/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-010",
@@ -165,13 +299,30 @@
       "branch": "agent/codex/TMP-010-reporting-operations-20260508-093015",
       "updated_at": "2026-05-08T09:40:46Z",
       "priority": "P3",
-      "depends_on": ["TMP-006", "TMP-008", "TMP-009", "TMP-017"],
+      "depends_on": [
+        "TMP-006",
+        "TMP-008",
+        "TMP-009",
+        "TMP-017"
+      ],
       "actor": "operations-analyst",
       "entrypoint": "GET /v1/admin/reports/kpis and monitoring endpoints",
       "outcome": "tenant operations can diagnose platform health without cross-tenant data leakage",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["missing tenant filter", "unsupported channel filter", "partial datasource failure", "unauthorized aggregation"]
+      "failure_modes_to_cover": [
+        "missing tenant filter",
+        "unsupported channel filter",
+        "partial datasource failure",
+        "unauthorized aggregation"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-010-tenant-reporting-and-ops/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-010-tenant-reporting-and-ops/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-011",
@@ -182,13 +333,32 @@
       "branch": "agent/codex/pending-slices-20260508-095850",
       "updated_at": "2026-05-08T10:40:00Z",
       "priority": "P3",
-      "depends_on": ["TMP-001", "TMP-002", "TMP-005", "TMP-006", "TMP-008", "TMP-009"],
+      "depends_on": [
+        "TMP-001",
+        "TMP-002",
+        "TMP-005",
+        "TMP-006",
+        "TMP-008",
+        "TMP-009"
+      ],
       "actor": "platform-operator",
       "entrypoint": "make db-migrate-tenant-platform",
       "outcome": "existing production data is backfilled with tenant_id and verified before multi-tenant enforcement",
       "estimated_files": 15,
       "estimated_endpoints": 0,
-      "failure_modes_to_cover": ["unmapped legacy row", "constraint violation", "rollback required", "large table lock risk"]
+      "failure_modes_to_cover": [
+        "unmapped legacy row",
+        "constraint violation",
+        "rollback required",
+        "large table lock risk"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-011-migration-and-data-isolation/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-011-migration-and-data-isolation/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-012",
@@ -197,13 +367,29 @@
       "description": "Public landing, campaign, HE, callback, and gateway routes resolve tenant deterministically before work begins.",
       "state": "done",
       "priority": "P1",
-      "depends_on": ["TMP-001", "TMP-005", "TMP-018"],
+      "depends_on": [
+        "TMP-001",
+        "TMP-005",
+        "TMP-018"
+      ],
       "actor": "end-subscriber",
       "entrypoint": "GET /lp/{tenant}/{slug} or tenant host mapping",
       "outcome": "public routes cannot choose the wrong tenant when campaign slugs overlap",
       "estimated_files": 15,
       "estimated_endpoints": 4,
-      "failure_modes_to_cover": ["ambiguous campaign slug", "forged tenant header", "disabled tenant", "legacy route compatibility"]
+      "failure_modes_to_cover": [
+        "ambiguous campaign slug",
+        "forged tenant header",
+        "disabled tenant",
+        "legacy route compatibility"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-012-public-tenant-routing/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-012-public-tenant-routing/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-013",
@@ -214,13 +400,29 @@
       "branch": "agent/codex/TMP-013-callback-correlation-20260508-065311",
       "updated_at": "2026-05-08T07:00:27Z",
       "priority": "P2",
-      "depends_on": ["TMP-003", "TMP-007", "TMP-012"],
+      "depends_on": [
+        "TMP-003",
+        "TMP-007",
+        "TMP-012"
+      ],
       "actor": "mno-or-timwe-upstream",
       "entrypoint": "POST /api/v1/webhooks/timwe/notification and POST /v1/callbacks/{telco}",
       "outcome": "callbacks update only the intended tenant/channel state or quarantine safely",
       "estimated_files": 15,
       "estimated_endpoints": 4,
-      "failure_modes_to_cover": ["uncorrelatable callback", "cross-tenant mismatch", "replay", "legacy callback mapping"]
+      "failure_modes_to_cover": [
+        "uncorrelatable callback",
+        "cross-tenant mismatch",
+        "replay",
+        "legacy callback mapping"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-013-inbound-callback-correlation/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-013-inbound-callback-correlation/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-014",
@@ -231,13 +433,29 @@
       "branch": "agent/codex/tmp-014-admin-portal-20260508-102936",
       "updated_at": "2026-05-08T10:40:00Z",
       "priority": "P2",
-      "depends_on": ["TMP-002", "TMP-003", "TMP-005"],
+      "depends_on": [
+        "TMP-002",
+        "TMP-003",
+        "TMP-005"
+      ],
       "actor": "tenant-admin",
       "entrypoint": "frontend/webspa-admin routes and API client",
       "outcome": "tenant admins see and mutate only their tenant resources in the UI",
       "estimated_files": 15,
       "estimated_endpoints": 0,
-      "failure_modes_to_cover": ["URL tampering", "missing tenant assignment", "disabled tenant", "empty tenant workspace"]
+      "failure_modes_to_cover": [
+        "URL tampering",
+        "missing tenant assignment",
+        "disabled tenant",
+        "empty tenant workspace"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-014-admin-portal-tenant-workspace/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-014-admin-portal-tenant-workspace/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-015",
@@ -248,13 +466,31 @@
       "branch": "agent/codex/pending-slices-20260508-095850",
       "updated_at": "2026-05-08T10:40:00Z",
       "priority": "P3",
-      "depends_on": ["TMP-004", "TMP-007", "TMP-010", "TMP-017", "TMP-020"],
+      "depends_on": [
+        "TMP-004",
+        "TMP-007",
+        "TMP-010",
+        "TMP-017",
+        "TMP-020"
+      ],
       "actor": "platform-operator",
       "entrypoint": "docker-compose/config/docs/ops monitoring",
       "outcome": "tenant channels operate with safe credentials and visible tenant-specific health",
       "estimated_files": 15,
       "estimated_endpoints": 1,
-      "failure_modes_to_cover": ["credential logged", "missing tenant metrics label", "secret backend unavailable", "unsafe local config"]
+      "failure_modes_to_cover": [
+        "credential logged",
+        "missing tenant metrics label",
+        "secret backend unavailable",
+        "unsafe local config"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-015-platform-ops-secret-observability/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-015-platform-ops-secret-observability/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-016",
@@ -265,13 +501,31 @@
       "branch": "agent/codex/pending-slices-20260508-095850",
       "updated_at": "2026-05-08T10:40:00Z",
       "priority": "P3",
-      "depends_on": ["TMP-003", "TMP-004", "TMP-007", "TMP-012", "TMP-013"],
+      "depends_on": [
+        "TMP-003",
+        "TMP-004",
+        "TMP-007",
+        "TMP-012",
+        "TMP-013"
+      ],
       "actor": "api-integrated-partner",
       "entrypoint": "docs/tenant-channel-onboarding.md and sandbox fixtures",
       "outcome": "new tenant channels can be onboarded without bespoke engineering discovery",
       "estimated_files": 12,
       "estimated_endpoints": 0,
-      "failure_modes_to_cover": ["breaking contract change", "missing callback signature", "unsupported capability", "legacy mapping ambiguity"]
+      "failure_modes_to_cover": [
+        "breaking contract change",
+        "missing callback signature",
+        "unsupported capability",
+        "legacy mapping ambiguity"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-017",
@@ -282,13 +536,28 @@
       "branch": "agent/codex/TMP-017-billing-charge-ownership-20260508-074034",
       "updated_at": "2026-05-08T07:50:39Z",
       "priority": "P2",
-      "depends_on": ["TMP-003", "TMP-007"],
+      "depends_on": [
+        "TMP-003",
+        "TMP-007"
+      ],
       "actor": "platform-operator",
       "entrypoint": "subscription-external charge endpoints and services/billing transaction endpoints",
       "outcome": "charge-capable channels do not split tenant billing state across ambiguous services",
       "estimated_files": 15,
       "estimated_endpoints": 3,
-      "failure_modes_to_cover": ["split ownership conflict", "disabled billing dependency", "cross-tenant charge lookup", "legacy renewal charge"]
+      "failure_modes_to_cover": [
+        "split ownership conflict",
+        "disabled billing dependency",
+        "cross-tenant charge lookup",
+        "legacy renewal charge"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-017-billing-charge-ownership/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-017-billing-charge-ownership/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-018",
@@ -303,7 +572,19 @@
       "outcome": "all protected, public, partner, and worker flows rely on one tenant trust boundary",
       "estimated_files": 15,
       "estimated_endpoints": 0,
-      "failure_modes_to_cover": ["audience mismatch", "forged service header", "tenant claim mismatch", "clock skew and replay"]
+      "failure_modes_to_cover": [
+        "audience mismatch",
+        "forged service header",
+        "tenant claim mismatch",
+        "clock skew and replay"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-018-tenant-claim-and-service-auth-contract/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-019",
@@ -312,13 +593,27 @@
       "description": "Campaign assets and presigned URLs use tenant-scoped object-storage keys and public-safe DTOs.",
       "state": "done",
       "priority": "P1",
-      "depends_on": ["TMP-001"],
+      "depends_on": [
+        "TMP-001"
+      ],
       "actor": "campaign-operator",
       "entrypoint": "POST /v1/admin/campaign-assets/background/presign",
       "outcome": "landing pages cannot read or overwrite another tenant's campaign media",
       "estimated_files": 12,
       "estimated_endpoints": 1,
-      "failure_modes_to_cover": ["cross-tenant asset read", "path traversal", "storage backend failure", "legacy asset mapping"]
+      "failure_modes_to_cover": [
+        "cross-tenant asset read",
+        "path traversal",
+        "storage backend failure",
+        "legacy asset mapping"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-019-tenant-asset-namespacing/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-019-tenant-asset-namespacing/value-gate-report.md"
+      }
     },
     {
       "id": "TMP-020",
@@ -329,13 +624,931 @@
       "branch": "agent/codex/TMP-020-observability-20260508-072738",
       "updated_at": "2026-05-08T07:34:39Z",
       "priority": "P0",
-      "depends_on": ["TMP-018", "TMP-001"],
+      "depends_on": [
+        "TMP-018",
+        "TMP-001"
+      ],
       "actor": "operations-analyst",
       "entrypoint": "HTTP middleware logs, Prometheus metrics, worker health",
       "outcome": "operators can diagnose tenant issues without high-cardinality or PII leakage",
       "estimated_files": 14,
       "estimated_endpoints": 1,
-      "failure_modes_to_cover": ["missing tenant label", "PII label attempted", "noisy tenant", "unknown tenant denial"]
+      "failure_modes_to_cover": [
+        "missing tenant label",
+        "PII label attempted",
+        "noisy tenant",
+        "unknown tenant denial"
+      ],
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-020-tenant-observability-baseline/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-020-tenant-observability-baseline/value-gate-report.md"
+      }
+    },
+    {
+      "id": "TMP-021",
+      "external_id": "TMP-021",
+      "name": "Release verification matrix",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-021-full-system-verification.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-verify-20260509-005155",
+      "created_at": "2026-05-09T00:56:05.714274+00:00",
+      "shipped_at": "2026-05-10T05:40:00Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "make build-all-local",
+          "cd common && go test ./...",
+          "go test ./... in all service modules",
+          "cd services/landing-web && npm audit --audit-level=moderate && npm run build",
+          "landing-web standalone runtime smoke returns HTTP 200 for /",
+          "cd frontend/webspa-admin && npm run build",
+          "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+          "docker compose --env-file .env.example -f docker-compose.yml config --quiet",
+          "bounded docker compose runtime smoke with temporary shared-network",
+          "test -f slices/TMP-021-full-system-verification/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-021-full-system-verification/value-gate-report.md"
+      },
+      "notes": "Full-system local verification refreshed on 2026-05-10; tracked blockers resolved by TMP-045, TMP-046, TMP-047, and TMP-038. Production/live-provider deploy remains out of scope."
+    },
+    {
+      "id": "TMP-022",
+      "external_id": "TMP-022",
+      "name": "Landing web dynamic route build failure",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-022-landing-web-dynamic-route-build.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-verify-20260509-005155",
+      "created_at": "2026-05-09T01:03:54.321175+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "cd services/landing-web && npm run build"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-022-landing-web-dynamic-route-build/value-gate-report.md"
+      },
+      "notes": ""
+    },
+    {
+      "id": "TMP-023",
+      "external_id": "TMP-023",
+      "name": "Common package test failures",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-023-common-package-test-failures.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-verify-20260509-005155",
+      "created_at": "2026-05-09T01:09:46.975697+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "cd common && go test ./..."
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-023-common-package-test-failures/value-gate-report.md"
+      },
+      "notes": ""
+    },
+    {
+      "id": "TMP-024",
+      "external_id": "TMP-024",
+      "name": "Slice registry evidence reconciliation",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-024-slice-registry-evidence-reconciliation.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-followups-20260509-0136",
+      "created_at": "2026-05-09T01:38:58.333078+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "hvc check agent/backlog/issues/*.md --fail-on block"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-024-slice-registry-evidence-reconciliation/value-gate-report.md"
+      },
+      "notes": ""
+    },
+    {
+      "id": "TMP-025",
+      "external_id": "TMP-025",
+      "name": "TMP-021 release matrix metadata reconciliation",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-025-tmp021-metadata-reconciliation.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-followups-2-20260509-0144",
+      "created_at": "2026-05-09T01:46:52.979441+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "hvc check agent/backlog/issues/*.md --fail-on block"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-025-tmp021-metadata-reconciliation/value-gate-report.md"
+      },
+      "notes": ""
+    },
+    {
+      "id": "TMP-026",
+      "external_id": "TMP-026",
+      "name": "webspa-admin submodule verification",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-026-webspa-submodule-verification.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-webspa-20260509-0153",
+      "created_at": "2026-05-09T01:55:52.120415+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "sed -n '1,60p' .gitmodules",
+          "git ls-files -s frontend/webspa-admin .gitmodules",
+          "git submodule update --init --recursive frontend/webspa-admin",
+          "git submodule status --recursive frontend/webspa-admin",
+          "jq empty slices/manifest.json agent/state/TMP-026.work-order.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness sync --dry-run",
+          "test ! -f .gitmodules",
+          "test -f frontend/webspa-admin/package.json",
+          "cd frontend/webspa-admin && npm run build",
+          "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-026-webspa-submodule-verification/value-gate-report.md"
+      },
+      "notes": "Resolved by TMP-046 tracked-source strategy; broken submodule gitlink replaced with pinned admin source and build/test evidence."
+    },
+    {
+      "id": "TMP-027",
+      "external_id": "TMP-027",
+      "name": "Release matrix stale blocker reconciliation",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-027-release-matrix-stale-blocker-reconciliation.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-continue-20260509-020544",
+      "created_at": "2026-05-09T02:10:25.888320+00:00",
+      "shipped_at": "2026-05-09T02:09:58Z",
+      "shipped_to": "agent/codex/full-system-continue-20260509-020544",
+      "verification": {
+        "automated": [
+          "cd services/subscription-partner && go test ./...",
+          "cd services/notification && go test ./...",
+          "make build-all-local",
+          "jq empty slices/manifest.json agent/state/TMP-027.work-order.json agent/state/TMP-027.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status && slice-harness sync --dry-run"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-027-release-matrix-stale-blocker-reconciliation/value-gate-report.md"
+      },
+      "notes": "Current Go test and canonical build evidence is visible while webspa-admin, compose runtime, dependency vulnerability, and local-main blockers remain visible."
+    },
+    {
+      "id": "TMP-028",
+      "external_id": "TMP-028",
+      "name": "Compose secret and env hygiene",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-028-compose-secret-env-hygiene.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/full-system-blocker-audit-20260509-022225",
+      "created_at": "2026-05-09T02:25:13.593117+00:00",
+      "shipped_at": "2026-05-09T02:31:19Z",
+      "shipped_to": "agent/codex/full-system-blocker-audit-20260509-022225",
+      "verification": {
+        "automated": [
+          "docker compose --env-file .env.example -f docker-compose.yml config",
+          "rg -n 'APP_DATABASE_POSTGRESQL_HOST=139|APP_DATABASE_POSTGRESQL_PASSWORD=[^$]' docker-compose.yml || true",
+          "jq empty slices/manifest.json agent/state/TMP-028.work-order.json agent/state/TMP-028.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status && slice-harness sync --dry-run"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-028-compose-secret-env-hygiene/value-gate-report.md"
+      },
+      "notes": "Removed checked-in subscription DB credential material from docker-compose.yml, defaulted local routing to the Docker database service, and verified compose config renders with .env.example; runtime start still needs real env/provider values."
+    },
+    {
+      "id": "TMP-029",
+      "external_id": "TMP-029",
+      "name": "Compose smoke Docker auth blocker evidence",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-029-compose-runtime-smoke-tooling-blocker.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/compose-smoke-20260509-024023",
+      "created_at": "2026-05-09T02:45:13.019457+00:00",
+      "shipped_at": "2026-05-09T02:44:23Z",
+      "shipped_to": "agent/codex/compose-smoke-20260509-024023",
+      "verification": {
+        "automated": [
+          "docker compose --env-file .env.example -f docker-compose.yml config",
+          "bounded docker compose smoke with temporary Redis port override and temporary shared-network",
+          "docker pull docker.io/library/golang:1.24-alpine",
+          "jq empty slices/manifest.json agent/state/TMP-029.work-order.json agent/state/TMP-029.handoff.json .agent/tasks.json agent/state/TMP-021.handoff.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status && slice-harness sync --dry-run"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-029-compose-runtime-smoke-tooling-blocker/value-gate-report.md"
+      },
+      "notes": "Recorded bounded compose smoke evidence: config render passes, temporary local scaffolding cleaned up, but Docker/Podman registry auth blocks pulling the Go builder image before app containers start."
+    },
+    {
+      "id": "TMP-030",
+      "external_id": "TMP-030",
+      "name": "Acquisition API compose build context",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-030-acquisition-compose-build-context.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/compose-auth-probe-20260509-025220",
+      "created_at": "2026-05-09T02:58:47.302212+00:00",
+      "shipped_at": "2026-05-09T03:10:20Z",
+      "shipped_to": "agent/codex/compose-auth-probe-20260509-025220",
+      "verification": {
+        "automated": [
+          "DOCKER_CONFIG=<tmp> REGISTRY_AUTH_FILE=<tmp> docker compose --env-file .env.example -f docker-compose.yml -f /tmp/timwe-compose-auth-probe-override.yml build acquisition-api",
+          "targeted acquisition-api runtime probe",
+          "jq empty slices/manifest.json agent/state/TMP-030.work-order.json agent/state/TMP-030.handoff.json .agent/tasks.json agent/state/TMP-021.handoff.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status && slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && agent-supervisor preflight with worktree-local temp config",
+          "git diff --check",
+          "git status forbidden file-scope check"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-030-acquisition-compose-build-context/value-gate-report.md"
+      },
+      "notes": "Fixed acquisition-api compose image build by using repo-root context and readonly module-mode Dockerfile. Runtime probe now reaches app startup and records downstream acquisition admin schema bootstrap blocker."
+    },
+    {
+      "id": "TMP-031",
+      "external_id": "TMP-031",
+      "name": "Notification worker compose DB env",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-031-notification-worker-compose-db-env.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/notification-worker-compose-db-20260509-032010",
+      "created_at": "2026-05-09T03:20:55.792120+00:00",
+      "shipped_at": "2026-05-09T03:22:55Z",
+      "shipped_to": "agent/codex/notification-worker-compose-db-20260509-032010",
+      "verification": {
+        "automated": [
+          "docker compose --env-file .env.example -f docker-compose.yml config",
+          "targeted notification-worker compose smoke",
+          "jq empty slices/manifest.json agent/state/TMP-031.work-order.json agent/state/TMP-031.handoff.json .agent/tasks.json agent/state/TMP-021.handoff.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status && slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && agent-supervisor preflight with worktree-local temp config",
+          "git diff --check",
+          "git status forbidden file-scope check"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-031-notification-worker-compose-db-env/value-gate-report.md"
+      },
+      "notes": "Fixed notification-worker compose DB env so worker starts, pings local Postgres, and exposes metrics; dispatcher now records downstream missing message_outbox schema."
+    },
+    {
+      "id": "TMP-032",
+      "external_id": "TMP-032",
+      "name": "Postback dispatcher compose DB env",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-032-postback-dispatcher-compose-db-env.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/postback-dispatcher-compose-db-20260509-033050",
+      "created_at": "2026-05-09T03:29:04.411741+00:00",
+      "shipped_at": "2026-05-09T03:30:37Z",
+      "shipped_to": "agent/codex/postback-dispatcher-compose-db-20260509-033050",
+      "verification": {
+        "automated": [
+          "docker compose --env-file .env.example -f docker-compose.yml config",
+          "targeted postback-dispatcher compose smoke",
+          "jq empty slices/manifest.json agent/state/TMP-032.work-order.json agent/state/TMP-032.handoff.json .agent/tasks.json agent/state/TMP-021.handoff.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status && slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && agent-supervisor preflight with worktree-local temp config",
+          "git diff --check",
+          "git status forbidden file-scope check"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-032-postback-dispatcher-compose-db-env/value-gate-report.md"
+      },
+      "notes": "Fixed postback-dispatcher compose DB env aliases so common/config reads local Postgres settings; dispatcher now starts and records downstream missing postback_outbox schema."
+    },
+    {
+      "id": "TMP-033",
+      "external_id": "TMP-033",
+      "name": "TMP-032 ledger state reconciliation",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-033-tmp032-ledger-state-reconciliation.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/schema-provisioning-assess-20260509-034210",
+      "created_at": "2026-05-09T03:45:26.885285+00:00",
+      "shipped_at": "2026-05-09T03:47:30Z",
+      "shipped_to": "agent/codex/schema-provisioning-assess-20260509-034210",
+      "verification": {
+        "automated": [
+          "sqlite3 .harness/task-ledger.sqlite \"select id,status,title from tasks where id='T-TMP-032';\"",
+          "agent-supervisor preflight --repair && agent-supervisor preflight with worktree-local temp config",
+          "agent-supervisor list-tasks with worktree-local temp config",
+          "agent-harness list",
+          "slice-harness sync --dry-run",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "git diff --name-only"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-033-tmp032-ledger-state-reconciliation/value-gate-report.md"
+      },
+      "notes": "Reconciled supervisor ledger state so T-TMP-032 is done, matching merged TMP-032 handoff, manifest, and agent task evidence."
+    },
+    {
+      "id": "TMP-034",
+      "external_id": "TMP-034",
+      "name": "Acquisition runtime schema provisioning",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-034-acquisition-runtime-schema-provisioning.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/blocker-slice-registry-20260509-035546",
+      "created_at": "2026-05-09T03:59:59.291917+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json agent/state/TMP-034.work-order.json agent/state/TMP-034.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && preflight with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review",
+          "test -f slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md"
+      },
+      "notes": "Resolved by TMP-045 compose runtime schema bootstrap; approval recorded by operator auto-approval directive on 2026-05-10."
+    },
+    {
+      "id": "TMP-035",
+      "external_id": "TMP-035",
+      "name": "Notification message outbox schema provisioning",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-035-notification-message-outbox-schema.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/blocker-slice-registry-20260509-035546",
+      "created_at": "2026-05-09T03:59:59.409758+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json agent/state/TMP-035.work-order.json agent/state/TMP-035.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && preflight with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review",
+          "test -f slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"
+      },
+      "notes": "Resolved by TMP-045 compose runtime schema bootstrap; approval recorded by operator auto-approval directive on 2026-05-10."
+    },
+    {
+      "id": "TMP-036",
+      "external_id": "TMP-036",
+      "name": "Postback outbox schema provisioning",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-036-postback-outbox-schema.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/blocker-slice-registry-20260509-035546",
+      "created_at": "2026-05-09T03:59:59.523654+00:00",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json agent/state/TMP-036.work-order.json agent/state/TMP-036.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && preflight with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review",
+          "test -f slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-036-postback-outbox-schema/value-gate-report.md"
+      },
+      "notes": "Resolved by TMP-045 compose runtime schema bootstrap; approval recorded by operator auto-approval directive on 2026-05-10."
+    },
+    {
+      "id": "TMP-037",
+      "external_id": "TMP-037",
+      "name": "Landing web dependency remediation approval",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-037-landing-web-dependency-remediation-approval.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/blocker-slice-registry-20260509-035546",
+      "created_at": "2026-05-09T03:59:59.645645+00:00",
+      "shipped_at": "2026-05-10T05:23:39Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json agent/state/TMP-037.work-order.json agent/state/TMP-037.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && preflight with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
+      },
+      "notes": "Approval recorded by operator auto-proceed directive on 2026-05-10. Package remediation continued in TMP-047."
+    },
+    {
+      "id": "TMP-038",
+      "external_id": "TMP-038",
+      "name": "Local main integration strategy",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-038-local-main-integration-strategy.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/blocker-slice-registry-20260509-035546",
+      "created_at": "2026-05-09T03:59:59.780461+00:00",
+      "shipped_at": "2026-05-10T05:32:00Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "jq empty slices/manifest.json agent/state/TMP-038.work-order.json agent/state/TMP-038.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight --repair && preflight with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-038-local-main-integration-strategy/value-gate-report.md"
+      },
+      "notes": "Strategy recorded: preserve primary local main, avoid destructive git operations, and use the isolated origin/main-derived worktree branch as the current release verification surface."
+    },
+    {
+      "id": "TMP-039",
+      "external_id": "TMP-039",
+      "name": "Operational slice domain brief reconciliation",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-039-operational-domain-brief-reconciliation.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/tmp039-domain-briefs-20260509-0535",
+      "created_at": "2026-05-09T05:35:11Z",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-021-full-system-verification/domain-brief.md",
+          "test -f slices/TMP-024-slice-registry-evidence-reconciliation/domain-brief.md",
+          "test -f slices/TMP-025-tmp021-metadata-reconciliation/domain-brief.md",
+          "test -f slices/TMP-026-webspa-submodule-verification/domain-brief.md",
+          "test -f slices/TMP-033-tmp032-ledger-state-reconciliation/domain-brief.md",
+          "jq empty slices/manifest.json agent/state/TMP-039.work-order.json agent/state/TMP-039.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight with worktree-local temp config",
+          "agent-supervisor auto-loop --max-rounds 1 with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-039-operational-domain-brief-reconciliation/value-gate-report.md"
+      },
+      "notes": "Added missing domain briefs for manifest-backed operational slices TMP-021, TMP-024, TMP-025, TMP-026, and TMP-033."
+    },
+    {
+      "id": "TMP-040",
+      "external_id": "TMP-040",
+      "name": "webspa-admin local checkout verification evidence",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-040-webspa-local-checkout-verification.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/source-truth-audit-20260509-054846",
+      "created_at": "2026-05-09T05:55:33Z",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md",
+          "jq empty slices/manifest.json agent/state/TMP-040.work-order.json agent/state/TMP-040.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight with worktree-local temp config",
+          "agent-supervisor auto-loop --max-rounds 1 with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [
+          "cd /home/xper626/workspace/apps/timwe-subscription/frontend/webspa-admin && npm run build",
+          "cd /home/xper626/workspace/apps/timwe-subscription/frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+          "git submodule update --init --recursive frontend/webspa-admin in clean origin/main worktree"
+        ],
+        "dod_path": "slices/TMP-040-webspa-local-checkout-verification/value-gate-report.md"
+      },
+      "notes": "Recorded that the local pinned webspa-admin checkout builds and passes 84/84 ChromeHeadless tests while clean submodule initialization remains blocked."
+    },
+    {
+      "id": "TMP-041",
+      "external_id": "TMP-041",
+      "name": "Runtime schema blocker source inventory",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-041-runtime-schema-source-inventory.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/blocker-audit-20260509-060342",
+      "created_at": "2026-05-09T06:05:49Z",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "test -f slices/TMP-041-runtime-schema-source-inventory/value-gate-report.md",
+          "jq empty slices/manifest.json agent/state/TMP-041.work-order.json agent/state/TMP-041.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight with worktree-local temp config",
+          "agent-supervisor auto-loop --max-rounds 1 with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [
+          "rg -n \"CREATE TABLE.*products|CREATE TABLE.*userbase|CREATE TABLE.*message_outbox|CREATE TABLE.*postback_outbox\" services/pg_schema.sql services/subscription-external/migrations/006_web_acquisition_campaigns.sql services/subscription-external/migrations/011_message_cadence_engine.sql services/acquisition-api/migrations/create_postback_tables.sql"
+        ],
+        "dod_path": "slices/TMP-041-runtime-schema-source-inventory/value-gate-report.md"
+      },
+      "notes": "Mapped TMP-034/TMP-035/TMP-036 missing-relation blockers to existing SQL sources and preserved the migration orchestration approval gate."
+    },
+    {
+      "id": "TMP-042",
+      "external_id": "TMP-042",
+      "name": "Release blocker decision packet",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-042-release-decision-packet.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/decision-packet-20260509-062213",
+      "created_at": "2026-05-09T06:25:00Z",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "test -f docs/agent/release-decision-packet-2026-05-09.md",
+          "test -f slices/TMP-042-release-decision-packet/value-gate-report.md",
+          "jq empty slices/manifest.json agent/state/TMP-042.work-order.json agent/state/TMP-042.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight with worktree-local temp config",
+          "agent-supervisor auto-loop --max-rounds 1 with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-042-release-decision-packet/value-gate-report.md"
+      },
+      "notes": "Consolidated the exact operator decisions needed to unblock the seven remaining release-verification blockers without recording approval or changing runtime files."
+    },
+    {
+      "id": "TMP-043",
+      "external_id": "TMP-043",
+      "name": "Release decision ADR templates",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-043-release-decision-templates.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/decision-templates-20260509-063006",
+      "created_at": "2026-05-09T06:35:00Z",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "test -f slices/decisions/TMP-026-webspa-admin-source-reproducibility.md",
+          "test -f slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+          "test -f slices/decisions/TMP-035-notification-message-outbox-schema.md",
+          "test -f slices/decisions/TMP-036-postback-outbox-schema.md",
+          "test -f slices/decisions/TMP-037-landing-web-dependency-remediation.md",
+          "test -f slices/decisions/TMP-038-local-main-integration-strategy.md",
+          "jq empty slices/manifest.json agent/state/TMP-043.work-order.json agent/state/TMP-043.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness status",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight with worktree-local temp config",
+          "agent-supervisor auto-loop --max-rounds 1 with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-043-release-decision-templates/value-gate-report.md"
+      },
+      "notes": "Created pending ADR templates for the remaining release-verification approval gates; every template remains proposed and records no approval."
+    },
+    {
+      "id": "TMP-044",
+      "external_id": "TMP-044",
+      "name": "Stale value-gate evidence reconciliation",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-044-stale-value-gate-evidence-reconciliation.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "",
+      "demo": "",
+      "depends_on": [],
+      "layers": [],
+      "state": "done",
+      "branch": "agent/codex/artifact-audit-20260509-101738",
+      "created_at": "2026-05-09T10:18:00Z",
+      "shipped_at": null,
+      "shipped_to": null,
+      "verification": {
+        "automated": [
+          "cd services/landing-web && npm ci && npm run build",
+          "cd services/notification && go test ./...",
+          "test -f slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md",
+          "jq empty slices/manifest.json agent/state/TMP-044.work-order.json agent/state/TMP-044.handoff.json .agent/tasks.json",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "slice-harness sync --dry-run",
+          "agent-supervisor preflight with worktree-local temp config",
+          "agent-supervisor auto-loop --max-rounds 1 with worktree-local temp config",
+          "git diff --check",
+          "git diff --name-only file-scope review"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-044-stale-value-gate-evidence-reconciliation/value-gate-report.md"
+      },
+      "notes": "Annotated TMP-006, TMP-012, and TMP-018 value-gate reports with current superseding landing-web and notification verification evidence."
+    },
+    {
+      "id": "TMP-045",
+      "external_id": "TMP-045",
+      "name": "Compose runtime schema bootstrap",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-045-compose-runtime-schema-bootstrap.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can start compose from an empty database and have runtime schema prerequisites applied before services poll or bootstrap admin schema.",
+      "demo": "Disposable PostgreSQL bootstrap plus notification/cadence/postback empty-poll query proof.",
+      "depends_on": [
+        "TMP-034",
+        "TMP-035",
+        "TMP-036"
+      ],
+      "layers": [
+        "compose",
+        "schema-bootstrap",
+        "evidence"
+      ],
+      "state": "done",
+      "branch": "agent/codex/fullsystem-20260510-045911",
+      "created_at": "2026-05-10T05:12:00Z",
+      "shipped_at": "2026-05-10T05:12:00Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "bash -n scripts/compose-db-bootstrap.sh",
+          "docker compose config --quiet",
+          "disposable PostgreSQL bootstrap proof with scripts/compose-db-bootstrap.sh",
+          "disposable PostgreSQL notification/cadence/postback empty-poll query proof",
+          "cd services/acquisition-api && go test ./internal/repository",
+          "cd services/notification && go test ./...",
+          "cd services/postback-dispatcher && go test ./...",
+          "test -f slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+      },
+      "notes": "Adds a one-shot db-bootstrap service and minimal runtime base SQL while preserving acquisition-api and subscription-external service-owned migrations as canonical."
+    },
+    {
+      "id": "TMP-046",
+      "external_id": "TMP-046",
+      "name": "webspa-admin reproducible source checkout",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-046-webspa-admin-reproducible-source.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can verify webspa-admin from tracked superproject source without fetching an unavailable submodule commit.",
+      "demo": "Tracked package.json plus npm ci, npm run build, and ChromeHeadless 84/84 tests.",
+      "depends_on": [
+        "TMP-026"
+      ],
+      "layers": [
+        "frontend-source",
+        "repo-metadata",
+        "evidence"
+      ],
+      "state": "done",
+      "branch": "agent/codex/fullsystem-20260510-045911",
+      "created_at": "2026-05-10T05:22:00Z",
+      "shipped_at": "2026-05-10T05:22:00Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "test ! -f .gitmodules",
+          "test -f frontend/webspa-admin/package.json",
+          "git ls-files -s frontend/webspa-admin/package.json",
+          "cd frontend/webspa-admin && npm ci",
+          "cd frontend/webspa-admin && npm run build",
+          "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+          "test -f slices/TMP-046-webspa-admin-reproducible-source/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-046-webspa-admin-reproducible-source/value-gate-report.md"
+      },
+      "notes": "Replaces unreachable webspa-admin submodule gitlink with exact pinned local admin source to preserve tenant workspace functionality and make clean checkouts verifiable."
+    },
+    {
+      "id": "TMP-047",
+      "external_id": "TMP-047",
+      "name": "Landing web dependency remediation",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-047-landing-web-dependency-remediation.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can run landing-web dependency verification without Next/PostCSS advisories blocking release.",
+      "demo": "npm audit, Next build, and standalone runtime smoke returning HTTP 200 for /.",
+      "depends_on": [
+        "TMP-037"
+      ],
+      "layers": [
+        "dependency",
+        "frontend-runtime",
+        "evidence"
+      ],
+      "state": "done",
+      "branch": "agent/codex/fullsystem-20260510-045911",
+      "created_at": "2026-05-10T05:30:00Z",
+      "shipped_at": "2026-05-10T05:30:00Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "cd services/landing-web && npm audit --audit-level=moderate",
+          "cd services/landing-web && npm run build",
+          "standalone landing-web runtime smoke returns HTTP 200 for /",
+          "test -f slices/TMP-047-landing-web-dependency-remediation/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-047-landing-web-dependency-remediation/value-gate-report.md"
+      },
+      "notes": "Upgrades landing-web to Next 16/React 19 and overrides transitive PostCSS to a patched version; updates required dynamic route params signatures for Next 16."
     }
-  ]
+  ],
+  "updated_at": "2026-05-10T05:22:00Z"
 }

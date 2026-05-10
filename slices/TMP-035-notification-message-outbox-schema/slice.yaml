@@ -1,0 +1,37 @@
+story:
+  id: "TMP-035"
+  title: "Notification message outbox schema provisioning"
+  actor: "platform-operator"
+  action: "clear TMP-035 blocker"
+  outcome: "Notification worker dispatch loop runs in compose without missing message_outbox relation errors."
+  as_a: "platform-operator"
+  i_want_to: "track this blocker as a first-class slice"
+  so_that: "full-system verification cannot hide unresolved approval-gated work"
+
+entrypoints:
+  - "docker compose notification-worker runtime startup"
+
+acceptance_criteria:
+  failures:
+    - scenario: "Current blocker remains unresolved"
+      given: ["Verifier runs targeted notification-worker smoke after TMP-031 DB env fix."]
+      when: "the verifier checks the current system"
+      then: "Notification worker starts and exposes metrics, then dispatcher logs pq: relation message_outbox does not exist against the empty compose DB."
+      evidence: "targeted notification-worker compose smoke"
+  invariants:
+    - rule: "No approval-gated implementation happens in this registry slice"
+      preserved_by: "file-scope check"
+      violated_when: "source, schema, dependency, compose, or branch-operation files are changed"
+      test: "git diff --name-only"
+
+out_of_scope:
+  - "schema, dependency, compose, runtime, source, or destructive git changes"
+
+size_check:
+  files_touched: 5
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "BLOCKED before approval gate clears"
+  report_path: "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md"

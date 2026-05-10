@@ -1,3 +1,6 @@
+# github.com/MicahParks/keyfunc/v2 v2.1.0
+## explicit; go 1.18
+github.com/MicahParks/keyfunc/v2
 # github.com/andybalholm/brotli v1.1.0
 ## explicit; go 1.13
 github.com/andybalholm/brotli
@@ -14,9 +17,13 @@ github.com/dgrijalva/jwt-go
 # github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
 ## explicit
 github.com/dgryski/go-rendezvous
-# github.com/fsnotify/fsnotify v1.7.0
+# github.com/fsnotify/fsnotify v1.8.0
 ## explicit; go 1.17
 github.com/fsnotify/fsnotify
+github.com/fsnotify/fsnotify/internal
+# github.com/golang-jwt/jwt/v5 v5.3.0
+## explicit; go 1.21
+github.com/golang-jwt/jwt/v5
 # github.com/hashicorp/hcl v1.0.0
 ## explicit
 github.com/hashicorp/hcl
@@ -99,6 +106,8 @@ github.com/sagikazarmark/locafero
 github.com/sagikazarmark/slog-shim
 # github.com/seidu626/subscription-manager/common v0.0.0-00010101000000-000000000000 => ../../common
 ## explicit; go 1.24.2
+github.com/seidu626/subscription-manager/common/auth/auth0jwt
+github.com/seidu626/subscription-manager/common/auth/tenantctx
 github.com/seidu626/subscription-manager/common/cache
 # github.com/sony/gobreaker v1.0.0
 ## explicit; go 1.12
@@ -143,21 +152,21 @@ github.com/valyala/bytebufferpool
 github.com/valyala/fasthttp
 github.com/valyala/fasthttp/fasthttputil
 github.com/valyala/fasthttp/stackless
-# go.uber.org/atomic v1.9.0
-## explicit; go 1.13
-go.uber.org/atomic
-# go.uber.org/multierr v1.9.0
+# go.uber.org/multierr v1.10.0
 ## explicit; go 1.19
 go.uber.org/multierr
-# go.uber.org/zap v1.21.0
-## explicit; go 1.13
+# go.uber.org/zap v1.27.0
+## explicit; go 1.19
 go.uber.org/zap
 go.uber.org/zap/buffer
+go.uber.org/zap/internal
 go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
+go.uber.org/zap/internal/pool
+go.uber.org/zap/internal/stacktrace
 go.uber.org/zap/zapcore
-# golang.org/x/exp v0.0.0-20230905200255-921286631fa9
+# golang.org/x/exp v0.0.0-20231127185646-65229373498e
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
@@ -178,8 +187,8 @@ golang.org/x/text/internal/utf8internal
 golang.org/x/text/runes
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
-# google.golang.org/protobuf v1.34.2
-## explicit; go 1.20
+# google.golang.org/protobuf v1.35.1
+## explicit; go 1.21
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire

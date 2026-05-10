@@ -1,0 +1,27 @@
+id: TMP-043
+title: Release decision ADR templates
+class: operational_slice
+actor: platform-operator
+action: create pending ADR templates for release blockers
+outcome: approvals can be recorded without ambiguity before implementation starts
+entrypoints:
+  - docs/agent/release-decision-packet-2026-05-09.md
+invariants:
+  - proposed templates are not approvals
+  - blocked implementation remains blocked until an ADR is explicitly accepted
+acceptance:
+  - pending ADR templates exist for six decision areas
+  - every template states approval is not recorded
+  - every template includes post-decision proof
+  - no forbidden runtime or source files change
+verification:
+  - test -f slices/decisions/TMP-026-webspa-admin-source-reproducibility.md
+  - test -f slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md
+  - test -f slices/decisions/TMP-035-notification-message-outbox-schema.md
+  - test -f slices/decisions/TMP-036-postback-outbox-schema.md
+  - test -f slices/decisions/TMP-037-landing-web-dependency-remediation.md
+  - test -f slices/decisions/TMP-038-local-main-integration-strategy.md
+  - jq empty slices/manifest.json agent/state/TMP-043.work-order.json agent/state/TMP-043.handoff.json .agent/tasks.json
+  - hvc check agent/backlog/issues/*.md --fail-on block
+  - slice-harness status
+  - slice-harness sync --dry-run

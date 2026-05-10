@@ -1,0 +1,74 @@
+{
+  "work_order_id": "WO-TMP-037-001",
+  "issue_id": "TMP-037",
+  "class": "operational_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Landing-web dependency vulnerability remediation has an explicit approval gate before breaking Next/PostCSS upgrades are attempted.",
+  "actor": "platform-operator",
+  "entrypoint": "services/landing-web/package.json and package-lock.json",
+  "trigger": "Verifier runs npm audit after landing-web build passes.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-037-landing-web-dependency-remediation-approval.md",
+    "agent/state/TMP-037.work-order.json",
+    "agent/state/TMP-037.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-037-landing-web-dependency-remediation-approval/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "common/**",
+    "frontend/**",
+    "ops/**",
+    "docker-compose*.yml",
+    "Makefile",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json"
+  ],
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "test -f slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "required_evidence": [
+    "npm audit --audit-level=moderate",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-037",
+    "title": "Landing web dependency remediation approval",
+    "path": "agent/backlog/issues/TMP-037-landing-web-dependency-remediation-approval.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

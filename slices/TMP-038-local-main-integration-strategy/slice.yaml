@@ -1,0 +1,37 @@
+story:
+  id: "TMP-038"
+  title: "Local main integration strategy"
+  actor: "repo-maintainer"
+  action: "clear TMP-038 blocker"
+  outcome: "The divergent primary local main branch is reconciled with origin/main through an explicit integration strategy instead of accidental merge conflict resolution."
+  as_a: "repo-maintainer"
+  i_want_to: "track this blocker as a first-class slice"
+  so_that: "full-system verification cannot hide unresolved approval-gated work"
+
+entrypoints:
+  - "/home/xper626/workspace/apps/timwe-subscription main branch"
+
+acceptance_criteria:
+  failures:
+    - scenario: "Current blocker remains unresolved"
+      given: ["Verifier compares primary checkout main against origin/main during full-system verification."]
+      when: "the verifier checks the current system"
+      then: "Primary local main is diverged from origin/main; recorded evidence snapshots showed broad ahead/behind divergence, and an isolated merge probe produced broad add/add conflicts."
+      evidence: "git status --short --branch in primary checkout"
+  invariants:
+    - rule: "No approval-gated implementation happens in this registry slice"
+      preserved_by: "file-scope check"
+      violated_when: "source, schema, dependency, compose, or branch-operation files are changed"
+      test: "git diff --name-only"
+
+out_of_scope:
+  - "schema, dependency, compose, runtime, source, or destructive git changes"
+
+size_check:
+  files_touched: 7
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "BLOCKED before approval gate clears"
+  report_path: "slices/TMP-038-local-main-integration-strategy/value-gate-report.md"

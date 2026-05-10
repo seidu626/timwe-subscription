@@ -1,0 +1,76 @@
+{
+  "work_order_id": "WO-TMP-035-001",
+  "issue_id": "TMP-035",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Notification worker dispatch loop runs in compose without missing message_outbox relation errors.",
+  "actor": "platform-operator",
+  "entrypoint": "docker compose notification-worker runtime startup",
+  "trigger": "Verifier runs targeted notification-worker smoke after TMP-031 DB env fix.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-035-notification-message-outbox-schema.md",
+    "agent/state/TMP-035.work-order.json",
+    "agent/state/TMP-035.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-035-notification-message-outbox-schema/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "common/**",
+    "frontend/**",
+    "ops/**",
+    "docker-compose*.yml",
+    "Makefile",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json",
+    "*.sql"
+  ],
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "test -f slices/TMP-035-notification-message-outbox-schema/value-gate-report.md",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "required_evidence": [
+    "targeted notification-worker compose smoke",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-031-notification-worker-compose-db-env/value-gate-report.md",
+    "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-035",
+    "title": "Notification message outbox schema provisioning",
+    "path": "agent/backlog/issues/TMP-035-notification-message-outbox-schema.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

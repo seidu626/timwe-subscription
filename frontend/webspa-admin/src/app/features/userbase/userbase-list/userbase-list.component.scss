@@ -1,0 +1,53 @@
+.userbase-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.subtitle {
+  color: var(--admin-text-muted);
+  margin-top: -0.5rem;
+}
+
+.card {
+  background: var(--admin-surface);
+}
+
+.row {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.upload-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filters {
+  margin-bottom: 1rem;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0;
+}
+
+.import-summary {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+table {
+  width: 100%;
+}

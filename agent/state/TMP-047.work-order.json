@@ -1,0 +1,95 @@
+{
+  "work_order_id": "WO-TMP-047-001",
+  "issue_id": "TMP-047",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Landing-web no longer ships with the Next/PostCSS vulnerability blocker and still builds and serves its landing entrypoint.",
+  "actor": "platform-operator",
+  "entrypoint": "services/landing-web/package.json",
+  "trigger": "Verifier reruns npm audit after TMP-037 approval.",
+  "allowed_files": [
+    "services/landing-web/package.json",
+    "services/landing-web/package-lock.json",
+    "services/landing-web/next.config.js",
+    "services/landing-web/middleware.ts",
+    "services/landing-web/next-env.d.ts",
+    "services/landing-web/tsconfig.json",
+    "services/landing-web/app/api/campaigns/[tenant]/route.ts",
+    "services/landing-web/app/api/campaigns/[tenant]/[slug]/route.ts",
+    "services/landing-web/app/api/transactions/[id]/confirm/route.ts",
+    "services/landing-web/app/c/[slug]/page.tsx",
+    "services/landing-web/app/lp/[tenant]/page.tsx",
+    "services/landing-web/app/lp/[tenant]/[slug]/page.tsx",
+    "agent/backlog/issues/TMP-047-landing-web-dependency-remediation.md",
+    "agent/state/TMP-047.work-order.json",
+    "agent/state/TMP-047.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-047-landing-web-dependency-remediation/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/landing-web/app/components/**",
+    "services/landing-web/app/lib/**",
+    "services/landing-web/lib/**",
+    "services/**/migrations/**",
+    "common/**",
+    "frontend/**",
+    "ops/**",
+    "docker-compose*.yml",
+    "Makefile",
+    "go.mod",
+    "go.sum"
+  ],
+  "acceptance_tests": [
+    "cd services/landing-web && npm audit --audit-level=moderate",
+    "cd services/landing-web && npm run build",
+    "bounded landing-web runtime smoke returns HTTP 200 for /",
+    "jq empty slices/manifest.json agent/state/TMP-047.work-order.json agent/state/TMP-047.handoff.json .agent/tasks.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "required_evidence": [
+    "cd services/landing-web && npm audit --audit-level=moderate",
+    "cd services/landing-web && npm run build",
+    "bounded landing-web runtime smoke returns HTTP 200 for /",
+    "slices/TMP-047-landing-web-dependency-remediation/value-gate-report.md"
+  ],
+  "non_goals": [
+    "landing page redesign",
+    "HE simulation behavior changes",
+    "admin frontend dependency remediation",
+    "compose or schema changes"
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [
+    "Next upgrade requires app source rewrites beyond dynamic route/page params compatibility",
+    "audit remediation requires changing shared packages outside services/landing-web"
+  ],
+  "classification_result": {
+    "issue_id": "TMP-047",
+    "title": "Landing web dependency remediation",
+    "path": "agent/backlog/issues/TMP-047-landing-web-dependency-remediation.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 18,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "approved_dependency_remediation",
+      "release_blocker_vertical_defect"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

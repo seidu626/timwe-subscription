@@ -1,0 +1,77 @@
+{
+  "work_order_id": "WO-TMP-045-001",
+  "issue_id": "TMP-045",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Clean compose database startup creates the base products/userbase, message_outbox, and postback_outbox prerequisites before runtime services begin polling or bootstrapping admin schema.",
+  "actor": "platform-operator",
+  "entrypoint": "docker compose up db-bootstrap acquisition-api notification-worker cadence-engine postback-dispatcher",
+  "trigger": "Verifier starts the compose stack from an empty database after TMP-034/TMP-035/TMP-036 approvals are auto-granted.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-045-compose-runtime-schema-bootstrap.md",
+    "agent/state/TMP-045.work-order.json",
+    "agent/state/TMP-045.handoff.json",
+    "docker-compose.yml",
+    "ops/db/bootstrap/**",
+    "scripts/compose-db-bootstrap.sh",
+    "slices/manifest.json",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/**",
+    "slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+    "slices/decisions/TMP-035-notification-message-outbox-schema.md",
+    "slices/decisions/TMP-036-postback-outbox-schema.md",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**/internal/**",
+    "services/**/cmd/**",
+    "frontend/**",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json",
+    ".git/**"
+  ],
+  "acceptance_tests": [
+    "bash -n scripts/compose-db-bootstrap.sh",
+    "docker compose --env-file .env.example -f docker-compose.yml config --quiet",
+    "disposable PostgreSQL bootstrap applies ops/db/bootstrap/001_runtime_base.sql plus canonical service migrations",
+    "notification-worker, cadence-engine, and postback-dispatcher empty-poll query shapes run against the bootstrapped database",
+    "cd services/acquisition-api && go test ./internal/repository",
+    "cd services/notification && go test ./...",
+    "cd services/postback-dispatcher && go test ./..."
+  ],
+  "required_evidence": [
+    "ops/db/bootstrap/001_runtime_base.sql",
+    "scripts/compose-db-bootstrap.sh",
+    "docker-compose.yml",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+  ],
+  "non_goals": [
+    "Adding duplicate postback or message outbox table definitions.",
+    "Changing runtime Go repository code.",
+    "Resolving local main divergence or webspa-admin submodule reproducibility."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-045",
+    "title": "Compose runtime schema bootstrap",
+    "path": "agent/backlog/issues/TMP-045-compose-runtime-schema-bootstrap.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.88,
+    "verticality_score": 90,
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid",
+      "observable_runtime_defect",
+      "bounded_compose_schema_bootstrap"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

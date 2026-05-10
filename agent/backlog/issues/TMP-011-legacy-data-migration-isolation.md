@@ -2,7 +2,7 @@
 id: TMP-011
 title: "Legacy data migration isolation"
 class: operational_slice
-status: ready
+status: done
 parent_vertical_slice_id: TMP-011
 scope_limit: "Add a safe operational migration path for legacy global rows: dry-run verification, default tenant backfill to tenant_key=legacy-default, idempotent batch execution, rollback posture, and value-gate evidence. Do not implement unrelated UI, partner contract, or secret hardening work."
 merge_policy: "Merge only after HVC, supervisor preflight, migration verification evidence, value-gate report, and slice-harness status pass."

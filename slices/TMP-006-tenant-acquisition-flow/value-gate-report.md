@@ -47,3 +47,7 @@ The repository does not contain `scripts/scan-test-quality.sh`; manual checks we
 - Tenant channel credential/provider routing is deferred to TMP-007.
 - Inbound charge/callback tenant correlation is deferred to TMP-013.
 - Full transaction read DTO tenant exposure is deferred until admin/reporting surfaces require it.
+
+## Current superseding evidence
+
+TMP-044 reran the current landing-web verification from `origin/main` after dependencies were installed. `cd services/landing-web && npm ci` passed, and `cd services/landing-web && npm run build` passed with type checking and route generation for the tenant-aware landing paths. `npm ci` still reports one moderate and one high vulnerability; dependency remediation remains approval-gated by TMP-037.

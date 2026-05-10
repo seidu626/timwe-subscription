@@ -1,0 +1,146 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "docker-compose.yml subscription service removes checked-in database credential material.",
+      "evidence": [
+        "docker-compose.yml",
+        "slices/TMP-028-compose-secret-env-hygiene/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "Subscription DB config uses env inputs for credential-bearing fields, defaults host routing to the Docker database service, and preserves literal SSL mode.",
+      "evidence": [
+        "docker-compose.yml",
+        ".env.example",
+        "slices/TMP-028-compose-secret-env-hygiene/notes.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "Root .env.example documents safe placeholder values for compose-required variables.",
+      "evidence": [
+        ".env.example",
+        "docs/environment-variables.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "Compose config renders with .env.example.",
+      "evidence": [
+        "docker compose --env-file .env.example -f docker-compose.yml config"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "TMP-021 evidence distinguishes config hygiene completion from remaining runtime/provider blockers.",
+      "evidence": [
+        "docs/agent/full-system-verification-2026-05-09.md",
+        "slices/TMP-021-full-system-verification/value-gate-report.md",
+        "agent/state/TMP-021.handoff.json",
+        ".agent/tasks.json"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/heartbeats/T-TMP-028.json",
+    ".agent/tasks.json",
+    ".env.example",
+    ".harness/events.jsonl",
+    "agent/backlog/issues/TMP-028-compose-secret-env-hygiene.md",
+    "agent/state/TMP-021.handoff.json",
+    "agent/state/TMP-028.handoff.json",
+    "agent/state/TMP-028.work-order.json",
+    "docker-compose.yml",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "docs/environment-variables.md",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/TMP-028-compose-secret-env-hygiene/domain-brief.md",
+    "slices/TMP-028-compose-secret-env-hygiene/notes.md",
+    "slices/TMP-028-compose-secret-env-hygiene/slice.yaml",
+    "slices/TMP-028-compose-secret-env-hygiene/spec.md",
+    "slices/TMP-028-compose-secret-env-hygiene/value-gate-report.md",
+    "slices/manifest.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [],
+  "commits": [],
+  "completed_work": [
+    "Removed checked-in subscription service database credential material from docker-compose.yml.",
+    "Defaulted local subscription DB host routing to the Docker database service and preserved literal SSL mode.",
+    "Added root .env.example with safe placeholders for compose-required variables.",
+    "Updated release and TMP-021 evidence so config render is verified while runtime start remains blocked until real env/provider values and the required Docker network are supplied."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Full compose runtime start remains blocked until real env/provider values and the required local Docker network are supplied."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-028 removed checked-in subscription DB credential material from compose configuration and verified example-env config rendering without changing source, dependencies, vendor files, package manifests, or lockfiles.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "No real credentials were generated, stored, or required.",
+    "No source, dependency, vendor, package manifest, lockfile, or frontend files changed.",
+    "Config render is not live runtime or provider-flow verification."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "codex-20260509-022242",
+  "status": "done",
+  "summary": "Compose secret and env hygiene completed.",
+  "supervisor_decision": "done",
+  "task_id": "T-TMP-028",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "docker compose --env-file .env.example -f docker-compose.yml config",
+      "exit_code": 0,
+      "output_excerpt": "compose config rendered with .env.example",
+      "status": "passed",
+      "timestamp": "2026-05-09T02:31:19Z"
+    },
+    {
+      "command": "rg -n 'APP_DATABASE_POSTGRESQL_HOST=139|APP_DATABASE_POSTGRESQL_PASSWORD=[^$]' docker-compose.yml || true",
+      "exit_code": 0,
+      "output_excerpt": "no matches",
+      "status": "passed",
+      "timestamp": "2026-05-09T02:31:19Z"
+    },
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-028.work-order.json .agent/tasks.json agent/state/TMP-021.handoff.json",
+      "exit_code": 0,
+      "output_excerpt": "JSON files valid before final handoff creation",
+      "status": "passed",
+      "timestamp": "2026-05-09T02:25:13Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-028 assignment_decision allow; no blocking reasons",
+      "status": "passed",
+      "timestamp": "2026-05-09T02:25:13Z"
+    }
+  ]
+}
