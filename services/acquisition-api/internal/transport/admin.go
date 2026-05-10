@@ -12,8 +12,9 @@ import (
 )
 
 type adminAccess struct {
-	validator      *auth0jwt.Validator
-	allowedOrigins []string
+	validator               *auth0jwt.Validator
+	allowedOrigins          []string
+	bootstrapPlatformEmails map[string]struct{}
 }
 
 func newAdminAccess() *adminAccess {
@@ -43,8 +44,9 @@ func newAdminAccess() *adminAccess {
 	}
 
 	return &adminAccess{
-		validator:      validator,
-		allowedOrigins: allowed,
+		validator:               validator,
+		allowedOrigins:          allowed,
+		bootstrapPlatformEmails: bootstrapPlatformEmailSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_EMAILS")),
 	}
 }
 
@@ -72,7 +74,7 @@ func (a *adminAccess) setCORS(ctx *fasthttp.RequestCtx) {
 	ctx.Response.Header.Set("Access-Control-Allow-Origin", allowOrigin)
 	ctx.Response.Header.Set("Vary", "Origin")
 	ctx.Response.Header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,OPTIONS")
-	ctx.Response.Header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	ctx.Response.Header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Tenant-Id, X-Tenant-Key")
 	ctx.Response.Header.Set("Access-Control-Max-Age", "600")
 }
 
@@ -100,8 +102,52 @@ func (a *adminAccess) require(ctx *fasthttp.RequestCtx) bool {
 		a.errorWithCORS(ctx, "Unauthorized", fasthttp.StatusUnauthorized)
 		return false
 	}
-	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, claims.Identity())
+	identity := claims.Identity()
+	identity = a.applyBootstrapPlatformScope(identity)
+	identity = a.applySelectedTenantContext(ctx, identity)
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, identity)
 	return true
+}
+
+func (a *adminAccess) applyBootstrapPlatformScope(identity tenantctx.Identity) tenantctx.Identity {
+	if identity.PlatformScoped || len(a.bootstrapPlatformEmails) == 0 {
+		return identity
+	}
+	if !identity.EmailVerified {
+		return identity
+	}
+	email := strings.TrimSpace(strings.ToLower(identity.Email))
+	if _, ok := a.bootstrapPlatformEmails[email]; ok {
+		identity.PlatformScoped = true
+		if !identity.HasPermission("platform:all_tenants") {
+			identity.Permissions = append(identity.Permissions, "platform:all_tenants")
+		}
+	}
+	return identity
+}
+
+func (a *adminAccess) applySelectedTenantContext(ctx *fasthttp.RequestCtx, identity tenantctx.Identity) tenantctx.Identity {
+	if !identity.PlatformScoped {
+		return identity
+	}
+	if tenantID := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderTenantID))); tenantID != "" {
+		identity.TenantID = tenantID
+	}
+	if tenantKey := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderTenantKey))); tenantKey != "" {
+		identity.TenantKey = tenantKey
+	}
+	return identity
+}
+
+func bootstrapPlatformEmailSet(raw string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, email := range strings.Split(raw, ",") {
+		normalized := strings.TrimSpace(strings.ToLower(email))
+		if normalized != "" {
+			out[normalized] = struct{}{}
+		}
+	}
+	return out
 }
 
 // errorWithCORS sends an error response with CORS headers preserved

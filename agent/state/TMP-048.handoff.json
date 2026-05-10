@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "task_id": "T-TMP-048",
+  "status": "done",
+  "supervisor_decision": "ready_for_review",
+  "summary": "Granted explicit bootstrap all-tenant admin workspace access for almauricin@gmail.com and seidu.abdulai@hotmail.com while preserving backend tenant isolation.",
+  "session_id": "20260510-225210",
+  "acceptance_results": [
+    {
+      "criterion": "Named emails resolve as platform-scoped webspa users with tenant options.",
+      "status": "passed",
+      "evidence": [
+        "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+        "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Backend accepts selected tenant headers only for platform-scoped JWT identities.",
+      "status": "passed",
+      "evidence": [
+        "services/acquisition-api/internal/transport/admin_test.go",
+        "cd services/acquisition-api && go test ./internal/transport ./internal/handler ./internal/service"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Mapping contract documents tenant admin and platform admin assignment.",
+      "status": "passed",
+      "evidence": [
+        "docs/admin-tenant-account-mapping.md",
+        "slices/TMP-048-admin-tenant-account-mapping/value-gate-report.md"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.ts",
+    "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+    "frontend/webspa-admin/src/environments/environment.ts",
+    "frontend/webspa-admin/src/environments/environment.prod.ts",
+    "common/auth/auth0jwt/claims.go",
+    "common/auth/auth0jwt/claims_test.go",
+    "common/auth/tenantctx/identity.go",
+    "services/acquisition-api/internal/transport/admin.go",
+    "services/acquisition-api/internal/transport/admin_test.go",
+    "services/acquisition-api/internal/handler/reports_handler.go",
+    "services/acquisition-api/internal/handler/reports_handler_test.go",
+    "services/acquisition-api/internal/repository/reports_repository.go",
+    "docs/admin-tenant-account-mapping.md",
+    "agent/backlog/issues/TMP-048-admin-tenant-account-mapping.md",
+    "agent/state/TMP-048.work-order.json",
+    "agent/state/TMP-048.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-048-admin-tenant-account-mapping/**",
+    ".agent/tasks.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No long-running services were left running."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Added frontend bootstrap admin mapping for the requested emails with runtime-overridable tenant workspace catalog.",
+    "Added backend Auth0 email extraction and bootstrap platform scope for the requested emails.",
+    "Changed backend admin middleware to apply selected tenant headers only for platform-scoped identities and to allow tenant headers in CORS preflight.",
+    "Required verified email for bootstrap platform grants, made backend bootstrap config fail closed when unset, and resolved platform selected tenant keys to tenant IDs for reports.",
+    "Documented how new user accounts map to tenant admin or platform admin access."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "No database admin membership table exists; Auth0 claims and bootstrap config remain the source of truth.",
+    "The committed default tenant workspace is legacy-default; production can supply the full tenant catalog through Auth0 metadata or window.__ADMIN_TENANT_BOOTSTRAP__."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-048 gives the two requested emails admin workspace access and documents the account-to-tenant mapping contract.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "Bootstrap emails are explicit privileged principals. Production should keep ADMIN_BOOTSTRAP_PLATFORM_EMAILS and runtime tenant catalog aligned with operational policy."
+  ],
+  "safe_to_continue": true,
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "cd common && go test ./auth/...",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok github.com/seidu626/subscription-manager/common/auth/auth0jwt; ok github.com/seidu626/subscription-manager/common/auth/tenantctx",
+      "timestamp": "2026-05-10T23:00:00Z"
+    },
+    {
+      "command": "cd services/acquisition-api && go test ./internal/transport ./internal/handler ./internal/service ./internal/repository",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok internal/transport; ok internal/handler; ok internal/service; ok internal/repository",
+      "timestamp": "2026-05-10T23:13:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm ci",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "added 1007 packages; Node 24 engine warning and existing audit advisories reported",
+      "timestamp": "2026-05-10T23:01:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TOTAL: 88 SUCCESS",
+      "timestamp": "2026-05-10T23:13:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm run build",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "Application bundle generation complete; existing SCSS budget and selector warnings",
+      "timestamp": "2026-05-10T23:15:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TMP-048 assignment_decision allow; no blocking reasons",
+      "timestamp": "2026-05-10T23:05:00Z"
+    },
+    {
+      "command": "agent-supervisor --config .harness/config.json preflight",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok true; no queued ready agent tasks; only stale superseded ledger warnings",
+      "timestamp": "2026-05-10T23:05:00Z"
+    }
+  ]
+}

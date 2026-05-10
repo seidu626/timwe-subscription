@@ -33,6 +33,18 @@ export const environment = {
   cadenceAdminToken,
   landingWebBaseUrl: 'http://localhost:3000',
   identityEndpoint: 'https://identityserver.mtn.com.gh',
+  adminTenantBootstrap: {
+    platformAdminEmails: [
+      'almauricin@gmail.com',
+      'seidu.abdulai@hotmail.com',
+    ],
+    tenantWorkspaces: [
+      {
+        tenant_key: 'legacy-default',
+        name: 'Legacy Default',
+      },
+    ],
+  },
   auth: {
     domain,
     clientId,

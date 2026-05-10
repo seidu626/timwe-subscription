@@ -27,6 +27,10 @@ export const environment = {
   cadenceAdminToken: '',
   landingWebBaseUrl: 'https://landing.your-domain.com',
   identityEndpoint: 'https://identityserver.mtn.com.gh',
+  adminTenantBootstrap: {
+    platformAdminEmails: [],
+    tenantWorkspaces: [],
+  },
   auth: {
     domain,
     clientId,

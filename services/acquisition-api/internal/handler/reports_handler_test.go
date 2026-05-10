@@ -1,12 +1,16 @@
 package handler
 
 import (
+	"regexp"
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/valyala/fasthttp"
+	"go.uber.org/zap"
 )
 
 func TestParseFilters_Defaults(t *testing.T) {
@@ -153,6 +157,37 @@ func TestParseFilters_AllowsPlatformAllTenants(t *testing.T) {
 	}
 	if filters.TenantID != nil {
 		t.Fatalf("platform all_tenants should not force tenant id, got %v", *filters.TenantID)
+	}
+}
+
+func TestParseFilters_ResolvesPlatformSelectedTenantKey(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id")).
+		WithArgs("legacy-default").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("11111111-1111-1111-1111-111111111111"))
+
+	h := &ReportsHandler{reportsRepo: repository.NewReportsRepository(db, zap.NewNop())}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:      "legacy-default",
+		PlatformScoped: true,
+		TrustSource:    tenantctx.TrustSourceJWT,
+	})
+
+	filters, err := h.parseFilters(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if filters.TenantID == nil || *filters.TenantID != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("tenant id = %v", filters.TenantID)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
 	}
 }
 

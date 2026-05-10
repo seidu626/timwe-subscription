@@ -41,6 +41,24 @@ func (r *ReportsRepository) ChannelBelongsToTenant(tenantID, channelID string) (
 	return exists, nil
 }
 
+// TenantIDByKey resolves a public tenant key to its tenant UUID for scoped reporting.
+func (r *ReportsRepository) TenantIDByKey(tenantKey string) (string, error) {
+	var tenantID string
+	err := r.db.QueryRow(`
+		SELECT id
+		FROM tenants
+		WHERE tenant_key = $1
+		  AND status = 'ACTIVE'
+	`, tenantKey).Scan(&tenantID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", ErrAdminNotFound
+		}
+		return "", fmt.Errorf("failed to resolve tenant by key: %w", err)
+	}
+	return tenantID, nil
+}
+
 // GetKPIs retrieves aggregated KPIs for the given filters.
 func (r *ReportsRepository) GetKPIs(filters domain.ReportFilters) (*domain.KPIsResponse, error) {
 	kpis := &domain.KPIsResponse{Filters: filters}

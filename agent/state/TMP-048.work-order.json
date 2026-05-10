@@ -1,0 +1,88 @@
+{
+  "work_order_id": "WO-TMP-048-001",
+  "issue_id": "TMP-048",
+  "class": "vertical_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "The named admin users can enter the tenant workspace and operate across configured tenants without weakening tenant isolation.",
+  "actor": "platform-operator",
+  "entrypoint": "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.ts",
+  "trigger": "Named Auth0 users reach the tenant workspace unavailable page because their profile has no tenant assignment claims.",
+  "allowed_files": [
+    "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.ts",
+    "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+    "frontend/webspa-admin/src/environments/environment.ts",
+    "frontend/webspa-admin/src/environments/environment.prod.ts",
+    "common/auth/auth0jwt/claims.go",
+    "common/auth/auth0jwt/claims_test.go",
+    "common/auth/tenantctx/identity.go",
+    "services/acquisition-api/internal/transport/admin.go",
+    "services/acquisition-api/internal/transport/admin_test.go",
+    "services/acquisition-api/internal/handler/reports_handler.go",
+    "services/acquisition-api/internal/handler/reports_handler_test.go",
+    "services/acquisition-api/internal/repository/reports_repository.go",
+    "services/acquisition-api/internal/handler/admin_management_tenant_test.go",
+    "docs/admin-tenant-account-mapping.md",
+    "agent/backlog/issues/TMP-048-admin-tenant-account-mapping.md",
+    "agent/state/TMP-048.work-order.json",
+    "agent/state/TMP-048.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-048-admin-tenant-account-mapping/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**/migrations/**",
+    "services/landing-web/**",
+    "docker-compose*.yml",
+    "Makefile",
+    "go.mod",
+    "go.sum"
+  ],
+  "acceptance_tests": [
+    "Configured bootstrap admin emails resolve as platform-scoped webspa users with selectable tenant workspaces.",
+    "Backend enriches only platform-scoped admin identities with the selected tenant header.",
+    "Backend does not trust raw tenant headers for unscoped or tenant-scoped identities.",
+    "Mapping contract explains how new tenant admins and platform admins are assigned."
+  ],
+  "required_evidence": [
+    "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless",
+    "cd common && go test ./auth/...",
+    "cd services/acquisition-api && go test ./internal/transport ./internal/handler ./internal/service",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slices/TMP-048-admin-tenant-account-mapping/value-gate-report.md"
+  ],
+  "non_goals": [
+    "Do not introduce a database admin membership subsystem in this slice.",
+    "Do not create or migrate tenant rows.",
+    "Do not replace Auth0 claim-based tenant assignment as the primary mapping model."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-048",
+    "title": "Admin tenant account mapping",
+    "path": "agent/backlog/issues/TMP-048-admin-tenant-account-mapping.md",
+    "declared_class": "vertical_slice",
+    "detected_class": "vertical_slice",
+    "confidence": 0.86,
+    "verticality_score": 90,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 20,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 0,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

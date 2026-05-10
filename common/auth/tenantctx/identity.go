@@ -19,6 +19,8 @@ type Identity struct {
 	TenantKey      string
 	OrgID          string
 	Subject        string
+	Email          string
+	EmailVerified  bool
 	Roles          []string
 	Permissions    []string
 	PlatformScoped bool

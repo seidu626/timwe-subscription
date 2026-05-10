@@ -7,6 +7,7 @@ import { TenantWorkspaceService } from './tenant-workspace.service';
 describe('TenantWorkspaceService', () => {
   beforeEach(() => {
     sessionStorage.clear();
+    delete (window as unknown as Record<string, unknown>)['__ADMIN_TENANT_BOOTSTRAP__'];
   });
 
   it('resolves a single assigned tenant for a tenant admin', () => {
@@ -67,5 +68,122 @@ describe('TenantWorkspaceService', () => {
     const selectedWorkspace = service.getCurrentWorkspace();
     expect(selectedWorkspace.status).toBe('ready');
     expect(selectedWorkspace.currentTenant?.tenantKey).toBe('tenant-b');
+  });
+
+  it('maps configured bootstrap admin emails to platform tenant workspaces', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              email: 'almauricin@gmail.com',
+              email_verified: true,
+              name: 'Bootstrap Admin'
+            })
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const workspace = service.getCurrentWorkspace();
+
+    expect(workspace.status).toBe('ready');
+    expect(workspace.platformScoped).toBeTrue();
+    expect(workspace.currentTenant?.tenantKey).toBe('legacy-default');
+    expect(workspace.availableTenants.map((tenant) => tenant.tenantKey)).toContain('legacy-default');
+  });
+
+  it('maps bootstrap admin emails from user metadata case-insensitively', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              app_metadata: {
+                email: 'SEIDU.ABDULAI@HOTMAIL.COM',
+                email_verified: true
+              },
+              name: 'Bootstrap Admin'
+            })
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const workspace = service.getCurrentWorkspace();
+
+    expect(workspace.status).toBe('ready');
+    expect(workspace.platformScoped).toBeTrue();
+    expect(workspace.currentTenant?.tenantKey).toBe('legacy-default');
+  });
+
+  it('requires selection when a bootstrap admin has multiple runtime tenant workspaces', () => {
+    (window as unknown as Record<string, unknown>)['__ADMIN_TENANT_BOOTSTRAP__'] = {
+      platformAdminEmails: ['seidu.abdulai@hotmail.com'],
+      tenantWorkspaces: [
+        { tenant_key: 'tenant-a', tenant_id: 'tenant-a', name: 'Tenant A' },
+        { tenant_key: 'tenant-b', tenant_id: 'tenant-b', name: 'Tenant B' }
+      ]
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              email: 'seidu.abdulai@hotmail.com',
+              email_verified: true,
+              name: 'Bootstrap Admin'
+            })
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const workspace = service.getCurrentWorkspace();
+
+    expect(workspace.status).toBe('selection-required');
+    expect(workspace.platformScoped).toBeTrue();
+    expect(workspace.canSwitchTenant).toBeTrue();
+    expect(workspace.currentTenant).toBeNull();
+    expect(service.selectTenant('tenant-b')).toBeTrue();
+    expect(service.getCurrentWorkspace().status).toBe('ready');
+    expect(service.getCurrentWorkspace().currentTenant?.tenantKey).toBe('tenant-b');
+  });
+
+  it('does not bootstrap an unverified listed email', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              email: 'almauricin@gmail.com',
+              email_verified: false,
+              name: 'Bootstrap Admin'
+            })
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const workspace = service.getCurrentWorkspace();
+
+    expect(workspace.status).toBe('missing-tenant');
+    expect(workspace.platformScoped).toBeFalse();
   });
 });

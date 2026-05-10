@@ -1,0 +1,61 @@
+story:
+  id: "TMP-048"
+  title: "Approved admins enter all-tenant workspace"
+  actor: "platform-operator"
+  action: "grant named admin principals all-tenant workspace access"
+  outcome: "approved admins can operate across configured tenants without weakening tenant isolation"
+  as_a: "platform-operator"
+  i_want_to: "grant named admin principals all-tenant workspace access"
+  so_that: "admin recovery and cross-tenant operations work before database memberships exist"
+
+entrypoints:
+  - "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.ts"
+  - "services/acquisition-api/internal/transport/admin.go"
+  - "docs/admin-tenant-account-mapping.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Bootstrap admin resolves workspace"
+      given: ["admin email is in bootstrap config", "tenant workspace config contains at least one tenant"]
+      when: "admin opens webspa-admin after Auth0 login"
+      then: "workspace is platform scoped and ready for one tenant, or selection-required for multiple tenants"
+      evidence: "TenantWorkspaceService unit tests"
+    - scenario: "Platform admin selects tenant"
+      given: ["authenticated identity is platform scoped"]
+      when: "request carries X-Tenant-Key or X-Tenant-Id"
+      then: "acquisition-api enriches tenantctx.Identity with the selected tenant"
+      evidence: "admin transport unit test"
+  failures:
+    - scenario: "Unscoped identity sends tenant header"
+      given: ["authenticated identity is not platform scoped"]
+      when: "request carries X-Tenant-Key"
+      then: "tenant header is ignored"
+      evidence: "admin transport negative test"
+    - scenario: "New user has no mapping"
+      given: ["Auth0 user lacks tenant claims and is not in bootstrap config"]
+      when: "workspace resolves"
+      then: "status remains missing-tenant"
+      evidence: "existing tenant workspace missing assignment behavior"
+  invariants:
+    - rule: "selected tenant headers are trusted only for platform-scoped identities"
+      preserved_by: "admin auth middleware gates header enrichment on PlatformScoped"
+      violated_when: "unscoped identity can set tenant context by header"
+      test: "TestAdminRequireIgnoresSelectedTenantHeaderForUnscopedIdentity"
+    - rule: "Auth0 remains the primary user-to-tenant mapping source"
+      preserved_by: "documentation and bootstrap config limited to explicit principals"
+      violated_when: "code invents database membership without a migration and contract"
+      test: "docs/admin-tenant-account-mapping.md review"
+
+out_of_scope:
+  - "database admin membership table"
+  - "Auth0 Management API mutation"
+  - "tenant catalog API consumed by the frontend"
+
+size_check:
+  files_touched: 14
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-048-admin-tenant-account-mapping/value-gate-report.md"

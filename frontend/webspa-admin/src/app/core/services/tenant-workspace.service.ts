@@ -31,6 +31,11 @@ interface ClaimSnapshot {
   platformScoped: boolean;
 }
 
+interface AdminTenantBootstrapConfig {
+  platformAdminEmails?: unknown;
+  tenantWorkspaces?: unknown;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -216,9 +221,11 @@ export class TenantWorkspaceService {
     const tenantKeys = this.collectStrings(source, ['tenant_key', 'tenantKey', 'tenant_keys', 'tenantKeys']);
     const orgIds = this.collectStrings(source, ['org_id', 'orgId', 'org_ids', 'orgIds']);
     const tenants = this.collectTenantOptions(source);
-    const platformScoped = this.isPlatformScoped(source);
+    const bootstrap = this.resolveAdminTenantBootstrap(source);
+    const platformScoped = this.isPlatformScoped(source) || bootstrap.platformScoped;
 
     const tenantOptions = this.uniqueOptions([
+      ...bootstrap.tenantOptions,
       ...tenants,
       ...tenantKeys.map((tenantKey) => this.toTenantOption(tenantKey, tenantKey, tenantKey)),
       ...tenantIds.map((tenantId) => this.toTenantOption(tenantId, tenantId, tenantId)),
@@ -230,6 +237,41 @@ export class TenantWorkspaceService {
       tenantKey: tenantKeys[0] ?? null,
       tenantOptions,
       platformScoped
+    };
+  }
+
+  private resolveAdminTenantBootstrap(source: Record<string, unknown>): { platformScoped: boolean; tenantOptions: TenantWorkspaceOption[] } {
+    const bootstrap = this.getAdminTenantBootstrapConfig();
+    const platformAdminEmails = this.extractStrings(bootstrap.platformAdminEmails)
+      .map((email) => email.trim().toLowerCase())
+      .filter((email) => email.length > 0);
+    const userEmails = this.collectStrings(source, ['email', 'https://platform/email']);
+    const emailVerified = [
+      source['email_verified'],
+      source['emailVerified'],
+      source['https://platform/email_verified']
+    ].some((value) => this.isTruthy(value));
+    const platformScoped = emailVerified && userEmails.some((email) => platformAdminEmails.includes(email));
+
+    if (!platformScoped) {
+      return { platformScoped: false, tenantOptions: [] };
+    }
+
+    return {
+      platformScoped: true,
+      tenantOptions: this.collectTenantOptions({ tenantOptions: bootstrap.tenantWorkspaces })
+    };
+  }
+
+  private getAdminTenantBootstrapConfig(): AdminTenantBootstrapConfig {
+    const configured = this.asRecord(environment['adminTenantBootstrap' as keyof typeof environment]);
+    const runtime = typeof window === 'undefined'
+      ? {}
+      : this.asRecord((window as unknown as Record<string, unknown>)['__ADMIN_TENANT_BOOTSTRAP__']);
+
+    return {
+      ...configured,
+      ...runtime
     };
   }
 

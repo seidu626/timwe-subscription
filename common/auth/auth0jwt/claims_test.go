@@ -12,6 +12,8 @@ func TestClaimsUnmarshalExtractsTenantRoleAndPlatformScope(t *testing.T) {
 	raw := []byte(`{
 		"iss":"https://example.auth0.com/",
 		"sub":"auth0|123",
+		"email":"admin@example.com",
+		"email_verified":true,
 		"aud":["api"],
 		"tenant_id":"tenant-123",
 		"tenant_key":"tenant-key",
@@ -32,6 +34,9 @@ func TestClaimsUnmarshalExtractsTenantRoleAndPlatformScope(t *testing.T) {
 	if claims.Subject != "auth0|123" {
 		t.Fatalf("subject = %q", claims.Subject)
 	}
+	if claims.Email != "admin@example.com" || !claims.EmailVerified {
+		t.Fatalf("email fields not extracted: %#v", claims)
+	}
 	if !reflect.DeepEqual(claims.Roles, []string{"tenant_admin", "platform_operator"}) {
 		t.Fatalf("roles = %#v", claims.Roles)
 	}
@@ -48,5 +53,8 @@ func TestClaimsUnmarshalExtractsTenantRoleAndPlatformScope(t *testing.T) {
 	}
 	if !identity.PlatformScoped || !identity.HasRole("platform_operator") || !identity.HasPermission("platform:all_tenants") {
 		t.Fatalf("identity did not preserve role/permission/platform scope: %#v", identity)
+	}
+	if identity.Email != "admin@example.com" || !identity.EmailVerified {
+		t.Fatalf("identity email fields = %#v", identity)
 	}
 }

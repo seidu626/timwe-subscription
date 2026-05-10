@@ -2680,14 +2680,7 @@
       ],
       "attempts": 1,
       "blockers": [
-        {
-          "blocker": "Clean superproject submodule initialization remains blocked.",
-          "disposition": "blocked",
-          "item": "webspa-admin source reproducibility",
-          "next_task_id": "TMP-026",
-          "reason": "Publish, repoint, or repository-strategy decision is still required.",
-          "severity": "high"
-        }
+        "Clean superproject submodule initialization remains blocked: webspa-admin source reproducibility still needs TMP-026 publish, repoint, or repository-strategy decision."
       ],
       "branch": "agent/codex/source-truth-audit-20260509-054846",
       "children": [],
@@ -2804,14 +2797,7 @@
       ],
       "attempts": 1,
       "blockers": [
-        {
-          "blocker": "Approved migration provisioning/orchestration is still required before runtime verification can pass.",
-          "disposition": "blocked",
-          "item": "TMP-034/TMP-035/TMP-036 runtime schema provisioning",
-          "next_task_id": null,
-          "reason": "This slice is evidence-only and does not apply SQL or choose canonical migration ordering.",
-          "severity": "high"
-        }
+        "Approved migration provisioning/orchestration is still required before runtime verification can pass: TMP-034/TMP-035/TMP-036 runtime schema provisioning was evidence-only."
       ],
       "branch": "agent/codex/blocker-audit-20260509-060342",
       "children": [],
@@ -2908,14 +2894,7 @@
       ],
       "attempts": 1,
       "blockers": [
-        {
-          "blocker": "Operator approvals or maintainer decisions are still required before blocked implementation slices can run.",
-          "disposition": "blocked",
-          "item": "TMP-021/TMP-026/TMP-034/TMP-035/TMP-036/TMP-037/TMP-038 release verification blockers",
-          "next_task_id": null,
-          "reason": "This slice consolidates decision options but does not approve or implement them.",
-          "severity": "high"
-        }
+        "Operator approvals or maintainer decisions are still required before blocked implementation slices can run: TMP-021/TMP-026/TMP-034/TMP-035/TMP-036/TMP-037/TMP-038 decision packet was advisory only."
       ],
       "branch": "agent/codex/decision-packet-20260509-062213",
       "children": [],
@@ -3007,14 +2986,7 @@
       ],
       "attempts": 1,
       "blockers": [
-        {
-          "blocker": "Operator approvals or maintainer decisions are still required before blocked implementation slices can run.",
-          "disposition": "blocked",
-          "item": "Release-verification approval gates",
-          "next_task_id": null,
-          "reason": "This slice creates pending templates only and records no approval.",
-          "severity": "high"
-        }
+        "Operator approvals or maintainer decisions are still required before blocked implementation slices can run: release-verification ADR templates remain proposed."
       ],
       "branch": "agent/codex/decision-templates-20260509-063006",
       "children": [],
@@ -3645,6 +3617,169 @@
       "title": "Landing web dependency remediation",
       "unresolved": [],
       "updated_at": "2026-05-10T05:31:36Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+            "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Named emails resolve as platform-scoped webspa users with tenant options."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "services/acquisition-api/internal/transport/admin_test.go",
+            "cd services/acquisition-api && go test ./internal/transport ./internal/handler ./internal/service"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Backend accepts selected tenant headers only for platform-scoped JWT identities."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "docs/admin-tenant-account-mapping.md",
+            "slices/TMP-048-admin-tenant-account-mapping/value-gate-report.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Mapping contract documents tenant admin and platform admin assignment."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Added frontend bootstrap all-tenant admin mapping for the requested emails.",
+        "Added backend email claim extraction, bootstrap platform scope, and platform-gated selected tenant header enrichment.",
+        "Documented user-to-tenant/admin mapping and wrote TMP-048 domain/story/value artifacts.",
+        "Added frontend bootstrap admin mapping for the requested emails with runtime-overridable tenant workspace catalog.",
+        "Added backend Auth0 email extraction and bootstrap platform scope for the requested emails.",
+        "Changed backend admin middleware to apply selected tenant headers only for platform-scoped identities and to allow tenant headers in CORS preflight.",
+        "Documented how new user accounts map to tenant admin or platform admin access.",
+        "Required verified email for bootstrap platform grants, made backend bootstrap config fail closed when unset, and resolved platform selected tenant keys to tenant IDs for reports."
+      ],
+      "created_at": "2026-05-10T22:57:40Z",
+      "details": "Grant explicit all-tenant admin workspace access for the named admin emails and document tenant/admin mapping while preserving platform-scoped tenant isolation.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "cd common && go test ./auth/...",
+            "exit_code": 0,
+            "output_excerpt": "ok github.com/seidu626/subscription-manager/common/auth/auth0jwt; ok github.com/seidu626/subscription-manager/common/auth/tenantctx",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:00:00Z"
+          },
+          {
+            "command": "cd services/acquisition-api && go test ./internal/transport ./internal/handler ./internal/service",
+            "exit_code": 0,
+            "output_excerpt": "ok internal/transport; ok internal/handler; ok internal/service",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:00:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm ci",
+            "exit_code": 0,
+            "output_excerpt": "added 1007 packages; Node 24 engine warning and existing audit advisories reported",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:01:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+            "exit_code": 0,
+            "output_excerpt": "TOTAL: 87 SUCCESS",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:02:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm run build",
+            "exit_code": 0,
+            "output_excerpt": "Application bundle generation complete; existing SCSS budget and selector warnings",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:03:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-048 assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:05:00Z"
+          },
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; no queued ready agent tasks; only stale superseded ledger warnings",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:05:00Z"
+          },
+          {
+            "command": "cd services/acquisition-api && go test ./internal/transport ./internal/handler ./internal/service ./internal/repository",
+            "exit_code": 0,
+            "output_excerpt": "ok internal/transport; ok internal/handler; ok internal/service; ok internal/repository",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:13:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+            "exit_code": 0,
+            "output_excerpt": "TOTAL: 88 SUCCESS",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:13:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm run build",
+            "exit_code": 0,
+            "output_excerpt": "Application bundle generation complete; existing SCSS budget and selector warnings",
+            "status": "passed",
+            "timestamp": "2026-05-10T23:15:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.ts",
+          "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+          "frontend/webspa-admin/src/environments/environment.ts",
+          "frontend/webspa-admin/src/environments/environment.prod.ts",
+          "common/auth/auth0jwt/claims.go",
+          "common/auth/auth0jwt/claims_test.go",
+          "common/auth/tenantctx/identity.go",
+          "services/acquisition-api/internal/transport/admin.go",
+          "services/acquisition-api/internal/transport/admin_test.go",
+          "docs/admin-tenant-account-mapping.md",
+          "agent/backlog/issues/TMP-048-admin-tenant-account-mapping.md",
+          "agent/state/TMP-048.work-order.json",
+          "agent/state/TMP-048.handoff.json",
+          "slices/manifest.json",
+          "slices/TMP-048-admin-tenant-account-mapping/**",
+          ".agent/tasks.json",
+          "services/acquisition-api/internal/handler/reports_handler.go",
+          "services/acquisition-api/internal/handler/reports_handler_test.go",
+          "services/acquisition-api/internal/repository/reports_repository.go"
+        ]
+      },
+      "goal": "",
+      "id": "T-TMP-048",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Admin tenant account mapping",
+      "unresolved": [],
+      "updated_at": "2026-05-10T23:15:10Z",
       "worktree": null
     }
   ],

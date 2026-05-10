@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -59,6 +60,15 @@ func (h *ReportsHandler) parseFilters(ctx *fasthttp.RequestCtx) (domain.ReportFi
 		// Platform-wide reporting intentionally leaves TenantID unset.
 	case hasIdentity && strings.TrimSpace(identity.TenantID) != "":
 		tenantID := strings.TrimSpace(identity.TenantID)
+		filters.TenantID = &tenantID
+	case hasIdentity && strings.TrimSpace(identity.TenantKey) != "" && identity.PlatformScoped && h.reportsRepo != nil:
+		tenantID, err := h.reportsRepo.TenantIDByKey(strings.TrimSpace(identity.TenantKey))
+		if err != nil {
+			if errors.Is(err, repository.ErrAdminNotFound) {
+				return filters, reportFilterError{status: fasthttp.StatusForbidden, code: "tenant_unavailable", message: "tenant not available"}
+			}
+			return filters, fmt.Errorf("failed to resolve tenant key: %w", err)
+		}
 		filters.TenantID = &tenantID
 	case hasIdentity && strings.TrimSpace(identity.TenantKey) != "":
 		return filters, reportFilterError{status: fasthttp.StatusForbidden, code: "tenant_id_required", message: "tenant id is required for tenant reports"}
