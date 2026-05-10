@@ -1,0 +1,76 @@
+{
+  "work_order_id": "WO-TMP-049-001",
+  "issue_id": "TMP-049",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "acquisition-api can bootstrap tenant schema on databases that still have legacy campaign slug foreign keys.",
+  "actor": "platform-operator",
+  "entrypoint": "services/acquisition-api/migrations/add_tenant_zz_acquisition_flow.sql",
+  "trigger": "acquisition-api startup fails with pq cannot drop constraint campaigns_slug_key because other objects depend on it.",
+  "allowed_files": [
+    "services/acquisition-api/migrations/add_tenant_zz_acquisition_flow.sql",
+    "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+    "agent/backlog/issues/TMP-049-acquisition-campaign-slug-migration-startup.md",
+    "agent/state/TMP-049.work-order.json",
+    "agent/state/TMP-049.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-049-acquisition-campaign-slug-migration-startup/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/acquisition-api/cmd/**",
+    "services/acquisition-api/internal/service/**",
+    "services/acquisition-api/internal/handler/**",
+    "services/acquisition-api/internal/repository/*_repository.go",
+    "services/subscription-external/**",
+    "frontend/**",
+    "docker-compose*.yml",
+    "go.mod",
+    "go.sum"
+  ],
+  "acceptance_tests": [
+    "Migration drops all legacy foreign keys that depend on campaigns(slug) before dropping campaigns_slug_key.",
+    "Migration does not use DROP CONSTRAINT ... CASCADE.",
+    "Acquisition repository migration tests pass."
+  ],
+  "required_evidence": [
+    "cd services/acquisition-api && go test ./internal/repository",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slices/TMP-049-acquisition-campaign-slug-migration-startup/value-gate-report.md"
+  ],
+  "non_goals": [
+    "Do not change runtime campaign or transaction business logic.",
+    "Do not add new migrations outside acquisition-api.",
+    "Do not connect to or mutate production data from tests."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-049",
+    "title": "Acquisition campaign slug migration startup fix",
+    "path": "agent/backlog/issues/TMP-049-acquisition-campaign-slug-migration-startup.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 82,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 0,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

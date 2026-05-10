@@ -197,6 +197,34 @@ func TestTenantChannelCredentialsMigrationStoresReferencesOnly(t *testing.T) {
 	}
 }
 
+func TestTenantAcquisitionFlowMigrationDropsLegacyCampaignSlugForeignKeys(t *testing.T) {
+	migrationPath := filepath.Join("..", "..", "migrations", "add_tenant_zz_acquisition_flow.sql")
+	body, err := os.ReadFile(migrationPath)
+	if err != nil {
+		t.Fatalf("failed to read migration: %v", err)
+	}
+	sql := string(body)
+
+	required := []string{
+		"constraint_record.contype = 'f'",
+		"referenced_table.relname = 'campaigns'",
+		"referenced_column.attname = 'slug'",
+		"referenced_column.attnum = ANY (constraint_record.confkey)",
+		"ALTER TABLE %s DROP CONSTRAINT IF EXISTS %I",
+		"DROP CONSTRAINT IF EXISTS campaigns_slug_key",
+		"idx_acq_trans_tenant_campaign_msisdn",
+	}
+	for _, want := range required {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("migration missing %q", want)
+		}
+	}
+
+	if strings.Contains(strings.ToUpper(sql), "CASCADE") {
+		t.Fatalf("migration must not use CASCADE when dropping legacy slug constraints")
+	}
+}
+
 func writeTempMigration(t *testing.T, sql string) string {
 	t.Helper()
 

@@ -1,0 +1,47 @@
+story:
+  id: "TMP-049"
+  title: "Acquisition API starts with legacy campaign slug foreign keys"
+  actor: "platform-operator"
+  action: "restart acquisition-api against an existing database"
+  outcome: "tenant schema bootstrap completes despite legacy campaigns(slug) foreign keys"
+  as_a: "platform-operator"
+  i_want_to: "start acquisition-api after tenant campaign migration work"
+  so_that: "the acquisition runtime can serve tenant flows without manual database surgery"
+
+entrypoints:
+  - "services/acquisition-api/migrations/add_tenant_zz_acquisition_flow.sql"
+  - "services/acquisition-api/internal/repository/admin_management_schema_test.go"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Legacy slug foreign keys exist"
+      given: ["campaigns_slug_key exists", "one or more foreign keys reference campaigns(slug)"]
+      when: "the tenant acquisition flow migration runs"
+      then: "the migration drops all matching legacy foreign keys before dropping campaigns_slug_key"
+      evidence: "TestTenantAcquisitionFlowMigrationDropsLegacyCampaignSlugForeignKeys"
+  failures:
+    - scenario: "Migration tries broad cascade"
+      given: ["schema bootstrap is running during service startup"]
+      when: "legacy constraints must be removed"
+      then: "the migration does not use CASCADE"
+      evidence: "TestTenantAcquisitionFlowMigrationDropsLegacyCampaignSlugForeignKeys"
+  invariants:
+    - rule: "tenant-scoped campaign slugs replace global campaign slug uniqueness"
+      preserved_by: "dropping dependencies on campaigns(slug) before campaigns_slug_key"
+      violated_when: "campaigns_slug_key drop fails at startup"
+      test: "go test ./internal/repository"
+
+out_of_scope:
+  - "runtime acquisition business logic"
+  - "new subscription-external migrations"
+  - "live database mutation from tests"
+
+size_check:
+  files_touched: 6
+  migrations: 1
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-049-acquisition-campaign-slug-migration-startup/value-gate-report.md"
+

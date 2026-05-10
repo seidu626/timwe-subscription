@@ -1,0 +1,7 @@
+{
+  "agent": "codex",
+  "last_action": "Patched acquisition tenant flow migration to drop all legacy campaigns(slug) FKs before campaigns_slug_key and verified repository tests.",
+  "state": "checkpoint",
+  "task_id": "T-TMP-049",
+  "updated_at": "2026-05-10T23:30:55Z"
+}

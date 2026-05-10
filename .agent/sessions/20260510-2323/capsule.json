@@ -1,0 +1,11 @@
+{
+  "blockers": [],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "20260510-2323",
+  "status": "done",
+  "summary": "Fixed acquisition-api startup schema bootstrap by removing all legacy foreign keys that reference public.campaigns(slug) before dropping campaigns_slug_key.",
+  "task_id": "T-TMP-049",
+  "unfinished_work": [],
+  "written_at": "2026-05-10T23:31:16Z"
+}

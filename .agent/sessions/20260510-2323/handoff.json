@@ -1,0 +1,106 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "Migration drops all legacy campaigns(slug) foreign keys before dropping campaigns_slug_key.",
+      "evidence": [
+        "services/acquisition-api/migrations/add_tenant_zz_acquisition_flow.sql",
+        "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+        "cd services/acquisition-api && go test ./internal/repository"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "Migration does not use DROP CONSTRAINT CASCADE.",
+      "evidence": [
+        "TestTenantAcquisitionFlowMigrationDropsLegacyCampaignSlugForeignKeys",
+        "hvc check agent/backlog/issues/*.md --fail-on block"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "cd services/acquisition-api && go test ./internal/repository passes.",
+      "evidence": [
+        "cd services/acquisition-api && go test ./internal/repository"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    "services/acquisition-api/migrations/add_tenant_zz_acquisition_flow.sql",
+    "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+    "agent/backlog/issues/TMP-049-acquisition-campaign-slug-migration-startup.md",
+    "agent/state/TMP-049.work-order.json",
+    "agent/state/TMP-049.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-049-acquisition-campaign-slug-migration-startup/domain-brief.md",
+    "slices/TMP-049-acquisition-campaign-slug-migration-startup/slice.yaml",
+    "slices/TMP-049-acquisition-campaign-slug-migration-startup/value-gate-report.md",
+    ".agent/tasks.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No long-running services were started."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Replaced a hard-coded acquisition_transactions FK drop with catalog-driven removal of every FK that references public.campaigns(slug).",
+    "Kept the migration explicit and bounded by avoiding CASCADE.",
+    "Added a repository migration guard test covering FK discovery, DDL ordering, no CASCADE, and tenant acquisition indexes.",
+    "Recorded TMP-049 issue, work order, slice manifest entry, domain brief, story, and value-gate evidence."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "The fix was verified with static migration tests and repository tests; it was not run against the operator's remote PostgreSQL database to avoid mutating live data from the agent session."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-049 removes the migration startup blocker reported by acquisition-api without changing runtime business logic.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "Dropping legacy slug foreign keys is intentional for tenant-scoped duplicate campaign slugs. Any consumers that still require referential integrity on campaign_slug need a future tenant-aware composite FK design."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "20260510-2323",
+  "status": "done",
+  "summary": "Fixed acquisition-api startup schema bootstrap by removing all legacy foreign keys that reference public.campaigns(slug) before dropping campaigns_slug_key.",
+  "supervisor_decision": "ready_for_review",
+  "task_id": "T-TMP-049",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "cd services/acquisition-api && go test ./internal/repository",
+      "exit_code": 0,
+      "output_excerpt": "ok github.com/seidu626/subscription-manager/acquisition-api/internal/repository",
+      "status": "passed",
+      "timestamp": "2026-05-10T23:28:24Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-049 assignment_decision allow; no blocking reasons",
+      "status": "passed",
+      "timestamp": "2026-05-10T23:29:00Z"
+    },
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-049.work-order.json .agent/tasks.json",
+      "exit_code": 0,
+      "output_excerpt": "JSON files parse successfully",
+      "status": "passed",
+      "timestamp": "2026-05-10T23:29:00Z"
+    }
+  ]
+}
