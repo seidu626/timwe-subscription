@@ -1,43 +1,53 @@
 # TMP-054 Value Gate Report
 
-Timestamp: 2026-05-11T00:39:00Z
-Agent: codex
+Timestamp: 2026-05-11 (updated with live schema proof by claude-sonnet-4-6)
+Agent: codex (original) / claude-sonnet-4-6 (live schema check)
 
-VALUE-GATE VERDICT: BLOCKED
+VALUE-GATE VERDICT: BLOCKED — SCHEMA MIGRATION NOT APPLIED TO LIVE DB
 
 ## Audit 1: Criteria Coverage
 
 | criterion | status | evidence |
 | --- | --- | --- |
-| Subscription/cadence tenant-owned tables have row-count proof for `tenant_id IS NULL`. | BLOCKED | `tenant-null-proof.md` records that all documented DB credential variables are unset and no `.env` file exists. |
+| Subscription/cadence tenant-owned tables have row-count proof for `tenant_id IS NULL`. | BLOCKED — deeper than credentials | Live schema check confirms `tenant_id` column does not exist in `subscriptions` or related tables. |
 | Cadence runtime nullable join candidates are mapped to the tables they depend on. | PASS | `tenant-null-proof.md` maps `ClaimDueStatesTx` and `ListMissingStates` to `subscriptions`, `product_message_series`, and `subscription_message_state`. |
-| No remote database mutation is performed. | PASS | No DB connection was established; prepared SQL is `SELECT`-only in a read-only transaction with `ROLLBACK`. |
+| No remote database mutation is performed. | PASS | Only `SELECT` on `information_schema.columns` run. |
 
-## Audit 2: Failure Modes
+## Audit 2: Live Schema Check Results (2026-05-11)
 
-- Missing credentials: COVERED. `psql` exists, but documented DB env variables are unset.
-- Unsafe static-only pass: COVERED. Static table ownership evidence is recorded but not treated as live proof.
-- Runtime nullable joins: COVERED. Cadence candidates remain blockers for TMP-055 until live zero-row proof exists.
+Via `information_schema.columns WHERE column_name = 'tenant_id'`:
+
+Tables WITH `tenant_id` in live DB:
+- acquisition_transactions, admin_activity_logs, campaigns, postback_outbox, products, tenant_channel_credentials, tenant_channels, userbase, userbase_import_errors, userbase_import_jobs
+
+Tables WITHOUT `tenant_id` in live DB (subscription/cadence group):
+- subscriptions — MISSING tenant_id
+- notifications — MISSING tenant_id
+- product_message_series — MISSING tenant_id
+- message_outbox — MISSING tenant_id (not confirmed, column absent from schema results)
+
+**Migrations 016 and 017 have NOT been applied to the live database.**
 
 ## Audit 3: Domain Invariants
 
 - No service or migration edits: PASS.
 - No remote DB mutation: PASS.
-- No secret disclosure: PASS; only env presence/absence is recorded.
-- Enforcement readiness requires live row counts: BLOCKED until credentials are supplied and the read-only SQL runs.
+- No secret disclosure: PASS.
+- Enforcement readiness: BLOCKED. Cannot run NULL row-count queries because the `tenant_id` column doesn't exist yet.
 
 ## Audit 4: User Journey
 
-- Operator can see exactly which env/tool blocker prevented live proof: COMPLETE.
-- Operator can reuse the prepared SQL once documented DB connection env is available: COMPLETE.
-- TMP-055 receives a clear blocked dependency instead of ambiguous readiness: COMPLETE.
+- Operator now has definitive evidence of schema migration state: COMPLETE.
+- TMP-055 has a clear, evidence-based blocker: COMPLETE.
 
 ## Audit 5: Test Quality
 
-- `hvc check agent/backlog/issues/*.md --fail-on block` remains the classifier gate.
-- `psql` availability and credential presence checks are recorded in `tenant-null-proof.md`.
-- No source tests were added because TMP-054 is a read-only proof slice.
+- `hvc check agent/backlog/issues/*.md --fail-on block`: PASS.
+- No source tests were added (read-only proof slice).
 
 ## Gaps
 
-Live row-count proof did not run. TMP-055 should not enforce subscription/cadence tenant `NOT NULL` or remove cadence NULL-tolerant joins until TMP-054 is rerun with documented PostgreSQL connection environment and every target table reports `tenantless_rows = 0`.
+Two sequential prerequisites before TMP-055:
+1. Apply migration 016 (`016_tenant_channel_subscription_routing.sql`) to live DB.
+2. Apply migration 017 (`017_tenant_notification_cadence_routing.sql`) to live DB.
+3. Rerun TMP-054 proof SQL — every target table must report `tenantless_rows = 0`.

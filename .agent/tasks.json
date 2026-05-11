@@ -4553,11 +4553,12 @@
           "text": "Forward migrations clean legacy partial indexes or nullable constraints only where proof exists."
         }
       ],
-      "attempts": 0,
+      "attempts": 1,
       "blockers": [
         "TMP-053 acquisition/admin proof blocked: DB_PASSWORD/PGPASSWORD/DATABASE_URL or equivalent documented connection material is unavailable.",
         "TMP-054 subscription/cadence proof blocked: no .env file exists and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, DATABASE_URL variables are unset.",
-        "TMP-055 remains blocked: proof and schema preconditions are not satisfied"
+        "TMP-055 remains blocked: proof and schema preconditions are not satisfied",
+        "Live DB proof shows non-zero tenantless rows in acquisition tables and missing tenant_id schema in subscription/cadence tables. Runtime enforcement cannot proceed without operator completing backfill and migration prerequisites."
       ],
       "branch": null,
       "children": [],
@@ -4571,11 +4572,11 @@
       },
       "goal": "",
       "id": "TMP-055",
-      "owner": "codex",
+      "owner": "claude-sonnet-4-6-auto-pilot",
       "parent_id": null,
       "priority": 0,
       "review_findings": [],
-      "status": "blocked",
+      "status": "in_progress",
       "title": "Tenant nullable runtime enforcement",
       "unresolved": [
         {
@@ -4593,9 +4594,41 @@
           "next_task_id": null,
           "reason": "checkpoint",
           "severity": "medium"
+        },
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "Complete TMP-050 nrg backfill for acquisition tables: userbase (4873), acquisition_transactions (74), products (10), campaigns (5), postback_outbox (2)",
+          "next_task_id": null,
+          "reason": "checkpoint",
+          "severity": "medium"
+        },
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "Apply migration 016 (tenant_channel_subscription_routing) to live subscription DB",
+          "next_task_id": null,
+          "reason": "checkpoint",
+          "severity": "medium"
+        },
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "Apply migration 017 (tenant_notification_cadence_routing) to live subscription DB",
+          "next_task_id": null,
+          "reason": "checkpoint",
+          "severity": "medium"
+        },
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "Rerun TMP-053 and TMP-054 proof SQL after prerequisites complete",
+          "next_task_id": null,
+          "reason": "checkpoint",
+          "severity": "medium"
         }
       ],
-      "updated_at": "2026-05-11T22:53:19Z",
+      "updated_at": "2026-05-11T23:29:52Z",
       "worktree": null
     },
     {
