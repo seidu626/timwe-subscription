@@ -1,0 +1,131 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": "Documented PostgreSQL connection environment is unavailable: no .env file exists and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, and DATABASE_URL variables checked for this proof are unset.",
+      "criterion": "Subscription/cadence tenant-owned tables have row-count proof for tenant_id IS NULL.",
+      "evidence": [
+        "slices/TMP-054-subscription-cadence-tenant-null-proof/tenant-null-proof.md"
+      ],
+      "next_task_id": null,
+      "reason": "The required read-only SQL cannot be executed without a documented database connection.",
+      "status": "blocked"
+    },
+    {
+      "blocker": null,
+      "criterion": "Cadence runtime nullable join candidates are mapped to the tables they depend on.",
+      "evidence": [
+        "slices/TMP-054-subscription-cadence-tenant-null-proof/domain-brief.md",
+        "slices/TMP-054-subscription-cadence-tenant-null-proof/tenant-null-proof.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "No remote database mutation is performed.",
+      "evidence": [
+        "slices/TMP-054-subscription-cadence-tenant-null-proof/tenant-null-proof.md",
+        "slices/TMP-054-subscription-cadence-tenant-null-proof/value-gate-report.md"
+      ],
+      "next_task_id": null,
+      "reason": "No DB connection was established and no SQL was executed; prepared SQL is SELECT-only inside BEGIN READ ONLY with ROLLBACK.",
+      "status": "passed"
+    }
+  ],
+  "blockers": [
+    "Documented PostgreSQL connection environment is unavailable for TMP-054 proof: no .env file exists and all checked APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, and DATABASE_URL variables are unset."
+  ],
+  "changed_files": [
+    ".agent/tasks.json",
+    ".agent/events.jsonl",
+    ".agent/heartbeats/TMP-054.json",
+    ".harness/events.jsonl",
+    ".harness/task-ledger.sqlite",
+    "agent/state/TMP-054.handoff.json",
+    "slices/TMP-054-subscription-cadence-tenant-null-proof/domain-brief.md",
+    "slices/TMP-054-subscription-cadence-tenant-null-proof/slice.yaml",
+    "slices/TMP-054-subscription-cadence-tenant-null-proof/tenant-null-proof.md",
+    "slices/TMP-054-subscription-cadence-tenant-null-proof/value-gate-report.md"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No services were started.",
+    "No remote database connection was established.",
+    "No database mutation was performed.",
+    "No service, migration, compose, dependency, or manifest files were edited."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Claimed and started TMP-054 with agent-harness.",
+    "Ran supervisor preflight and HVC classifier gate.",
+    "Verified psql is installed.",
+    "Verified no worktree .env file exists and documented DB credential variables are unset without printing secret values.",
+    "Mapped subscription/cadence nullable tenant table ownership sources.",
+    "Mapped cadence runtime nullable join candidates to dependent tables.",
+    "Prepared the SELECT-only row-count SQL for the seven target tables."
+  ],
+  "confidence": {
+    "completeness": "medium",
+    "implementation": "high",
+    "verification": "medium"
+  },
+  "known_gaps": [
+    "Live row-count proof is blocked until documented database connection environment is provided.",
+    "TMP-055 must not enforce subscription/cadence tenant NOT NULL constraints or remove cadence nullable joins based on this blocked proof."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-054 is blocked on missing documented DB connection environment. The proof SQL and table/runtime mapping are ready to rerun once credentials are available.",
+  "residual_work_policy": "blocked_until_credentials_available",
+  "risk_notes": [
+    "Static migration evidence confirms nullable tenant columns and runtime candidates, but cannot substitute for live row counts.",
+    "No secrets were printed; only env variable presence was recorded."
+  ],
+  "safe_to_continue": false,
+  "schema_version": 1,
+  "session_id": "codex-subscription-null-proof-20260511-003737",
+  "status": "blocked",
+  "summary": "Prepared the subscription/cadence tenant-null read-only proof and recorded an explicit credential blocker because documented DB connection environment is unavailable.",
+  "supervisor_decision": "blocked",
+  "task_id": "TMP-054",
+  "unfinished_work": [
+    {
+      "blocker": "Missing documented DB connection environment.",
+      "disposition": "blocked",
+      "item": "Run read-only row-count SQL against the documented PostgreSQL database.",
+      "next_task_id": null,
+      "reason": "All checked documented credential variables are unset and no .env file exists.",
+      "severity": "high"
+    }
+  ],
+  "validation": [
+    {
+      "command": "agent-supervisor --config .harness/config.json preflight",
+      "exit_code": 0,
+      "output_excerpt": "ok true; only known superseded stale ledger warning for TMP-011-repair-1 and TMP-015-repair-1.",
+      "status": "passed",
+      "timestamp": "2026-05-11T00:38:57Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-054 assignment_decision allow; no blocking reasons.",
+      "status": "passed",
+      "timestamp": "2026-05-11T00:38:57Z"
+    },
+    {
+      "command": "command -v psql",
+      "exit_code": 0,
+      "output_excerpt": "/usr/bin/psql",
+      "status": "passed",
+      "timestamp": "2026-05-11T00:39:00Z"
+    },
+    {
+      "command": "documented DB env presence check for APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, and DATABASE_URL",
+      "exit_code": 0,
+      "output_excerpt": "no .env file exists and all checked documented DB connection variables are unset",
+      "status": "failed",
+      "timestamp": "2026-05-11T00:39:00Z"
+    }
+  ]
+}

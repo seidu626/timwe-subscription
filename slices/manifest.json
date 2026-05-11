@@ -1791,15 +1791,21 @@
         "evidence",
         "migration-readiness"
       ],
-      "state": "planned",
+      "state": "done",
+      "branch": "agent/codex/subscription-null-proof-20260511-003737",
+      "created_at": "2026-05-11T00:37:37Z",
+      "shipped_at": "2026-05-11T00:43:16Z",
+      "shipped_to": "worktree",
       "verification": {
         "automated": [
-          "hvc check agent/backlog/issues/*.md --fail-on block"
+          "agent-supervisor --config .harness/config.json preflight",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "jq empty agent/state/TMP-054.handoff.json .agent/sessions/codex-subscription-null-proof-20260511-003737/handoff.json"
         ],
         "manual_smoke": [],
         "dod_path": "slices/TMP-054-subscription-cadence-tenant-null-proof/value-gate-report.md"
       },
-      "notes": "Emitted by TMP-052 to prove the subscription/cadence table group before runtime/schema enforcement."
+      "notes": "Completed with explicit credential blocker evidence: no .env file exists and documented APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, and DATABASE_URL variables are unset."
     },
     {
       "id": "TMP-055",
