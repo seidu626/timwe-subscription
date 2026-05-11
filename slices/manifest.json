@@ -2,7 +2,7 @@
   "version": 1,
   "roadmap": "tenant-multichannel-platform",
   "generated_at": "2026-05-08T01:50:00Z",
-  "current_slice": "TMP-021",
+  "current_slice": "TMP-052",
   "source_domain_brief": "slices/TMP-000-domain-grounding/domain-brief.md",
   "supporting_documents": [
     "slices/README.md",
@@ -1700,7 +1700,132 @@
         "dod_path": "slices/TMP-051-tenant-catalog-admin-ui-api/value-gate-report.md"
       },
       "notes": "Adds operator-only tenant catalog list/update endpoints and a guarded webspa-admin tenant catalog route without adding parallel tenant management codepaths."
+    },
+    {
+      "id": "TMP-052",
+      "external_id": "TMP-052",
+      "name": "Tenant nullable path enforcement",
+      "class": "bounded_enabler",
+      "hvc_issue": "agent/backlog/issues/TMP-052-tenant-nullable-path-enforcement.md",
+      "parent_slice": "TMP-050",
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can see which tenant nullable paths remain after the nrg migration.",
+      "demo": "The nullable-path audit classifies runtime, migration, script, and doc matches with prune criteria and emits proof/enforcement follow-up slices.",
+      "depends_on": [
+        "TMP-050",
+        "TMP-051"
+      ],
+      "layers": [
+        "architecture-audit",
+        "migration-readiness",
+        "evidence"
+      ],
+      "state": "done",
+      "branch": "agent/codex/tenant-nullability-20260511-002714",
+      "created_at": "2026-05-11T00:27:14Z",
+      "shipped_at": "2026-05-11T00:35:00Z",
+      "shipped_to": "worktree",
+      "verification": {
+        "automated": [
+          "rg -n \"tenant_id IS NULL|tenant_id = NULL|WHERE .*tenant_id IS NULL|tenant_id UUID\" services scripts docs frontend -g '!**/node_modules/**'",
+          "hvc check agent/backlog/issues/*.md --fail-on block",
+          "hvc emit-work-order agent/backlog/issues/TMP-053-acquisition-tenant-null-proof.md --out agent/state/TMP-053.work-order.json",
+          "hvc emit-work-order agent/backlog/issues/TMP-054-subscription-cadence-tenant-null-proof.md --out agent/state/TMP-054.work-order.json",
+          "hvc emit-work-order agent/backlog/issues/TMP-055-tenant-null-runtime-enforcement.md --out agent/state/TMP-055.work-order.json",
+          "test -f slices/TMP-052-tenant-nullable-path-enforcement/value-gate-report.md"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-052-tenant-nullable-path-enforcement/value-gate-report.md"
+      },
+      "notes": "No NOT NULL migration was added. Active runtime nullable paths were classified for canonical collapse, while TMP-050 migration observability predicates remain until enforcement proof exists."
+    },
+    {
+      "id": "TMP-053",
+      "external_id": "TMP-053",
+      "name": "Acquisition tenant nullable proof",
+      "class": "bounded_enabler",
+      "hvc_issue": "agent/backlog/issues/TMP-053-acquisition-tenant-null-proof.md",
+      "parent_slice": "TMP-050",
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can prove acquisition/admin tenant-owned tables are ready for canonical enforcement.",
+      "demo": "Read-only row-count evidence proves or blocks acquisition/admin NOT NULL readiness.",
+      "depends_on": [
+        "TMP-052"
+      ],
+      "layers": [
+        "evidence",
+        "migration-readiness"
+      ],
+      "state": "planned",
+      "verification": {
+        "automated": [
+          "hvc check agent/backlog/issues/*.md --fail-on block"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-053-acquisition-tenant-null-proof/value-gate-report.md"
+      },
+      "notes": "Emitted by TMP-052 to prove the acquisition/admin table group before runtime/schema enforcement."
+    },
+    {
+      "id": "TMP-054",
+      "external_id": "TMP-054",
+      "name": "Subscription cadence tenant nullable proof",
+      "class": "bounded_enabler",
+      "hvc_issue": "agent/backlog/issues/TMP-054-subscription-cadence-tenant-null-proof.md",
+      "parent_slice": "TMP-050",
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can prove subscription/cadence tenant-owned tables are ready for canonical enforcement.",
+      "demo": "Read-only row-count evidence proves or blocks subscription/cadence NOT NULL readiness.",
+      "depends_on": [
+        "TMP-052"
+      ],
+      "layers": [
+        "evidence",
+        "migration-readiness"
+      ],
+      "state": "planned",
+      "verification": {
+        "automated": [
+          "hvc check agent/backlog/issues/*.md --fail-on block"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-054-subscription-cadence-tenant-null-proof/value-gate-report.md"
+      },
+      "notes": "Emitted by TMP-052 to prove the subscription/cadence table group before runtime/schema enforcement."
+    },
+    {
+      "id": "TMP-055",
+      "external_id": "TMP-055",
+      "name": "Tenant nullable runtime enforcement",
+      "class": "vertical_defect_slice",
+      "hvc_issue": "agent/backlog/issues/TMP-055-tenant-null-runtime-enforcement.md",
+      "parent_slice": "TMP-050",
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can remove active tenantless runtime ownership paths after proof exists.",
+      "demo": "Runtime code no longer accepts tenantless campaign/report/cadence matches and forward migrations clean legacy nullable lanes where proven safe.",
+      "depends_on": [
+        "TMP-053",
+        "TMP-054"
+      ],
+      "layers": [
+        "backend-runtime",
+        "migration",
+        "tests",
+        "evidence"
+      ],
+      "state": "planned",
+      "verification": {
+        "automated": [
+          "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler",
+          "cd services/cadence-engine && go test ./internal/repository ./internal/adminhttp",
+          "cd services/subscription-external && go test ./internal/service ./internal/repository ./internal/handler",
+          "hvc check agent/backlog/issues/*.md --fail-on block"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-055-tenant-null-runtime-enforcement/value-gate-report.md"
+      },
+      "notes": "Blocked on TMP-053 and TMP-054 proof so schema/runtime enforcement does not speculate against live data."
     }
   ],
-  "updated_at": "2026-05-11T00:06:09Z"
+  "updated_at": "2026-05-11T00:35:00Z"
 }

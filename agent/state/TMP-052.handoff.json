@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "task_id": "TMP-052",
+  "status": "done",
+  "supervisor_decision": "ready_for_review",
+  "summary": "Audited tenant nullable paths after the canonical nrg migration, classified runtime and migration/doc paths with prune criteria, and emitted proof/enforcement follow-up slices.",
+  "session_id": "codex-tenant-nullability-20260511-002714",
+  "acceptance_results": [
+    {
+      "criterion": "Remaining tenant nullable codepaths are inventoried and classified as delete_now, collapse_into_canonical, keep_as_permanent_capability, or needs_human_decision.",
+      "status": "passed",
+      "evidence": [
+        "slices/TMP-052-tenant-nullable-path-enforcement/nullable-path-audit.md",
+        "slices/TMP-052-tenant-nullable-path-enforcement/value-gate-report.md"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "No enforcement migration is added unless the audit proves it is safe for the touched table set.",
+      "status": "passed",
+      "evidence": [
+        "No migration files were changed.",
+        "slices/TMP-052-tenant-nullable-path-enforcement/nullable-path-audit.md"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    },
+    {
+      "criterion": "Follow-up implementation slices are emitted for any table group that still needs runtime proof.",
+      "status": "passed",
+      "evidence": [
+        "agent/backlog/issues/TMP-053-acquisition-tenant-null-proof.md",
+        "agent/backlog/issues/TMP-054-subscription-cadence-tenant-null-proof.md",
+        "agent/backlog/issues/TMP-055-tenant-null-runtime-enforcement.md",
+        "agent/state/TMP-053.work-order.json",
+        "agent/state/TMP-054.work-order.json",
+        "agent/state/TMP-055.work-order.json"
+      ],
+      "blocker": null,
+      "reason": null,
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    "slices/TMP-052-tenant-nullable-path-enforcement/domain-brief.md",
+    "slices/TMP-052-tenant-nullable-path-enforcement/slice.yaml",
+    "slices/TMP-052-tenant-nullable-path-enforcement/nullable-path-audit.md",
+    "slices/TMP-052-tenant-nullable-path-enforcement/follow-up-slices.md",
+    "slices/TMP-052-tenant-nullable-path-enforcement/value-gate-report.md",
+    "docs/tenant-nullability-enforcement-plan.md",
+    "agent/backlog/issues/TMP-053-acquisition-tenant-null-proof.md",
+    "agent/backlog/issues/TMP-054-subscription-cadence-tenant-null-proof.md",
+    "agent/backlog/issues/TMP-055-tenant-null-runtime-enforcement.md",
+    "agent/state/TMP-052.handoff.json",
+    "agent/state/TMP-053.work-order.json",
+    "agent/state/TMP-054.work-order.json",
+    "agent/state/TMP-055.work-order.json",
+    "slices/manifest.json",
+    ".agent/tasks.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No services were started.",
+    "No remote database mutation was performed."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Ran the required nullable-path static audit.",
+    "Classified migration tooling and docs as temporary enforcement proof surfaces rather than runtime tenantless ownership.",
+    "Classified acquisition slug-only reads, reports nullable joins, and cadence nullable joins as canonical-collapse follow-ups.",
+    "Classified tenantless seed upserts as delete-now candidates for the enforcement slice.",
+    "Emitted TMP-053, TMP-054, and TMP-055 issues and work orders."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "Live production row counts were not available in TMP-052, so NOT NULL enforcement is deferred to proof slices.",
+    "Historical migration files still contain nullable tenant paths; cleanup must be forward-only."
+  ],
+  "next_tasks": [
+    {
+      "id": "TMP-053",
+      "title": "Acquisition tenant nullable proof"
+    },
+    {
+      "id": "TMP-054",
+      "title": "Subscription cadence tenant nullable proof"
+    },
+    {
+      "id": "TMP-055",
+      "title": "Tenant nullable runtime enforcement"
+    }
+  ],
+  "operator_message": "TMP-052 is an audit/readiness slice: no schema enforcement was attempted without live proof. Runtime nullable tenant paths are now tracked as concrete follow-up work.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "Forcing NOT NULL in TMP-052 would have been speculative because active runtime nullable paths and historical nullable schema lanes remain.",
+    "TMP-055 must wait for TMP-053 and TMP-054 proof before changing runtime/schema enforcement."
+  ],
+  "safe_to_continue": true,
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "rg -n \"tenant_id IS NULL|tenant_id = NULL|WHERE .*tenant_id IS NULL|tenant_id UUID\" services scripts docs frontend -g '!**/node_modules/**'",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "Returned documented nullable paths in migration tooling, docs, historical migrations, acquisition runtime, subscription runtime schema bootstrap, and cadence runtime joins.",
+      "timestamp": "2026-05-11T00:35:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "No issues returned assignment_decision block after TMP-053/TMP-054/TMP-055 classification fixes.",
+      "timestamp": "2026-05-11T00:35:00Z"
+    },
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-052.work-order.json agent/state/TMP-053.work-order.json agent/state/TMP-054.work-order.json agent/state/TMP-055.work-order.json",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "JSON artifacts parse successfully.",
+      "timestamp": "2026-05-11T00:35:00Z"
+    },
+    {
+      "command": "agent-supervisor --config .harness/config.json preflight",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok true; only known stale superseded ledger warning.",
+      "timestamp": "2026-05-11T00:33:00Z"
+    }
+  ]
+}

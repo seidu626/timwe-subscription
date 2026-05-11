@@ -1,0 +1,24 @@
+{
+  "blockers": [],
+  "next_tasks": [
+    {
+      "id": "TMP-053",
+      "title": "Acquisition tenant nullable proof"
+    },
+    {
+      "id": "TMP-054",
+      "title": "Subscription cadence tenant nullable proof"
+    },
+    {
+      "id": "TMP-055",
+      "title": "Tenant nullable runtime enforcement"
+    }
+  ],
+  "safe_to_continue": true,
+  "session_id": "codex-tenant-nullability-20260511-002714",
+  "status": "done",
+  "summary": "Audited tenant nullable paths after the canonical nrg migration, classified runtime and migration/doc paths with prune criteria, and emitted proof/enforcement follow-up slices.",
+  "task_id": "TMP-052",
+  "unfinished_work": [],
+  "written_at": "2026-05-11T00:35:17Z"
+}

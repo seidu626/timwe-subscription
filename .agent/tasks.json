@@ -4170,29 +4170,265 @@
       "worktree": null
     },
     {
-      "acceptance_criteria": [],
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-052-tenant-nullable-path-enforcement/nullable-path-audit.md",
+            "slices/TMP-052-tenant-nullable-path-enforcement/value-gate-report.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Remaining tenant nullable codepaths are inventoried and classified as delete_now, collapse_into_canonical, keep_as_permanent_capability, or needs_human_decision."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "No migration files were changed.",
+            "slices/TMP-052-tenant-nullable-path-enforcement/nullable-path-audit.md"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "No enforcement migration is added unless the audit proves it is safe for the touched table set."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "agent/backlog/issues/TMP-053-acquisition-tenant-null-proof.md",
+            "agent/backlog/issues/TMP-054-subscription-cadence-tenant-null-proof.md",
+            "agent/backlog/issues/TMP-055-tenant-null-runtime-enforcement.md",
+            "agent/state/TMP-053.work-order.json",
+            "agent/state/TMP-054.work-order.json",
+            "agent/state/TMP-055.work-order.json"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Follow-up implementation slices are emitted for any table group that still needs runtime proof."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Ran the required nullable-path static audit.",
+        "Classified migration tooling and docs as temporary enforcement proof surfaces rather than runtime tenantless ownership.",
+        "Classified acquisition slug-only reads, reports nullable joins, and cadence nullable joins as canonical-collapse follow-ups.",
+        "Classified tenantless seed upserts as delete-now candidates for the enforcement slice.",
+        "Emitted TMP-053, TMP-054, and TMP-055 issues and work orders."
+      ],
+      "created_at": "2026-05-10T23:51:23Z",
+      "details": "created from handoff.next_tasks",
+      "evidence": {
+        "commands": [
+          {
+            "command": "rg -n \"tenant_id IS NULL|tenant_id = NULL|WHERE .*tenant_id IS NULL|tenant_id UUID\" services scripts docs frontend -g '!**/node_modules/**'",
+            "exit_code": 0,
+            "output_excerpt": "Returned documented nullable paths in migration tooling, docs, historical migrations, acquisition runtime, subscription runtime schema bootstrap, and cadence runtime joins.",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:35:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "No issues returned assignment_decision block after TMP-053/TMP-054/TMP-055 classification fixes.",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:35:00Z"
+          },
+          {
+            "command": "jq empty slices/manifest.json agent/state/TMP-052.work-order.json agent/state/TMP-053.work-order.json agent/state/TMP-054.work-order.json agent/state/TMP-055.work-order.json",
+            "exit_code": 0,
+            "output_excerpt": "JSON artifacts parse successfully.",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:35:00Z"
+          },
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; only known stale superseded ledger warning.",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:33:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "slices/TMP-052-tenant-nullable-path-enforcement/domain-brief.md",
+          "slices/TMP-052-tenant-nullable-path-enforcement/slice.yaml",
+          "slices/TMP-052-tenant-nullable-path-enforcement/nullable-path-audit.md",
+          "slices/TMP-052-tenant-nullable-path-enforcement/follow-up-slices.md",
+          "slices/TMP-052-tenant-nullable-path-enforcement/value-gate-report.md",
+          "docs/tenant-nullability-enforcement-plan.md",
+          "agent/backlog/issues/TMP-053-acquisition-tenant-null-proof.md",
+          "agent/backlog/issues/TMP-054-subscription-cadence-tenant-null-proof.md",
+          "agent/backlog/issues/TMP-055-tenant-null-runtime-enforcement.md",
+          "agent/state/TMP-052.handoff.json",
+          "agent/state/TMP-053.work-order.json",
+          "agent/state/TMP-054.work-order.json",
+          "agent/state/TMP-055.work-order.json",
+          "slices/manifest.json",
+          ".agent/tasks.json"
+        ]
+      },
+      "goal": "",
+      "id": "TMP-052",
+      "owner": "codex",
+      "parent_id": "T-TMP-050",
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Tenant NOT NULL enforcement and nullable-path audit",
+      "unresolved": [],
+      "updated_at": "2026-05-11T00:35:17Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "Acquisition/admin tenant-owned tables have row-count proof for tenant_id IS NULL."
+        },
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "No remote database mutation is performed."
+        }
+      ],
       "attempts": 0,
       "blockers": [],
       "branch": null,
       "children": [],
       "completed": [],
-      "created_at": "2026-05-10T23:51:23Z",
-      "details": "created from handoff.next_tasks",
+      "created_at": "2026-05-11T00:33:30Z",
+      "details": "Read-only proof that acquisition/admin tenant-owned tables have no remaining tenant_id NULL rows after canonical nrg migration.",
       "evidence": {
         "commands": [],
         "commits": [],
         "files": []
       },
       "goal": "",
-      "id": "TMP-052",
+      "id": "TMP-053",
       "owner": null,
-      "parent_id": "T-TMP-050",
+      "parent_id": null,
       "priority": 0,
       "review_findings": [],
       "status": "queued",
-      "title": "Tenant NOT NULL enforcement and nullable-path audit",
+      "title": "Acquisition tenant nullable proof",
       "unresolved": [],
-      "updated_at": "2026-05-10T23:51:23Z",
+      "updated_at": "2026-05-11T00:33:30Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "Subscription/cadence tenant-owned tables have row-count proof for tenant_id IS NULL."
+        },
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "No remote database mutation is performed."
+        }
+      ],
+      "attempts": 0,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [],
+      "created_at": "2026-05-11T00:33:35Z",
+      "details": "Read-only proof that subscription-external and cadence-engine tenant-owned tables have no remaining tenant_id NULL rows after canonical nrg migration.",
+      "evidence": {
+        "commands": [],
+        "commits": [],
+        "files": []
+      },
+      "goal": "",
+      "id": "TMP-054",
+      "owner": null,
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "queued",
+      "title": "Subscription cadence tenant nullable proof",
+      "unresolved": [],
+      "updated_at": "2026-05-11T00:33:35Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "Acquisition slug-only campaign lookup no longer depends on tenant_id IS NULL as the canonical path."
+        },
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "Cadence due/missing-state queries no longer accept NULL tenant matches after proof."
+        },
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "Forward migrations clean legacy partial indexes or nullable constraints only where proof exists."
+        }
+      ],
+      "attempts": 0,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [],
+      "created_at": "2026-05-11T00:33:41Z",
+      "details": "Collapse active runtime nullable tenant paths into canonical tenant-aware logic after proof slices complete.",
+      "evidence": {
+        "commands": [],
+        "commits": [],
+        "files": []
+      },
+      "goal": "",
+      "id": "TMP-055",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "blocked",
+      "title": "Tenant nullable runtime enforcement",
+      "unresolved": [],
+      "updated_at": "2026-05-11T00:35:46Z",
       "worktree": null
     }
   ],

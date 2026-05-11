@@ -1,0 +1,67 @@
+{
+  "work_order_id": "WO-TMP-054-001",
+  "issue_id": "TMP-054",
+  "class": "bounded_enabler",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "subscription/cadence tenant-owned tables are proven ready or blocked for canonical tenant enforcement.",
+  "actor": "platform-operator",
+  "entrypoint": "read-only subscription cadence tenantless row-count audit",
+  "trigger": "TMP-052 found cadence nullable joins and subscription/cadence nullable schema paths.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-054-subscription-cadence-tenant-null-proof.md",
+    "agent/state/TMP-054.work-order.json",
+    "agent/state/TMP-054.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-054-subscription-cadence-tenant-null-proof/**",
+    "docs/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**/go.mod",
+    "services/**/go.sum",
+    "docker-compose*.yml"
+  ],
+  "acceptance_tests": [
+    "Subscription/cadence tenant-owned tables have row-count proof for tenant_id IS NULL.",
+    "Cadence runtime nullable join candidates are mapped to the tables they depend on.",
+    "No remote database mutation is performed."
+  ],
+  "required_evidence": [
+    "read-only tenantless row-count SQL for subscriptions, notifications, admin_subscription_action_logs, product_message_series, message_content_items, subscription_message_state, and message_outbox",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "non_goals": [
+    "Do not add NOT NULL constraints in this proof slice.",
+    "Do not change subscription or cadence runtime code in this proof slice."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-054",
+    "title": "Subscription cadence tenant nullable proof",
+    "path": "agent/backlog/issues/TMP-054-subscription-cadence-tenant-null-proof.md",
+    "declared_class": "bounded_enabler",
+    "detected_class": "bounded_enabler",
+    "confidence": 0.86,
+    "verticality_score": 85,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 8,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

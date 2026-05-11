@@ -1,0 +1,85 @@
+{
+  "work_order_id": "WO-TMP-055-001",
+  "issue_id": "TMP-055",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "active runtime codepaths use tenant-aware canonical ownership instead of tenantless compatibility matching.",
+  "actor": "platform-operator",
+  "entrypoint": "acquisition, subscription, and cadence tenant runtime enforcement",
+  "trigger": "TMP-052 classified active runtime nullable paths after nrg canonical backfill.",
+  "allowed_files": [
+    "services/acquisition-api/internal/repository/campaign_repository.go",
+    "services/acquisition-api/internal/repository/reports_repository.go",
+    "services/acquisition-api/internal/service/transaction_service.go",
+    "services/acquisition-api/internal/handler/**",
+    "services/acquisition-api/internal/repository/*test.go",
+    "services/acquisition-api/internal/service/*test.go",
+    "services/acquisition-api/internal/handler/*test.go",
+    "services/acquisition-api/migrations/**",
+    "services/subscription-external/internal/service/**",
+    "services/subscription-external/internal/repository/**",
+    "services/subscription-external/internal/handler/**",
+    "services/subscription-external/migrations/**",
+    "services/cadence-engine/internal/repository/**",
+    "services/cadence-engine/internal/adminhttp/**",
+    "agent/backlog/issues/TMP-055-tenant-null-runtime-enforcement.md",
+    "agent/state/TMP-055.work-order.json",
+    "agent/state/TMP-055.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-055-tenant-null-runtime-enforcement/**",
+    "docs/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**/go.mod",
+    "services/**/go.sum",
+    "docker-compose*.yml"
+  ],
+  "acceptance_tests": [
+    "Acquisition slug-only campaign lookup no longer depends on tenant_id IS NULL as the canonical path.",
+    "Acquisition reports no longer join tenant-owned transactions through nullable campaign ownership.",
+    "Cadence due/missing-state queries no longer accept NULL tenant matches after proof.",
+    "Forward migrations clean legacy partial indexes or nullable constraints only where proof exists."
+  ],
+  "required_evidence": [
+    "rg -n \"tenant_id IS NULL|idx_.*legacy|legacyProviderConfig|falling back to legacy campaign slug\" services/acquisition-api services/subscription-external services/cadence-engine -g '!**/vendor/**'",
+    "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler",
+    "cd services/cadence-engine && go test ./internal/repository ./internal/adminhttp",
+    "cd services/subscription-external && go test ./internal/service ./internal/repository ./internal/handler",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "non_goals": [
+    "Do not rewrite historical migrations.",
+    "Do not mutate a remote database in the agent session."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-055",
+    "title": "Tenant nullable runtime enforcement",
+    "path": "agent/backlog/issues/TMP-055-tenant-null-runtime-enforcement.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 92,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

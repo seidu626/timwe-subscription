@@ -1,0 +1,51 @@
+story:
+  id: "TMP-052"
+  title: "Tenant nullable ownership paths are classified"
+  actor: "platform-operator"
+  action: "audit tenant nullable ownership paths"
+  outcome: "NOT NULL enforcement is sequenced from evidence instead of speculative schema rewrites"
+  as_a: "platform-operator"
+  i_want_to: "see every remaining tenant nullable path after the nrg migration"
+  so_that: "canonical tenant enforcement can proceed without preserving legacy tenantless ownership"
+
+entrypoints:
+  - "rg -n \"tenant_id IS NULL|tenant_id = NULL|WHERE .*tenant_id IS NULL|tenant_id UUID\" services scripts docs frontend -g '!**/node_modules/**'"
+  - "agent/backlog/issues/TMP-052-tenant-nullable-path-enforcement.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Nullable paths are inventoried"
+      given: ["repo contains tenant-aware migrations, scripts, docs, and runtime queries"]
+      when: "the required nullable-path rg audit runs"
+      then: "each match family is grouped and classified with prune criteria"
+      evidence: "slices/TMP-052-tenant-nullable-path-enforcement/nullable-path-audit.md"
+    - scenario: "Enforcement is not speculative"
+      given: ["live production row counts are not proven in this slice"]
+      when: "the slice evaluates NOT NULL constraints"
+      then: "no enforcement migration is added"
+      evidence: "git diff contains audit artifacts and follow-up slices, not schema rewrites"
+  failures:
+    - scenario: "Active runtime nullable path found"
+      given: ["runtime code still contains tenant_id IS NULL matching"]
+      when: "the audit classifies it"
+      then: "the path is marked needs_human_decision or collapse_into_canonical with a follow-up implementation slice"
+      evidence: "follow-up-slices.md and emitted TMP-053/TMP-054/TMP-055 issues"
+  invariants:
+    - rule: "tenantless rows do not stay outside canonical tenant ownership"
+      preserved_by: "migration observability remains while runtime nullable paths are routed to follow-up implementation"
+      violated_when: "active code keeps NULL tenant ownership as a permanent matching path"
+      test: "required rg audit plus HVC check"
+
+out_of_scope:
+  - "remote database mutation"
+  - "adding NOT NULL constraints without live data proof"
+  - "broad non-tenant compatibility cleanup"
+
+size_check:
+  files_touched: 12
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-052-tenant-nullable-path-enforcement/value-gate-report.md"
