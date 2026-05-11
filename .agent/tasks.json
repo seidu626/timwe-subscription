@@ -4967,6 +4967,142 @@
       "unresolved": [],
       "updated_at": "2026-05-11T02:40:10Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/core/http-interceptors/http-error.interceptor.ts",
+            "frontend/webspa-admin/src/app/views/pages/page403/page403.component.ts",
+            "frontend/webspa-admin/src/app/core/guards/tenant-workspace.guard.spec.ts",
+            "frontend/webspa-admin/src/app/views/pages/page403/page403.component.spec.ts"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": "Workspace 403 responses no longer clear the tenant selection, and stale missing-tenant denials redirect to dashboard once the workspace resolves ready.",
+          "status": "passed",
+          "text": "Assigned single tenant workspace routes are allowed instead of redirecting to tenant workspace unavailable."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/views/pages/page403/page403.component.ts",
+            "frontend/webspa-admin/src/app/views/pages/page403/page403.component.html",
+            "frontend/webspa-admin/src/app/views/pages/page403/page403.component.scss"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": "Forbidden and tenant-not-found reasons now have explicit copy, and the aside panel paints a dark background with high-contrast foreground text.",
+          "status": "passed",
+          "text": "Tenant-denied page text and visual states meet readable contrast in the active theme."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+            "frontend/webspa-admin/src/app/core/http-interceptors/http-error.interceptor.spec.ts",
+            "frontend/webspa-admin/src/app/views/pages/page403/page403.component.spec.ts"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": "Focused Angular tests cover missing email_verified bootstrap behavior, 403 selection preservation, and stale denial redirection.",
+          "status": "passed",
+          "text": "Frontend tests cover the ready-state and email bootstrap behavior."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Preserved tenant selection on workspace 403 responses so permission failures do not erase active tenant context.",
+        "Added explicit forbidden and tenant-not-found denial copy for the tenant workspace page.",
+        "Reworked the tenant-denied aside panel with explicit dark background and readable foreground colors.",
+        "Verified focused Angular specs, production build, and live /403 browser rendering on port 4200.",
+        "Created TMP-059 harness task for the reported tenant workspace denial and visibility defect.",
+        "Changed workspace HTTP error handling so 403 permission failures do not erase active tenant selection.",
+        "Added explicit forbidden and tenant-not-found denial copy to the tenant workspace page.",
+        "Added stale-denial redirect behavior for pages that resolve to a ready workspace after navigation.",
+        "Adjusted the tenant-denied page structure and SCSS so the protected-workspace panel renders as a dark, readable theme block.",
+        "Added focused unit coverage for 403 tenant preservation and ready-workspace denial redirect behavior."
+      ],
+      "created_at": "2026-05-11T02:59:12Z",
+      "details": "Fix tenant workspace ready-state regression where an assigned tenant still lands on the unavailable page, and improve tenant-denied page theme contrast/visibility.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; only known superseded stale ledger warning for TMP-011-repair-1 and TMP-015-repair-1.",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:57:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --include tenant-workspace/page403/http-error focused specs",
+            "exit_code": 0,
+            "output_excerpt": "Chrome Headless executed 16 of 16 SUCCESS; TOTAL: 16 SUCCESS",
+            "status": "passed",
+            "timestamp": "2026-05-11T03:03:38Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm run build",
+            "exit_code": 0,
+            "output_excerpt": "Application bundle generation complete; existing campaign-form SCSS budget warning remains.",
+            "status": "passed",
+            "timestamp": "2026-05-11T03:04:00Z"
+          },
+          {
+            "command": "curl -sS -o /tmp/admin4200 -w '%{http_code}' --max-time 5 http://127.0.0.1:4200",
+            "exit_code": 0,
+            "output_excerpt": "200",
+            "status": "passed",
+            "timestamp": "2026-05-11T03:05:00Z"
+          },
+          {
+            "command": "Chrome DevTools open http://127.0.0.1:4200/#/403?reason=forbidden",
+            "exit_code": 0,
+            "output_excerpt": "Accessibility snapshot shows heading Tenant workspace denied and visible protected workspace copy; no console errors.",
+            "status": "passed",
+            "timestamp": "2026-05-11T03:05:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/TMP-059.json",
+          ".agent/tasks.json",
+          ".agent/sessions/codex-20260511-tenant-workspace-theme/handoff.json",
+          "agent/state/TMP-059.handoff.json",
+          "frontend/webspa-admin/src/app/core/http-interceptors/http-error.interceptor.spec.ts",
+          "frontend/webspa-admin/src/app/core/http-interceptors/http-error.interceptor.ts",
+          "frontend/webspa-admin/src/app/views/pages/page403/page403.component.html",
+          "frontend/webspa-admin/src/app/views/pages/page403/page403.component.scss",
+          "frontend/webspa-admin/src/app/views/pages/page403/page403.component.spec.ts",
+          "frontend/webspa-admin/src/app/views/pages/page403/page403.component.ts"
+        ]
+      },
+      "goal": "",
+      "id": "TMP-059",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Tenant workspace ready state and denial page visibility",
+      "unresolved": [
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "worker returned without accepted handoff",
+          "next_task_id": "TMP-059",
+          "reason": "closeout gate",
+          "session_id": "codex-20260511-tenant-workspace-theme",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-11T03:08:55Z",
+      "worktree": null
     }
   ],
   "version": 1

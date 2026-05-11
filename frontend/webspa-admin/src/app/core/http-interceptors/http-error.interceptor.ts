@@ -52,7 +52,9 @@ export class HttpErrorInterceptor implements HttpInterceptor {
                 // Auth0 will handle token refresh automatically
               });
             } else if ((err.status === 403 || err.status === 404) && this.isWorkspaceRequest(request.url)) {
-              this.tenantWorkspace.clearTenantSelection();
+              if (err.status === 404) {
+                this.tenantWorkspace.clearTenantSelection();
+              }
 
               if (!this.router.url.startsWith('/403')) {
                 this.router.navigate(['/403'], {

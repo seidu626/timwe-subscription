@@ -97,6 +97,7 @@ describe('HttpErrorInterceptor', () => {
 
   it('redirects workspace 403 responses to the denial page', () => {
     const router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+    const tenantWorkspace = TestBed.inject(TenantWorkspaceService) as jasmine.SpyObj<TenantWorkspaceService>;
     const request = new HttpRequest('GET', '/api/v1/admin/tenants/current');
     const next: HttpHandler = {
       handle: () => throwError(() => new HttpErrorResponse({ status: 403, statusText: 'Forbidden', url: request.url }))
@@ -109,5 +110,20 @@ describe('HttpErrorInterceptor', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/403'], {
       queryParams: { reason: 'forbidden' }
     });
+    expect(tenantWorkspace.clearTenantSelection).not.toHaveBeenCalled();
+  });
+
+  it('clears tenant selection for workspace 404 responses', () => {
+    const tenantWorkspace = TestBed.inject(TenantWorkspaceService) as jasmine.SpyObj<TenantWorkspaceService>;
+    const request = new HttpRequest('GET', '/api/v1/admin/tenants/current');
+    const next: HttpHandler = {
+      handle: () => throwError(() => new HttpErrorResponse({ status: 404, statusText: 'Not Found', url: request.url }))
+    };
+
+    interceptor.intercept(request, next).subscribe({
+      error: () => undefined
+    });
+
+    expect(tenantWorkspace.clearTenantSelection).toHaveBeenCalled();
   });
 });
