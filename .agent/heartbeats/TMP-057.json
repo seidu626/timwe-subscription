@@ -1,0 +1,7 @@
+{
+  "agent": "codex",
+  "last_action": "Implemented tenant-key report scope resolution in acquisition-api reports handler and added parseFilters coverage.",
+  "state": "checkpoint",
+  "task_id": "TMP-057",
+  "updated_at": "2026-05-11T02:22:29Z"
+}

@@ -1,0 +1,71 @@
+{
+  "work_order_id": "WO-TMP-057-001",
+  "issue_id": "TMP-057",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "tenant admin dashboard KPIs load for the selected tenant workspace instead of failing with report-scope 403.",
+  "actor": "tenant-admin",
+  "entrypoint": "GET /v1/admin/reports/kpis",
+  "trigger": "Web admin loads dashboard KPIs with Authorization and X-Tenant-Key.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-057-report-tenant-key-scope.md",
+    "agent/state/TMP-057.work-order.json",
+    "agent/state/TMP-057.handoff.json",
+    "services/acquisition-api/internal/handler/reports_handler.go",
+    "services/acquisition-api/internal/handler/reports_handler_test.go",
+    "slices/manifest.json",
+    "slices/TMP-057-report-tenant-key-scope/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**/go.mod",
+    "services/**/go.sum",
+    "frontend/**",
+    "docker-compose*.yml"
+  ],
+  "acceptance_tests": [
+    "Tenant-scoped report requests with only tenant_key resolve to the canonical tenant_id before report queries run.",
+    "all_tenants=true remains forbidden for non-platform identities.",
+    "Unknown tenant keys remain forbidden and do not fall back to global reports."
+  ],
+  "required_evidence": [
+    "Browser or HTTP evidence shows GET /v1/admin/reports/kpis returns 403 Forbidden for a tenant workspace request.",
+    "go test ./internal/handler -run TestParseFilters",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "non_goals": [
+    "Do not loosen all_tenants authorization for tenant users.",
+    "Do not add frontend token or tenant claim workarounds.",
+    "Do not introduce global fallback reporting when tenant lookup fails."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-057",
+    "title": "Report tenant-key scope resolution",
+    "path": "agent/backlog/issues/TMP-057-report-tenant-key-scope.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 92,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}
