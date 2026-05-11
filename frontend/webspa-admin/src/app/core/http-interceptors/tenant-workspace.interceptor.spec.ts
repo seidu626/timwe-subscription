@@ -40,6 +40,17 @@ describe('TenantWorkspaceInterceptor', () => {
     reason: null
   };
 
+  const unauthenticatedWorkspace: TenantWorkspaceState = {
+    authenticated: false,
+    loading: false,
+    platformScoped: false,
+    currentTenant: null,
+    availableTenants: [],
+    canSwitchTenant: false,
+    status: 'unauthenticated',
+    reason: null
+  };
+
   it('waits for resolved workspace state before attaching tenant headers', fakeAsync(() => {
     const workspace$ = new BehaviorSubject<TenantWorkspaceState>(loadingWorkspace);
     const tenantWorkspace = {
@@ -57,6 +68,36 @@ describe('TenantWorkspaceInterceptor', () => {
     };
 
     interceptor.intercept(request, next).subscribe();
+    tick();
+
+    expect(handledRequests.length).toBe(0);
+
+    workspace$.next(readyWorkspace);
+    tick();
+
+    expect(handledRequests.length).toBe(1);
+    expect(handledRequests[0].headers.get('X-Tenant-Key')).toBe('nrg');
+  }));
+
+  it('waits through transient unauthenticated state before attaching tenant headers', fakeAsync(() => {
+    const workspace$ = new BehaviorSubject<TenantWorkspaceState>(loadingWorkspace);
+    const tenantWorkspace = {
+      workspace$: workspace$.asObservable(),
+      isWorkspaceRequest: jasmine.createSpy('isWorkspaceRequest').and.returnValue(true)
+    } as unknown as TenantWorkspaceService;
+    const interceptor = new TenantWorkspaceInterceptor(tenantWorkspace);
+    const request = new HttpRequest('GET', 'http://localhost:8084/v1/admin/reports/kpis');
+    const handledRequests: HttpRequest<unknown>[] = [];
+    const next: HttpHandler = {
+      handle: (req) => {
+        handledRequests.push(req);
+        return of({} as any);
+      }
+    };
+
+    interceptor.intercept(request, next).subscribe();
+    tick();
+    workspace$.next(unauthenticatedWorkspace);
     tick();
 
     expect(handledRequests.length).toBe(0);

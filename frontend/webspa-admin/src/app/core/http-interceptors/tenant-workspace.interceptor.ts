@@ -14,10 +14,18 @@ export class TenantWorkspaceInterceptor implements HttpInterceptor {
     }
 
     return this.tenantWorkspace.workspace$.pipe(
-      filter((workspace) => !workspace.loading),
+      filter((workspace) => this.canForwardWorkspaceRequest(workspace)),
       take(1),
       switchMap((workspace) => next.handle(this.attachTenantContext(request, workspace)))
     );
+  }
+
+  private canForwardWorkspaceRequest(workspace: TenantWorkspaceState): boolean {
+    if (workspace.loading || workspace.status === 'unauthenticated') {
+      return false;
+    }
+
+    return true;
   }
 
   private attachTenantContext(request: HttpRequest<any>, workspace: TenantWorkspaceState): HttpRequest<any> {
