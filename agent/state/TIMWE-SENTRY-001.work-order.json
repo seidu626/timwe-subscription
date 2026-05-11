@@ -1,0 +1,70 @@
+{
+  "work_order_id": "WO-TIMWE-SENTRY-001-001",
+  "issue_id": "TIMWE-SENTRY-001",
+  "class": "bounded_enabler",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Runtime errors from landing-web and webspa-admin are surfaced in Sentry with release and environment context.",
+  "actor": "platform-observability",
+  "entrypoint": "services/landing-web, frontend/webspa-admin",
+  "trigger": "Runtime errors in landing-web or webspa-admin are difficult to observe in production.",
+  "allowed_files": [
+    "agent/backlog/issues/TIMWE-SENTRY-001-add-sentry-monitoring.md",
+    "agent/state/TIMWE-SENTRY-001.work-order.json",
+    "agent/state/TIMWE-SENTRY-001.handoff.json",
+    "services/landing-web/**",
+    "frontend/webspa-admin/**",
+    "slices/TIMWE-SENTRY-001/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**/go.mod",
+    "services/**/go.sum",
+    "ops/**"
+  ],
+  "acceptance_tests": [
+    "SENTRY_DSN is present in frontend and Next configuration in a non-secret way.",
+    "SENTRY_RELEASE uses `${{ github.sha }}` from the CI workflow.",
+    "A manual sentry-test throw surfaces as an event in the configured Sentry project."
+  ],
+  "required_evidence": [
+    "grep -r SENTRY_DSN services/landing-web/ frontend/webspa-admin/",
+    "grep withSentryConfig services/landing-web/next.config.ts",
+    "grep SentryModule frontend/webspa-admin/src/app.module.ts"
+  ],
+  "non_goals": [
+    "Do not add backend Sentry integration in this slice.",
+    "Do not add production secret rotation."
+  ],
+  "blocking_dependencies": [
+    "TIMWE-CI-001"
+  ],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TIMWE-SENTRY-001",
+    "title": "Add Sentry error monitoring to landing-web and webspa-admin",
+    "path": "agent/backlog/issues/TIMWE-SENTRY-001-add-sentry-monitoring.md",
+    "declared_class": "bounded_enabler",
+    "detected_class": "bounded_enabler",
+    "confidence": 0.86,
+    "verticality_score": 82,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 10,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

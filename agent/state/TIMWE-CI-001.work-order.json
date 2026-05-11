@@ -1,0 +1,73 @@
+{
+  "work_order_id": "WO-TIMWE-CI-001-001",
+  "issue_id": "TIMWE-CI-001",
+  "class": "operational_slice",
+  "assignment_allowed": false,
+  "assignment_decision": "review",
+  "vertical_outcome": "PRs run full build/test checks for Angular, Next.js, and Go services before merge.",
+  "actor": "platform-engineering",
+  "entrypoint": ".github/workflows/ci.yml",
+  "trigger": "Changes are proposed to frontend, service, or shared common code.",
+  "allowed_files": [
+    "agent/backlog/issues/TIMWE-CI-001-add-build-test-ci.md",
+    "agent/state/TIMWE-CI-001.work-order.json",
+    "agent/state/TIMWE-CI-001.handoff.json",
+    ".github/workflows/ci.yml",
+    "slices/TIMWE-CI-001/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**/go.mod",
+    "frontend/**/package-lock.json",
+    ".env"
+  ],
+  "acceptance_tests": [
+    "A pull request triggers ci.yml with Angular, Next.js, and Go service lanes.",
+    "Angular, Next.js, and Go lanes all complete successfully on a clean checkout.",
+    "CI workflow fails on missing lockfiles, tooling setup failures, or unresolved build/test regressions."
+  ],
+  "required_evidence": [
+    "gh workflow run ci.yml",
+    "gh run watch --exit-status"
+  ],
+  "non_goals": [
+    "Do not modify runtime business logic.",
+    "Do not add production deployment flows."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TIMWE-CI-001",
+    "title": "Add build/test CI pipeline (Angular, Next.js, Go lanes)",
+    "path": "agent/backlog/issues/TIMWE-CI-001-add-build-test-ci.md",
+    "declared_class": "operational_slice",
+    "detected_class": "operational_slice",
+    "confidence": 0.86,
+    "verticality_score": 82,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 10,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "review",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [
+      "broadness_signal:full"
+    ],
+    "schema_errors": [],
+    "recommended_action": {
+      "consider_split": true,
+      "broadness_signals": [
+        "full"
+      ]
+    }
+  }
+}
