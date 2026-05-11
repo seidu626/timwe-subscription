@@ -1,0 +1,49 @@
+id: TMP-054
+name: subscription-cadence-tenant-null-proof
+class: bounded_enabler
+status: blocked
+actor: platform-operator
+action: "run read-only tenantless row-count proof for subscription/cadence tables"
+outcome: "subscription/cadence tenant-owned tables are proven ready or explicitly blocked before canonical tenant enforcement"
+depends_on:
+  - TMP-050
+blocks:
+  - TMP-055
+entrypoint: "read-only subscription cadence tenantless row-count audit"
+trigger: "TMP-052 found cadence nullable joins and subscription/cadence nullable schema paths."
+story:
+  as_a: platform-operator
+  i_want_to: "know whether subscription/cadence tenant-owned tables still contain tenantless rows"
+  so_that: "runtime nullable joins and future NOT NULL enforcement are based on live proof"
+acceptance_criteria:
+  happy:
+    - scenario: "Subscription/cadence table proof"
+      given:
+        - "documented PostgreSQL connection environment is available"
+      when: "the read-only SQL runs"
+      then: "subscriptions, notifications, admin_subscription_action_logs, product_message_series, message_content_items, subscription_message_state, and message_outbox report tenant_id IS NULL counts"
+      evidence: "tenant-null-proof.md"
+  failures:
+    - scenario: "Missing documented DB environment"
+      given:
+        - "no documented database connection variables are set"
+      when: "TMP-054 attempts to resolve a connection"
+      then: "the slice records a credential blocker without printing secrets or mutating a database"
+      evidence: "tenant-null-proof.md"
+  invariants:
+    - rule: "remote database mutation is forbidden"
+      preserved_by: "prepared SQL is SELECT-only inside BEGIN READ ONLY and ROLLBACK"
+      violated_when: "DDL, DML, migrations, or service changes are executed"
+      test: "file-scope check plus proof SQL inspection"
+out_of_scope:
+  - "NOT NULL constraints"
+  - "runtime cadence join changes"
+  - "service code edits"
+  - "migration edits"
+size_check:
+  files_touched: 5
+  migrations: 0
+  endpoints: 0
+value_gate:
+  required_verdict: "BLOCKED accepted only with explicit missing env/tool evidence"
+  report_path: "slices/TMP-054-subscription-cadence-tenant-null-proof/value-gate-report.md"

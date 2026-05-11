@@ -4335,46 +4335,133 @@
     {
       "acceptance_criteria": [
         {
-          "blocker": null,
-          "evidence": [],
+          "blocker": "Documented PostgreSQL connection environment is unavailable: no .env file exists and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, and DATABASE_URL variables checked for this proof are unset.",
+          "evidence": [
+            "slices/TMP-054-subscription-cadence-tenant-null-proof/tenant-null-proof.md"
+          ],
           "id": "AC-1",
           "next_task_id": null,
-          "reason": null,
-          "status": "pending",
+          "reason": "The required read-only SQL cannot be executed without a documented database connection.",
+          "status": "blocked",
           "text": "Subscription/cadence tenant-owned tables have row-count proof for tenant_id IS NULL."
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "slices/TMP-054-subscription-cadence-tenant-null-proof/tenant-null-proof.md",
+            "slices/TMP-054-subscription-cadence-tenant-null-proof/value-gate-report.md"
+          ],
           "id": "AC-2",
           "next_task_id": null,
-          "reason": null,
-          "status": "pending",
+          "reason": "No DB connection was established and no SQL was executed; prepared SQL is SELECT-only inside BEGIN READ ONLY with ROLLBACK.",
+          "status": "passed",
           "text": "No remote database mutation is performed."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-054-subscription-cadence-tenant-null-proof/domain-brief.md",
+            "slices/TMP-054-subscription-cadence-tenant-null-proof/tenant-null-proof.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Cadence runtime nullable join candidates are mapped to the tables they depend on."
         }
       ],
-      "attempts": 0,
-      "blockers": [],
+      "attempts": 1,
+      "blockers": [
+        "Documented DB connection unavailable: no .env file and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, DATABASE_URL variables unset.",
+        "Documented PostgreSQL connection environment is unavailable for TMP-054 proof: no .env file exists and all checked APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, and DATABASE_URL variables are unset."
+      ],
       "branch": null,
       "children": [],
-      "completed": [],
+      "completed": [
+        "Mapped cadence nullable join candidates to subscriptions, product_message_series, and subscription_message_state.",
+        "Prepared SELECT-only tenant_id IS NULL row-count SQL for seven target tables.",
+        "Claimed and started TMP-054 with agent-harness.",
+        "Ran supervisor preflight and HVC classifier gate.",
+        "Verified psql is installed.",
+        "Verified no worktree .env file exists and documented DB credential variables are unset without printing secret values.",
+        "Mapped subscription/cadence nullable tenant table ownership sources.",
+        "Mapped cadence runtime nullable join candidates to dependent tables.",
+        "Prepared the SELECT-only row-count SQL for the seven target tables."
+      ],
       "created_at": "2026-05-11T00:33:35Z",
       "details": "Read-only proof that subscription-external and cadence-engine tenant-owned tables have no remaining tenant_id NULL rows after canonical nrg migration.",
       "evidence": {
-        "commands": [],
+        "commands": [
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; only known superseded stale ledger warning for TMP-011-repair-1 and TMP-015-repair-1.",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:38:57Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-054 assignment_decision allow; no blocking reasons.",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:38:57Z"
+          },
+          {
+            "command": "command -v psql",
+            "exit_code": 0,
+            "output_excerpt": "/usr/bin/psql",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:39:00Z"
+          },
+          {
+            "command": "documented DB env presence check for APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, and DATABASE_URL",
+            "exit_code": 0,
+            "output_excerpt": "no .env file exists and all checked documented DB connection variables are unset",
+            "status": "failed",
+            "timestamp": "2026-05-11T00:39:00Z"
+          }
+        ],
         "commits": [],
-        "files": []
+        "files": [
+          ".agent/tasks.json",
+          ".agent/events.jsonl",
+          ".agent/heartbeats/TMP-054.json",
+          ".harness/events.jsonl",
+          ".harness/task-ledger.sqlite",
+          "agent/state/TMP-054.handoff.json",
+          "slices/TMP-054-subscription-cadence-tenant-null-proof/domain-brief.md",
+          "slices/TMP-054-subscription-cadence-tenant-null-proof/slice.yaml",
+          "slices/TMP-054-subscription-cadence-tenant-null-proof/tenant-null-proof.md",
+          "slices/TMP-054-subscription-cadence-tenant-null-proof/value-gate-report.md"
+        ]
       },
       "goal": "",
       "id": "TMP-054",
-      "owner": null,
+      "owner": "codex",
       "parent_id": null,
       "priority": 0,
       "review_findings": [],
-      "status": "queued",
+      "status": "blocked",
       "title": "Subscription cadence tenant nullable proof",
-      "unresolved": [],
-      "updated_at": "2026-05-11T00:33:35Z",
+      "unresolved": [
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "Rerun read-only SQL when documented PostgreSQL connection env is available.",
+          "next_task_id": null,
+          "reason": "checkpoint",
+          "severity": "medium"
+        },
+        {
+          "blocker": "Missing documented DB connection environment.",
+          "disposition": "blocked",
+          "item": "Run read-only row-count SQL against the documented PostgreSQL database.",
+          "next_task_id": null,
+          "reason": "All checked documented credential variables are unset and no .env file exists.",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-11T00:43:16Z",
       "worktree": null
     },
     {

@@ -1,0 +1,22 @@
+{
+  "blockers": [
+    "Documented PostgreSQL connection environment is unavailable for TMP-054 proof: no .env file exists and all checked APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, and DATABASE_URL variables are unset."
+  ],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-subscription-null-proof-20260511-003737",
+  "status": "blocked",
+  "summary": "Prepared the subscription/cadence tenant-null read-only proof and recorded an explicit credential blocker because documented DB connection environment is unavailable.",
+  "task_id": "TMP-054",
+  "unfinished_work": [
+    {
+      "blocker": "Missing documented DB connection environment.",
+      "disposition": "blocked",
+      "item": "Run read-only row-count SQL against the documented PostgreSQL database.",
+      "next_task_id": null,
+      "reason": "All checked documented credential variables are unset and no .env file exists.",
+      "severity": "high"
+    }
+  ],
+  "written_at": "2026-05-11T00:43:16Z"
+}
