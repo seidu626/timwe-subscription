@@ -4732,29 +4732,37 @@
       "acceptance_criteria": [
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "services/acquisition-api/internal/handler/reports_handler.go",
+            "services/acquisition-api/internal/handler/reports_handler_test.go"
+          ],
           "id": "AC-1",
           "next_task_id": null,
-          "reason": null,
-          "status": "pending",
+          "reason": "parseFilters now resolves tenant keys via ReportsRepository.TenantIDByKey for tenant-scoped and platform-scoped identities.",
+          "status": "passed",
           "text": "Tenant-key-only report identity resolves to tenant_id."
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "services/acquisition-api/internal/handler/reports_handler.go",
+            "services/acquisition-api/internal/handler/reports_handler_test.go"
+          ],
           "id": "AC-2",
           "next_task_id": null,
-          "reason": null,
-          "status": "pending",
+          "reason": "The all_tenants branch still rejects non-platform identities before tenant key resolution.",
+          "status": "passed",
           "text": "all_tenants=true remains forbidden for tenant identities."
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "services/acquisition-api/internal/handler/reports_handler_test.go"
+          ],
           "id": "AC-3",
           "next_task_id": null,
-          "reason": null,
-          "status": "pending",
+          "reason": "A missing tenant key resolves to tenant_unavailable 403 instead of an unscoped report.",
+          "status": "passed",
           "text": "Unknown tenant keys remain forbidden."
         }
       ],
@@ -4765,14 +4773,73 @@
       "completed": [
         "Tenant-key-only tenant identities now resolve to tenant_id through ReportsRepository.TenantIDByKey.",
         "all_tenants remains guarded by PlatformScoped before tenant resolution.",
-        "Unknown tenant keys return tenant_unavailable 403."
+        "Unknown tenant keys return tenant_unavailable 403.",
+        "Created TMP-057 defect slice and work order.",
+        "Updated reports filter parsing to resolve tenant keys through the tenant catalog.",
+        "Added handler tests for tenant-scoped tenant key resolution and unknown tenant key rejection.",
+        "Rebuilt and restarted live acquisition-api on port 8084 with the backend bootstrap admin emails set."
       ],
       "created_at": "2026-05-11T02:20:44Z",
       "details": "Fix acquisition-api admin reporting so tenant-key-only tenant identities resolve to tenant-scoped report filters without allowing global aggregation.",
       "evidence": {
-        "commands": [],
-        "commits": [],
-        "files": []
+        "commands": [
+          {
+            "command": "cd services/acquisition-api && go test ./internal/handler -run TestParseFilters",
+            "exit_code": 0,
+            "output_excerpt": "ok github.com/seidu626/subscription-manager/acquisition-api/internal/handler 0.006s",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:21:00Z"
+          },
+          {
+            "command": "cd services/acquisition-api && go test ./...",
+            "exit_code": 0,
+            "output_excerpt": "all acquisition-api packages passed",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:22:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/TMP-057-report-tenant-key-scope.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-057 classified vertical_defect_slice; assignment_decision allow; no blocking reasons.",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:22:00Z"
+          },
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; only known superseded stale ledger warning for TMP-011-repair-1 and TMP-015-repair-1.",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:21:00Z"
+          },
+          {
+            "command": "wget -qO- http://127.0.0.1:8084/health",
+            "exit_code": 0,
+            "output_excerpt": "{\"status\":\"healthy\"}",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:25:16Z"
+          },
+          {
+            "command": "OPTIONS http://127.0.0.1:8084/v1/admin/reports/kpis with Origin http://localhost:4200 and Access-Control-Request-Headers authorization,x-tenant-key",
+            "exit_code": 0,
+            "output_excerpt": "204 No Content; Access-Control-Allow-Headers includes X-Tenant-Key",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:25:16Z"
+          }
+        ],
+        "commits": [
+          "19e7c77 fix: resolve report tenant keys",
+          "db2b9af merge: report tenant key scope fix"
+        ],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/TMP-057.json",
+          ".agent/tasks.json",
+          "agent/backlog/issues/TMP-057-report-tenant-key-scope.md",
+          "agent/state/TMP-057.handoff.json",
+          "agent/state/TMP-057.work-order.json",
+          "services/acquisition-api/internal/handler/reports_handler.go",
+          "services/acquisition-api/internal/handler/reports_handler_test.go"
+        ]
       },
       "goal": "",
       "id": "TMP-057",
@@ -4780,10 +4847,20 @@
       "parent_id": null,
       "priority": 0,
       "review_findings": [],
-      "status": "in_progress",
+      "status": "done",
       "title": "Report tenant-key scope resolution",
-      "unresolved": [],
-      "updated_at": "2026-05-11T02:22:29Z",
+      "unresolved": [
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "worker returned without accepted handoff",
+          "next_task_id": "TMP-057",
+          "reason": "closeout gate",
+          "session_id": "codex-20260511-021956",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-11T02:26:42Z",
       "worktree": null
     }
   ],

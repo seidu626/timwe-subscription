@@ -1,0 +1,520 @@
+{
+  "active": [],
+  "blocked": [
+    {
+      "attempts": 1,
+      "blockers": [
+        "Clean superproject submodule initialization remains blocked: webspa-admin source reproducibility still needs TMP-026 publish, repoint, or repository-strategy decision."
+      ],
+      "id": "T-TMP-040",
+      "priority": 0,
+      "status": "done",
+      "title": "webspa-admin local checkout verification evidence",
+      "updated_at": "2026-05-09T05:55:33Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "Approved migration provisioning/orchestration is still required before runtime verification can pass: TMP-034/TMP-035/TMP-036 runtime schema provisioning was evidence-only."
+      ],
+      "id": "T-TMP-041",
+      "priority": 0,
+      "status": "done",
+      "title": "Runtime schema blocker source inventory",
+      "updated_at": "2026-05-09T06:05:49Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "Operator approvals or maintainer decisions are still required before blocked implementation slices can run: TMP-021/TMP-026/TMP-034/TMP-035/TMP-036/TMP-037/TMP-038 decision packet was advisory only."
+      ],
+      "id": "T-TMP-042",
+      "priority": 0,
+      "status": "done",
+      "title": "Release blocker decision packet",
+      "updated_at": "2026-05-09T06:25:00Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "Operator approvals or maintainer decisions are still required before blocked implementation slices can run: release-verification ADR templates remain proposed."
+      ],
+      "id": "T-TMP-043",
+      "priority": 0,
+      "status": "done",
+      "title": "Release decision ADR templates",
+      "updated_at": "2026-05-09T06:35:00Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "DB credentials are unavailable for live tenantless row-count proof."
+      ],
+      "id": "TMP-053",
+      "priority": 0,
+      "status": "done",
+      "title": "Acquisition tenant nullable proof",
+      "updated_at": "2026-05-11T00:41:04Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "Documented DB connection unavailable: no .env file and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, DATABASE_URL variables unset.",
+        "Documented PostgreSQL connection environment is unavailable for TMP-054 proof: no .env file exists and all checked APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, and DATABASE_URL variables are unset."
+      ],
+      "id": "TMP-054",
+      "priority": 0,
+      "status": "done",
+      "title": "Subscription cadence tenant nullable proof",
+      "updated_at": "2026-05-11T00:47:23Z"
+    },
+    {
+      "attempts": 0,
+      "blockers": [
+        "TMP-053 acquisition/admin proof blocked: DB_PASSWORD/PGPASSWORD/DATABASE_URL or equivalent documented connection material is unavailable.",
+        "TMP-054 subscription/cadence proof blocked: no .env file exists and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, DATABASE_URL variables are unset."
+      ],
+      "id": "TMP-055",
+      "priority": 0,
+      "status": "blocked",
+      "title": "Tenant nullable runtime enforcement",
+      "updated_at": "2026-05-11T00:48:48Z"
+    }
+  ],
+  "closeout": {
+    "accepted_handoff": true,
+    "session_id": "codex-20260511-021956",
+    "status": "accepted",
+    "task_id": "TMP-057"
+  },
+  "counts": {
+    "blocked": 1,
+    "done": 40
+  },
+  "done": [
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "TMP-011",
+      "priority": 0,
+      "status": "done",
+      "title": "legacy-data-migration-isolation",
+      "updated_at": "2026-05-08T10:32:14Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "TMP-014",
+      "priority": 0,
+      "status": "done",
+      "title": "admin-portal-tenant-workspace",
+      "updated_at": "2026-05-08T10:32:14Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "TMP-015",
+      "priority": 0,
+      "status": "done",
+      "title": "platform-ops-secret-observability",
+      "updated_at": "2026-05-08T10:32:14Z"
+    },
+    {
+      "attempts": 0,
+      "blockers": [],
+      "id": "TMP-016",
+      "priority": 0,
+      "status": "done",
+      "title": "partner-channel-onboarding-contracts",
+      "updated_at": "2026-05-08T10:39:43Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-021",
+      "priority": 0,
+      "status": "done",
+      "title": "Release verification matrix",
+      "updated_at": "2026-05-10T05:41:25Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-022",
+      "priority": 0,
+      "status": "done",
+      "title": "Landing web dynamic route build failure",
+      "updated_at": "2026-05-09T01:19:03Z"
+    },
+    {
+      "attempts": 0,
+      "blockers": [],
+      "id": "T-TMP-023",
+      "priority": 0,
+      "status": "done",
+      "title": "Common package test failures",
+      "updated_at": "2026-05-09T01:19:06Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-024",
+      "priority": 0,
+      "status": "done",
+      "title": "Slice registry evidence reconciliation",
+      "updated_at": "2026-05-09T01:41:21Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-025",
+      "priority": 0,
+      "status": "done",
+      "title": "TMP-021 release matrix metadata reconciliation",
+      "updated_at": "2026-05-09T01:50:14Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-026",
+      "priority": 0,
+      "status": "done",
+      "title": "webspa-admin submodule verification",
+      "updated_at": "2026-05-10T05:22:00Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-027",
+      "priority": 0,
+      "status": "done",
+      "title": "Release matrix stale blocker reconciliation",
+      "updated_at": "2026-05-09T02:15:52Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-028",
+      "priority": 0,
+      "status": "done",
+      "title": "Compose secret and env hygiene",
+      "updated_at": "2026-05-09T02:32:11Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-029",
+      "priority": 0,
+      "status": "done",
+      "title": "Compose smoke Docker auth blocker evidence",
+      "updated_at": "2026-05-09T02:49:01Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-030",
+      "priority": 0,
+      "status": "done",
+      "title": "Acquisition API compose build context",
+      "updated_at": "2026-05-09T03:15:39Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-031",
+      "priority": 0,
+      "status": "done",
+      "title": "Notification worker compose DB env",
+      "updated_at": "2026-05-09T03:25:48Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-032",
+      "priority": 0,
+      "status": "done",
+      "title": "Postback dispatcher compose DB env",
+      "updated_at": "2026-05-09T03:34:27Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-033",
+      "priority": 0,
+      "status": "done",
+      "title": "TMP-032 ledger state reconciliation",
+      "updated_at": "2026-05-09T03:48:44Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-034",
+      "priority": 0,
+      "status": "done",
+      "title": "Acquisition runtime schema provisioning",
+      "updated_at": "2026-05-10T05:12:00Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-035",
+      "priority": 0,
+      "status": "done",
+      "title": "Notification message outbox schema provisioning",
+      "updated_at": "2026-05-10T05:12:00Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-036",
+      "priority": 0,
+      "status": "done",
+      "title": "Postback outbox schema provisioning",
+      "updated_at": "2026-05-10T05:12:00Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-037",
+      "priority": 0,
+      "status": "done",
+      "title": "Landing web dependency remediation approval",
+      "updated_at": "2026-05-10T05:31:35Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-038",
+      "priority": 0,
+      "status": "done",
+      "title": "Local main integration strategy",
+      "updated_at": "2026-05-10T05:32:59Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-039",
+      "priority": 0,
+      "status": "done",
+      "title": "Operational slice domain brief reconciliation",
+      "updated_at": "2026-05-09T05:35:11Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "Clean superproject submodule initialization remains blocked: webspa-admin source reproducibility still needs TMP-026 publish, repoint, or repository-strategy decision."
+      ],
+      "id": "T-TMP-040",
+      "priority": 0,
+      "status": "done",
+      "title": "webspa-admin local checkout verification evidence",
+      "updated_at": "2026-05-09T05:55:33Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "Approved migration provisioning/orchestration is still required before runtime verification can pass: TMP-034/TMP-035/TMP-036 runtime schema provisioning was evidence-only."
+      ],
+      "id": "T-TMP-041",
+      "priority": 0,
+      "status": "done",
+      "title": "Runtime schema blocker source inventory",
+      "updated_at": "2026-05-09T06:05:49Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "Operator approvals or maintainer decisions are still required before blocked implementation slices can run: TMP-021/TMP-026/TMP-034/TMP-035/TMP-036/TMP-037/TMP-038 decision packet was advisory only."
+      ],
+      "id": "T-TMP-042",
+      "priority": 0,
+      "status": "done",
+      "title": "Release blocker decision packet",
+      "updated_at": "2026-05-09T06:25:00Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "Operator approvals or maintainer decisions are still required before blocked implementation slices can run: release-verification ADR templates remain proposed."
+      ],
+      "id": "T-TMP-043",
+      "priority": 0,
+      "status": "done",
+      "title": "Release decision ADR templates",
+      "updated_at": "2026-05-09T06:35:00Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-044",
+      "priority": 0,
+      "status": "done",
+      "title": "Stale value-gate evidence reconciliation",
+      "updated_at": "2026-05-09T10:18:00Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-045",
+      "priority": 0,
+      "status": "done",
+      "title": "Compose runtime schema bootstrap",
+      "updated_at": "2026-05-10T05:13:59Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-046",
+      "priority": 0,
+      "status": "done",
+      "title": "webspa-admin reproducible source checkout",
+      "updated_at": "2026-05-10T05:20:47Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-047",
+      "priority": 0,
+      "status": "done",
+      "title": "Landing web dependency remediation",
+      "updated_at": "2026-05-10T05:31:36Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-048",
+      "priority": 0,
+      "status": "done",
+      "title": "Admin tenant account mapping",
+      "updated_at": "2026-05-10T23:15:10Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-049",
+      "priority": 0,
+      "status": "done",
+      "title": "Acquisition campaign slug migration startup fix",
+      "updated_at": "2026-05-10T23:31:16Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "T-TMP-050",
+      "priority": 0,
+      "status": "done",
+      "title": "Canonical nrg tenant migration",
+      "updated_at": "2026-05-10T23:51:23Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "TMP-051",
+      "priority": 0,
+      "status": "done",
+      "title": "Tenant management admin list/update UI and API",
+      "updated_at": "2026-05-11T00:09:14Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "TMP-052",
+      "priority": 0,
+      "status": "done",
+      "title": "Tenant NOT NULL enforcement and nullable-path audit",
+      "updated_at": "2026-05-11T00:35:17Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "DB credentials are unavailable for live tenantless row-count proof."
+      ],
+      "id": "TMP-053",
+      "priority": 0,
+      "status": "done",
+      "title": "Acquisition tenant nullable proof",
+      "updated_at": "2026-05-11T00:41:04Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [
+        "Documented DB connection unavailable: no .env file and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, DATABASE_URL variables unset.",
+        "Documented PostgreSQL connection environment is unavailable for TMP-054 proof: no .env file exists and all checked APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, and DATABASE_URL variables are unset."
+      ],
+      "id": "TMP-054",
+      "priority": 0,
+      "status": "done",
+      "title": "Subscription cadence tenant nullable proof",
+      "updated_at": "2026-05-11T00:47:23Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "TMP-056",
+      "priority": 0,
+      "status": "done",
+      "title": "Acquisition postback tenant routing bootstrap",
+      "updated_at": "2026-05-11T01:17:03Z"
+    },
+    {
+      "attempts": 1,
+      "blockers": [],
+      "id": "TMP-057",
+      "priority": 0,
+      "status": "done",
+      "title": "Report tenant-key scope resolution",
+      "updated_at": "2026-05-11T02:26:42Z"
+    }
+  ],
+  "git": {
+    "branch": "main",
+    "branches": [
+      "agent/TMP-011-codex c88cd46 ",
+      "agent/TMP-014-codex 8b5a011 ",
+      "agent/TMP-015-codex 70ef96f ",
+      "agent/codex/TMP-008-notification-cadence-20260508-070538 28ababe ",
+      "agent/codex/TMP-009-postback-routing-20260508-064552 315c49c ",
+      "agent/codex/TMP-010-reporting-operations-20260508-093015 d484809 ",
+      "agent/codex/TMP-013-callback-correlation-20260508-065311 ccd4e7e ",
+      "agent/codex/TMP-017-billing-charge-ownership-20260508-074034 8c22d98 ",
+      "agent/codex/TMP-020-observability-20260508-072738 0ef6900 ",
+      "agent/codex/acquisition-migration-20260510-2323 d5ea89e ",
+      "agent/codex/acquisition-null-proof-20260511-003737 3251e55 origin/main",
+      "agent/codex/admin-tenant-mapping-20260510-225210 aea9e74 ",
+      "agent/codex/blocker-audit-20260509-060342 334acdc origin/agent/codex/blocker-audit-20260509-060342",
+      "agent/codex/continuation-audit-20260509-061514 2378d57 origin/main",
+      "agent/codex/control-check-20260509-061924 2378d57 origin/main",
+      "agent/codex/control-check-20260509-063900 bad5fe1 origin/main",
+      "agent/codex/control-poll-20260509-071816 bad5fe1 origin/main",
+      "agent/codex/decision-packet-20260509-062213 9df735c origin/agent/codex/decision-packet-20260509-062213",
+      "agent/codex/decision-templates-20260509-063006 963a7bd origin/agent/codex/decision-templates-20260509-063006",
+      "agent/codex/fullsystem-20260510-045911 758a982 origin/main",
+      "agent/codex/matrix-refresh-20260509-102929 ed50a78 origin/main",
+      "agent/codex/nrg-tenant-20260510-2337 5410199 ",
+      "agent/codex/pending-slices-20260508-095850 e286c92 ",
+      "agent/codex/postmerge-042-20260509-062213 6312c80 origin/main",
+      "agent/codex/postmerge-043-20260509-063006 bad5fe1 origin/main",
+      "agent/codex/report-tenant-key-20260511-021956 19e7c77 origin/main",
+      "agent/codex/source-truth-audit-20260509-054846 a6e447c origin/agent/codex/source-truth-audit-20260509-054846",
+      "agent/codex/subscription-null-proof-20260511-003737 8c72ff6 origin/main",
+      "agent/codex/tenant-catalog-20260510-235603 8ea62bd ",
+      "agent/codex/tenant-nullability-20260511-002714 4acac9e origin/main",
+      "agent/codex/tenant-platform-roadmap-20260508-014156 7924528 ",
+      "backup/main-before-dump-prune-20260510-061106 3bf08d2 ",
+      "main db2b9af origin/main"
+    ],
+    "dirty": true,
+    "head": "db2b9af",
+    "inside_git": true,
+    "status_porcelain": "M .agent/events.jsonl\n M .agent/tasks.json\n?? .agent/sessions/codex-20260511-021956/\n?? .agent/sessions/supervisor-20260511T022537Z-bd3c8f3a/\n?? .agent/sessions/supervisor-20260511T022620Z-f3326329/\n?? agent/state/TMP-057.handoff.json",
+    "worktrees_porcelain": "worktree /home/xper626/workspace/apps/timwe-subscription\nHEAD db2b9af7d289f271d405d2dc7874d98c257c0e71\nbranch refs/heads/main\n\nworktree /home/xper626/.codex/worktrees/e9f1/timwe-subscription\nHEAD ab22b15f7c8f6ea8df951a04f3201027c00de06e\ndetached\n\nworktree /home/xper626/workspace/apps/worktrees/codex-TMP-008-notification-cadence-20260508-070538\nHEAD 28ababe923a40c4afcb8f7bfc42bbae0a1823926\nbranch refs/heads/agent/codex/TMP-008-notification-cadence-20260508-070538\n\nworktree /home/xper626/workspace/apps/worktrees/codex-TMP-009-postback-routing-20260508-064552\nHEAD 315c49cc6e550d06dfd86313e77a9cad4c67ac43\nbranch refs/heads/agent/codex/TMP-009-postback-routing-20260508-064552\n\nworktree /home/xper626/workspace/apps/worktrees/codex-TMP-013-callback-correlation-20260508-065311\nHEAD ccd4e7e13090d6aaad8d85e0c09a51419c7413fe\nbranch refs/heads/agent/codex/TMP-013-callback-correlation-20260508-065311\n\nworktree /home/xper626/workspace/apps/worktrees/codex-TMP-017-billing-charge-ownership-20260508-074034\nHEAD 8c22d985baa489e96cccd62240e598b40dddafa1\nbranch refs/heads/agent/codex/TMP-017-billing-charge-ownership-20260508-074034\n\nworktree /home/xper626/workspace/apps/worktrees/codex-TMP-020-observability-20260508-072738\nHEAD 0ef6900e093ef04a5bfbd91a95da5a617e794ecf\nbranch refs/heads/agent/codex/TMP-020-observability-20260508-072738\n\nworktree /home/xper626/workspace/apps/worktrees/codex-acquisition-null-proof-20260511-003737\nHEAD 3251e559a130d3c94d1f5df8b8d780e15d190a0f\nbranch refs/heads/agent/codex/acquisition-null-proof-20260511-003737\n\nworktree /home/xper626/workspace/apps/worktrees/codex-admin-tenant-mapping-20260510-225210\nHEAD aea9e74c895598e2eb9733128270691df84d667a\nbranch refs/heads/agent/codex/admin-tenant-mapping-20260510-225210\n\nworktree /home/xper626/workspace/apps/worktrees/codex-blocker-audit-20260509-060342\nHEAD 334acdc4718173c50b4ef7e204f07a5b88dbb606\nbranch refs/heads/agent/codex/blocker-audit-20260509-060342\n\nworktree /home/xper626/workspace/apps/worktrees/codex-control-check-20260509-063900\nHEAD bad5fe156f876938ff10895a5a330178c95bb8de\nbranch refs/heads/agent/codex/control-check-20260509-063900\n\nworktree /home/xper626/workspace/apps/worktrees/codex-control-poll-20260509-071816\nHEAD bad5fe156f876938ff10895a5a330178c95bb8de\nbranch refs/heads/agent/codex/control-poll-20260509-071816\n\nworktree /home/xper626/workspace/apps/worktrees/codex-decision-packet-20260509-062213\nHEAD 9df735c6163366a547cf343aa95ed8918cddcc51\nbranch refs/heads/agent/codex/decision-packet-20260509-062213\n\nworktree /home/xper626/workspace/apps/worktrees/codex-decision-templates-20260509-063006\nHEAD 963a7bdf79ca76ac157287a4dd93796bb353f7c3\nbranch refs/heads/agent/codex/decision-templates-20260509-063006\n\nworktree /home/xper626/workspace/apps/worktrees/codex-fullsystem-20260510-045911\nHEAD 758a982a151187baec55e4814761a2a489e487e8\nbranch refs/heads/agent/codex/fullsystem-20260510-045911\n\nworktree /home/xper626/workspace/apps/worktrees/codex-matrix-refresh-20260509-102929\nHEAD ed50a78a7bc5adf1cb674cd71dc21f42ce68f6de\nbranch refs/heads/agent/codex/matrix-refresh-20260509-102929\n\nworktree /home/xper626/workspace/apps/worktrees/codex-nrg-tenant-20260510-2337\nHEAD 5410199f37a0a85378b24b376c87d1dce9f13eb6\nbranch refs/heads/agent/codex/nrg-tenant-20260510-2337\n\nworktree /home/xper626/workspace/apps/worktrees/codex-origin-audit-20260509-0544\nHEAD 471dda20e745cf95d6d7cce1110780ec84e02fe0\ndetached\n\nworktree /home/xper626/workspace/apps/worktrees/codex-report-tenant-key-20260511-021956\nHEAD 19e7c77d15af6b1f15e85a90fc3a6ecb0862d7d0\nbranch refs/heads/agent/codex/report-tenant-key-20260511-021956\n\nworktree /home/xper626/workspace/apps/worktrees/codex-source-truth-audit-20260509-054846\nHEAD a6e447c3f7efe7c4268ec2c1400db46ce93155b7\nbranch refs/heads/agent/codex/source-truth-audit-20260509-054846\n\nworktree /home/xper626/workspace/apps/worktrees/codex-subscription-null-proof-20260511-003737\nHEAD 8c72ff64909d62656ea46247feccb8f8fe5ee5e8\nbranch refs/heads/agent/codex/subscription-null-proof-20260511-003737\n\nworktree /home/xper626/workspace/apps/worktrees/codex-tenant-catalog-20260510-235603\nHEAD 8ea62bd4cfbc43e3fa2f467fd56abea029d0743c\nbranch refs/heads/agent/codex/tenant-catalog-20260510-235603\n\nworktree /home/xper626/workspace/apps/worktrees/codex-tenant-nullability-20260511-002714\nHEAD 4acac9e97a25eba94feca33a9a9860b300ce3fb1\nbranch refs/heads/agent/codex/tenant-nullability-20260511-002714\n\nworktree /home/xper626/workspace/apps/worktrees/codex-tenant-platform-roadmap-20260508-014156\nHEAD 79245289debaca36cb9fabd2341c2c5bfc0940fa\nbranch refs/heads/agent/codex/tenant-platform-roadmap-20260508-014156"
+  },
+  "handoff_missing": [],
+  "needs_review": [],
+  "next_task": null,
+  "next_unblocked": [],
+  "safe_to_continue": false,
+  "stale": [],
+  "stale_marked_this_pass": [],
+  "stop_reason": "no_unblocked_tasks"
+}

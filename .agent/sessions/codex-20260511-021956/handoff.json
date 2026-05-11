@@ -1,0 +1,130 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "Tenant-key-only report identity resolves to tenant_id.",
+      "evidence": [
+        "services/acquisition-api/internal/handler/reports_handler.go",
+        "services/acquisition-api/internal/handler/reports_handler_test.go"
+      ],
+      "next_task_id": null,
+      "reason": "parseFilters now resolves tenant keys via ReportsRepository.TenantIDByKey for tenant-scoped and platform-scoped identities.",
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "all_tenants=true remains forbidden for tenant identities.",
+      "evidence": [
+        "services/acquisition-api/internal/handler/reports_handler.go",
+        "services/acquisition-api/internal/handler/reports_handler_test.go"
+      ],
+      "next_task_id": null,
+      "reason": "The all_tenants branch still rejects non-platform identities before tenant key resolution.",
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "Unknown tenant keys remain forbidden.",
+      "evidence": [
+        "services/acquisition-api/internal/handler/reports_handler_test.go"
+      ],
+      "next_task_id": null,
+      "reason": "A missing tenant key resolves to tenant_unavailable 403 instead of an unscoped report.",
+      "status": "passed"
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/heartbeats/TMP-057.json",
+    ".agent/tasks.json",
+    "agent/backlog/issues/TMP-057-report-tenant-key-scope.md",
+    "agent/state/TMP-057.handoff.json",
+    "agent/state/TMP-057.work-order.json",
+    "services/acquisition-api/internal/handler/reports_handler.go",
+    "services/acquisition-api/internal/handler/reports_handler_test.go"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "Live acquisition-api was rebuilt and restarted on port 8084.",
+    "Live runtime was launched with ADMIN_BOOTSTRAP_PLATFORM_EMAILS aligned to the web admin development bootstrap.",
+    "No frontend, dependency, compose, go.mod, or go.sum files were changed."
+  ],
+  "commits": [
+    "19e7c77 fix: resolve report tenant keys",
+    "db2b9af merge: report tenant key scope fix"
+  ],
+  "completed_work": [
+    "Created TMP-057 defect slice and work order.",
+    "Updated reports filter parsing to resolve tenant keys through the tenant catalog.",
+    "Added handler tests for tenant-scoped tenant key resolution and unknown tenant key rejection.",
+    "Rebuilt and restarted live acquisition-api on port 8084 with the backend bootstrap admin emails set."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "medium"
+  },
+  "known_gaps": [
+    "The authenticated browser request must be retried by the operator because the agent does not have the Auth0 browser token."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-057 is complete: acquisition-api reporting can resolve tenant-key report scope and the live service is running on 8084.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "The runtime bootstrap email setting is process-level for the current live start; make/system service definitions should carry ADMIN_BOOTSTRAP_PLATFORM_EMAILS for future restarts.",
+    "The access token must include email and email_verified for backend bootstrap platform scope to apply."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "codex-20260511-021956",
+  "status": "done",
+  "summary": "Fixed acquisition-api admin reporting scope resolution so tenant-key-only identities resolve to a canonical tenant_id before report queries run, while preserving the platform-only all_tenants guard.",
+  "supervisor_decision": "done",
+  "task_id": "TMP-057",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "cd services/acquisition-api && go test ./internal/handler -run TestParseFilters",
+      "exit_code": 0,
+      "output_excerpt": "ok github.com/seidu626/subscription-manager/acquisition-api/internal/handler 0.006s",
+      "status": "passed",
+      "timestamp": "2026-05-11T02:21:00Z"
+    },
+    {
+      "command": "cd services/acquisition-api && go test ./...",
+      "exit_code": 0,
+      "output_excerpt": "all acquisition-api packages passed",
+      "status": "passed",
+      "timestamp": "2026-05-11T02:22:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/TMP-057-report-tenant-key-scope.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-057 classified vertical_defect_slice; assignment_decision allow; no blocking reasons.",
+      "status": "passed",
+      "timestamp": "2026-05-11T02:22:00Z"
+    },
+    {
+      "command": "agent-supervisor --config .harness/config.json preflight",
+      "exit_code": 0,
+      "output_excerpt": "ok true; only known superseded stale ledger warning for TMP-011-repair-1 and TMP-015-repair-1.",
+      "status": "passed",
+      "timestamp": "2026-05-11T02:21:00Z"
+    },
+    {
+      "command": "wget -qO- http://127.0.0.1:8084/health",
+      "exit_code": 0,
+      "output_excerpt": "{\"status\":\"healthy\"}",
+      "status": "passed",
+      "timestamp": "2026-05-11T02:25:16Z"
+    },
+    {
+      "command": "OPTIONS http://127.0.0.1:8084/v1/admin/reports/kpis with Origin http://localhost:4200 and Access-Control-Request-Headers authorization,x-tenant-key",
+      "exit_code": 0,
+      "output_excerpt": "204 No Content; Access-Control-Allow-Headers includes X-Tenant-Key",
+      "status": "passed",
+      "timestamp": "2026-05-11T02:25:16Z"
+    }
+  ]
+}

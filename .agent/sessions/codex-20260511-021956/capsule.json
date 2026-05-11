@@ -1,0 +1,11 @@
+{
+  "blockers": [],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-20260511-021956",
+  "status": "done",
+  "summary": "Fixed acquisition-api admin reporting scope resolution so tenant-key-only identities resolve to a canonical tenant_id before report queries run, while preserving the platform-only all_tenants guard.",
+  "task_id": "TMP-057",
+  "unfinished_work": [],
+  "written_at": "2026-05-11T02:26:42Z"
+}
