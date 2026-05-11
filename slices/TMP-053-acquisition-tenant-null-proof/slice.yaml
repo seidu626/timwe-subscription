@@ -1,0 +1,46 @@
+story:
+  id: "TMP-053"
+  title: "Acquisition admin tables have tenantless-row proof"
+  actor: "platform-operator"
+  action: "run read-only acquisition/admin tenantless row-count checks"
+  outcome: "TMP-055 can enforce tenant ownership only after proof or explicit blocker evidence"
+  as_a: "platform-operator"
+  i_want_to: "prove acquisition/admin tables have no tenantless rows"
+  so_that: "runtime and schema enforcement does not speculate against live data"
+
+entrypoints:
+  - "psql read-only SELECT tenantless row-count SQL"
+  - "agent/backlog/issues/TMP-053-acquisition-tenant-null-proof.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Proof SQL is available"
+      given: ["the acquisition/admin table group is known"]
+      when: "the operator needs tenantless row-count proof"
+      then: "the slice provides read-only SQL for all required tables"
+      evidence: "tenant-null-proof.md"
+  failures:
+    - scenario: "Database credentials unavailable"
+      given: ["DB and PG connection variables are unset"]
+      when: "the agent attempts documented passwordless psql connections"
+      then: "the slice records a credential blocker without reading secret files"
+      evidence: "tenant-null-proof.md"
+  invariants:
+    - rule: "No remote database mutation is performed"
+      preserved_by: "only psql SELECT attempts and static artifact writes were performed"
+      violated_when: "INSERT, UPDATE, DELETE, ALTER, or migration scripts run"
+      test: "command log in value-gate-report.md"
+
+out_of_scope:
+  - "NOT NULL schema enforcement"
+  - "runtime acquisition code changes"
+  - "secret-file discovery or credential extraction"
+
+size_check:
+  files_touched: 6
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "PASS before handoff"
+  report_path: "slices/TMP-053-acquisition-tenant-null-proof/value-gate-report.md"

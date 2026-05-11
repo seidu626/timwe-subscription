@@ -1,0 +1,116 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": "DB_PASSWORD/PGPASSWORD/DATABASE_URL or equivalent documented connection material is unavailable in the agent environment.",
+      "criterion": "Acquisition/admin tenant-owned tables have row-count proof for tenant_id IS NULL.",
+      "evidence": [
+        "slices/TMP-053-acquisition-tenant-null-proof/tenant-null-proof.md"
+      ],
+      "next_task_id": null,
+      "reason": "psql is installed, but both local default and documented remote host passwordless SELECT attempts failed with no password supplied.",
+      "status": "failed"
+    },
+    {
+      "blocker": null,
+      "criterion": "If credentials are unavailable, blocker evidence names the exact missing env/tool.",
+      "evidence": [
+        "slices/TMP-053-acquisition-tenant-null-proof/tenant-null-proof.md"
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "No remote database mutation is performed.",
+      "evidence": [
+        "Only psql SELECT 1 attempts and static source scans were run."
+      ],
+      "next_task_id": null,
+      "reason": null,
+      "status": "passed"
+    }
+  ],
+  "blockers": [
+    "DB credentials are unavailable for live tenantless row-count proof."
+  ],
+  "changed_files": [
+    "slices/TMP-053-acquisition-tenant-null-proof/domain-brief.md",
+    "slices/TMP-053-acquisition-tenant-null-proof/slice.yaml",
+    "slices/TMP-053-acquisition-tenant-null-proof/tenant-null-proof.md",
+    "slices/TMP-053-acquisition-tenant-null-proof/value-gate-report.md",
+    "agent/state/TMP-053.handoff.json",
+    ".agent/tasks.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No services were started.",
+    "No database mutation was performed.",
+    "No secret files were read."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Reviewed TMP-053 issue and work order.",
+    "Checked documented DB environment variable presence without printing secrets.",
+    "Verified psql is installed.",
+    "Attempted passwordless read-only SELECT checks against local default and documented remote host; both failed for missing password.",
+    "Recorded read-only SQL for future credentialed proof."
+  ],
+  "confidence": {
+    "completeness": "medium",
+    "implementation": "high",
+    "verification": "medium"
+  },
+  "known_gaps": [
+    "Live tenantless row counts were not collected because credentials are unavailable."
+  ],
+  "next_tasks": [
+    {
+      "id": "TMP-054",
+      "title": "Subscription cadence tenant nullable proof"
+    }
+  ],
+  "operator_message": "TMP-053 is complete as a blocker-proof slice: it did not mutate the database and names the exact credential gap.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "TMP-055 must stay blocked until both acquisition/admin and subscription/cadence row-count proof is available or an operator accepts the credential blocker."
+  ],
+  "safe_to_continue": true,
+  "schema_version": 1,
+  "session_id": "codex-acquisition-null-proof-20260511-003737",
+  "status": "done",
+  "summary": "Produced read-only acquisition/admin tenant nullable proof artifacts and explicit credential blocker evidence without mutating any database.",
+  "supervisor_decision": "ready_for_review",
+  "task_id": "TMP-053",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "for v in DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD DATABASE_URL; do ...; done",
+      "exit_code": 0,
+      "output_excerpt": "All checked DB and PG connection variables were unset.",
+      "status": "passed",
+      "timestamp": "2026-05-11T00:39:00Z"
+    },
+    {
+      "command": "command -v psql",
+      "exit_code": 0,
+      "output_excerpt": "/usr/bin/psql",
+      "status": "passed",
+      "timestamp": "2026-05-11T00:39:00Z"
+    },
+    {
+      "command": "PGCONNECT_TIMEOUT=3 PGPASSWORD= psql -X -w -v ON_ERROR_STOP=1 -h localhost -p 5432 -U sm_admin -d subscription_manager -c 'SELECT 1;'",
+      "exit_code": 2,
+      "output_excerpt": "fe_sendauth: no password supplied",
+      "status": "failed",
+      "timestamp": "2026-05-11T00:40:00Z"
+    },
+    {
+      "command": "PGCONNECT_TIMEOUT=5 PGPASSWORD= psql -X -w -v ON_ERROR_STOP=1 -h 139.59.135.253 -p 5432 -U sm_admin -d subscription_manager -c 'SELECT 1;'",
+      "exit_code": 2,
+      "output_excerpt": "fe_sendauth: no password supplied",
+      "status": "failed",
+      "timestamp": "2026-05-11T00:40:00Z"
+    }
+  ]
+}
