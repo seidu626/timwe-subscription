@@ -16,6 +16,18 @@ const notificationApiEndpoint = 'http://localhost:8082';
 const acquisitionApiEndpoint = 'http://localhost:8084';
 const cadenceEngineEndpoint = 'http://localhost:8091';
 const cadenceAdminToken = '790ea42af37b65d70d603e6a87b088a96ba37138562449d82fdebf4970920d33';
+type BrowserProcess = {
+  env?: Record<string, string | undefined>;
+};
+
+const browserProcess = (globalThis as {
+  process?: BrowserProcess;
+}).process;
+
+const sentryEnv = browserProcess?.env ?? {};
+const sentryDsn = sentryEnv['SENTRY_DSN'];
+const sentryEnvironment = sentryEnv['SENTRY_ENVIRONMENT'] ?? 'development';
+const sentryRelease = sentryEnv['SENTRY_RELEASE'];
 
 export const environment = {
   production: false,
@@ -66,6 +78,9 @@ export const environment = {
       { uri: `${cadenceEngineEndpoint}/v1/admin/cadence/*` },
     ],
   },
+  sentryDsn,
+  sentryEnvironment,
+  sentryRelease,
 };
 
 

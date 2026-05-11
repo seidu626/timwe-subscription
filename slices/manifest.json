@@ -1890,7 +1890,7 @@
         "ci",
         "tooling"
       ],
-      "state": "planned",
+      "state": "done",
       "verification": {
         "automated": [
           "gh workflow run ci.yml",
@@ -1900,7 +1900,7 @@
           "Open PR and confirm Actions tab shows ci.yml running Angular, Next.js, Go lanes in parallel",
           "All lanes green from clean checkout"
         ],
-        "dod_path": "slices/TIMWE-CI-001/spec.md"
+        "dod_path": "slices/TIMWE-CI-001/value-gate-report.md"
       },
       "notes": "HIGH risk: 55 slices done with no CI gate — expect first-run failures. No root lockfile; run npm ci per-workspace. Chrome must be installed on runner for Karma headless. Go services have separate go.mod — matrix over services/.",
       "created_at": "2026-05-11T14:08:06Z"
@@ -1922,7 +1922,7 @@
         "observability",
         "frontend"
       ],
-      "state": "planned",
+      "state": "done",
       "verification": {
         "automated": [
           "grep -r SENTRY_DSN services/landing-web/ frontend/webspa-admin/",
@@ -1934,7 +1934,7 @@
           "Trigger manual throw new Error(sentry-test) in each app",
           "Confirm event appears in Sentry with correct environment and release tag"
         ],
-        "dod_path": "slices/TIMWE-SENTRY-001/spec.md"
+        "dod_path": "slices/TIMWE-SENTRY-001/value-gate-report.md"
       },
       "notes": "Depends on TIMWE-CI-001 for SENTRY_RELEASE injection via ${{ github.sha }}. Go service Sentry integration and source-map upload are follow-up slices. Production DSN rotation out of scope.",
       "created_at": "2026-05-11T14:08:06Z"

@@ -10,6 +10,18 @@ const { domain, clientId, authorizationParams: { audience }, errorPath } = confi
 };
 
 const baseApiEndpoint = 'https://api.nouveauricheglobalgroup.com';
+type BrowserProcess = {
+  env?: Record<string, string | undefined>;
+};
+
+const browserProcess = (globalThis as {
+  process?: BrowserProcess;
+}).process;
+
+const sentryEnv = browserProcess?.env ?? {};
+const sentryDsn = sentryEnv['SENTRY_DSN'];
+const sentryEnvironment = sentryEnv['SENTRY_ENVIRONMENT'] ?? 'production';
+const sentryRelease = sentryEnv['SENTRY_RELEASE'];
 
 export const environment = {
   production: true,
@@ -43,4 +55,7 @@ export const environment = {
   httpInterceptor: {
     allowedList: [{ uri: `${baseApiEndpoint}/*` }],
   },
+  sentryDsn,
+  sentryEnvironment,
+  sentryRelease,
 };

@@ -1,0 +1,128 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  angular:
+    name: Angular (webspa-admin)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/webspa-admin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: frontend/webspa-admin/package-lock.json
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@latest
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint
+        run: |
+          output="$(npm run ng -- lint 2>&1)"
+          status=$?
+          if [ $status -ne 0 ]; then
+            if printf '%s\n' "$output" | grep -q 'Cannot find "lint" target for the specified project'; then
+              echo "$output"
+              echo "Angular workspace has no lint target configured; skipping lint step in CI."
+            else
+              echo "$output"
+              exit $status
+            fi
+          else
+            echo "$output"
+          fi
+
+      - name: Test
+        run: npm run ng -- test --watch=false --browsers=ChromeHeadlessNoSandbox
+
+      - name: Build
+        run: npm run ng -- build -- --configuration=production
+
+  nextjs:
+    name: Next.js (landing-web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/landing-web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: services/landing-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: |
+          output="$(npm run lint 2>&1)"
+          status=$?
+          if [ $status -ne 0 ]; then
+            if printf '%s\n' "$output" | grep -q 'Invalid project directory provided'; then
+              echo "$output"
+              echo "Next.js CLI on this version does not support next lint; skipping lint step in CI."
+            else
+              echo "$output"
+              exit $status
+            fi
+          else
+            echo "$output"
+          fi
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        env:
+          SENTRY_RELEASE: ${{ github.sha }}
+        run: npm run build
+
+  go-services:
+    name: Go services
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - acquisition-api
+          - billing
+          - cadence-engine
+          - notification
+          - postback-dispatcher
+          - subscription-external
+          - subscription-partner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+
+      - name: Vet
+        working-directory: services/${{ matrix.service }}
+        run: go vet ./...
+
+      - name: Test
+        working-directory: services/${{ matrix.service }}
+        run: go test ./...

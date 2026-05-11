@@ -5,6 +5,7 @@
   "license": "MIT",
   "author": "The CoreUI Team (https://github.com/orgs/coreui/people) and contributors",
   "homepage": "https://coreui.io/angular",
+  "packageManager": "npm@10.9.0",
   "config": {
     "theme": "default",
     "coreui_library_short_version": "5.2",
@@ -21,6 +22,7 @@
   "private": true,
   "dependencies": {
     "@angular/animations": "^18.2.9",
+    "@sentry/angular-ivy": "^7.120.4",
     "@angular/cdk": "^18.2.10",
     "@angular/common": "^18.2.9",
     "@angular/compiler": "^18.2.9",
