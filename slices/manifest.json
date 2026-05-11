@@ -1874,7 +1874,71 @@
         "dod_path": "slices/TMP-056-acquisition-postback-tenant-routing-bootstrap/value-gate-report.md"
       },
       "notes": "Follow-up to TMP-045 for service-local acquisition-api startup. Compose bootstrap already applied the canonical postback migrations; this slice aligns the in-process startup bootstrap."
+    },
+    {
+      "id": "TIMWE-CI-001",
+      "external_id": "TIMWE-CI-001",
+      "name": "Add build/test CI pipeline (Angular, Next.js, Go lanes)",
+      "class": "operational_slice",
+      "hvc_issue": "agent/backlog/issues/TIMWE-CI-001-add-build-test-ci.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a platform engineer, I can open a PR and have Angular, Next.js, and Go service lanes run in parallel CI so regressions are caught before merge.",
+      "demo": "Push branch with only .github/workflows/ci.yml and CODEOWNERS; PR Actions tab shows ci.yml with all three lanes green.",
+      "depends_on": [],
+      "layers": [
+        "ci",
+        "tooling"
+      ],
+      "state": "planned",
+      "verification": {
+        "automated": [
+          "gh workflow run ci.yml",
+          "gh run watch --exit-status"
+        ],
+        "manual_smoke": [
+          "Open PR and confirm Actions tab shows ci.yml running Angular, Next.js, Go lanes in parallel",
+          "All lanes green from clean checkout"
+        ],
+        "dod_path": "slices/TIMWE-CI-001/spec.md"
+      },
+      "notes": "HIGH risk: 55 slices done with no CI gate — expect first-run failures. No root lockfile; run npm ci per-workspace. Chrome must be installed on runner for Karma headless. Go services have separate go.mod — matrix over services/.",
+      "created_at": "2026-05-11T14:08:06Z"
+    },
+    {
+      "id": "TIMWE-SENTRY-001",
+      "external_id": "TIMWE-SENTRY-001",
+      "name": "Add Sentry error monitoring to landing-web and webspa-admin",
+      "class": "bounded_enabler",
+      "hvc_issue": "agent/backlog/issues/TIMWE-SENTRY-001-add-sentry-monitoring.md",
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can see runtime errors from landing-web and webspa-admin surfaced in Sentry with environment and release tags.",
+      "demo": "Trigger throw new Error(sentry-test) in each app (dev mode, test DSN); confirm event appears in Sentry with correct environment and release tag.",
+      "depends_on": [
+        "TIMWE-CI-001"
+      ],
+      "layers": [
+        "observability",
+        "frontend"
+      ],
+      "state": "planned",
+      "verification": {
+        "automated": [
+          "grep -r SENTRY_DSN services/landing-web/ frontend/webspa-admin/",
+          "grep withSentryConfig services/landing-web/next.config.ts",
+          "grep SentryModule frontend/webspa-admin/src/app.module.ts"
+        ],
+        "manual_smoke": [
+          "Set SENTRY_DSN=<test DSN> in .env.local / environment.ts",
+          "Trigger manual throw new Error(sentry-test) in each app",
+          "Confirm event appears in Sentry with correct environment and release tag"
+        ],
+        "dod_path": "slices/TIMWE-SENTRY-001/spec.md"
+      },
+      "notes": "Depends on TIMWE-CI-001 for SENTRY_RELEASE injection via ${{ github.sha }}. Go service Sentry integration and source-map upload are follow-up slices. Production DSN rotation out of scope.",
+      "created_at": "2026-05-11T14:08:06Z"
     }
   ],
-  "updated_at": "2026-05-11T01:16:09Z"
+  "updated_at": "2026-05-11T14:08:06Z"
 }
