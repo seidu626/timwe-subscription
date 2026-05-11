@@ -246,11 +246,7 @@ export class TenantWorkspaceService {
       .map((email) => email.trim().toLowerCase())
       .filter((email) => email.length > 0);
     const userEmails = this.collectStrings(source, ['email', 'https://platform/email']);
-    const emailVerified = [
-      source['email_verified'],
-      source['emailVerified'],
-      source['https://platform/email_verified']
-    ].some((value) => this.isTruthy(value));
+    const emailVerified = this.resolveOptionalEmailVerified(source);
     const platformScoped = emailVerified && userEmails.some((email) => platformAdminEmails.includes(email));
 
     if (!platformScoped) {
@@ -261,6 +257,16 @@ export class TenantWorkspaceService {
       platformScoped: true,
       tenantOptions: this.collectTenantOptions({ tenantOptions: bootstrap.tenantWorkspaces })
     };
+  }
+
+  private resolveOptionalEmailVerified(source: Record<string, unknown>): boolean {
+    const value = [
+      source['email_verified'],
+      source['emailVerified'],
+      source['https://platform/email_verified']
+    ].find((candidate) => candidate !== undefined && candidate !== null && String(candidate).trim().length > 0);
+
+    return value === undefined ? true : this.isTruthy(value);
   }
 
   private getAdminTenantBootstrapConfig(): AdminTenantBootstrapConfig {

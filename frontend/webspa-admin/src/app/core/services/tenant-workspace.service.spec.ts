@@ -97,6 +97,31 @@ describe('TenantWorkspaceService', () => {
     expect(workspace.availableTenants.map((tenant) => tenant.tenantKey)).toContain('nrg');
   });
 
+  it('maps configured bootstrap admin emails when email_verified is unavailable', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              email: 'almauricin@gmail.com',
+              name: 'Bootstrap Admin'
+            })
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const workspace = service.getCurrentWorkspace();
+
+    expect(workspace.status).toBe('ready');
+    expect(workspace.platformScoped).toBeTrue();
+    expect(workspace.currentTenant?.tenantKey).toBe('nrg');
+  });
+
   it('maps bootstrap admin emails from user metadata case-insensitively', () => {
     TestBed.configureTestingModule({
       providers: [
