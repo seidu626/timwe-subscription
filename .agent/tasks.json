@@ -4554,7 +4554,10 @@
         }
       ],
       "attempts": 0,
-      "blockers": [],
+      "blockers": [
+        "TMP-053 acquisition/admin proof blocked: DB_PASSWORD/PGPASSWORD/DATABASE_URL or equivalent documented connection material is unavailable.",
+        "TMP-054 subscription/cadence proof blocked: no .env file exists and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, DATABASE_URL variables are unset."
+      ],
       "branch": null,
       "children": [],
       "completed": [],
@@ -4573,8 +4576,17 @@
       "review_findings": [],
       "status": "blocked",
       "title": "Tenant nullable runtime enforcement",
-      "unresolved": [],
-      "updated_at": "2026-05-11T00:35:46Z",
+      "unresolved": [
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "Rerun TMP-053/TMP-054 read-only row-count SQL in a credentialed environment before TMP-055 runtime/schema enforcement.",
+          "next_task_id": null,
+          "reason": "checkpoint",
+          "severity": "medium"
+        }
+      ],
+      "updated_at": "2026-05-11T00:48:48Z",
       "worktree": null
     }
   ],
