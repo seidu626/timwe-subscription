@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"database/sql"
 	"regexp"
 	"testing"
 	"time"
@@ -185,6 +186,73 @@ func TestParseFilters_ResolvesPlatformSelectedTenantKey(t *testing.T) {
 	}
 	if filters.TenantID == nil || *filters.TenantID != "11111111-1111-1111-1111-111111111111" {
 		t.Fatalf("tenant id = %v", filters.TenantID)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestParseFilters_ResolvesTenantScopedTenantKey(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id")).
+		WithArgs("nrg").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("11111111-1111-1111-1111-111111111111"))
+
+	h := &ReportsHandler{reportsRepo: repository.NewReportsRepository(db, zap.NewNop())}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "nrg",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+
+	filters, err := h.parseFilters(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if filters.TenantID == nil || *filters.TenantID != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("tenant id = %v", filters.TenantID)
+	}
+	if filters.AllTenants {
+		t.Fatal("tenant-scoped key resolution must not enable all_tenants")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestParseFilters_RejectsUnknownTenantScopedTenantKey(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id")).
+		WithArgs("missing").
+		WillReturnError(sql.ErrNoRows)
+
+	h := &ReportsHandler{reportsRepo: repository.NewReportsRepository(db, zap.NewNop())}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "missing",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+
+	_, err = h.parseFilters(ctx)
+	if err == nil {
+		t.Fatal("expected unknown tenant key to be rejected")
+	}
+	filterErr, ok := err.(reportFilterError)
+	if !ok {
+		t.Fatalf("expected reportFilterError, got %T", err)
+	}
+	if filterErr.status != fasthttp.StatusForbidden || filterErr.code != "tenant_unavailable" {
+		t.Fatalf("unexpected error: %#v", filterErr)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

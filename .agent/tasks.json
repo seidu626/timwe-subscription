@@ -4727,6 +4727,64 @@
       "unresolved": [],
       "updated_at": "2026-05-11T01:17:03Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "Tenant-key-only report identity resolves to tenant_id."
+        },
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "all_tenants=true remains forbidden for tenant identities."
+        },
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "Unknown tenant keys remain forbidden."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Tenant-key-only tenant identities now resolve to tenant_id through ReportsRepository.TenantIDByKey.",
+        "all_tenants remains guarded by PlatformScoped before tenant resolution.",
+        "Unknown tenant keys return tenant_unavailable 403."
+      ],
+      "created_at": "2026-05-11T02:20:44Z",
+      "details": "Fix acquisition-api admin reporting so tenant-key-only tenant identities resolve to tenant-scoped report filters without allowing global aggregation.",
+      "evidence": {
+        "commands": [],
+        "commits": [],
+        "files": []
+      },
+      "goal": "",
+      "id": "TMP-057",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "in_progress",
+      "title": "Report tenant-key scope resolution",
+      "unresolved": [],
+      "updated_at": "2026-05-11T02:22:29Z",
+      "worktree": null
     }
   ],
   "version": 1

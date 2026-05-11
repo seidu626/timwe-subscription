@@ -61,7 +61,7 @@ func (h *ReportsHandler) parseFilters(ctx *fasthttp.RequestCtx) (domain.ReportFi
 	case hasIdentity && strings.TrimSpace(identity.TenantID) != "":
 		tenantID := strings.TrimSpace(identity.TenantID)
 		filters.TenantID = &tenantID
-	case hasIdentity && strings.TrimSpace(identity.TenantKey) != "" && identity.PlatformScoped && h.reportsRepo != nil:
+	case hasIdentity && strings.TrimSpace(identity.TenantKey) != "" && h.reportsRepo != nil:
 		tenantID, err := h.reportsRepo.TenantIDByKey(strings.TrimSpace(identity.TenantKey))
 		if err != nil {
 			if errors.Is(err, repository.ErrAdminNotFound) {
