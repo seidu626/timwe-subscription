@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "task_id": "TMP-056",
+  "status": "done",
+  "supervisor_decision": "done",
+  "summary": "Aligned acquisition-api service-local startup bootstrap with the canonical postback migration path so the in-process dispatcher does not poll tenant-aware postback_outbox columns before they exist.",
+  "session_id": "codex-postback-tenant-schema-20260511-011214",
+  "acceptance_results": [
+    {
+      "criterion": "Acquisition startup bootstrap includes the canonical add_tenant_postback_routing.sql migration.",
+      "status": "passed",
+      "evidence": [
+        "services/acquisition-api/internal/repository/admin_management_schema.go",
+        "services/acquisition-api/internal/repository/admin_management_schema_test.go"
+      ],
+      "blocker": null,
+      "reason": "defaultAdminManagementSchemaPaths now includes create_postback_tables.sql followed by add_tenant_postback_routing.sql.",
+      "next_task_id": null
+    },
+    {
+      "criterion": "The bootstrap order preserves the single canonical postback path documented by TMP-045 and does not run subscription-external duplicate postback DDL.",
+      "status": "passed",
+      "evidence": [
+        "services/acquisition-api/internal/repository/admin_management_schema.go",
+        "slices/TMP-056-acquisition-postback-tenant-routing-bootstrap/spec.md",
+        "slices/TMP-056-acquisition-postback-tenant-routing-bootstrap/value-gate-report.md"
+      ],
+      "blocker": null,
+      "reason": "Only acquisition-api migrations were added; no subscription-external path was introduced.",
+      "next_task_id": null
+    },
+    {
+      "criterion": "Repository tests assert the migration is included and that the migration adds tenant_id, channel_id, and failure_reason columns required by PostbackRepository.",
+      "status": "passed",
+      "evidence": [
+        "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+        "slices/TMP-056-acquisition-postback-tenant-routing-bootstrap/value-gate-report.md"
+      ],
+      "blocker": null,
+      "reason": "Targeted repository tests pass and assert both bootstrap order and tenant-routing migration content.",
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/heartbeats/TMP-056.json",
+    ".agent/tasks.json",
+    "agent/backlog/issues/TMP-056-acquisition-postback-tenant-routing-bootstrap.md",
+    "agent/state/TMP-056.handoff.json",
+    "agent/state/TMP-056.work-order.json",
+    "services/acquisition-api/internal/repository/admin_management_schema.go",
+    "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+    "slices/TMP-056-acquisition-postback-tenant-routing-bootstrap/domain-brief.md",
+    "slices/TMP-056-acquisition-postback-tenant-routing-bootstrap/slice.yaml",
+    "slices/TMP-056-acquisition-postback-tenant-routing-bootstrap/spec.md",
+    "slices/TMP-056-acquisition-postback-tenant-routing-bootstrap/value-gate-report.md",
+    "slices/manifest.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No service process was left running.",
+    "No remote database mutation was performed.",
+    "No dependency, compose, go.mod, go.sum, or subscription-external file was changed."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Created TMP-056 defect slice after reviewing TMP-036/TMP-045 prior postback schema work.",
+    "Added acquisition-api postback table and tenant-routing migrations to the service-local startup bootstrap list.",
+    "Added repository tests for bootstrap order and tenant-routing migration content.",
+    "Recorded domain grounding, slice story/spec, and value-gate evidence."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "medium"
+  },
+  "known_gaps": [
+    "Live startup against the remote database was not rerun because this slice does not mutate remote databases and prior proof slices recorded missing documented DB credentials."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-056 is complete: acquisition-api startup now applies the canonical postback tenant-routing migration before dispatcher polling.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "The new bootstrap sequence includes create_postback_tables.sql, whose SQL is already used by compose bootstrap and is idempotent for existing postback tables.",
+    "HVC labels TMP-056 for review because of a broadness-signal keyword, but it reports no blocking reasons and the work is bounded to the startup bootstrap defect."
+  ],
+  "safe_to_continue": true,
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "cd services/acquisition-api && go test ./internal/repository",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok github.com/seidu626/subscription-manager/acquisition-api/internal/repository 0.005s",
+      "timestamp": "2026-05-11T01:15:04Z"
+    },
+    {
+      "command": "jq empty slices/manifest.json agent/state/TMP-056.work-order.json",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "JSON syntax valid.",
+      "timestamp": "2026-05-11T01:15:04Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "No blocking reasons; TMP-056 classified vertical_defect_slice with review-only broadness_signal:complete.",
+      "timestamp": "2026-05-11T01:15:38Z"
+    },
+    {
+      "command": "agent-supervisor --config .harness/config.json preflight",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok true; only known superseded stale ledger warning for TMP-011-repair-1 and TMP-015-repair-1.",
+      "timestamp": "2026-05-11T01:15:38Z"
+    }
+  ]
+}
