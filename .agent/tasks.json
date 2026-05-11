@@ -4556,7 +4556,8 @@
       "attempts": 0,
       "blockers": [
         "TMP-053 acquisition/admin proof blocked: DB_PASSWORD/PGPASSWORD/DATABASE_URL or equivalent documented connection material is unavailable.",
-        "TMP-054 subscription/cadence proof blocked: no .env file exists and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, DATABASE_URL variables are unset."
+        "TMP-054 subscription/cadence proof blocked: no .env file exists and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, DATABASE_URL variables are unset.",
+        "TMP-055 remains blocked: proof and schema preconditions are not satisfied"
       ],
       "branch": null,
       "children": [],
@@ -4584,9 +4585,17 @@
           "next_task_id": null,
           "reason": "checkpoint",
           "severity": "medium"
+        },
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "Do not implement runtime enforcement until TMP-053/TMP-054 live proof and canonical tenant_id columns are present and clean",
+          "next_task_id": null,
+          "reason": "checkpoint",
+          "severity": "medium"
         }
       ],
-      "updated_at": "2026-05-11T00:48:48Z",
+      "updated_at": "2026-05-11T22:53:19Z",
       "worktree": null
     },
     {

@@ -1,7 +1,7 @@
 {
   "agent": "codex",
-  "last_action": "Tenant nullable runtime enforcement remains blocked because TMP-053 and TMP-054 could not collect live row-count proof without documented DB credentials.",
+  "last_action": "TMP-055 blocked after live proof refresh: acquisition legacy nullable paths still have tenantless rows and subscription/cadence tenant_id columns are absent in target tables",
   "state": "checkpoint",
   "task_id": "TMP-055",
-  "updated_at": "2026-05-11T00:48:48Z"
+  "updated_at": "2026-05-11T22:53:19Z"
 }
