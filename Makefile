@@ -168,7 +168,7 @@ dev-acquisition-api: build-local-acquisition-api
 		PORT=$$((PORT + 1)); \
 	done; \
 	( cd $(ACQUISITION_API_DIR); APP_APPLICATION_PORT=$$PORT nohup ./acquisition-api > acquisition-api.log 2>&1 & echo $$! > acquisition-api.pid ); \
-	for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
+	for i in $$(seq 1 45); do \
 		if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 			break; \
 		fi; \
@@ -315,7 +315,12 @@ start-acquisition-api:
 		PORT=$$((PORT + 1)); \
 	done; \
 	( cd $(ACQUISITION_API_DIR); APP_APPLICATION_PORT=$$PORT nohup ./acquisition-api > acquisition-api.log 2>&1 & echo $$! > acquisition-api.pid ); \
-	sleep 3; \
+	for i in $$(seq 1 45); do \
+		if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Acquisition API started on port $$PORT"; \
 	else \
