@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "task_id": "TMP-058",
+  "status": "done",
+  "supervisor_decision": "done",
+  "summary": "Bootstrap admin email matching now treats missing email_verified as unknown instead of false, while still blocking explicit email_verified=false in both acquisition-api and webspa-admin.",
+  "session_id": "codex-20260511-022951",
+  "acceptance_results": [
+    {
+      "criterion": "A configured bootstrap email with no email_verified claim receives platform scope and selected tenant context.",
+      "status": "passed",
+      "evidence": [
+        "common/auth/auth0jwt/claims.go",
+        "common/auth/tenantctx/identity.go",
+        "services/acquisition-api/internal/transport/admin.go",
+        "services/acquisition-api/internal/transport/admin_test.go"
+      ],
+      "blocker": null,
+      "reason": "Claims now preserve whether email_verified was present, and admin bootstrap only blocks explicit false.",
+      "next_task_id": null
+    },
+    {
+      "criterion": "A configured bootstrap email with email_verified=false remains unscoped.",
+      "status": "passed",
+      "evidence": [
+        "services/acquisition-api/internal/transport/admin.go",
+        "services/acquisition-api/internal/transport/admin_test.go",
+        "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts"
+      ],
+      "blocker": null,
+      "reason": "Explicit false is still treated as unverified by backend and frontend tests.",
+      "next_task_id": null
+    },
+    {
+      "criterion": "The admin SPA maps configured bootstrap emails without email_verified to configured tenant workspaces.",
+      "status": "passed",
+      "evidence": [
+        "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.ts",
+        "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts"
+      ],
+      "blocker": null,
+      "reason": "resolveOptionalEmailVerified treats missing email_verified as allowed and explicit false as blocked.",
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/heartbeats/TMP-058.json",
+    ".agent/tasks.json",
+    "agent/backlog/issues/TMP-058-bootstrap-email-without-email-verified.md",
+    "agent/state/TMP-058.handoff.json",
+    "agent/state/TMP-058.work-order.json",
+    "common/auth/auth0jwt/claims.go",
+    "common/auth/auth0jwt/claims_test.go",
+    "common/auth/tenantctx/identity.go",
+    "services/acquisition-api/internal/transport/admin.go",
+    "services/acquisition-api/internal/transport/admin_test.go",
+    "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.ts",
+    "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "Live acquisition-api was rebuilt and restarted on port 8084.",
+    "Live runtime was launched with ADMIN_BOOTSTRAP_PLATFORM_EMAILS aligned to the web admin development bootstrap.",
+    "npm ci hydrated frontend/webspa-admin/node_modules for verification only; package manifests were unchanged."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Created TMP-058 defect slice and work order.",
+    "Tracked email_verified claim presence through Auth0 claims and tenant identity.",
+    "Allowed backend bootstrap platform scope when email_verified is absent, while preserving explicit false as blocked.",
+    "Aligned admin SPA tenant workspace bootstrap with the same missing-vs-false behavior.",
+    "Rebuilt and restarted live acquisition-api on port 8084 with bootstrap platform emails set."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "The authenticated browser request must be retried by the operator because the agent does not have the live Auth0 browser token."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-058 is complete: configured bootstrap emails now work when email_verified is absent, and the live acquisition-api is healthy on 8084.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "An explicit email_verified=false claim still blocks bootstrap platform scope.",
+    "The runtime bootstrap email setting is process-level for the current live start; make/system service definitions should carry ADMIN_BOOTSTRAP_PLATFORM_EMAILS for future restarts."
+  ],
+  "safe_to_continue": true,
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "cd common && go test ./auth/auth0jwt ./auth/tenantctx",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok github.com/seidu626/subscription-manager/common/auth/auth0jwt; ok github.com/seidu626/subscription-manager/common/auth/tenantctx",
+      "timestamp": "2026-05-11T02:34:00Z"
+    },
+    {
+      "command": "cd services/acquisition-api && go test ./internal/transport -run 'TestAdminRequire(AppliesBootstrapPlatformEmail|DoesNotBootstrapUnverifiedEmail)'",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok github.com/seidu626/subscription-manager/acquisition-api/internal/transport 0.262s",
+      "timestamp": "2026-05-11T02:34:00Z"
+    },
+    {
+      "command": "cd services/acquisition-api && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "all acquisition-api packages passed",
+      "timestamp": "2026-05-11T02:35:00Z"
+    },
+    {
+      "command": "cd common && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "all common packages passed",
+      "timestamp": "2026-05-11T02:35:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --include=src/app/core/services/tenant-workspace.service.spec.ts",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "Chrome Headless executed 7 of 7 SUCCESS; TOTAL: 7 SUCCESS",
+      "timestamp": "2026-05-11T02:34:37Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/TMP-058-bootstrap-email-without-email-verified.md --fail-on block",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TMP-058 classified vertical_defect_slice; assignment_decision allow; no blocking reasons.",
+      "timestamp": "2026-05-11T02:35:00Z"
+    },
+    {
+      "command": "agent-supervisor --config .harness/config.json preflight",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok true; only known superseded stale ledger warning for TMP-011-repair-1 and TMP-015-repair-1.",
+      "timestamp": "2026-05-11T02:35:00Z"
+    },
+    {
+      "command": "cd services/acquisition-api && go build -buildvcs=false -o acquisition-api ./cmd",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "build passed after disabling VCS metadata stamping for the worktree",
+      "timestamp": "2026-05-11T02:35:00Z"
+    },
+    {
+      "command": "wget -qO- http://127.0.0.1:8084/health",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "{\"status\":\"healthy\"}",
+      "timestamp": "2026-05-11T02:36:17Z"
+    }
+  ]
+}

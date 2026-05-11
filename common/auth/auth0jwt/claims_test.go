@@ -34,7 +34,7 @@ func TestClaimsUnmarshalExtractsTenantRoleAndPlatformScope(t *testing.T) {
 	if claims.Subject != "auth0|123" {
 		t.Fatalf("subject = %q", claims.Subject)
 	}
-	if claims.Email != "admin@example.com" || !claims.EmailVerified {
+	if claims.Email != "admin@example.com" || !claims.EmailVerified || !claims.EmailVerifiedSet {
 		t.Fatalf("email fields not extracted: %#v", claims)
 	}
 	if !reflect.DeepEqual(claims.Roles, []string{"tenant_admin", "platform_operator"}) {
@@ -54,7 +54,31 @@ func TestClaimsUnmarshalExtractsTenantRoleAndPlatformScope(t *testing.T) {
 	if !identity.PlatformScoped || !identity.HasRole("platform_operator") || !identity.HasPermission("platform:all_tenants") {
 		t.Fatalf("identity did not preserve role/permission/platform scope: %#v", identity)
 	}
-	if identity.Email != "admin@example.com" || !identity.EmailVerified {
+	if identity.Email != "admin@example.com" || !identity.EmailVerified || !identity.EmailVerifiedSet {
 		t.Fatalf("identity email fields = %#v", identity)
+	}
+}
+
+func TestClaimsUnmarshalTracksMissingEmailVerified(t *testing.T) {
+	raw := []byte(`{
+		"iss":"https://example.auth0.com/",
+		"sub":"auth0|123",
+		"email":"admin@example.com",
+		"aud":["api"]
+	}`)
+
+	var claims Claims
+	if err := json.Unmarshal(raw, &claims); err != nil {
+		t.Fatalf("unmarshal claims: %v", err)
+	}
+
+	if claims.Email != "admin@example.com" {
+		t.Fatalf("email = %q", claims.Email)
+	}
+	if claims.EmailVerified || claims.EmailVerifiedSet {
+		t.Fatalf("email_verified should be absent, claims = %#v", claims)
+	}
+	if identity := claims.Identity(); identity.EmailVerified || identity.EmailVerifiedSet {
+		t.Fatalf("identity email_verified should be absent, identity = %#v", identity)
 	}
 }

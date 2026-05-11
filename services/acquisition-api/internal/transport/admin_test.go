@@ -84,6 +84,45 @@ func TestAdminRequireAppliesBootstrapPlatformEmailAndSelectedTenant(t *testing.T
 	}
 }
 
+func TestAdminRequireAppliesBootstrapPlatformEmailWhenEmailVerifiedMissing(t *testing.T) {
+	privateKey := mustAdminRSAKey(t)
+	validator, err := auth0jwt.NewWithKeyfunc("example.auth0.com", "api", func(token *jwt.Token) (any, error) {
+		return &privateKey.PublicKey, nil
+	})
+	if err != nil {
+		t.Fatalf("new validator: %v", err)
+	}
+	access := &adminAccess{
+		validator: validator,
+		bootstrapPlatformEmails: map[string]struct{}{
+			"almauricin@gmail.com": {},
+		},
+	}
+	token := mustAdminToken(t, privateKey, jwt.MapClaims{
+		"iss":   "https://example.auth0.com/",
+		"aud":   []string{"api"},
+		"sub":   "auth0|bootstrap-admin",
+		"email": "almauricin@gmail.com",
+		"iat":   time.Now().Unix(),
+		"exp":   time.Now().Add(time.Hour).Unix(),
+	})
+
+	var ctx fasthttp.RequestCtx
+	ctx.Request.Header.Set("Authorization", "Bearer "+token)
+	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "nrg")
+
+	if !access.require(&ctx) {
+		t.Fatalf("expected admin auth to pass, status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	identity := ctx.UserValue(tenantctx.FastHTTPUserValueKey).(tenantctx.Identity)
+	if !identity.PlatformScoped || !identity.HasPermission("platform:all_tenants") || identity.TenantKey != "nrg" {
+		t.Fatalf("identity = %#v", identity)
+	}
+	if identity.EmailVerifiedSet {
+		t.Fatalf("email_verified should be absent, identity = %#v", identity)
+	}
+}
+
 func TestAdminRequireIgnoresSelectedTenantHeaderForUnscopedIdentity(t *testing.T) {
 	privateKey := mustAdminRSAKey(t)
 	validator, err := auth0jwt.NewWithKeyfunc("example.auth0.com", "api", func(token *jwt.Token) (any, error) {

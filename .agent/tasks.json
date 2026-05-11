@@ -4862,6 +4862,111 @@
       ],
       "updated_at": "2026-05-11T02:26:42Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "agent/state/TMP-058.handoff.json"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": "verified in focused backend/frontend tests",
+          "status": "passed",
+          "text": "Configured bootstrap email with no email_verified claim receives platform scope and selected tenant context."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "agent/state/TMP-058.handoff.json"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": "verified in focused backend/frontend tests",
+          "status": "passed",
+          "text": "Configured bootstrap email with email_verified=false remains unscoped."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "agent/state/TMP-058.handoff.json"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": "verified in focused backend/frontend tests",
+          "status": "passed",
+          "text": "Admin SPA maps configured bootstrap emails without email_verified to tenant workspaces."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Tracked email_verified claim presence in common Auth0 claims and tenant identity.",
+        "Allowed bootstrap platform email matching when email_verified is absent, while preserving explicit false as blocked.",
+        "Aligned admin SPA bootstrap tenant workspace resolution with backend absent-vs-false email_verified handling.",
+        "Recorded accepted handoff artifacts for TMP-058."
+      ],
+      "created_at": "2026-05-11T02:32:08Z",
+      "details": "Allow configured bootstrap admin emails to receive platform tenant workspaces when Auth0 omits email_verified, while still blocking explicit email_verified=false.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "cd common && go test ./...",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:35:00Z"
+          },
+          {
+            "command": "cd services/acquisition-api && go test ./...",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:35:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --include=src/app/core/services/tenant-workspace.service.spec.ts",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:34:37Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/TMP-058-bootstrap-email-without-email-verified.md --fail-on block",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:35:00Z"
+          },
+          {
+            "command": "wget -qO- http://127.0.0.1:8084/health",
+            "status": "passed",
+            "timestamp": "2026-05-11T02:36:17Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/TMP-058.json",
+          ".agent/tasks.json",
+          "agent/backlog/issues/TMP-058-bootstrap-email-without-email-verified.md",
+          "agent/state/TMP-058.handoff.json",
+          "agent/state/TMP-058.work-order.json",
+          "common/auth/auth0jwt/claims.go",
+          "common/auth/auth0jwt/claims_test.go",
+          "common/auth/tenantctx/identity.go",
+          "services/acquisition-api/internal/transport/admin.go",
+          "services/acquisition-api/internal/transport/admin_test.go",
+          "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.ts",
+          "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts"
+        ]
+      },
+      "goal": "",
+      "id": "TMP-058",
+      "owner": "codex",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Bootstrap admin email without email_verified claim",
+      "unresolved": [],
+      "updated_at": "2026-05-11T02:40:10Z",
+      "worktree": null
     }
   ],
   "version": 1

@@ -113,7 +113,7 @@ func (a *adminAccess) applyBootstrapPlatformScope(identity tenantctx.Identity) t
 	if identity.PlatformScoped || len(a.bootstrapPlatformEmails) == 0 {
 		return identity
 	}
-	if !identity.EmailVerified {
+	if identity.EmailVerifiedSet && !identity.EmailVerified {
 		return identity
 	}
 	email := strings.TrimSpace(strings.ToLower(identity.Email))
