@@ -1,0 +1,54 @@
+story:
+  id: TMP-056
+  title: "Acquisition startup applies postback tenant routing"
+  actor: "platform operator"
+  action: "start acquisition-api and let the postback dispatcher poll"
+  outcome: "postback dispatcher polling does not fail on missing tenant-aware outbox columns"
+  as_a: "platform operator"
+  i_want_to: "start acquisition-api and let the postback dispatcher poll"
+  so_that: "runtime verification is blocked by real postback delivery failures rather than omitted tenant-routing schema"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Tenant-routing migration is in startup bootstrap"
+      given:
+        - "acquisition-api startup runs AdminManagementRepository.EnsureSchema"
+        - "PostbackRepository selects tenant_id, channel_id, and failure_reason from postback_outbox"
+      when: "the service-local bootstrap migration list is evaluated"
+      then: "add_tenant_postback_routing.sql is included before the dispatcher can poll"
+      evidence: "repository unit test asserts the default bootstrap path includes the migration"
+  failures:
+    - scenario: "Missing outbox tenant columns"
+      given:
+        - "postback_outbox exists without tenant_id"
+      when: "PostbackRepository.ClaimPendingPostbacks runs"
+      then: "the defect is prevented by applying add_tenant_postback_routing.sql at startup"
+      evidence: "migration content test asserts tenant_id, channel_id, and failure_reason are added"
+    - scenario: "Duplicate postback DDL"
+      given:
+        - "subscription-external contains legacy duplicate postback DDL"
+      when: "the startup bootstrap is updated"
+      then: "no subscription-external postback DDL is added"
+      evidence: "code review and manifest scope keep the canonical acquisition-owned migration"
+  edges:
+    - scenario: "Idempotent rerun"
+      given:
+        - "tenant postback routing may already be applied"
+      when: "startup bootstrap runs again"
+      then: "migration remains safe through IF NOT EXISTS columns and indexes"
+      evidence: "migration content test asserts additive IF NOT EXISTS schema"
+  invariants:
+    - rule: "The dispatcher must not poll columns that startup bootstrap has not provisioned."
+      preserved_by: "adding tenant postback routing to the default acquisition startup migration sequence"
+      violated_when: "AdminManagementRepository.EnsureSchema omits add_tenant_postback_routing.sql"
+      test: "TestDefaultAdminManagementSchemaPathsIncludePostbackTenantRouting"
+
+out_of_scope:
+  - "remote database mutation"
+  - "subscription-external postback DDL"
+  - "tenantless fallback query paths"
+
+size_check:
+  files_touched: 6
+  migrations: 0
+  endpoints: 0

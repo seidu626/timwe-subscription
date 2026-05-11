@@ -1,0 +1,78 @@
+{
+  "work_order_id": "WO-TMP-056-001",
+  "issue_id": "TMP-056",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": false,
+  "assignment_decision": "review",
+  "vertical_outcome": "acquisition-api starts without postback dispatcher missing-column errors after admin schema bootstrap completes.",
+  "actor": "platform-operator",
+  "entrypoint": "acquisition-api startup schema bootstrap and postback dispatcher polling",
+  "trigger": "Acquisition API log shows Admin management schema bootstrap completed, then postback dispatcher polling fails because postback_outbox.tenant_id is missing.",
+  "allowed_files": [
+    "agent/backlog/issues/TMP-056-acquisition-postback-tenant-routing-bootstrap.md",
+    "agent/state/TMP-056.work-order.json",
+    "agent/state/TMP-056.handoff.json",
+    "services/acquisition-api/internal/repository/admin_management_schema.go",
+    "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+    "slices/manifest.json",
+    "slices/TMP-056-acquisition-postback-tenant-routing-bootstrap/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**/go.mod",
+    "services/**/go.sum",
+    "docker-compose*.yml",
+    "services/subscription-external/**"
+  ],
+  "acceptance_tests": [
+    "Acquisition startup bootstrap includes the canonical add_tenant_postback_routing.sql migration.",
+    "The bootstrap order preserves the single canonical postback path documented by TMP-045 and does not run subscription-external duplicate postback DDL.",
+    "Repository tests assert the migration is included and that the migration adds tenant_id, channel_id, and failure_reason columns required by PostbackRepository."
+  ],
+  "required_evidence": [
+    "tail -200 services/acquisition-api/acquisition-api.log shows pq: column \"tenant_id\" does not exist on postback_outbox",
+    "cd services/acquisition-api && go test ./internal/repository",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "non_goals": [
+    "Do not mutate a remote database directly in the agent session.",
+    "Do not add subscription-external postback DDL to acquisition startup.",
+    "Do not introduce compatibility or fallback query paths for tenantless postbacks."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-056",
+    "title": "Acquisition postback tenant routing bootstrap",
+    "path": "agent/backlog/issues/TMP-056-acquisition-postback-tenant-routing-bootstrap.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 92,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "review",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [
+      "broadness_signal:complete"
+    ],
+    "schema_errors": [],
+    "recommended_action": {
+      "consider_split": true,
+      "broadness_signals": [
+        "complete"
+      ]
+    }
+  }
+}

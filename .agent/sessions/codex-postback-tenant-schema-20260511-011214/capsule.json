@@ -1,0 +1,11 @@
+{
+  "blockers": [],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-postback-tenant-schema-20260511-011214",
+  "status": "done",
+  "summary": "Aligned acquisition-api service-local startup bootstrap with the canonical postback migration path so the in-process dispatcher does not poll tenant-aware postback_outbox columns before they exist.",
+  "task_id": "TMP-056",
+  "unfinished_work": [],
+  "written_at": "2026-05-11T01:17:03Z"
+}

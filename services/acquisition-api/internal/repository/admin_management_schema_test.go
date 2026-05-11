@@ -225,6 +225,47 @@ func TestTenantAcquisitionFlowMigrationDropsLegacyCampaignSlugForeignKeys(t *tes
 	}
 }
 
+func TestDefaultAdminManagementSchemaPathsIncludePostbackTenantRouting(t *testing.T) {
+	createPath := "migrations/create_postback_tables.sql"
+	routingPath := "migrations/add_tenant_postback_routing.sql"
+
+	createIndex := indexOfString(defaultAdminManagementSchemaPaths, createPath)
+	if createIndex < 0 {
+		t.Fatalf("default schema bootstrap missing %q", createPath)
+	}
+	routingIndex := indexOfString(defaultAdminManagementSchemaPaths, routingPath)
+	if routingIndex < 0 {
+		t.Fatalf("default schema bootstrap missing %q", routingPath)
+	}
+	if createIndex > routingIndex {
+		t.Fatalf("postback table migration must run before tenant routing migration: %v", defaultAdminManagementSchemaPaths)
+	}
+}
+
+func TestTenantPostbackRoutingMigrationAddsColumnsUsedByRepository(t *testing.T) {
+	migrationPath := filepath.Join("..", "..", "migrations", "add_tenant_postback_routing.sql")
+	body, err := os.ReadFile(migrationPath)
+	if err != nil {
+		t.Fatalf("failed to read migration: %v", err)
+	}
+	sql := string(body)
+
+	required := []string{
+		"ALTER TABLE postback_outbox",
+		"ADD COLUMN IF NOT EXISTS tenant_id UUID",
+		"ADD COLUMN IF NOT EXISTS channel_id UUID",
+		"ADD COLUMN IF NOT EXISTS failure_reason TEXT",
+		"idx_postback_outbox_tenant_status_retry",
+		"idx_postback_outbox_tenant_transaction",
+		"idx_postback_outbox_tenant_channel",
+	}
+	for _, want := range required {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("migration missing %q", want)
+		}
+	}
+}
+
 func writeTempMigration(t *testing.T, sql string) string {
 	t.Helper()
 
@@ -233,6 +274,15 @@ func writeTempMigration(t *testing.T, sql string) string {
 		t.Fatalf("failed to write temp migration: %v", err)
 	}
 	return path
+}
+
+func indexOfString(values []string, target string) int {
+	for i, value := range values {
+		if value == target {
+			return i
+		}
+	}
+	return -1
 }
 
 func expectRelationExists(mock sqlmock.Sqlmock, relation string) {
