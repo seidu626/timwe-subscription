@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -110,6 +111,129 @@ func (r *AdminManagementRepository) GetTenantByKey(key string) (*domain.AdminTen
 		}
 		return nil, fmt.Errorf("failed to get tenant by key: %w", err)
 	}
+	return tenant, nil
+}
+
+func (r *AdminManagementRepository) ListTenants(filter *domain.TenantListFilter) ([]*domain.AdminTenant, int, error) {
+	if filter == nil {
+		filter = &domain.TenantListFilter{Limit: 20}
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+
+	where := []string{"1 = 1"}
+	args := []any{}
+	argN := 1
+	if status := domain.TenantStatus(strings.ToUpper(strings.TrimSpace(string(filter.Status)))); status != "" {
+		where = append(where, fmt.Sprintf("status = $%d", argN))
+		args = append(args, status)
+		argN++
+	}
+	if q := strings.TrimSpace(filter.Query); q != "" {
+		where = append(where, fmt.Sprintf("(LOWER(tenant_key) LIKE LOWER($%d) OR LOWER(name) LIKE LOWER($%d))", argN, argN))
+		args = append(args, "%"+q+"%")
+		argN++
+	}
+	whereSQL := strings.Join(where, " AND ")
+
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM tenants WHERE %s`, whereSQL)
+	var total int
+	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count tenants: %w", err)
+	}
+
+	args = append(args, filter.Limit, filter.Offset)
+	query := fmt.Sprintf(`
+		SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at
+		FROM tenants
+		WHERE %s
+		ORDER BY created_at DESC, tenant_key ASC
+		LIMIT $%d OFFSET $%d
+	`, whereSQL, argN, argN+1)
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list tenants: %w", err)
+	}
+	defer rows.Close()
+
+	tenants := make([]*domain.AdminTenant, 0)
+	for rows.Next() {
+		tenant, err := scanTenant(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan tenant: %w", err)
+		}
+		tenants = append(tenants, tenant)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed to iterate tenants: %w", err)
+	}
+	return tenants, total, nil
+}
+
+func (r *AdminManagementRepository) UpdateTenantWithActivityLog(id string, input *domain.TenantUpdateInput, entry *domain.AdminActivityLog) (*domain.AdminTenant, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin tenant update tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var metadata any
+	if input.Metadata != nil {
+		metadata = tenantMetadataJSON(*input.Metadata)
+	}
+	query := `
+		UPDATE tenants
+		SET
+			name = COALESCE($2, name),
+			status = COALESCE($3, status),
+			default_country = COALESCE($4, default_country),
+			metadata_json = COALESCE($5, metadata_json),
+			updated_at = NOW()
+		WHERE id = $1
+		RETURNING id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at
+	`
+	tenant, err := scanTenant(tx.QueryRow(
+		query,
+		id,
+		nullableStringPtr(input.Name),
+		nullableTenantStatusPtr(input.Status),
+		nullableStringPtr(input.DefaultCountry),
+		metadata,
+	))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, fmt.Errorf("failed to update tenant: %w", err)
+	}
+
+	if entry != nil {
+		entry.EntityType = "tenant"
+		entry.EntityID = tenant.ID
+		entry.TenantID = tenant.ID
+		if len(entry.AfterJSON) == 0 {
+			if after, marshalErr := json.Marshal(tenant); marshalErr == nil {
+				entry.AfterJSON = after
+			}
+		}
+		if err := createActivityLog(tx, entry); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit tenant update tx: %w", err)
+	}
+	committed = true
 	return tenant, nil
 }
 
@@ -1144,6 +1268,17 @@ func nullableStringPtr(value *string) any {
 		return nil
 	}
 	return nullableString(*value)
+}
+
+func nullableTenantStatusPtr(value *domain.TenantStatus) any {
+	if value == nil {
+		return nil
+	}
+	status := domain.TenantStatus(strings.ToUpper(strings.TrimSpace(string(*value))))
+	if status == "" {
+		return nil
+	}
+	return status
 }
 
 func tenantMetadataJSON(data []byte) string {

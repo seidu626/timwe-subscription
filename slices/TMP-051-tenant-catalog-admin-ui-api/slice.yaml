@@ -1,0 +1,52 @@
+story:
+  id: "TMP-051"
+  title: "Operators can list and update tenant catalog records"
+  actor: "operator"
+  action: "open the tenant catalog admin route"
+  outcome: "tenant records can be inspected and updated through guarded admin UI and API"
+  as_a: "operator"
+  i_want_to: "list and update tenant catalog records"
+  so_that: "tenant lifecycle state is operationally visible after nrg becomes canonical"
+
+entrypoints:
+  - "GET /v1/admin/tenants"
+  - "PATCH /v1/admin/tenants/{id}"
+  - "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.ts"
+
+acceptance_criteria:
+  happy:
+    - scenario: "Operator lists tenants"
+      given: ["operator identity is platform scoped"]
+      when: "GET /v1/admin/tenants is called"
+      then: "tenant catalog records are returned with paging metadata"
+      evidence: "handler, repository, service, and Angular service tests"
+    - scenario: "Operator updates tenant lifecycle fields"
+      given: ["operator selects an existing tenant"]
+      when: "PATCH /v1/admin/tenants/{id} submits name/status/default_country/metadata"
+      then: "tenant is updated and audit_log_id is returned"
+      evidence: "handler, repository, service, and Angular component tests"
+  failures:
+    - scenario: "Tenant-scoped admin attempts catalog access"
+      given: ["identity is tenant scoped"]
+      when: "tenant list or update is requested"
+      then: "the backend returns forbidden without repository mutation"
+      evidence: "service and handler tests"
+  invariants:
+    - rule: "tenant catalog routes remain guarded"
+      preserved_by: "route is mounted under DefaultLayoutComponent canActivateChild tenantWorkspaceGuard"
+      violated_when: "tenant catalog UI bypasses workspace route protection"
+      test: "Angular route wiring and existing guard tests"
+
+out_of_scope:
+  - "new membership tables"
+  - "tenant migration script changes"
+  - "remote database mutation"
+
+size_check:
+  files_touched: 21
+  migrations: 0
+  endpoints: 2
+
+value_gate:
+  required_verdict: "PASS before implementation handoff"
+  report_path: "slices/TMP-051-tenant-catalog-admin-ui-api/value-gate-report.md"

@@ -128,6 +128,66 @@ func (s *AdminManagementService) CreateTenant(input *domain.TenantCreateInput, i
 	return tenant, auditID, nil
 }
 
+func (s *AdminManagementService) ListTenants(identity tenantctx.Identity, filter *domain.TenantListFilter) ([]*domain.AdminTenant, int, error) {
+	if !identity.PlatformScoped {
+		return nil, 0, ErrAdminForbidden
+	}
+	if filter == nil {
+		filter = &domain.TenantListFilter{Limit: 20}
+	}
+	filter.Status = domain.TenantStatus(strings.ToUpper(strings.TrimSpace(string(filter.Status))))
+	if filter.Status != "" && filter.Status != domain.TenantStatusActive && filter.Status != domain.TenantStatusInactive {
+		return nil, 0, fmt.Errorf("%w: status must be ACTIVE or INACTIVE", ErrInvalidInput)
+	}
+	filter.Query = strings.TrimSpace(filter.Query)
+	return s.repo.ListTenants(filter)
+}
+
+func (s *AdminManagementService) UpdateTenant(id string, input *domain.TenantUpdateInput, identity tenantctx.Identity, actor, requestID *string) (*domain.AdminTenant, string, error) {
+	if !identity.PlatformScoped {
+		return nil, "", ErrAdminForbidden
+	}
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return nil, "", fmt.Errorf("%w: tenant id is required", ErrInvalidInput)
+	}
+	if err := validateTenantUpdateInput(input); err != nil {
+		return nil, "", err
+	}
+
+	before, err := s.repo.GetTenantByID(id)
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return nil, "", ErrAdminNotFound
+		}
+		return nil, "", err
+	}
+
+	auditID := uuid.NewString()
+	entry := &domain.AdminActivityLog{
+		ID:         auditID,
+		TenantID:   before.ID,
+		Action:     "update",
+		Actor:      actor,
+		RequestID:  requestID,
+		BeforeJSON: mustJSON(before),
+		AfterJSON:  mustJSON(input),
+		Metadata: mustJSON(map[string]any{
+			"tenant_key": before.TenantKey,
+		}),
+		CreatedAt: time.Now().UTC(),
+	}
+	tenant, err := s.repo.UpdateTenantWithActivityLog(id, input, entry)
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return nil, "", ErrAdminNotFound
+		}
+		return nil, "", err
+	}
+	entry.AfterJSON = mustJSON(tenant)
+	return tenant, auditID, nil
+}
+
 func (s *AdminManagementService) ResolveCurrentTenant(identity tenantctx.Identity) (*domain.AdminTenant, error) {
 	if !identity.HasTenant() {
 		return nil, ErrTenantContextMissing
@@ -961,6 +1021,58 @@ func validateTenantCreateInput(input *domain.TenantCreateInput) error {
 	}
 	if metadata == nil {
 		return fmt.Errorf("%w: metadata must be a JSON object", ErrInvalidInput)
+	}
+	return nil
+}
+
+func validateTenantUpdateInput(input *domain.TenantUpdateInput) error {
+	if input == nil {
+		return fmt.Errorf("%w: tenant payload is required", ErrInvalidInput)
+	}
+	hasChange := false
+	if input.Name != nil {
+		name := strings.TrimSpace(*input.Name)
+		if name == "" {
+			return fmt.Errorf("%w: name is required", ErrInvalidInput)
+		}
+		input.Name = &name
+		hasChange = true
+	}
+	if input.Status != nil {
+		status := domain.TenantStatus(strings.ToUpper(strings.TrimSpace(string(*input.Status))))
+		if status != domain.TenantStatusActive && status != domain.TenantStatusInactive {
+			return fmt.Errorf("%w: status must be ACTIVE or INACTIVE", ErrInvalidInput)
+		}
+		input.Status = &status
+		hasChange = true
+	}
+	if input.DefaultCountry != nil {
+		country := strings.ToUpper(strings.TrimSpace(*input.DefaultCountry))
+		if !tenantCountryRe.MatchString(country) {
+			return fmt.Errorf("%w: default_country must be an ISO 3166-1 alpha-2 code", ErrInvalidInput)
+		}
+		input.DefaultCountry = &country
+		hasChange = true
+	}
+	if input.Metadata != nil {
+		if len(*input.Metadata) == 0 {
+			metadata := json.RawMessage(`{}`)
+			input.Metadata = &metadata
+		}
+		if len(*input.Metadata) > 8192 {
+			return fmt.Errorf("%w: metadata must be 8192 bytes or less", ErrInvalidInput)
+		}
+		var metadata map[string]any
+		if err := json.Unmarshal(*input.Metadata, &metadata); err != nil {
+			return fmt.Errorf("%w: metadata must be a JSON object", ErrInvalidInput)
+		}
+		if metadata == nil {
+			return fmt.Errorf("%w: metadata must be a JSON object", ErrInvalidInput)
+		}
+		hasChange = true
+	}
+	if !hasChange {
+		return fmt.Errorf("%w: at least one tenant field is required", ErrInvalidInput)
 	}
 	return nil
 }

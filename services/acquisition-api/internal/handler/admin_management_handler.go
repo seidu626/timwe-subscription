@@ -102,6 +102,26 @@ type tenantCreateResponse struct {
 	AuditLogID string `json:"audit_log_id"`
 }
 
+type tenantUpdatePayload struct {
+	Name           *string          `json:"name,omitempty"`
+	Status         *string          `json:"status,omitempty"`
+	DefaultCountry *string          `json:"default_country,omitempty"`
+	Metadata       *json.RawMessage `json:"metadata,omitempty"`
+	PerformedBy    string           `json:"performed_by,omitempty"`
+}
+
+type tenantListResponse struct {
+	Tenants    []*domain.AdminTenant `json:"tenants"`
+	TotalCount int                   `json:"total_count"`
+	Page       int                   `json:"page"`
+	PageSize   int                   `json:"page_size"`
+}
+
+type tenantUpdateResponse struct {
+	*domain.AdminTenant
+	AuditLogID string `json:"audit_log_id"`
+}
+
 func (h *AdminManagementHandler) CreateTenant(ctx *fasthttp.RequestCtx) {
 	identity, ok := tenantIdentityFromRequest(ctx)
 	if !ok {
@@ -131,6 +151,74 @@ func (h *AdminManagementHandler) CreateTenant(ctx *fasthttp.RequestCtx) {
 	}
 
 	writeJSON(ctx, fasthttp.StatusCreated, tenantCreateResponse{
+		AdminTenant: tenant,
+		AuditLogID:  auditLogID,
+	})
+}
+
+func (h *AdminManagementHandler) ListTenants(ctx *fasthttp.RequestCtx) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+	page, pageSize := parsePageArgs(ctx, 20, 200)
+	tenants, total, err := h.service.ListTenants(identity, &domain.TenantListFilter{
+		Limit:  pageSize,
+		Offset: (page - 1) * pageSize,
+		Status: domain.TenantStatus(strings.TrimSpace(string(ctx.QueryArgs().Peek("status")))),
+		Query:  strings.TrimSpace(string(ctx.QueryArgs().Peek("q"))),
+	})
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, tenantListResponse{
+		Tenants:    tenants,
+		TotalCount: total,
+		Page:       page,
+		PageSize:   pageSize,
+	})
+}
+
+func (h *AdminManagementHandler) UpdateTenant(ctx *fasthttp.RequestCtx) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+	tenantID, err := parseTenantIDFromPath(string(ctx.Path()))
+	if err != nil {
+		ctx.Error("Invalid tenant id", fasthttp.StatusBadRequest)
+		return
+	}
+	var req tenantUpdatePayload
+	decoder := json.NewDecoder(bytes.NewReader(ctx.PostBody()))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+
+	var status *domain.TenantStatus
+	if req.Status != nil {
+		value := domain.TenantStatus(*req.Status)
+		status = &value
+	}
+	input := &domain.TenantUpdateInput{
+		Name:           req.Name,
+		Status:         status,
+		DefaultCountry: req.DefaultCountry,
+		Metadata:       req.Metadata,
+	}
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
+	requestID := requestIDFromHeader(ctx)
+	tenant, auditLogID, err := h.service.UpdateTenant(tenantID, input, identity, actor, requestID)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, tenantUpdateResponse{
 		AdminTenant: tenant,
 		AuditLogID:  auditLogID,
 	})
@@ -754,6 +842,18 @@ func parseProductIDFromPath(path string) (int, error) {
 		return 0, errors.New("invalid path")
 	}
 	return strconv.Atoi(parts[len(parts)-1])
+}
+
+func parseTenantIDFromPath(path string) (string, error) {
+	parts := splitPathParts(path)
+	if len(parts) < 4 {
+		return "", errors.New("invalid path")
+	}
+	id := strings.TrimSpace(parts[len(parts)-1])
+	if id == "" || id == "current" {
+		return "", errors.New("missing tenant id")
+	}
+	return id, nil
 }
 
 func parseMSISDNFromPath(path string) (string, error) {

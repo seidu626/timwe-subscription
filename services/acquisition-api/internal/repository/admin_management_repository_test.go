@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"testing"
@@ -109,6 +110,80 @@ func TestCreateTenantWithActivityLogMapsDuplicateKeyConflict(t *testing.T) {
 	}, nil)
 	if !errors.Is(err, ErrAdminConflict) {
 		t.Fatalf("expected ErrAdminConflict, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListTenantsReturnsCatalogRows(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*) FROM tenants WHERE")).
+		WithArgs(domain.TenantStatusActive, "%nrg%").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs(domain.TenantStatusActive, "%nrg%", 25, 0).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow("22222222-2222-2222-2222-222222222222", "nrg", "NRG", domain.TenantStatusActive, "GH", []byte(`{"kind":"canonical-default"}`), now, now))
+
+	tenants, total, err := repo.ListTenants(&domain.TenantListFilter{
+		Limit:  25,
+		Status: domain.TenantStatusActive,
+		Query:  "nrg",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if total != 1 || len(tenants) != 1 || tenants[0].TenantKey != "nrg" {
+		t.Fatalf("unexpected tenant list: total=%d tenants=%#v", total, tenants)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateTenantWithActivityLogMutatesCatalogAndAudits(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	name := "NRG Prime"
+	status := domain.TenantStatusActive
+	country := "GH"
+	metadata := json.RawMessage(`{"tier":"gold"}`)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("UPDATE tenants")).
+		WithArgs(tenantID, name, status, country, `{"tier":"gold"}`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "nrg", "NRG Prime", domain.TenantStatusActive, "GH", []byte(`{"tier":"gold"}`), now, now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	updated, err := repo.UpdateTenantWithActivityLog(tenantID, &domain.TenantUpdateInput{
+		Name:           &name,
+		Status:         &status,
+		DefaultCountry: &country,
+		Metadata:       &metadata,
+	}, &domain.AdminActivityLog{ID: "11111111-1111-1111-1111-111111111111", Action: "update"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if updated.Name != "NRG Prime" || updated.TenantKey != "nrg" {
+		t.Fatalf("unexpected tenant: %#v", updated)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

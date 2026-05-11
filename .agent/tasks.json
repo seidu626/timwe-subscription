@@ -4027,29 +4027,146 @@
       "worktree": null
     },
     {
-      "acceptance_criteria": [],
-      "attempts": 0,
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "GET /v1/admin/tenants",
+            "services/acquisition-api/internal/handler/admin_management_tenant_test.go",
+            "services/acquisition-api/internal/repository/admin_management_repository_test.go"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Operator-scoped admin can list tenants with status/default country metadata."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "PATCH /v1/admin/tenants/{id}",
+            "services/acquisition-api/internal/service/admin_management_service_test.go",
+            "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.spec.ts"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Operator-scoped admin can update tenant status/name/default country/metadata."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "TestListTenantsRejectsTenantScopedAdmin",
+            "TestUpdateTenantRejectsTenantScopedAdmin",
+            "TestListTenantsRequiresPlatformScope",
+            "TestUpdateTenantRequiresPlatformScope"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Tenant-scoped admin cannot list or mutate tenant catalog."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/app.routes.ts",
+            "frontend/webspa-admin/src/app/layout/default-layout/_nav.ts",
+            "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html"
+          ],
+          "id": "AC-4",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "webspa-admin exposes tenant catalog navigation and tenant catalog states without bypassing tenant workspace guards."
+        }
+      ],
+      "attempts": 1,
       "blockers": [],
       "branch": null,
       "children": [],
-      "completed": [],
+      "completed": [
+        "Added operator-only GET /v1/admin/tenants and PATCH /v1/admin/tenants/{id}.",
+        "Added guarded webspa-admin tenant catalog route, navigation, service, model, UI, and tests.",
+        "Added TMP-051 domain brief, slice yaml, value gate report, and manifest entry.",
+        "Added ListTenants and UpdateTenant service/repository methods behind the existing admin management module.",
+        "Added GET /v1/admin/tenants and PATCH /v1/admin/tenants/{id} routes with platform-scope authorization.",
+        "Added webspa-admin tenant catalog route, navigation item, service, model, list/update UI, and unit tests.",
+        "Recorded TMP-051 domain brief, slice yaml, value gate report, manifest entry, and handoff."
+      ],
       "created_at": "2026-05-10T23:51:23Z",
       "details": "created from handoff.next_tasks",
       "evidence": {
-        "commands": [],
+        "commands": [
+          {
+            "command": "cd services/acquisition-api && go test ./internal/handler ./internal/service ./internal/repository ./internal/transport",
+            "exit_code": 0,
+            "output_excerpt": "ok internal/handler; ok internal/service; ok internal/repository; ok internal/transport",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:05:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+            "exit_code": 0,
+            "output_excerpt": "TOTAL: 93 SUCCESS",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:05:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm run build",
+            "exit_code": 0,
+            "output_excerpt": "Application bundle generation complete; existing campaign SCSS budget warning",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:06:09Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-051 assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:05:00Z"
+          },
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; only known stale superseded ledger warning",
+            "status": "passed",
+            "timestamp": "2026-05-11T00:05:00Z"
+          }
+        ],
         "commits": [],
-        "files": []
+        "files": [
+          "services/acquisition-api/internal/domain/admin_management.go",
+          "services/acquisition-api/internal/repository/admin_management_repository.go",
+          "services/acquisition-api/internal/repository/admin_management_repository_test.go",
+          "services/acquisition-api/internal/service/admin_management_service.go",
+          "services/acquisition-api/internal/service/admin_management_service_test.go",
+          "services/acquisition-api/internal/handler/admin_management_handler.go",
+          "services/acquisition-api/internal/handler/admin_management_tenant_test.go",
+          "services/acquisition-api/internal/transport/router.go",
+          "frontend/webspa-admin/src/app/app.routes.ts",
+          "frontend/webspa-admin/src/app/layout/default-layout/_nav.ts",
+          "frontend/webspa-admin/src/app/features/+state/models/tenant.model.ts",
+          "frontend/webspa-admin/src/app/features/+state/services/tenant.service.ts",
+          "frontend/webspa-admin/src/app/features/+state/services/tenant.service.spec.ts",
+          "frontend/webspa-admin/src/app/features/tenant/**",
+          "slices/manifest.json",
+          "slices/TMP-051-tenant-catalog-admin-ui-api/**",
+          "agent/state/TMP-051.handoff.json",
+          ".agent/tasks.json"
+        ]
       },
       "goal": "",
       "id": "TMP-051",
-      "owner": null,
+      "owner": "codex",
       "parent_id": "T-TMP-050",
       "priority": 0,
       "review_findings": [],
-      "status": "queued",
+      "status": "done",
       "title": "Tenant management admin list/update UI and API",
       "unresolved": [],
-      "updated_at": "2026-05-10T23:51:23Z",
+      "updated_at": "2026-05-11T00:09:14Z",
       "worktree": null
     },
     {

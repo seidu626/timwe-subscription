@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -55,6 +56,84 @@ func TestValidateTenantCreateInputNormalizesAndRejectsInvalidMetadata(t *testing
 	input.Metadata = []byte(`null`)
 	if err := validateTenantCreateInput(input); err == nil || !strings.Contains(err.Error(), "metadata must be a JSON object") {
 		t.Fatalf("expected metadata object error, got %v", err)
+	}
+}
+
+func TestListTenantsRequiresPlatformScope(t *testing.T) {
+	svc := NewAdminManagementService(nil, zap.NewNop())
+	_, _, err := svc.ListTenants(tenantctx.Identity{TenantKey: "nrg"}, &domain.TenantListFilter{})
+	if !errors.Is(err, ErrAdminForbidden) {
+		t.Fatalf("expected ErrAdminForbidden, got %v", err)
+	}
+}
+
+func TestValidateTenantUpdateInputNormalizesPartialPatch(t *testing.T) {
+	name := "  NRG Prime  "
+	status := domain.TenantStatus("inactive")
+	country := "gh"
+	metadata := json.RawMessage(`{"tier":"gold"}`)
+	input := &domain.TenantUpdateInput{
+		Name:           &name,
+		Status:         &status,
+		DefaultCountry: &country,
+		Metadata:       &metadata,
+	}
+	if err := validateTenantUpdateInput(input); err != nil {
+		t.Fatalf("expected valid input, got %v", err)
+	}
+	if *input.Name != "NRG Prime" || *input.Status != domain.TenantStatusInactive || *input.DefaultCountry != "GH" {
+		t.Fatalf("input not normalized: %#v", input)
+	}
+
+	invalid := json.RawMessage(`[]`)
+	input = &domain.TenantUpdateInput{Metadata: &invalid}
+	if err := validateTenantUpdateInput(input); err == nil || !strings.Contains(err.Error(), "metadata must be a JSON object") {
+		t.Fatalf("expected metadata object error, got %v", err)
+	}
+}
+
+func TestUpdateTenantRequiresPlatformScope(t *testing.T) {
+	svc := NewAdminManagementService(nil, zap.NewNop())
+	name := "NRG Prime"
+	_, _, err := svc.UpdateTenant("22222222-2222-2222-2222-222222222222", &domain.TenantUpdateInput{Name: &name}, tenantctx.Identity{TenantKey: "nrg"}, nil, nil)
+	if !errors.Is(err, ErrAdminForbidden) {
+		t.Fatalf("expected ErrAdminForbidden, got %v", err)
+	}
+}
+
+func TestUpdateTenantAuditsCatalogChange(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	name := "NRG Prime"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs(tenantID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "nrg", "NRG", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("UPDATE tenants")).
+		WithArgs(tenantID, name, nil, nil, nil).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "nrg", "NRG Prime", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	svc := NewAdminManagementService(repository.NewAdminManagementRepository(db, zap.NewNop()), zap.NewNop())
+	tenant, auditID, err := svc.UpdateTenant(tenantID, &domain.TenantUpdateInput{Name: &name}, tenantctx.Identity{PlatformScoped: true, Subject: "auth0|operator"}, nil, nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if tenant.Name != "NRG Prime" || auditID == "" {
+		t.Fatalf("unexpected result: tenant=%#v auditID=%q", tenant, auditID)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
 	}
 }
 

@@ -33,6 +33,22 @@ type TenantCreateInput struct {
 	Metadata       json.RawMessage
 }
 
+// TenantUpdateInput contains optional tenant catalog fields for update.
+type TenantUpdateInput struct {
+	Name           *string
+	Status         *TenantStatus
+	DefaultCountry *string
+	Metadata       *json.RawMessage
+}
+
+// TenantListFilter is used to filter and paginate tenant catalog records.
+type TenantListFilter struct {
+	Limit  int
+	Offset int
+	Status TenantStatus
+	Query  string
+}
+
 // AdminProduct represents a product managed via admin APIs.
 type AdminProduct struct {
 	ID              int       `json:"id"`

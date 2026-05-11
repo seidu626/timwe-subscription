@@ -188,9 +188,12 @@ func NewRouter(
 
 		// Admin tenant context endpoints
 		case strings.EqualFold(path, "/v1/admin/tenants"):
-			if method == fasthttp.MethodPost {
+			switch method {
+			case fasthttp.MethodGet:
+				adminManagementHandler.ListTenants(ctx)
+			case fasthttp.MethodPost:
 				adminManagementHandler.CreateTenant(ctx)
-			} else {
+			default:
 				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
 			}
 			return
@@ -198,6 +201,14 @@ func NewRouter(
 		case strings.EqualFold(path, "/v1/admin/tenants/current"):
 			if method == fasthttp.MethodGet {
 				adminManagementHandler.GetCurrentTenant(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/tenants/"):
+			if method == fasthttp.MethodPatch {
+				adminManagementHandler.UpdateTenant(ctx)
 			} else {
 				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
 			}

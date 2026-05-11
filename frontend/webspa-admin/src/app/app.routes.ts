@@ -30,6 +30,7 @@ export const routes: Routes = [
       { path: 'postback', loadChildren: () => import('./features/postback/postback.module').then(m => m.PostbackModule) },
       { path: 'transactions', loadChildren: () => import('./features/transaction/transaction.module').then(m => m.TransactionModule) },
       { path: 'products', loadChildren: () => import('./features/product/product.module').then(m => m.ProductModule) },
+      { path: 'tenants', loadChildren: () => import('./features/tenant/tenant.module').then(m => m.TenantModule) },
       { path: 'userbase', loadChildren: () => import('./features/userbase/userbase.module').then(m => m.UserbaseModule) },
       { path: 'operations', loadChildren: () => import('./features/operations/operations.module').then(m => m.OperationsModule) },
       { path: 'settings', loadChildren: () => import('./features/settings/settings.module').then(m => m.SettingsModule) },

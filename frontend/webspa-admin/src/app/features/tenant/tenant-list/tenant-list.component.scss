@@ -1,0 +1,67 @@
+.tenant-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.subtitle {
+  color: var(--admin-text-muted);
+  margin-top: -0.5rem;
+}
+
+.card {
+  background: var(--admin-surface);
+}
+
+.row {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filters {
+  margin-bottom: 1rem;
+}
+
+.metadata-field {
+  width: 100%;
+}
+
+.metadata {
+  color: var(--admin-text-muted);
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+}
+
+.status {
+  border-radius: 999px;
+  color: #116149;
+  background: #d8f3e8;
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.35rem 0.5rem;
+}
+
+.status.inactive {
+  color: #7c2d12;
+  background: #ffedd5;
+}
+
+table {
+  width: 100%;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0;
+}

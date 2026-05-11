@@ -80,6 +80,137 @@ func TestCreateTenantRejectsTenantScopedAdmin(t *testing.T) {
 	}
 }
 
+func TestListTenantsReturnsCatalogForPlatformScopedAdmin(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*) FROM tenants WHERE")).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs(20, 0).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow("22222222-2222-2222-2222-222222222222", "nrg", "NRG", domain.TenantStatusActive, "GH", []byte(`{"kind":"canonical-default"}`), now, now))
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		Subject:        "auth0|operator",
+		PlatformScoped: true,
+		TrustSource:    tenantctx.TrustSourceJWT,
+	})
+
+	h.ListTenants(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	var body struct {
+		Tenants []domain.AdminTenant `json:"tenants"`
+	}
+	if err := json.Unmarshal(ctx.Response.Body(), &body); err != nil {
+		t.Fatalf("invalid response json: %v", err)
+	}
+	if len(body.Tenants) != 1 || body.Tenants[0].TenantKey != "nrg" {
+		t.Fatalf("unexpected response body: %#v", body)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListTenantsRejectsTenantScopedAdmin(t *testing.T) {
+	h := &AdminManagementHandler{
+		service: service.NewAdminManagementService(nil, zap.NewNop()),
+		logger:  zap.NewNop(),
+	}
+	var ctx fasthttp.RequestCtx
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "nrg",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+
+	h.ListTenants(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+}
+
+func TestUpdateTenantPatchesCatalogAndReturnsAuditReference(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs(tenantID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "nrg", "NRG", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("UPDATE tenants")).
+		WithArgs(tenantID, "NRG Prime", domain.TenantStatusActive, "GH", `{"tier":"gold"}`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "nrg", "NRG Prime", domain.TenantStatusActive, "GH", []byte(`{"tier":"gold"}`), now, now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/admin/tenants/" + tenantID)
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		Subject:        "auth0|operator",
+		PlatformScoped: true,
+		TrustSource:    tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetBodyString(`{"name":"NRG Prime","status":"ACTIVE","default_country":"gh","metadata":{"tier":"gold"}}`)
+
+	h.UpdateTenant(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(ctx.Response.Body(), &body); err != nil {
+		t.Fatalf("invalid response json: %v", err)
+	}
+	if body["name"] != "NRG Prime" || body["audit_log_id"] == "" {
+		t.Fatalf("unexpected response body: %#v", body)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateTenantRejectsTenantScopedAdmin(t *testing.T) {
+	h := &AdminManagementHandler{
+		service: service.NewAdminManagementService(nil, zap.NewNop()),
+		logger:  zap.NewNop(),
+	}
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/admin/tenants/22222222-2222-2222-2222-222222222222")
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "nrg",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetBodyString(`{"name":"NRG Prime"}`)
+
+	h.UpdateTenant(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+}
+
 func TestGetCurrentTenantDoesNotTrustRawTenantHeader(t *testing.T) {
 	h := &AdminManagementHandler{
 		service: service.NewAdminManagementService(nil, zap.NewNop()),

@@ -58,6 +58,12 @@ export const navItems: any[] = [
     permissions: ['vr:manage']
   },
   {
+    name: 'Tenants',
+    url: '/tenants',
+    iconComponent: { name: 'cil-building' },
+    permissions: ['vr:manage']
+  },
+  {
     name: 'Userbase',
     url: '/userbase',
     iconComponent: { name: 'cil-user' },
