@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "task_id": "TMP-060",
+  "status": "done",
+  "supervisor_decision": "done",
+  "summary": "Fixed the frontend tenant header race so report/KPI calls are not sent until tenant workspace state resolves and X-Tenant-Key can be attached.",
+  "session_id": "codex-20260511-tenant-header-race",
+  "acceptance_results": [
+    {
+      "criterion": "Workspace API requests wait for resolved tenant workspace state before attaching tenant headers.",
+      "status": "passed",
+      "evidence": [
+        "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.ts"
+      ],
+      "blocker": null,
+      "reason": "TenantWorkspaceInterceptor now filters out loading workspace emissions before taking the workspace state used to attach X-Tenant-Key.",
+      "next_task_id": null
+    },
+    {
+      "criterion": "Focused frontend tests prove X-Tenant-Key is attached after delayed workspace resolution.",
+      "status": "passed",
+      "evidence": [
+        "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts"
+      ],
+      "blocker": null,
+      "reason": "The new spec starts with a loading workspace state, verifies the request is not forwarded, then resolves tenant nrg and verifies X-Tenant-Key is attached.",
+      "next_task_id": null
+    },
+    {
+      "criterion": "Admin dev server on port 4200 runs patched code.",
+      "status": "passed",
+      "evidence": [
+        "http://127.0.0.1:4200",
+        "frontend/webspa-admin/webspa-admin.pid"
+      ],
+      "blocker": null,
+      "reason": "The existing server was replaced and curl returned HTTP 200 from 127.0.0.1:4200.",
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts",
+    "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.ts"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "Replaced the live admin dev server on port 4200 with the isolated worktree server.",
+    "No backend services were changed for this slice.",
+    "Chrome DevTools browser verification was attempted but the plugin returned selected-page-closed errors before navigation."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Changed the interceptor to wait until tenant workspace loading is false before forwarding workspace API requests.",
+    "Added a focused unit test proving delayed tenant resolution still attaches X-Tenant-Key.",
+    "Restarted the admin dev server from the patched worktree."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "The authenticated KPI request itself could not be retried with the user's Auth0 browser token from this agent context.",
+    "If KPI still returns 403 after a browser hard refresh, the next likely backend-side issue is that the Auth0 API access token lacks an email claim for platform bootstrap even though the SPA profile has email."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-060 is complete: reports requests now wait for tenant workspace resolution before sending X-Tenant-Key, closing the frontend race that produced tenant_context_required.",
+  "residual_work_policy": "continue_if_safe",
+  "risk_notes": [
+    "Workspace requests now wait while the tenant workspace service is loading. If that service fails, it resolves to a non-loading denied/unavailable state and the existing no-tenant behavior is preserved.",
+    "The admin server currently running on port 4200 is from branch agent/codex/tenant-workspace-theme-20260511-025858."
+  ],
+  "safe_to_continue": true,
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "npx ng test --watch=false --browsers=ChromeHeadless --include='src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts' --include='src/app/core/services/tenant-workspace.service.spec.ts' --include='src/app/core/guards/tenant-workspace.guard.spec.ts' --include='src/app/core/http-interceptors/http-error.interceptor.spec.ts' --include='src/app/views/pages/page403/page403.component.spec.ts'",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "TOTAL: 18 SUCCESS",
+      "timestamp": "2026-05-11T03:19:31Z"
+    },
+    {
+      "command": "npm run build",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "Application bundle generation complete; existing campaign-form SCSS budget and selector warnings remain.",
+      "timestamp": "2026-05-11T03:21:00Z"
+    },
+    {
+      "command": "curl -sS -o /tmp/admin4200 -w '%{http_code}' --max-time 5 http://127.0.0.1:4200",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "200",
+      "timestamp": "2026-05-11T03:21:54Z"
+    }
+  ]
+}
