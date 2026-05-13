@@ -47,3 +47,35 @@ Thumbs.db
 
 # Data files
 *.csv
+
+# >>> agent-hub canonical gitignore (managed by scripts/align-gitignore.sh — do not edit between markers)
+
+# Agent-harness state machine — session-scoped artifacts
+.agent/sessions/
+.agent/heartbeats/*.json
+.agent/inventory/*.json
+.agent/events.jsonl
+
+# Supervisor harness — runtime-only artifacts
+.harness/trash/
+.harness/events.jsonl
+.harness/runs/
+.harness/context-packs/
+.harness/*.sqlite
+.harness/*.sqlite-journal
+.harness/*.sqlite-wal
+.harness/*.sqlite-shm
+
+# Claude Code local artifacts
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+
+# Slice-spec-validator output (ephemeral)
+slices/**/spec-validation*.json
+
+# Runtime-generated mythos packets (keep templates/, keep example-*, ignore live runs)
+.agent-work/mythos-packets/2*/
+.agent-work/checkpoints/
+.agent-work/CURRENT.md
+
+# <<< agent-hub canonical gitignore
