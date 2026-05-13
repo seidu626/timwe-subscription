@@ -12,9 +12,11 @@ import (
 )
 
 type access struct {
-	validator      *auth0jwt.Validator
-	staticToken    string
-	allowedOrigins []string
+	validator                 *auth0jwt.Validator
+	staticToken               string
+	allowedOrigins            []string
+	bootstrapPlatformEmails   map[string]struct{}
+	bootstrapPlatformSubjects map[string]struct{}
 }
 
 const cadenceAdminAllowedCORSHeaders = "Content-Type, Authorization, X-Admin-Token, X-Tenant-Id, X-Tenant-Key, X-Tenant-Channel-Id, X-Channel-Id"
@@ -45,9 +47,11 @@ func newAccess() *access {
 	}
 
 	return &access{
-		validator:      validator,
-		staticToken:    strings.TrimSpace(os.Getenv("CADENCE_ADMIN_TOKEN")),
-		allowedOrigins: allowed,
+		validator:                 validator,
+		staticToken:               strings.TrimSpace(os.Getenv("CADENCE_ADMIN_TOKEN")),
+		allowedOrigins:            allowed,
+		bootstrapPlatformEmails:   bootstrapPlatformEmailSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_EMAILS")),
+		bootstrapPlatformSubjects: bootstrapPlatformSubjectSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS")),
 	}
 }
 
@@ -112,8 +116,79 @@ func (a *access) require(w http.ResponseWriter, r *http.Request) bool {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return false
 	}
-	*r = *r.WithContext(tenantctx.WithIdentity(r.Context(), claims.Identity()))
+	identity := claims.Identity()
+	identity = a.applyBootstrapPlatformScope(identity)
+	identity = a.applySelectedTenantContext(r, identity)
+	*r = *r.WithContext(tenantctx.WithIdentity(r.Context(), identity))
 	return true
+}
+
+func (a *access) applyBootstrapPlatformScope(identity tenantctx.Identity) tenantctx.Identity {
+	if identity.PlatformScoped {
+		return identity
+	}
+
+	if len(a.bootstrapPlatformSubjects) > 0 {
+		subject := strings.TrimSpace(identity.Subject)
+		if _, ok := a.bootstrapPlatformSubjects[subject]; ok {
+			return grantPlatformScope(identity)
+		}
+	}
+
+	if len(a.bootstrapPlatformEmails) > 0 {
+		if identity.EmailVerifiedSet && !identity.EmailVerified {
+			return identity
+		}
+		email := strings.TrimSpace(strings.ToLower(identity.Email))
+		if _, ok := a.bootstrapPlatformEmails[email]; ok {
+			return grantPlatformScope(identity)
+		}
+	}
+
+	return identity
+}
+
+func grantPlatformScope(identity tenantctx.Identity) tenantctx.Identity {
+	identity.PlatformScoped = true
+	if !identity.HasPermission("platform:all_tenants") {
+		identity.Permissions = append(identity.Permissions, "platform:all_tenants")
+	}
+	return identity
+}
+
+func (a *access) applySelectedTenantContext(r *http.Request, identity tenantctx.Identity) tenantctx.Identity {
+	if !identity.PlatformScoped {
+		return identity
+	}
+	if tenantID := strings.TrimSpace(r.Header.Get(tenantctx.HeaderTenantID)); tenantID != "" {
+		identity.TenantID = tenantID
+	}
+	if tenantKey := strings.TrimSpace(r.Header.Get(tenantctx.HeaderTenantKey)); tenantKey != "" {
+		identity.TenantKey = tenantKey
+	}
+	return identity
+}
+
+func bootstrapPlatformEmailSet(raw string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, email := range strings.Split(raw, ",") {
+		normalized := strings.TrimSpace(strings.ToLower(email))
+		if normalized != "" {
+			out[normalized] = struct{}{}
+		}
+	}
+	return out
+}
+
+func bootstrapPlatformSubjectSet(raw string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, subject := range strings.Split(raw, ",") {
+		normalized := strings.TrimSpace(subject)
+		if normalized != "" {
+			out[normalized] = struct{}{}
+		}
+	}
+	return out
 }
 
 func (a *access) validateStaticToken(r *http.Request) bool {

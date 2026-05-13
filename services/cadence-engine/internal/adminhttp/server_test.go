@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/seidu626/subscription-manager/cadence-engine/internal/repository"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"go.uber.org/zap"
 )
 
@@ -96,6 +99,40 @@ func TestHandleSeriesReturnsErrWhenTenantMissing(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), ErrTenantScope) {
 		t.Fatalf("unexpected body: %s", rr.Body.String())
+	}
+}
+
+func TestTenantScopeResolvesPlatformTenantKey(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	s := &Server{
+		logger: zap.NewNop(),
+		repo:   repository.NewCadenceRepository(db, zap.NewNop()),
+	}
+	mock.ExpectQuery("FROM tenants").
+		WithArgs("nrg").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("66d39a9a-f1ef-4721-a31c-5bb966d25c3d"))
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/admin/cadence/series", nil)
+	req = req.WithContext(tenantctx.WithIdentity(req.Context(), tenantctx.Identity{
+		PlatformScoped: true,
+		TenantKey:      "nrg",
+	}))
+	rr := httptest.NewRecorder()
+
+	tenantID, _, ok := s.tenantScope(rr, req)
+	if !ok {
+		t.Fatalf("expected tenant scope, status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if tenantID != "66d39a9a-f1ef-4721-a31c-5bb966d25c3d" {
+		t.Fatalf("tenantID = %q", tenantID)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
 	}
 }
 

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -113,6 +114,51 @@ func TestListSeriesRequiresTenant(t *testing.T) {
 	repo := NewCadenceRepository(db, zap.NewNop())
 	if _, err := repo.ListSeries(context.Background(), "", "", nil, nil, nil, 0); err == nil {
 		t.Fatal("expected tenant_id required error")
+	}
+}
+
+func TestTenantIDByKeyReturnsActiveTenant(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewCadenceRepository(db, zap.NewNop())
+	mock.ExpectQuery("FROM tenants").
+		WithArgs("nrg").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("66d39a9a-f1ef-4721-a31c-5bb966d25c3d"))
+
+	tenantID, err := repo.TenantIDByKey(context.Background(), " nrg ")
+	if err != nil {
+		t.Fatalf("TenantIDByKey: %v", err)
+	}
+	if tenantID != "66d39a9a-f1ef-4721-a31c-5bb966d25c3d" {
+		t.Fatalf("tenantID = %q", tenantID)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
+	}
+}
+
+func TestTenantIDByKeyReturnsNotFound(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewCadenceRepository(db, zap.NewNop())
+	mock.ExpectQuery("FROM tenants").
+		WithArgs("missing").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+
+	_, err = repo.TenantIDByKey(context.Background(), "missing")
+	if !errors.Is(err, ErrTenantNotFound) {
+		t.Fatalf("expected ErrTenantNotFound, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
 	}
 }
 

@@ -626,6 +626,22 @@ func (s *Server) tenantScope(w http.ResponseWriter, r *http.Request) (string, st
 	if tenantID == "" && identity.PlatformScoped {
 		tenantID = firstNonBlank(r.Header.Get(tenantctx.HeaderTenantID), r.URL.Query().Get("tenantId"), r.URL.Query().Get("tenant_id"))
 	}
+	if tenantID == "" && identity.PlatformScoped {
+		tenantKey := firstNonBlank(identity.TenantKey, r.Header.Get(tenantctx.HeaderTenantKey), r.URL.Query().Get("tenantKey"), r.URL.Query().Get("tenant_key"))
+		if tenantKey != "" {
+			resolvedTenantID, err := s.repo.TenantIDByKey(r.Context(), tenantKey)
+			if errors.Is(err, repository.ErrTenantNotFound) {
+				writeError(w, http.StatusForbidden, "tenant context unavailable")
+				return "", "", false
+			}
+			if err != nil {
+				s.logger.Error("resolve tenant key failed", zap.Error(err), zap.String("tenant_key", tenantKey))
+				writeError(w, http.StatusInternalServerError, "failed to resolve tenant context")
+				return "", "", false
+			}
+			tenantID = resolvedTenantID
+		}
+	}
 	if tenantID == "" {
 		writeError(w, http.StatusForbidden, "tenant context required")
 		return "", "", false

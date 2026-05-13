@@ -15,15 +15,18 @@ const (
 const FastHTTPUserValueKey = "tenantctx.identity"
 
 type Identity struct {
-	TenantID       string
-	TenantKey      string
-	OrgID          string
-	Subject        string
-	Roles          []string
-	Permissions    []string
-	PlatformScoped bool
-	ServiceID      string
-	TrustSource    TrustSource
+	TenantID         string
+	TenantKey        string
+	OrgID            string
+	Subject          string
+	Email            string
+	EmailVerified    bool
+	EmailVerifiedSet bool
+	Roles            []string
+	Permissions      []string
+	PlatformScoped   bool
+	ServiceID        string
+	TrustSource      TrustSource
 }
 
 func (i Identity) HasRole(role string) bool {

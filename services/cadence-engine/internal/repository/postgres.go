@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -17,12 +18,36 @@ type CadenceRepository struct {
 	logger *zap.Logger
 }
 
+var ErrTenantNotFound = errors.New("tenant not found")
+
 func NewCadenceRepository(db *sql.DB, logger *zap.Logger) *CadenceRepository {
 	return &CadenceRepository{db: db, logger: logger}
 }
 
 func (r *CadenceRepository) BeginTx(ctx context.Context) (*sql.Tx, error) {
 	return r.db.BeginTx(ctx, nil)
+}
+
+func (r *CadenceRepository) TenantIDByKey(ctx context.Context, tenantKey string) (string, error) {
+	tenantKey = strings.TrimSpace(tenantKey)
+	if tenantKey == "" {
+		return "", fmt.Errorf("tenant_key is required")
+	}
+
+	var tenantID string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id::text
+		FROM tenants
+		WHERE tenant_key = $1 AND status = 'ACTIVE'
+		LIMIT 1
+	`, tenantKey).Scan(&tenantID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrTenantNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return tenantID, nil
 }
 
 func (r *CadenceRepository) ClaimDueStatesTx(ctx context.Context, tx *sql.Tx, limit int) ([]domain.DueState, error) {
