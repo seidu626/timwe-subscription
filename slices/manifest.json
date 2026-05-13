@@ -1938,7 +1938,172 @@
       },
       "notes": "Depends on TIMWE-CI-001 for SENTRY_RELEASE injection via ${{ github.sha }}. Go service Sentry integration and source-map upload are follow-up slices. Production DSN rotation out of scope.",
       "created_at": "2026-05-11T14:08:06Z"
+    },
+    {
+      "id": "TMP-066",
+      "external_id": "TMP-066",
+      "name": "careerify-tenant-onboarding-seed",
+      "class": "vertical_slice",
+      "hvc_issue": null,
+      "parent_slice": "TMP-016",
+      "capability_ids": [],
+      "user_story": "As a platform operator, I can onboard the careerify tenant with its web-gh-airteltigo channel and provider credentials so downstream gateway and notification slices route to real tenant rows.",
+      "demo": "Run the new migration locally; SELECT tenant_id FROM tenants WHERE tenant_key='careerify' returns a UUID; tenant_channels has web-gh-airteltigo bound to that tenant; tenant_routing.go:217 query for that pair returns provider credentials.",
+      "depends_on": [],
+      "layers": [
+        "migration",
+        "schema",
+        "evidence"
+      ],
+      "state": "planned",
+      "branch": null,
+      "created_at": "2026-05-13T00:00:00Z",
+      "verification": {
+        "automated": [
+          "cd services/subscription-external && go test ./internal/service -run TenantRouting",
+          "psql $DATABASE_URL -c \"SELECT tenant_id FROM tenants WHERE tenant_key='careerify'\" | grep -E '[0-9a-f]{8}'",
+          "psql $DATABASE_URL -c \"SELECT channel_id FROM tenant_channels WHERE channel_key='web-gh-airteltigo'\" | grep -E '[0-9a-f]{8}'"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-066-careerify-tenant-onboarding-seed/value-gate-report.md"
+      },
+      "notes": "Data prerequisite for TMP-067/068/069. Migration must also populate provider credentials referenced by tenant_routing.go:217. Use existing seed pattern from earlier nrg onboarding."
+    },
+    {
+      "id": "TMP-067",
+      "external_id": "TMP-067",
+      "name": "krakend-notification-tenant-propagation",
+      "class": "vertical_slice",
+      "hvc_issue": null,
+      "parent_slice": "TMP-012",
+      "capability_ids": [],
+      "user_story": "As an MNO partner, my callback to /api/v1/notification/{type}/{partnerRole}?tenant_key=careerify&channel_key=web-gh-airteltigo reaches the notification service with X-Tenant-Key and X-Channel-Key injected by KrakenD so tenant context is resolved before any work.",
+      "demo": "curl through gateway against 6 notification URLs (mo, mt/dn, user-optin, user-renewed, user-optout, charge) for careerify; notification service log shows tenant_id resolved for careerify and request body is persisted scoped to that tenant.",
+      "depends_on": [
+        "TMP-066"
+      ],
+      "layers": [
+        "gateway-config",
+        "tests",
+        "evidence"
+      ],
+      "state": "planned",
+      "branch": null,
+      "created_at": "2026-05-13T00:00:00Z",
+      "verification": {
+        "automated": [
+          "jq -e '.endpoints[] | select(.endpoint | startswith(\"/api/v1/notification/\")) | .input_query_strings | contains([\"tenant_key\",\"channel_key\"])' krakend/krakend.json",
+          "bash scripts/smoke/krakend-notification-tenant.sh"
+        ],
+        "manual_smoke": [
+          "curl -X POST 'http://api.localhost/api/v1/notification/mo/2117?tenant_key=careerify&channel_key=web-gh-airteltigo' -d '{}' and confirm notification service logs tenant_id."
+        ],
+        "dod_path": "slices/TMP-067-krakend-notification-tenant-propagation/value-gate-report.md"
+      },
+      "notes": "Touch krakend/krakend.json (and templates if templated). Add input_query_strings for tenant_key/channel_key and use header injection (KrakenD modifier or static plugin) to set X-Tenant-Key / X-Channel-Key on upstream request. No notification service code change required if upstream resolves headers via existing tenantctx; verify."
+    },
+    {
+      "id": "TMP-068",
+      "external_id": "TMP-068",
+      "name": "krakend-subscription-tenant-path-routing",
+      "class": "vertical_slice",
+      "hvc_issue": null,
+      "parent_slice": "TMP-012",
+      "capability_ids": [],
+      "user_story": "As an external subscription partner, POST to /api/external/v1/{tenant_key}/{channel_key}/subscriptions/{optin|confirm|optout|status} reaches the existing subscription-external admin handlers with tenant and channel resolved by KrakenD header injection (Option A), with zero subscription-external handler changes.",
+      "demo": "curl POST through gateway for careerify/web-gh-airteltigo/subscriptions/optin returns 2xx; subscription-external log shows tenant_id and channel_id resolved; admin_actions row written with correct tenant scoping.",
+      "depends_on": [
+        "TMP-066"
+      ],
+      "layers": [
+        "gateway-config",
+        "tests",
+        "evidence"
+      ],
+      "state": "planned",
+      "branch": null,
+      "created_at": "2026-05-13T00:00:00Z",
+      "verification": {
+        "automated": [
+          "jq -e '.endpoints[] | select(.endpoint == \"/api/external/v1/{tenant_key}/{channel_key}/subscriptions/optin\")' krakend/krakend.json",
+          "jq -e '.endpoints[] | select(.endpoint == \"/api/external/v1/{tenant_key}/{channel_key}/subscriptions/status\")' krakend/krakend.json",
+          "bash scripts/smoke/krakend-subscription-tenant.sh"
+        ],
+        "manual_smoke": [
+          "curl -X POST 'http://api.localhost/api/external/v1/careerify/web-gh-airteltigo/subscriptions/optin' -d '{...}' returns 2xx and resolves tenant."
+        ],
+        "dod_path": "slices/TMP-068-krakend-subscription-tenant-path-routing/value-gate-report.md"
+      },
+      "notes": "Four new KrakenD endpoints (optin, confirm, optout, status). Each rewrites path to subscription-external admin handler at /api/v1/subscription-external/admin/{op} and injects X-Tenant-Key / X-Channel-Key from path captures. No subscription-external code change expected; existing partner_handler.go:262-293 already resolves headers."
+    },
+    {
+      "id": "TMP-069",
+      "external_id": "TMP-069",
+      "name": "tenant-resolver-header-query-precedence",
+      "class": "vertical_defect_slice",
+      "hvc_issue": null,
+      "parent_slice": "TMP-001",
+      "capability_ids": [],
+      "user_story": "As an integration engineer, the canonical tenant resolver in common/auth/tenantctx enforces deterministic precedence between header and query sources of tenant_key/channel_key, refuses conflicting pairs, and is documented so backends and gateway authors share one rule.",
+      "demo": "Unit tests in common/auth/tenantctx assert: header wins when both header and query agree; conflict between header and query returns refusal; query alone is accepted only when header absent and request comes through gateway trust boundary; mixed-case keys normalized.",
+      "depends_on": [
+        "TMP-066"
+      ],
+      "layers": [
+        "backend-runtime",
+        "contract",
+        "tests",
+        "evidence"
+      ],
+      "state": "planned",
+      "branch": null,
+      "created_at": "2026-05-13T00:00:00Z",
+      "verification": {
+        "automated": [
+          "cd common && go test ./auth/tenantctx/...",
+          "cd services/notification && go test ./internal/handler -run TenantResolver",
+          "cd services/subscription-external && go test ./internal/handler -run TenantResolver"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-069-tenant-resolver-header-query-precedence/value-gate-report.md"
+      },
+      "notes": "Defence-in-depth slice. Without this, TMP-067 and TMP-068 still work as long as KrakenD config is correct, but a gateway misconfig (query lost or wrong header name) would silently misroute. This slice makes the contract explicit + tested. Documents the rule in docs/tenant-channel-onboarding.md or a sibling doc."
+    },
+    {
+      "id": "TMP-070",
+      "external_id": "TMP-070",
+      "name": "careerify-tenant-e2e-smoke",
+      "class": "vertical_slice",
+      "hvc_issue": null,
+      "parent_slice": "TMP-020",
+      "capability_ids": [],
+      "user_story": "As a platform operator, I run a smoke matrix that exercises the 10 inbound URLs (6 notification + 4 subscription) for careerify+web-gh-airteltigo through nginx -> KrakenD -> backend, confirms tenant scoping end-to-end, and verifies cross-tenant injection attempts are rejected.",
+      "demo": "scripts/smoke/careerify-tenant-e2e.sh runs all 10 sample URLs, captures logs proving tenant_id=careerify on each, executes 3 cross-tenant injection cases (mismatched header vs query, foreign tenant key, missing channel), and prints a green pass matrix.",
+      "depends_on": [
+        "TMP-067",
+        "TMP-068",
+        "TMP-069"
+      ],
+      "layers": [
+        "e2e-smoke",
+        "adversarial-review",
+        "evidence"
+      ],
+      "state": "planned",
+      "branch": null,
+      "created_at": "2026-05-13T00:00:00Z",
+      "verification": {
+        "automated": [
+          "bash scripts/smoke/careerify-tenant-e2e.sh",
+          "bash scripts/smoke/careerify-tenant-cross-tenant-refusal.sh"
+        ],
+        "manual_smoke": [
+          "Operator runs the smoke matrix against staging and attaches output to value-gate-report.md."
+        ],
+        "dod_path": "slices/TMP-070-careerify-tenant-e2e-smoke/value-gate-report.md"
+      },
+      "notes": "Closing slice. Produces the artifact set required to declare careerify onboarding shippable. Failure here bounces back to whichever upstream slice owns the gap."
     }
   ],
-  "updated_at": "2026-05-11T14:08:06Z"
+  "updated_at": "2026-05-13T00:00:00Z"
 }
