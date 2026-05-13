@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-05-13T16:49:34Z",
+  "objective": "Audit current admin tenant operations, tenant switching, tenant scoping, and live schema readiness.",
+  "status_by_target": {
+    "tenant_creation_api": "verified_implemented",
+    "tenant_creation_admin_ui": "fixed_in_this_pass",
+    "tenant_list_update_admin_ui": "verified_implemented",
+    "tenant_switching_admin_ui": "verified_implemented_for_assigned_or_bootstrapped_tenants",
+    "auth0_user_to_nrg_assignment": "implemented_as_dev_bootstrap_platform_scope_and_nrg_workspace_selection_not_as_durable_membership_row",
+    "live_schema_tenant_migrations": "verified_applied",
+    "tenant_scoping_products_userbase_campaigns_reports_postbacks": "verified_implemented",
+    "tenant_scoping_notifications": "verified_implemented",
+    "tenant_scoping_cadence": "verified_implemented",
+    "tenant_scoping_subscription_external": "partially_verified"
+  },
+  "source_evidence": [
+    {
+      "target": "tenant_creation_api",
+      "evidence": "services/acquisition-api/internal/transport/router.go routes POST /v1/admin/tenants to CreateTenant; service requires PlatformScoped identity and writes tenant plus audit log."
+    },
+    {
+      "target": "tenant_creation_admin_ui",
+      "evidence": "frontend TenantService now exposes create via POST /v1/admin/tenants; TenantListComponent defaults to create mode and uses update only when editingTenantId is set."
+    },
+    {
+      "target": "tenant_switching_admin_ui",
+      "evidence": "TenantWorkspaceService resolves claim/bootstrap tenant options, stores selected tenant in sessionStorage, guard accepts tenant query params, interceptor attaches X-Tenant-Key and X-Tenant-Id."
+    },
+    {
+      "target": "live_schema_tenant_migrations",
+      "evidence": "Live PostgreSQL contains nrg ACTIVE tenant, migration_history rows for 016, 017, TMP-050, and tenant_id columns on the audited runtime tables."
+    }
+  ],
+  "live_checks": [
+    "make status returned all eight services running.",
+    "OPTIONS localhost:8084/v1/admin/tenants allows Authorization, X-Tenant-Id, X-Tenant-Key.",
+    "OPTIONS localhost:8091/v1/admin/cadence/series allows Authorization, X-Admin-Token, X-Tenant-Id, X-Tenant-Key, X-Tenant-Channel-Id, X-Channel-Id.",
+    "OPTIONS localhost:8082/api/v1/notification/list returns CORS headers allowing X-Tenant-Id and X-Tenant-Key.",
+    "PostgreSQL migration_history contains 016_tenant_channel_subscription_routing, 017_tenant_notification_cadence_routing, TMP-050_canonical_nrg_tenant_platform_backfill."
+  ],
+  "blocked_or_missing": [
+    "Durable user-to-tenant membership management was not found as an admin UI/API surface; current dev access is bootstrap/platform scope plus tenant selection.",
+    "Subscription External tenant scoping is present in routing, audit logs, CORS, and tenant routing service, but end-to-end admin auth and every list filter path were not fully exhaustively verified in this pass."
+  ]
+}

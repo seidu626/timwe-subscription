@@ -33,6 +33,13 @@ export interface TenantMutationPayload {
   performed_by?: string;
 }
 
+export interface TenantCreatePayload extends TenantMutationPayload {
+  tenant_key: string;
+  name: string;
+  status: TenantStatus;
+  default_country: string;
+}
+
 export interface TenantMutationResponse extends AdminTenant {
   audit_log_id: string;
 }

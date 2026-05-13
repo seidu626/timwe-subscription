@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
-import { AdminTenant, TenantMutationPayload, TenantStatus } from '../../+state/models/tenant.model';
+import { AdminTenant, TenantCreatePayload, TenantMutationPayload, TenantStatus } from '../../+state/models/tenant.model';
 import { TenantService } from '../../+state/services/tenant.service';
 
 @Component({
@@ -81,6 +81,7 @@ export class TenantListComponent implements OnInit {
   editTenant(tenant: AdminTenant): void {
     this.editingTenantId = tenant.id;
     this.form = {
+      tenant_key: tenant.tenant_key,
       name: tenant.name,
       status: tenant.status,
       default_country: tenant.default_country
@@ -95,8 +96,8 @@ export class TenantListComponent implements OnInit {
   }
 
   saveTenant(): void {
-    if (!this.editingTenantId) {
-      this.toast('Select a tenant to update');
+    if (!this.editingTenantId && !this.form.tenant_key.trim()) {
+      this.toast('Tenant key is required');
       return;
     }
     if (!this.form.name.trim() || !this.form.default_country.trim()) {
@@ -117,16 +118,27 @@ export class TenantListComponent implements OnInit {
     };
 
     this.saving = true;
-    this.tenantService.update(this.editingTenantId, payload).subscribe({
+    const createPayload: TenantCreatePayload = {
+      ...payload,
+      tenant_key: this.form.tenant_key.trim().toLowerCase(),
+      name: payload.name || '',
+      status: payload.status || 'ACTIVE',
+      default_country: payload.default_country || 'GH'
+    };
+    const request$ = this.editingTenantId
+      ? this.tenantService.update(this.editingTenantId, payload)
+      : this.tenantService.create(createPayload);
+
+    request$.subscribe({
       next: () => {
         this.saving = false;
-        this.toast('Tenant updated');
+        this.toast(this.editingTenantId ? 'Tenant updated' : 'Tenant created');
         this.resetForm();
         this.loadTenants();
       },
       error: (err) => {
         this.saving = false;
-        this.toast(this.extractErrorMessage(err, 'Failed to update tenant'));
+        this.toast(this.extractErrorMessage(err, this.editingTenantId ? 'Failed to update tenant' : 'Failed to create tenant'));
       }
     });
   }
@@ -154,8 +166,9 @@ export class TenantListComponent implements OnInit {
     }
   }
 
-  private emptyForm(): { name: string; status: TenantStatus; default_country: string } {
+  private emptyForm(): { tenant_key: string; name: string; status: TenantStatus; default_country: string } {
     return {
+      tenant_key: '',
       name: '',
       status: 'ACTIVE',
       default_country: 'GH'

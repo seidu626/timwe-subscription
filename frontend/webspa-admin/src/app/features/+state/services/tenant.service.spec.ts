@@ -76,4 +76,38 @@ describe('TenantService', () => {
       audit_log_id: 'audit-1'
     });
   });
+
+  it('creates tenant catalog records through POST', () => {
+    service.create({
+      tenant_key: 'newco',
+      name: 'NewCo',
+      status: 'ACTIVE',
+      default_country: 'GH',
+      metadata: { owner: 'ops' }
+    }).subscribe();
+
+    const req = httpMock.expectOne((request) =>
+      request.method === 'POST' &&
+      request.url.endsWith('/v1/admin/tenants')
+    );
+
+    expect(req.request.body).toEqual({
+      tenant_key: 'newco',
+      name: 'NewCo',
+      status: 'ACTIVE',
+      default_country: 'GH',
+      metadata: { owner: 'ops' }
+    });
+    req.flush({
+      id: 'tenant-2',
+      tenant_key: 'newco',
+      name: 'NewCo',
+      status: 'ACTIVE',
+      default_country: 'GH',
+      metadata: { owner: 'ops' },
+      created_at: '2026-05-13T00:00:00Z',
+      updated_at: '2026-05-13T00:00:00Z',
+      audit_log_id: 'audit-2'
+    });
+  });
 });

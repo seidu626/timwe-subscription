@@ -21,6 +21,17 @@ describe('TenantListComponent', () => {
         created_at: '2026-05-10T00:00:00Z',
         updated_at: '2026-05-10T00:00:00Z',
         audit_log_id: 'audit-1'
+      })),
+      create: jasmine.createSpy().and.returnValue(of({
+        id: 'tenant-2',
+        tenant_key: 'newco',
+        name: 'NewCo',
+        status: 'ACTIVE',
+        default_country: 'GH',
+        metadata: {},
+        created_at: '2026-05-13T00:00:00Z',
+        updated_at: '2026-05-13T00:00:00Z',
+        audit_log_id: 'audit-2'
       }))
     };
     const snackBar = {
@@ -71,17 +82,41 @@ describe('TenantListComponent', () => {
       default_country: 'GH',
       metadata: { tier: 'gold' }
     });
+    expect(tenantService.create).not.toHaveBeenCalled();
+  });
+
+  it('sends normalized tenant creates with JSON metadata', () => {
+    const { component, tenantService } = createComponent();
+    component.form = {
+      tenant_key: ' NewCo ',
+      name: ' NewCo ',
+      status: 'ACTIVE',
+      default_country: 'gh'
+    };
+    component.metadataText = '{"owner":"ops"}';
+
+    component.saveTenant();
+
+    expect(tenantService.create).toHaveBeenCalledWith({
+      tenant_key: 'newco',
+      name: 'NewCo',
+      status: 'ACTIVE',
+      default_country: 'GH',
+      metadata: { owner: 'ops' }
+    });
+    expect(tenantService.update).not.toHaveBeenCalled();
   });
 
   it('does not update when metadata is not a JSON object', () => {
     const { component, tenantService, snackBar } = createComponent();
     component.editingTenantId = 'tenant-1';
-    component.form = { name: 'NRG', status: 'ACTIVE', default_country: 'GH' };
+    component.form = { tenant_key: 'nrg', name: 'NRG', status: 'ACTIVE', default_country: 'GH' };
     component.metadataText = '[]';
 
     component.saveTenant();
 
     expect(tenantService.update).not.toHaveBeenCalled();
+    expect(tenantService.create).not.toHaveBeenCalled();
     expect(snackBar.open).toHaveBeenCalledWith('Metadata must be a JSON object', 'Close', { duration: 4000 });
   });
 });

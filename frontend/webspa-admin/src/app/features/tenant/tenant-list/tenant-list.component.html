@@ -3,9 +3,13 @@
   <p class="subtitle">Tenant catalog records and lifecycle state.</p>
 
   <mat-card class="card">
-    <mat-card-title>{{ editingTenantId ? 'Edit Tenant' : 'Select Tenant' }}</mat-card-title>
+    <mat-card-title>{{ editingTenantId ? 'Edit Tenant' : 'Create Tenant' }}</mat-card-title>
     <mat-card-content>
       <div class="row">
+        <mat-form-field appearance="outline">
+          <mat-label>Tenant Key</mat-label>
+          <input matInput [(ngModel)]="form.tenant_key" [disabled]="!!editingTenantId" />
+        </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Name</mat-label>
           <input matInput [(ngModel)]="form.name" />
@@ -27,8 +31,8 @@
         <textarea matInput rows="5" [(ngModel)]="metadataText"></textarea>
       </mat-form-field>
       <div class="actions">
-        <button mat-raised-button color="primary" (click)="saveTenant()" [disabled]="saving || !editingTenantId">
-          Update
+        <button mat-raised-button color="primary" (click)="saveTenant()" [disabled]="saving">
+          {{ editingTenantId ? 'Update' : 'Create' }}
         </button>
         <button mat-stroked-button (click)="resetForm()" [disabled]="saving">
           Clear

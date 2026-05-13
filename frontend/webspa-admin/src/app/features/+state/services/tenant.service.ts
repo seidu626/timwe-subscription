@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import {
+  TenantCreatePayload,
   TenantFilters,
   TenantListResponse,
   TenantMutationPayload,
@@ -34,6 +35,10 @@ export class TenantService {
       }
     }
     return this.http.get<TenantListResponse>(this.baseUrl, { params });
+  }
+
+  create(payload: TenantCreatePayload): Observable<TenantMutationResponse> {
+    return this.http.post<TenantMutationResponse>(this.baseUrl, payload);
   }
 
   update(id: string, payload: TenantMutationPayload): Observable<TenantMutationResponse> {
