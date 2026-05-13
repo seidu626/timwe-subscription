@@ -237,6 +237,213 @@ func (r *AdminManagementRepository) UpdateTenantWithActivityLog(id string, input
 	return tenant, nil
 }
 
+func (r *AdminManagementRepository) ListTenantMembers(filter *domain.TenantMemberListFilter) ([]*domain.AdminTenantMember, int, error) {
+	if filter == nil {
+		filter = &domain.TenantMemberListFilter{Limit: 20}
+	}
+	tenantID := strings.TrimSpace(filter.TenantID)
+	if tenantID == "" {
+		return nil, 0, fmt.Errorf("tenant_id is required")
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+
+	where := []string{"tenant_id = $1"}
+	args := []any{tenantID}
+	argN := 2
+	if status := strings.TrimSpace(string(filter.Status)); status != "" {
+		where = append(where, fmt.Sprintf("status = $%d", argN))
+		args = append(args, status)
+		argN++
+	}
+	if q := strings.TrimSpace(filter.Query); q != "" {
+		where = append(where, fmt.Sprintf("(auth0_subject ILIKE $%d OR email ILIKE $%d)", argN, argN))
+		args = append(args, "%"+q+"%")
+		argN++
+	}
+	whereSQL := strings.Join(where, " AND ")
+
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM tenant_admin_memberships WHERE %s`, whereSQL)
+	var total int
+	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count tenant members: %w", err)
+	}
+
+	args = append(args, filter.Limit, filter.Offset)
+	query := fmt.Sprintf(`
+		SELECT id, tenant_id, auth0_subject, email, role, status, created_by, created_at, updated_at
+		FROM tenant_admin_memberships
+		WHERE %s
+		ORDER BY created_at DESC, auth0_subject ASC
+		LIMIT $%d OFFSET $%d
+	`, whereSQL, argN, argN+1)
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list tenant members: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]*domain.AdminTenantMember, 0)
+	for rows.Next() {
+		member, err := scanTenantMember(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		out = append(out, member)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed to iterate tenant members: %w", err)
+	}
+	return out, total, nil
+}
+
+func (r *AdminManagementRepository) UpsertTenantMemberWithActivityLog(input *domain.TenantMemberInput, entry *domain.AdminActivityLog) (*domain.AdminTenantMember, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin tenant member tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	query := `
+		INSERT INTO tenant_admin_memberships (tenant_id, auth0_subject, email, role, status, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (tenant_id, auth0_subject)
+		DO UPDATE SET
+			email = EXCLUDED.email,
+			role = EXCLUDED.role,
+			status = EXCLUDED.status,
+			updated_at = NOW()
+		RETURNING id, tenant_id, auth0_subject, email, role, status, created_by, created_at, updated_at
+	`
+	member, err := scanTenantMember(tx.QueryRow(
+		query,
+		input.TenantID,
+		input.Auth0Subject,
+		nullableStringPtr(input.Email),
+		input.Role,
+		input.Status,
+		input.CreatedBy,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("failed to upsert tenant member: %w", err)
+	}
+
+	if entry != nil {
+		entry.TenantID = input.TenantID
+		entry.EntityType = "tenant_member"
+		entry.EntityID = member.Auth0Subject
+		if err := createActivityLog(tx, entry); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit tenant member tx: %w", err)
+	}
+	committed = true
+	return member, nil
+}
+
+func (r *AdminManagementRepository) DeactivateTenantMemberWithActivityLog(tenantID, auth0Subject string, entry *domain.AdminActivityLog) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin tenant member deactivate tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	res, err := tx.Exec(`
+		UPDATE tenant_admin_memberships
+		SET status = 'INACTIVE', updated_at = NOW()
+		WHERE tenant_id = $1 AND auth0_subject = $2
+	`, tenantID, auth0Subject)
+	if err != nil {
+		return fmt.Errorf("failed to deactivate tenant member: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return ErrAdminNotFound
+	}
+
+	if entry != nil {
+		entry.TenantID = tenantID
+		entry.EntityType = "tenant_member"
+		entry.EntityID = auth0Subject
+		if err := createActivityLog(tx, entry); err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit tenant member deactivate tx: %w", err)
+	}
+	committed = true
+	return nil
+}
+
+func (r *AdminManagementRepository) ListActiveTenantsForMember(auth0Subject, email string) ([]*domain.AdminTenant, error) {
+	auth0Subject = strings.TrimSpace(auth0Subject)
+	email = strings.ToLower(strings.TrimSpace(email))
+	if auth0Subject == "" && email == "" {
+		return []*domain.AdminTenant{}, nil
+	}
+
+	where := []string{"m.status = 'ACTIVE'", "t.status = 'ACTIVE'"}
+	args := []any{}
+	principalFilters := []string{}
+	if auth0Subject != "" {
+		args = append(args, auth0Subject)
+		principalFilters = append(principalFilters, fmt.Sprintf("m.auth0_subject = $%d", len(args)))
+	}
+	if email != "" {
+		args = append(args, email)
+		principalFilters = append(principalFilters, fmt.Sprintf("LOWER(m.email) = $%d", len(args)))
+	}
+	if len(principalFilters) > 0 {
+		where = append(where, "("+strings.Join(principalFilters, " OR ")+")")
+	}
+
+	query := fmt.Sprintf(`
+		SELECT DISTINCT t.id, t.tenant_key, t.name, t.status, t.default_country, t.metadata_json, t.created_at, t.updated_at
+		FROM tenant_admin_memberships m
+		JOIN tenants t ON t.id = m.tenant_id
+		WHERE %s
+		ORDER BY t.tenant_key ASC
+	`, strings.Join(where, " AND "))
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list active member tenants: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]*domain.AdminTenant, 0)
+	for rows.Next() {
+		tenant, err := scanTenant(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan member tenant: %w", err)
+		}
+		out = append(out, tenant)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate member tenants: %w", err)
+	}
+	return out, nil
+}
+
 func (r *AdminManagementRepository) ListProducts(filter *domain.ProductListFilter) ([]*domain.AdminProduct, int, error) {
 	if filter == nil {
 		filter = &domain.ProductListFilter{Limit: 20}
@@ -1314,6 +1521,34 @@ func scanTenant(row rowScanner) (*domain.AdminTenant, error) {
 	}
 	tenant.Metadata = metadata
 	return &tenant, nil
+}
+
+func scanTenantMember(row rowScanner) (*domain.AdminTenantMember, error) {
+	var (
+		member    domain.AdminTenantMember
+		email     sql.NullString
+		createdBy sql.NullString
+	)
+	if err := row.Scan(
+		&member.ID,
+		&member.TenantID,
+		&member.Auth0Subject,
+		&email,
+		&member.Role,
+		&member.Status,
+		&createdBy,
+		&member.CreatedAt,
+		&member.UpdatedAt,
+	); err != nil {
+		return nil, fmt.Errorf("failed to scan tenant member: %w", err)
+	}
+	if email.Valid {
+		member.Email = &email.String
+	}
+	if createdBy.Valid {
+		member.CreatedBy = &createdBy.String
+	}
+	return &member, nil
 }
 
 func scanChannel(row rowScanner) (*domain.AdminChannel, error) {

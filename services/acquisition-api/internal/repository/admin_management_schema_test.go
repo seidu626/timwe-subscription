@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS admin_activity_logs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_jobs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS tenants (id UUID PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenant_admin_memberships (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS tenant_channels (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 `
@@ -41,6 +42,7 @@ CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 	expectRelationExists(mock, "public.userbase_import_errors")
 	expectRelationExists(mock, "public.tenant_channels")
 	expectRelationExists(mock, "public.tenant_channel_credentials")
+	expectRelationExists(mock, "public.tenant_admin_memberships")
 
 	if err := repo.EnsureSchema(context.Background(), file); err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -65,6 +67,7 @@ CREATE TABLE IF NOT EXISTS admin_activity_logs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_jobs (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS userbase_import_errors (id BIGSERIAL PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS tenants (id UUID PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS tenant_admin_memberships (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS tenant_channels (id UUID PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 `
@@ -80,6 +83,7 @@ CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 	expectRelationExists(mock, "public.userbase_import_errors")
 	expectRelationExists(mock, "public.tenant_channels")
 	expectRelationExists(mock, "public.tenant_channel_credentials")
+	expectRelationExists(mock, "public.tenant_admin_memberships")
 
 	err = repo.EnsureSchema(context.Background(), file)
 	if err == nil {
@@ -111,6 +115,30 @@ func TestEnsureSchema_FileReadFails(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to read admin management schema migration") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTenantAdminMembershipMigrationDefinesAuth0Assignments(t *testing.T) {
+	migrationPath := filepath.Join("..", "..", "migrations", "add_tenant_admin_memberships.sql")
+	body, err := os.ReadFile(migrationPath)
+	if err != nil {
+		t.Fatalf("failed to read migration: %v", err)
+	}
+	sql := string(body)
+
+	required := []string{
+		"CREATE TABLE IF NOT EXISTS tenant_admin_memberships",
+		"tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE",
+		"auth0_subject TEXT NOT NULL",
+		"CONSTRAINT chk_tenant_admin_memberships_role",
+		"CONSTRAINT chk_tenant_admin_memberships_status",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_tenant_admin_memberships_tenant_subject",
+		"ON tenant_admin_memberships (tenant_id, auth0_subject)",
+	}
+	for _, want := range required {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("migration missing %q", want)
+		}
 	}
 }
 

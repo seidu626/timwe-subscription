@@ -1,7 +1,8 @@
-import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Injectable, Optional } from '@angular/core';
 import { AuthService, User } from '@auth0/auth0-angular';
-import { BehaviorSubject, combineLatest, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { BehaviorSubject, combineLatest, Observable, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 const TENANT_SELECTION_STORAGE_KEY = 'webspa-admin.selected-tenant';
@@ -36,25 +37,53 @@ interface AdminTenantBootstrapConfig {
   tenantWorkspaces?: unknown;
 }
 
+interface BackendWorkspaceSnapshot {
+  platformScoped: boolean;
+  tenantOptions: TenantWorkspaceOption[];
+}
+
+interface AdminTenantWorkspaceResponse {
+  platform_scoped?: boolean;
+  platformScoped?: boolean;
+  tenants?: unknown;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class TenantWorkspaceService {
   private readonly selectionSubject = new BehaviorSubject<string | null>(this.readStoredSelection());
   private readonly workspaceSubject = new BehaviorSubject<TenantWorkspaceState>(this.createLoadingState());
+  private readonly backendWorkspaceSubject = new BehaviorSubject<BackendWorkspaceSnapshot | null>(null);
+  private readonly workspaceEndpoint = `${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`;
 
   readonly workspace$: Observable<TenantWorkspaceState> = this.workspaceSubject.asObservable();
 
-  constructor(private readonly auth: AuthService) {
+  constructor(
+    private readonly auth: AuthService,
+    @Optional() private readonly http: HttpClient | null
+  ) {
     combineLatest([
       this.auth.isLoading$,
       this.auth.isAuthenticated$,
       this.auth.user$,
-      this.selectionSubject
+      this.selectionSubject,
+      this.backendWorkspaceSubject
     ]).pipe(
-      map(([loading, authenticated, user, selection]) => this.resolveWorkspace(loading, authenticated, user, selection))
+      map(([loading, authenticated, user, selection, backend]) => this.resolveWorkspace(loading, authenticated, user, selection, backend))
     ).subscribe((state) => {
       this.workspaceSubject.next(state);
+    });
+
+    combineLatest([this.auth.isLoading$, this.auth.isAuthenticated$]).subscribe(([loading, authenticated]) => {
+      if (loading) {
+        return;
+      }
+      if (!authenticated) {
+        this.backendWorkspaceSubject.next(null);
+        return;
+      }
+      this.refreshBackendWorkspace();
     });
   }
 
@@ -98,6 +127,9 @@ export class TenantWorkspaceService {
   }
 
   isWorkspaceRequest(url: string): boolean {
+    if (url.startsWith(this.workspaceEndpoint)) {
+      return false;
+    }
     return [
       this.getApiBaseUrl(),
       this.getSubscriptionApiUrl(),
@@ -112,7 +144,8 @@ export class TenantWorkspaceService {
     loading: boolean,
     authenticated: boolean,
     user: User | null | undefined,
-    selection: string | null
+    selection: string | null,
+    backend: BackendWorkspaceSnapshot | null
   ): TenantWorkspaceState {
     if (loading) {
       return this.createLoadingState();
@@ -131,7 +164,7 @@ export class TenantWorkspaceService {
       };
     }
 
-    const claimSnapshot = this.extractClaims(user);
+    const claimSnapshot = this.extractClaims(user, backend);
     const currentTenant = this.resolveCurrentTenant(claimSnapshot, selection);
     const canSwitchTenant = claimSnapshot.platformScoped && claimSnapshot.tenantOptions.length > 1;
     const invalidSelection = claimSnapshot.platformScoped && Boolean(selection) && !currentTenant;
@@ -209,7 +242,7 @@ export class TenantWorkspaceService {
     return snapshot.tenantOptions.length === 1 ? snapshot.tenantOptions[0] : null;
   }
 
-  private extractClaims(user: User): ClaimSnapshot {
+  private extractClaims(user: User, backend: BackendWorkspaceSnapshot | null): ClaimSnapshot {
     const record = this.asRecord(user);
     const metadata = this.asRecord(record['app_metadata']) ?? this.asRecord(record['user_metadata']) ?? {};
     const source = {
@@ -222,9 +255,10 @@ export class TenantWorkspaceService {
     const orgIds = this.collectStrings(source, ['org_id', 'orgId', 'org_ids', 'orgIds']);
     const tenants = this.collectTenantOptions(source);
     const bootstrap = this.resolveAdminTenantBootstrap(source);
-    const platformScoped = this.isPlatformScoped(source) || bootstrap.platformScoped;
+    const platformScoped = this.isPlatformScoped(source) || bootstrap.platformScoped || Boolean(backend?.platformScoped);
 
     const tenantOptions = this.uniqueOptions([
+      ...(backend?.tenantOptions ?? []),
       ...bootstrap.tenantOptions,
       ...tenants,
       ...tenantKeys.map((tenantKey) => this.toTenantOption(tenantKey, tenantKey, tenantKey)),
@@ -237,6 +271,27 @@ export class TenantWorkspaceService {
       tenantKey: tenantKeys[0] ?? null,
       tenantOptions,
       platformScoped
+    };
+  }
+
+  private refreshBackendWorkspace(): void {
+    if (!this.http) {
+      return;
+    }
+    this.http.get<AdminTenantWorkspaceResponse>(this.workspaceEndpoint).pipe(
+      catchError(() => of(null))
+    ).subscribe((response) => {
+      this.backendWorkspaceSubject.next(this.toBackendWorkspaceSnapshot(response));
+    });
+  }
+
+  private toBackendWorkspaceSnapshot(response: AdminTenantWorkspaceResponse | null): BackendWorkspaceSnapshot | null {
+    if (!response) {
+      return null;
+    }
+    return {
+      platformScoped: Boolean(response.platform_scoped ?? response.platformScoped),
+      tenantOptions: this.collectTenantOptions({ tenantOptions: response.tenants })
     };
   }
 

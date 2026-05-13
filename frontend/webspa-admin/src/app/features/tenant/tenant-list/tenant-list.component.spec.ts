@@ -32,6 +32,26 @@ describe('TenantListComponent', () => {
         created_at: '2026-05-13T00:00:00Z',
         updated_at: '2026-05-13T00:00:00Z',
         audit_log_id: 'audit-2'
+      })),
+      listMembers: jasmine.createSpy().and.returnValue(of({
+        members: [],
+        total_count: 0,
+        page: 1,
+        page_size: 100
+      })),
+      upsertMember: jasmine.createSpy().and.returnValue(of({
+        id: 'member-1',
+        tenant_id: 'tenant-1',
+        auth0_subject: 'google-oauth2|123',
+        email: 'admin@example.com',
+        role: 'TENANT_ADMIN',
+        status: 'ACTIVE',
+        created_at: '2026-05-13T00:00:00Z',
+        updated_at: '2026-05-13T00:00:00Z',
+        audit_log_id: 'audit-3'
+      })),
+      deactivateMember: jasmine.createSpy().and.returnValue(of({
+        audit_log_id: 'audit-4'
       }))
     };
     const snackBar = {

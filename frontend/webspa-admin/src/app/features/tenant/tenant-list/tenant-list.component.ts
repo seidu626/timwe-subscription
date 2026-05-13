@@ -2,7 +2,16 @@ import { Component, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
-import { AdminTenant, TenantCreatePayload, TenantMutationPayload, TenantStatus } from '../../+state/models/tenant.model';
+import {
+  AdminTenant,
+  AdminTenantMember,
+  TenantCreatePayload,
+  TenantMemberPayload,
+  TenantMemberRole,
+  TenantMemberStatus,
+  TenantMutationPayload,
+  TenantStatus
+} from '../../+state/models/tenant.model';
 import { TenantService } from '../../+state/services/tenant.service';
 
 @Component({
@@ -13,10 +22,16 @@ import { TenantService } from '../../+state/services/tenant.service';
 export class TenantListComponent implements OnInit {
   loading = false;
   saving = false;
+  memberLoading = false;
+  memberSaving = false;
 
   readonly statuses: Array<TenantStatus | ''> = ['', 'ACTIVE', 'INACTIVE'];
+  readonly memberStatuses: TenantMemberStatus[] = ['ACTIVE', 'INACTIVE'];
+  readonly memberRoles: TenantMemberRole[] = ['TENANT_ADMIN', 'TENANT_VIEWER'];
   displayedColumns: string[] = ['tenant_key', 'name', 'status', 'default_country', 'updated_at', 'actions'];
+  memberDisplayedColumns: string[] = ['auth0_subject', 'email', 'role', 'status', 'updated_at', 'actions'];
   dataSource = new MatTableDataSource<AdminTenant>([]);
+  memberDataSource = new MatTableDataSource<AdminTenantMember>([]);
 
   totalCount = 0;
   page = 1;
@@ -30,6 +45,7 @@ export class TenantListComponent implements OnInit {
 
   editingTenantId: string | null = null;
   form = this.emptyForm();
+  memberForm = this.emptyMemberForm();
   metadataText = '{}';
 
   constructor(
@@ -87,11 +103,15 @@ export class TenantListComponent implements OnInit {
       default_country: tenant.default_country
     };
     this.metadataText = JSON.stringify(tenant.metadata || {}, null, 2);
+    this.memberForm = this.emptyMemberForm();
+    this.loadTenantMembers(tenant.id);
   }
 
   resetForm(): void {
     this.editingTenantId = null;
     this.form = this.emptyForm();
+    this.memberForm = this.emptyMemberForm();
+    this.memberDataSource.data = [];
     this.metadataText = '{}';
   }
 
@@ -152,6 +172,76 @@ export class TenantListComponent implements OnInit {
     return keys.slice(0, 3).map((key) => `${key}: ${String(metadata[key])}`).join(', ');
   }
 
+  saveMember(): void {
+    if (!this.editingTenantId) {
+      this.toast('Select a tenant first');
+      return;
+    }
+    if (!this.memberForm.auth0_subject.trim()) {
+      this.toast('Auth0 subject is required');
+      return;
+    }
+    const payload: TenantMemberPayload = {
+      auth0_subject: this.memberForm.auth0_subject.trim(),
+      role: this.memberForm.role,
+      status: this.memberForm.status
+    };
+    if (this.memberForm.email.trim()) {
+      payload.email = this.memberForm.email.trim().toLowerCase();
+    }
+
+    this.memberSaving = true;
+    this.tenantService.upsertMember(this.editingTenantId, payload).subscribe({
+      next: () => {
+        this.memberSaving = false;
+        this.toast('Tenant member saved');
+        this.memberForm = this.emptyMemberForm();
+        this.loadTenantMembers(this.editingTenantId || '');
+      },
+      error: (err) => {
+        this.memberSaving = false;
+        this.toast(this.extractErrorMessage(err, 'Failed to save tenant member'));
+      }
+    });
+  }
+
+  deactivateMember(member: AdminTenantMember): void {
+    if (!this.editingTenantId) {
+      return;
+    }
+    this.memberSaving = true;
+    this.tenantService.deactivateMember(this.editingTenantId, member.auth0_subject).subscribe({
+      next: () => {
+        this.memberSaving = false;
+        this.toast('Tenant member deactivated');
+        this.loadTenantMembers(this.editingTenantId || '');
+      },
+      error: (err) => {
+        this.memberSaving = false;
+        this.toast(this.extractErrorMessage(err, 'Failed to deactivate tenant member'));
+      }
+    });
+  }
+
+  private loadTenantMembers(tenantId: string): void {
+    if (!tenantId) {
+      this.memberDataSource.data = [];
+      return;
+    }
+    this.memberLoading = true;
+    this.tenantService.listMembers(tenantId, { page: 1, page_size: 100 }).subscribe({
+      next: (response) => {
+        this.memberDataSource.data = response.members || [];
+        this.memberLoading = false;
+      },
+      error: (err) => {
+        this.memberLoading = false;
+        this.memberDataSource.data = [];
+        this.toast(this.extractErrorMessage(err, 'Failed to load tenant members'));
+      }
+    });
+  }
+
   private parseMetadata(): Record<string, unknown> | null {
     try {
       const parsed = JSON.parse(this.metadataText || '{}');
@@ -172,6 +262,15 @@ export class TenantListComponent implements OnInit {
       name: '',
       status: 'ACTIVE',
       default_country: 'GH'
+    };
+  }
+
+  private emptyMemberForm(): { auth0_subject: string; email: string; role: TenantMemberRole; status: TenantMemberStatus } {
+    return {
+      auth0_subject: '',
+      email: '',
+      role: 'TENANT_ADMIN',
+      status: 'ACTIVE'
     };
   }
 

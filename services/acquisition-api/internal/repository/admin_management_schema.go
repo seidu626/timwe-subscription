@@ -16,6 +16,7 @@ var defaultAdminManagementSchemaPaths = []string{
 	"migrations/add_tenant_zz_acquisition_flow.sql",
 	"migrations/create_postback_tables.sql",
 	"migrations/add_tenant_postback_routing.sql",
+	"migrations/add_tenant_admin_memberships.sql",
 }
 
 var requiredAdminManagementRelations = []string{
@@ -25,6 +26,7 @@ var requiredAdminManagementRelations = []string{
 	"public.userbase_import_errors",
 	"public.tenant_channels",
 	"public.tenant_channel_credentials",
+	"public.tenant_admin_memberships",
 }
 
 // EnsureSchema ensures admin-management tables/indexes exist using the SQL migration file,

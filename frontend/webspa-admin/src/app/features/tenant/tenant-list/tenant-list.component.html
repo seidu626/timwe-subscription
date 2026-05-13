@@ -38,6 +38,75 @@
           Clear
         </button>
       </div>
+
+      <section *ngIf="editingTenantId" class="tenant-members">
+        <h3>Tenant Members</h3>
+        <div class="row">
+          <mat-form-field appearance="outline">
+            <mat-label>Auth0 Subject</mat-label>
+            <input matInput [(ngModel)]="memberForm.auth0_subject" placeholder="google-oauth2|..." />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Email</mat-label>
+            <input matInput type="email" [(ngModel)]="memberForm.email" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Role</mat-label>
+            <mat-select [(ngModel)]="memberForm.role">
+              <mat-option *ngFor="let role of memberRoles" [value]="role">{{ role }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="memberForm.status">
+              <mat-option *ngFor="let status of memberStatuses" [value]="status">{{ status }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <div class="actions">
+          <button mat-raised-button color="primary" (click)="saveMember()" [disabled]="memberSaving">
+            Add / Update Member
+          </button>
+        </div>
+
+        <div *ngIf="memberLoading" class="loading">
+          <mat-spinner diameter="28"></mat-spinner>
+        </div>
+        <table *ngIf="!memberLoading" mat-table [dataSource]="memberDataSource" class="member-table mat-elevation-z1">
+          <ng-container matColumnDef="auth0_subject">
+            <th mat-header-cell *matHeaderCellDef>Auth0 Subject</th>
+            <td mat-cell *matCellDef="let row">{{ row.auth0_subject }}</td>
+          </ng-container>
+          <ng-container matColumnDef="email">
+            <th mat-header-cell *matHeaderCellDef>Email</th>
+            <td mat-cell *matCellDef="let row">{{ row.email || '-' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="role">
+            <th mat-header-cell *matHeaderCellDef>Role</th>
+            <td mat-cell *matCellDef="let row">{{ row.role }}</td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="status" [class.inactive]="row.status === 'INACTIVE'">{{ row.status }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="updated_at">
+            <th mat-header-cell *matHeaderCellDef>Updated</th>
+            <td mat-cell *matCellDef="let row">{{ row.updated_at | date:'short' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let row">
+              <button mat-icon-button color="warn" (click)="deactivateMember(row)" [disabled]="memberSaving || row.status === 'INACTIVE'" matTooltip="Deactivate">
+                <mat-icon>block</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="memberDisplayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: memberDisplayedColumns"></tr>
+        </table>
+      </section>
     </mat-card-content>
   </mat-card>
 

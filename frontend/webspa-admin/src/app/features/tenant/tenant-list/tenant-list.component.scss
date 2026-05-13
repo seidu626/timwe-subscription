@@ -33,6 +33,21 @@
   width: 100%;
 }
 
+.tenant-members {
+  border-top: 1px solid var(--admin-border, #dbe1ea);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.tenant-members h3 {
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.member-table {
+  margin-top: 1rem;
+}
+
 .metadata {
   color: var(--admin-text-muted);
   display: block;

@@ -49,6 +49,55 @@ type TenantListFilter struct {
 	Query  string
 }
 
+type TenantMemberStatus string
+
+const (
+	TenantMemberStatusActive   TenantMemberStatus = "ACTIVE"
+	TenantMemberStatusInactive TenantMemberStatus = "INACTIVE"
+)
+
+type TenantMemberRole string
+
+const (
+	TenantMemberRoleAdmin  TenantMemberRole = "TENANT_ADMIN"
+	TenantMemberRoleViewer TenantMemberRole = "TENANT_VIEWER"
+)
+
+// AdminTenantMember represents an Auth0 principal assigned to a tenant workspace.
+type AdminTenantMember struct {
+	ID           string             `json:"id"`
+	TenantID     string             `json:"tenant_id"`
+	Auth0Subject string             `json:"auth0_subject"`
+	Email        *string            `json:"email,omitempty"`
+	Role         TenantMemberRole   `json:"role"`
+	Status       TenantMemberStatus `json:"status"`
+	CreatedBy    *string            `json:"created_by,omitempty"`
+	CreatedAt    time.Time          `json:"created_at"`
+	UpdatedAt    time.Time          `json:"updated_at"`
+}
+
+type TenantMemberInput struct {
+	TenantID     string
+	Auth0Subject string
+	Email        *string
+	Role         TenantMemberRole
+	Status       TenantMemberStatus
+	CreatedBy    *string
+}
+
+type TenantMemberListFilter struct {
+	TenantID string
+	Limit    int
+	Offset   int
+	Status   TenantMemberStatus
+	Query    string
+}
+
+type AdminTenantWorkspace struct {
+	PlatformScoped bool           `json:"platform_scoped"`
+	Tenants        []*AdminTenant `json:"tenants"`
+}
+
 // AdminProduct represents a product managed via admin APIs.
 type AdminProduct struct {
 	ID              int       `json:"id"`

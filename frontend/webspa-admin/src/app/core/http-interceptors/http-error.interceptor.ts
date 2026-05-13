@@ -76,6 +76,9 @@ export class HttpErrorInterceptor implements HttpInterceptor {
   }
 
   private isWorkspaceRequest(url: string): boolean {
+    if (url.startsWith(`${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`)) {
+      return false;
+    }
     return [
       environment.baseApiEndpoint,
       environment.subscriptionApiEndpoint,

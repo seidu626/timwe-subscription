@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -119,6 +120,30 @@ type tenantListResponse struct {
 
 type tenantUpdateResponse struct {
 	*domain.AdminTenant
+	AuditLogID string `json:"audit_log_id"`
+}
+
+type tenantMemberPayload struct {
+	Auth0Subject string  `json:"auth0_subject"`
+	Email        *string `json:"email,omitempty"`
+	Role         string  `json:"role,omitempty"`
+	Status       string  `json:"status,omitempty"`
+	PerformedBy  string  `json:"performed_by,omitempty"`
+}
+
+type tenantMemberListResponse struct {
+	Members    []*domain.AdminTenantMember `json:"members"`
+	TotalCount int                         `json:"total_count"`
+	Page       int                         `json:"page"`
+	PageSize   int                         `json:"page_size"`
+}
+
+type tenantMemberMutationResponse struct {
+	*domain.AdminTenantMember
+	AuditLogID string `json:"audit_log_id"`
+}
+
+type tenantMemberDeleteResponse struct {
 	AuditLogID string `json:"audit_log_id"`
 }
 
@@ -237,6 +262,109 @@ func (h *AdminManagementHandler) GetCurrentTenant(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	writeJSON(ctx, fasthttp.StatusOK, tenant)
+}
+
+func (h *AdminManagementHandler) GetTenantWorkspaces(ctx *fasthttp.RequestCtx) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+	workspaces, err := h.service.ListAuthorizedTenantWorkspaces(identity)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, workspaces)
+}
+
+func (h *AdminManagementHandler) ListTenantMembers(ctx *fasthttp.RequestCtx) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+	tenantID, _, err := parseTenantMemberPath(string(ctx.Path()))
+	if err != nil {
+		ctx.Error("Invalid tenant member path", fasthttp.StatusBadRequest)
+		return
+	}
+	page, pageSize := parsePageArgs(ctx, 20, 200)
+	members, total, err := h.service.ListTenantMembers(tenantID, identity, &domain.TenantMemberListFilter{
+		Limit:  pageSize,
+		Offset: (page - 1) * pageSize,
+		Status: domain.TenantMemberStatus(strings.TrimSpace(string(ctx.QueryArgs().Peek("status")))),
+		Query:  strings.TrimSpace(string(ctx.QueryArgs().Peek("q"))),
+	})
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, tenantMemberListResponse{
+		Members:    members,
+		TotalCount: total,
+		Page:       page,
+		PageSize:   pageSize,
+	})
+}
+
+func (h *AdminManagementHandler) UpsertTenantMember(ctx *fasthttp.RequestCtx) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+	tenantID, _, err := parseTenantMemberPath(string(ctx.Path()))
+	if err != nil {
+		ctx.Error("Invalid tenant member path", fasthttp.StatusBadRequest)
+		return
+	}
+	var req tenantMemberPayload
+	decoder := json.NewDecoder(bytes.NewReader(ctx.PostBody()))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+	input := &domain.TenantMemberInput{
+		Auth0Subject: req.Auth0Subject,
+		Email:        req.Email,
+		Role:         domain.TenantMemberRole(req.Role),
+		Status:       domain.TenantMemberStatus(req.Status),
+	}
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
+	input.CreatedBy = actor
+	requestID := requestIDFromHeader(ctx)
+	member, auditLogID, err := h.service.UpsertTenantMember(tenantID, input, identity, actor, requestID)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, tenantMemberMutationResponse{
+		AdminTenantMember: member,
+		AuditLogID:        auditLogID,
+	})
+}
+
+func (h *AdminManagementHandler) DeactivateTenantMember(ctx *fasthttp.RequestCtx) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+	tenantID, auth0Subject, err := parseTenantMemberPath(string(ctx.Path()))
+	if err != nil || strings.TrimSpace(auth0Subject) == "" {
+		ctx.Error("Invalid tenant member path", fasthttp.StatusBadRequest)
+		return
+	}
+	actor := actorFromPayloadIdentityOrRequest("", identity, ctx)
+	requestID := requestIDFromHeader(ctx)
+	auditLogID, err := h.service.DeactivateTenantMember(tenantID, auth0Subject, identity, actor, requestID)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, tenantMemberDeleteResponse{AuditLogID: auditLogID})
 }
 
 func (h *AdminManagementHandler) ListProducts(ctx *fasthttp.RequestCtx) {
@@ -854,6 +982,30 @@ func parseTenantIDFromPath(path string) (string, error) {
 		return "", errors.New("missing tenant id")
 	}
 	return id, nil
+}
+
+func parseTenantMemberPath(path string) (string, string, error) {
+	parts := splitPathParts(path)
+	if len(parts) < 5 || parts[0] != "v1" || parts[1] != "admin" || parts[2] != "tenants" || parts[4] != "members" {
+		return "", "", errors.New("invalid path")
+	}
+	tenantID := strings.TrimSpace(parts[3])
+	if tenantID == "" || tenantID == "current" || tenantID == "workspaces" {
+		return "", "", errors.New("missing tenant id")
+	}
+	if len(parts) == 5 {
+		return tenantID, "", nil
+	}
+	rawSubject := strings.Join(parts[5:], "/")
+	subject, err := url.PathUnescape(rawSubject)
+	if err != nil {
+		return "", "", err
+	}
+	subject = strings.TrimSpace(subject)
+	if subject == "" {
+		return "", "", errors.New("missing auth0 subject")
+	}
+	return tenantID, subject, nil
 }
 
 func parseMSISDNFromPath(path string) (string, error) {

@@ -207,6 +207,27 @@ func NewRouter(
 			}
 			return
 
+		case strings.EqualFold(path, "/v1/admin/tenants/workspaces"):
+			if method == fasthttp.MethodGet {
+				adminManagementHandler.GetTenantWorkspaces(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/tenants/") && strings.Contains(path, "/members"):
+			switch method {
+			case fasthttp.MethodGet:
+				adminManagementHandler.ListTenantMembers(ctx)
+			case fasthttp.MethodPost, fasthttp.MethodPut:
+				adminManagementHandler.UpsertTenantMember(ctx)
+			case fasthttp.MethodDelete:
+				adminManagementHandler.DeactivateTenantMember(ctx)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		case strings.HasPrefix(path, "/v1/admin/tenants/"):
 			if method == fasthttp.MethodPatch {
 				adminManagementHandler.UpdateTenant(ctx)

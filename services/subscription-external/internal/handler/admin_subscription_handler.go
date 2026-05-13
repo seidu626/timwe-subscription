@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
@@ -169,7 +170,7 @@ func (h *SubscriptionHandler) AdminActionHistoryHandler(ctx *fasthttp.RequestCtx
 	}
 
 	filter := domain.AdminActionLogFilter{
-		TenantID:       strings.TrimSpace(string(queryArgs.Peek("tenantId"))),
+		TenantID:       adminActionTenantIDFromRequest(ctx, queryArgs),
 		Operation:      operationValue,
 		MSISDN:         strings.TrimSpace(string(queryArgs.Peek("msisdn"))),
 		ExternalTxID:   strings.TrimSpace(string(queryArgs.Peek("externalTxId"))),
@@ -212,6 +213,18 @@ func (h *SubscriptionHandler) AdminActionHistoryHandler(ctx *fasthttp.RequestCtx
 		ctx.Error("Failed to encode admin action history response", fasthttp.StatusInternalServerError)
 		return
 	}
+}
+
+func adminActionTenantIDFromRequest(ctx *fasthttp.RequestCtx, queryArgs *fasthttp.Args) string {
+	if queryArgs != nil {
+		if tenantID := strings.TrimSpace(string(queryArgs.Peek("tenantId"))); tenantID != "" {
+			return tenantID
+		}
+		if tenantID := strings.TrimSpace(string(queryArgs.Peek("tenant_id"))); tenantID != "" {
+			return tenantID
+		}
+	}
+	return firstHeader(ctx, tenantctx.HeaderTenantID, "X-Tenant-ID")
 }
 
 func (h *SubscriptionHandler) AdminActionDetailHandler(ctx *fasthttp.RequestCtx, id string) {

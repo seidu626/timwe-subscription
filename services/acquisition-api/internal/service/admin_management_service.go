@@ -218,6 +218,137 @@ func (s *AdminManagementService) ResolveCurrentTenant(identity tenantctx.Identit
 	return tenant, nil
 }
 
+func (s *AdminManagementService) ListAuthorizedTenantWorkspaces(identity tenantctx.Identity) (*domain.AdminTenantWorkspace, error) {
+	if identity.PlatformScoped {
+		tenants, _, err := s.ListTenants(identity, &domain.TenantListFilter{
+			Limit:  500,
+			Status: domain.TenantStatusActive,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &domain.AdminTenantWorkspace{
+			PlatformScoped: true,
+			Tenants:        tenants,
+		}, nil
+	}
+
+	tenants, err := s.repo.ListActiveTenantsForMember(identity.Subject, identity.Email)
+	if err != nil {
+		return nil, err
+	}
+	if len(tenants) == 0 && identity.HasTenant() {
+		tenant, err := s.ResolveCurrentTenant(identity)
+		if err == nil {
+			tenants = append(tenants, tenant)
+		} else if !errors.Is(err, ErrTenantUnavailable) && !errors.Is(err, ErrTenantContextMissing) {
+			return nil, err
+		}
+	}
+	return &domain.AdminTenantWorkspace{
+		PlatformScoped: false,
+		Tenants:        tenants,
+	}, nil
+}
+
+func (s *AdminManagementService) ListTenantMembers(tenantID string, identity tenantctx.Identity, filter *domain.TenantMemberListFilter) ([]*domain.AdminTenantMember, int, error) {
+	if !identity.PlatformScoped {
+		return nil, 0, ErrAdminForbidden
+	}
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, 0, fmt.Errorf("%w: tenant id is required", ErrInvalidInput)
+	}
+	if _, err := s.repo.GetTenantByID(tenantID); err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return nil, 0, ErrAdminNotFound
+		}
+		return nil, 0, err
+	}
+	if filter == nil {
+		filter = &domain.TenantMemberListFilter{Limit: 20}
+	}
+	filter.TenantID = tenantID
+	filter.Status = domain.TenantMemberStatus(strings.ToUpper(strings.TrimSpace(string(filter.Status))))
+	if filter.Status != "" && filter.Status != domain.TenantMemberStatusActive && filter.Status != domain.TenantMemberStatusInactive {
+		return nil, 0, fmt.Errorf("%w: status must be ACTIVE or INACTIVE", ErrInvalidInput)
+	}
+	filter.Query = strings.TrimSpace(filter.Query)
+	return s.repo.ListTenantMembers(filter)
+}
+
+func (s *AdminManagementService) UpsertTenantMember(tenantID string, input *domain.TenantMemberInput, identity tenantctx.Identity, actor, requestID *string) (*domain.AdminTenantMember, string, error) {
+	if !identity.PlatformScoped {
+		return nil, "", ErrAdminForbidden
+	}
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, "", fmt.Errorf("%w: tenant id is required", ErrInvalidInput)
+	}
+	if _, err := s.repo.GetTenantByID(tenantID); err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return nil, "", ErrAdminNotFound
+		}
+		return nil, "", err
+	}
+	if input == nil {
+		return nil, "", fmt.Errorf("%w: member payload is required", ErrInvalidInput)
+	}
+	input.TenantID = tenantID
+	if err := validateTenantMemberInput(input); err != nil {
+		return nil, "", err
+	}
+
+	auditID := uuid.NewString()
+	entry := &domain.AdminActivityLog{
+		ID:        auditID,
+		Action:    "upsert",
+		Actor:     actor,
+		RequestID: requestID,
+		AfterJSON: mustJSON(input),
+		Metadata: mustJSON(map[string]any{
+			"auth0_subject": input.Auth0Subject,
+			"role":          input.Role,
+			"status":        input.Status,
+		}),
+		CreatedAt: time.Now().UTC(),
+	}
+	member, err := s.repo.UpsertTenantMemberWithActivityLog(input, entry)
+	if err != nil {
+		return nil, "", err
+	}
+	return member, auditID, nil
+}
+
+func (s *AdminManagementService) DeactivateTenantMember(tenantID, auth0Subject string, identity tenantctx.Identity, actor, requestID *string) (string, error) {
+	if !identity.PlatformScoped {
+		return "", ErrAdminForbidden
+	}
+	tenantID = strings.TrimSpace(tenantID)
+	auth0Subject = strings.TrimSpace(auth0Subject)
+	if tenantID == "" || auth0Subject == "" {
+		return "", fmt.Errorf("%w: tenant id and auth0 subject are required", ErrInvalidInput)
+	}
+	auditID := uuid.NewString()
+	entry := &domain.AdminActivityLog{
+		ID:        auditID,
+		Action:    "deactivate",
+		Actor:     actor,
+		RequestID: requestID,
+		Metadata: mustJSON(map[string]any{
+			"auth0_subject": auth0Subject,
+		}),
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := s.repo.DeactivateTenantMemberWithActivityLog(tenantID, auth0Subject, entry); err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return "", ErrAdminNotFound
+		}
+		return "", err
+	}
+	return auditID, nil
+}
+
 func (s *AdminManagementService) ListProducts(filter *domain.ProductListFilter) ([]*domain.AdminProduct, int, error) {
 	return s.repo.ListProducts(filter)
 }
@@ -1073,6 +1204,58 @@ func validateTenantUpdateInput(input *domain.TenantUpdateInput) error {
 	}
 	if !hasChange {
 		return fmt.Errorf("%w: at least one tenant field is required", ErrInvalidInput)
+	}
+	return nil
+}
+
+func validateTenantMemberInput(input *domain.TenantMemberInput) error {
+	if input == nil {
+		return fmt.Errorf("%w: member payload is required", ErrInvalidInput)
+	}
+	input.TenantID = strings.TrimSpace(input.TenantID)
+	input.Auth0Subject = strings.TrimSpace(input.Auth0Subject)
+	input.Role = domain.TenantMemberRole(strings.ToUpper(strings.TrimSpace(string(input.Role))))
+	input.Status = domain.TenantMemberStatus(strings.ToUpper(strings.TrimSpace(string(input.Status))))
+
+	if input.TenantID == "" {
+		return fmt.Errorf("%w: tenant id is required", ErrInvalidInput)
+	}
+	if input.Auth0Subject == "" {
+		return fmt.Errorf("%w: auth0_subject is required", ErrInvalidInput)
+	}
+	if len(input.Auth0Subject) > 255 {
+		return fmt.Errorf("%w: auth0_subject is too long", ErrInvalidInput)
+	}
+	if input.Role == "" {
+		input.Role = domain.TenantMemberRoleAdmin
+	}
+	if input.Role != domain.TenantMemberRoleAdmin && input.Role != domain.TenantMemberRoleViewer {
+		return fmt.Errorf("%w: role must be TENANT_ADMIN or TENANT_VIEWER", ErrInvalidInput)
+	}
+	if input.Status == "" {
+		input.Status = domain.TenantMemberStatusActive
+	}
+	if input.Status != domain.TenantMemberStatusActive && input.Status != domain.TenantMemberStatusInactive {
+		return fmt.Errorf("%w: status must be ACTIVE or INACTIVE", ErrInvalidInput)
+	}
+	if input.Email != nil {
+		email := strings.ToLower(strings.TrimSpace(*input.Email))
+		if email == "" {
+			input.Email = nil
+		} else {
+			if len(email) > 255 || !strings.Contains(email, "@") {
+				return fmt.Errorf("%w: email is invalid", ErrInvalidInput)
+			}
+			input.Email = &email
+		}
+	}
+	if input.CreatedBy != nil {
+		createdBy := strings.TrimSpace(*input.CreatedBy)
+		if createdBy == "" {
+			input.CreatedBy = nil
+		} else {
+			input.CreatedBy = &createdBy
+		}
 	}
 	return nil
 }
