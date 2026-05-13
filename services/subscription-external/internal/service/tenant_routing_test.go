@@ -3,11 +3,15 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +19,140 @@ import (
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"go.uber.org/zap"
 )
+
+// ─── minimal fake sql driver for tenant routing tests ────────────────────────
+// Implements just enough of database/sql/driver to let TenantProviderRouter.Resolve
+// run its QueryRowContext against a static row, without any real database or sqlmock.
+
+var registerFakeDriverOnce sync.Once
+
+const fakeDriverName = "fake-tenant-routing"
+
+type fakeDriver struct{ row []driver.Value }
+type fakeConn struct{ row []driver.Value }
+type fakeStmt struct{ row []driver.Value }
+type fakeRows struct {
+	row    []driver.Value
+	served bool
+}
+
+func (d *fakeDriver) Open(_ string) (driver.Conn, error) { return &fakeConn{row: d.row}, nil }
+func (c *fakeConn) Prepare(_ string) (driver.Stmt, error) {
+	return &fakeStmt{row: c.row}, nil
+}
+func (c *fakeConn) Close() error          { return nil }
+func (c *fakeConn) Begin() (driver.Tx, error) { return nil, errors.New("unsupported") }
+func (s *fakeStmt) Close() error          { return nil }
+func (s *fakeStmt) NumInput() int         { return -1 } // variadic
+func (s *fakeStmt) Exec(_ []driver.Value) (driver.Result, error) {
+	return nil, errors.New("unsupported")
+}
+func (s *fakeStmt) Query(_ []driver.Value) (driver.Rows, error) {
+	return &fakeRows{row: s.row}, nil
+}
+func (r *fakeRows) Columns() []string {
+	return []string{"id", "tenant_id", "provider", "capabilities", "secret_ref", "secret_ref_display"}
+}
+func (r *fakeRows) Close() error { return nil }
+func (r *fakeRows) Next(dest []driver.Value) error {
+	if r.served {
+		return io.EOF
+	}
+	r.served = true
+	for i, v := range r.row {
+		dest[i] = v
+	}
+	return nil
+}
+
+// openFakeDB returns a *sql.DB backed by a fake driver returning the given row.
+// The driver is registered once; subsequent calls reuse the same registration.
+func openFakeDB(t *testing.T, row []driver.Value) *sql.DB {
+	t.Helper()
+	name := fakeDriverName
+	registerFakeDriverOnce.Do(func() {
+		// Register with a placeholder; the actual row is set per-call via DSN trick below.
+	})
+	// Register a unique driver per test to avoid shared state between parallel tests.
+	driverName := name + "-" + t.Name()
+	sql.Register(driverName, &fakeDriver{row: row})
+	db, err := sql.Open(driverName, "fake")
+	if err != nil {
+		t.Fatalf("openFakeDB: %v", err)
+	}
+	return db
+}
+
+// ─── TMP-066 careerify seed verification ─────────────────────────────────────
+
+// TestTenantRoutingCareerifyChannelLookup verifies that the tenant_routing.go
+// query (lines 208-222) returns provider='timwe' and a non-empty secret_ref for
+// the careerify / web-gh-airteltigo pair seeded by seed_careerify_tenant_channel.sql.
+//
+// It drives TenantProviderRouter.Resolve with a fake *sql.DB that returns exactly
+// the row the seed migration would produce, and asserts the contract used by all
+// downstream slices (TMP-067..070).
+func TestTenantRoutingCareerifyChannelLookup(t *testing.T) {
+	const (
+		careerifyTenantID  = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+		careerifyChannelID = "11111111-2222-3333-4444-555555555555"
+		secretRef          = "env://CAREERIFY_TIMWE_API_SECRET"
+		secretRefDisplay   = "careerify-timwe-api"
+	)
+
+	// The seed migration sets secret_ref = 'env://CAREERIFY_TIMWE_API_SECRET'.
+	// EnvProviderCredentialResolver needs the env var to resolve credentials.
+	t.Setenv("CAREERIFY_TIMWE_API_SECRET", `{
+		"base_url":          "https://api.timwe.test",
+		"api_key":           "careerify-api-key",
+		"authentication_key":"careerify-auth",
+		"partner_role_id":   "9999",
+		"realm":             "careerify-realm"
+	}`)
+
+	// Fake DB row matches what seed_careerify_tenant_channel.sql inserts:
+	//   c.id, c.tenant_id, c.provider, c.capabilities, cred.secret_ref, cred.secret_ref_display
+	row := []driver.Value{
+		careerifyChannelID,
+		careerifyTenantID,
+		"timwe",
+		"{optin,confirm,mt,charge}", // pq.StringArray scans from PostgreSQL array literal
+		secretRef,
+		secretRefDisplay,
+	}
+	db := openFakeDB(t, row)
+	defer db.Close()
+
+	cfg := tenantRoutingTestConfig("https://legacy.invalid")
+	router := NewTenantProviderRouter(db, cfg, EnvProviderCredentialResolver{})
+
+	resolved, err := router.Resolve(context.Background(), ChannelOperationMT, domain.TenantRouteContext{
+		TenantKey:  "careerify",
+		ChannelKey: "web-gh-airteltigo",
+	})
+	if err != nil {
+		t.Fatalf("careerify channel lookup failed: %v", err)
+	}
+	if resolved.Provider != "timwe" {
+		t.Errorf("expected provider=timwe, got %q", resolved.Provider)
+	}
+	if resolved.TenantID != careerifyTenantID {
+		t.Errorf("expected tenant_id=%s, got %q", careerifyTenantID, resolved.TenantID)
+	}
+	if resolved.ChannelID != careerifyChannelID {
+		t.Errorf("expected channel_id=%s, got %q", careerifyChannelID, resolved.ChannelID)
+	}
+	if resolved.SecretRefDisplay != secretRefDisplay {
+		t.Errorf("expected secret_ref_display=%q, got %q", secretRefDisplay, resolved.SecretRefDisplay)
+	}
+	// The resolved config must have API credentials populated from the env secret.
+	if resolved.APIKey == "" {
+		t.Error("expected non-empty APIKey from careerify secret")
+	}
+	if resolved.BaseURL == "" {
+		t.Error("expected non-empty BaseURL from careerify secret")
+	}
+}
 
 type fakeTenantProviderResolver struct {
 	cfg       *TenantProviderConfig

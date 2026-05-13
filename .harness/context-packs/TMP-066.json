@@ -1,0 +1,57 @@
+{
+  "pack_type": "slice",
+  "slice_id": "TMP-066",
+  "slice_name": "careerify-tenant-onboarding-seed",
+  "spec_path": "slices/TMP-066-careerify-tenant-onboarding-seed/spec.md",
+  "manifest_state": "planned",
+  "user_story": "As a platform operator, I can onboard the `careerify` tenant with its `web-gh-airteltigo` channel and provider credentials so downstream gateway and notification slices route to real tenant rows.",
+  "acceptance_criteria": [
+    "New tenant row exists with tenant_key='careerify'.",
+    "New channel row exists with channel_key='web-gh-airteltigo' bound to that tenant.",
+    "Provider credential rows referenced by services/subscription-external/internal/service/tenant_routing.go:217 query exist for that pair (purpose = 'provider_api', constant `tenantCredentialPurposeProviderAPI`).",
+    "Migration is forward-only and idempotent.",
+    "Tests verify the tenant_routing lookup succeeds."
+  ],
+  "schema_facts": {
+    "tenants_table_migration": "services/acquisition-api/migrations/add_admin_management_tables.sql (created via INSERT INTO tenants (id, tenant_key, name, status, default_country, metadata_json) at acquisition-api repository:50)",
+    "tenant_channels_table_migration": "services/acquisition-api/migrations/add_tenant_channels.sql",
+    "tenant_channels_capabilities_constraint": "capabilities <@ ARRAY['optin','confirm','mt','charge']::text[] — pick a subset that supports careerify's subscription flow (e.g. ['optin','confirm','mt','charge']).",
+    "tenant_channels_key_constraint": "channel_key ~ '^[a-z0-9][a-z0-9_-]{1,118}[a-z0-9]$' — 'web-gh-airteltigo' matches.",
+    "tenant_channels_country_constraint": "2-letter uppercase ISO. For Ghana use 'GH'.",
+    "tenant_channels_unique_idx": "(tenant_id, channel_key) UNIQUE — idempotency key.",
+    "tenant_channel_credentials_table_migration": "services/acquisition-api/migrations/add_tenant_channel_credentials.sql",
+    "credential_purpose_constant": "provider_api (from tenant_routing.go:21)",
+    "credential_status_for_lookup": "ACTIVE",
+    "tenant_routing_query_columns": "JOINs tenants → tenant_channels → tenant_channel_credentials. Filters: c.status='ACTIVE' AND cred.purpose='provider_api' AND cred.status='ACTIVE'. credential.secret_ref must be non-empty for ErrTenantCredentialMissing not to fire. Provider must be 'timwe' (case-insensitive) per line ~248."
+  },
+  "reference_precedent": {
+    "tenant_seed_script": "scripts/db-migrate-tenant-platform.sh — used for the 'nrg' tenant seed via upsert_canonical_tenant (lines 187-205). This is a bash-driven upsert script, not a forward-only .sql migration. The slice spec asks for a SQL migration file — pick the SQL-migration approach (idempotent INSERT...ON CONFLICT DO UPDATE) and place it under the appropriate service's migrations/ dir.",
+    "preferred_migrations_dir": "services/acquisition-api/migrations/ — that is where the tenants, tenant_channels, and tenant_channel_credentials tables live and are migrated.",
+    "naming_convention": "Existing files use either numeric prefix (010_*.sql) in subscription-external/migrations or topical names (add_tenant_channels.sql) in acquisition-api/migrations. For acquisition-api dir: topical name e.g. `seed_careerify_tenant_channel.sql`.",
+    "tenant_key_value": "careerify",
+    "channel_key_value": "web-gh-airteltigo",
+    "country_value": "GH",
+    "provider_value": "timwe",
+    "operator_value_suggestion": "AirtelTigo Ghana — set if known; otherwise NULL is allowed.",
+    "secret_ref_format": "follow the same secret_ref pattern used for nrg if present. If unsure, use a placeholder like 'env:CAREERIFY_TIMWE_API_SECRET' with secret_ref_display 'careerify-timwe-api' and a 64-char hex fingerprint."
+  },
+  "scope_in": [
+    "services/acquisition-api/migrations/ — new SQL seed migration for tenant + channel + credential.",
+    "slices/TMP-066-careerify-tenant-onboarding-seed/value-gate-report.md — evidence: SHOW TABLES query results, tenant_routing.go lookup test passing.",
+    "Test addition (preferred location): services/subscription-external/internal/service/tenant_routing_test.go or new test file that asserts the lookup for (tenant_key='careerify', channel_key='web-gh-airteltigo') returns a row with provider='timwe' and a non-empty secret_ref."
+  ],
+  "scope_out": [
+    "Any change to krakend/, ops/nginx/, or service handlers — those are TMP-067/068/069.",
+    "Modifying existing nrg seed data."
+  ],
+  "dependencies_shipped": [],
+  "risk_boundary": "Migration touches schema/data — operator confirmation REQUIRED before commit per CLAUDE.md global risk gate.",
+  "pre_loaded_skills": ["slice-build"],
+  "verification_commands": [
+    "Run the new SQL against a local Postgres (psql -d timwe -f services/acquisition-api/migrations/<new-file>.sql) and SELECT tenant_id FROM tenants WHERE tenant_key='careerify'; expect 1 row.",
+    "SELECT t.tenant_key, c.channel_key, c.provider, c.capabilities, cred.purpose, cred.status, cred.secret_ref_display FROM tenants t JOIN tenant_channels c ON c.tenant_id=t.id JOIN tenant_channel_credentials cred ON cred.tenant_id=t.id AND cred.channel_id=c.id WHERE t.tenant_key='careerify'; expect 1 row with purpose='provider_api'.",
+    "go test ./services/subscription-external/internal/service/... -run TenantRouting"
+  ],
+  "run_id": "slice-TMP-066-build-2026-05-13T2012Z",
+  "monitor_progress_log": ".harness/runs/slice-TMP-066-build-2026-05-13T2012Z/progress.log"
+}

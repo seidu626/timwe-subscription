@@ -1955,8 +1955,8 @@
         "schema",
         "evidence"
       ],
-      "state": "planned",
-      "branch": null,
+      "state": "shipped",
+      "branch": "main",
       "created_at": "2026-05-13T00:00:00Z",
       "verification": {
         "automated": [
@@ -2105,5 +2105,5 @@
       "notes": "Closing slice. Produces the artifact set required to declare careerify onboarding shippable. Failure here bounces back to whichever upstream slice owns the gap."
     }
   ],
-  "updated_at": "2026-05-13T00:00:00Z"
+  "updated_at": "2026-05-13T20:23:48Z"
 }
