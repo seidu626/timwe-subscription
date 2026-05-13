@@ -20,7 +20,7 @@ bootstrapApplication(AppComponent, {
   ...appConfig,
   providers: [
     ...(appConfig.providers ?? []),
-    { provide: ErrorHandler, useClass: Sentry.SentryErrorHandler },
+    { provide: ErrorHandler, useValue: Sentry.createErrorHandler() },
   ],
 })
   .catch(err => console.error(err));

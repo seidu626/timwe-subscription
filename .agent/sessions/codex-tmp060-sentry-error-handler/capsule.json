@@ -1,0 +1,11 @@
+{
+  "blockers": [],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-tmp060-sentry-error-handler",
+  "status": "done",
+  "summary": "Fixed the webspa-admin startup crash by registering Sentry's Angular error handler through createErrorHandler instead of using SentryErrorHandler as an Angular DI class provider.",
+  "task_id": "TMP-060",
+  "unfinished_work": [],
+  "written_at": "2026-05-13T10:11:06Z"
+}
