@@ -196,6 +196,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -206,6 +234,11 @@
             "external-tx-id"
           ]
         }
+      ],
+      "input_query_strings": [
+        "tenant_key",
+        "channel_key",
+        "external-tx-id"
       ]
     },
     {
@@ -251,6 +284,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -261,6 +322,11 @@
             "external-tx-id"
           ]
         }
+      ],
+      "input_query_strings": [
+        "tenant_key",
+        "channel_key",
+        "external-tx-id"
       ]
     },
     {
@@ -306,6 +372,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -316,6 +410,11 @@
             "external-tx-id"
           ]
         }
+      ],
+      "input_query_strings": [
+        "tenant_key",
+        "channel_key",
+        "external-tx-id"
       ]
     },
     {
@@ -361,6 +460,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -371,6 +498,11 @@
             "external-tx-id"
           ]
         }
+      ],
+      "input_query_strings": [
+        "tenant_key",
+        "channel_key",
+        "external-tx-id"
       ]
     },
     {
@@ -416,6 +548,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -426,6 +586,11 @@
             "external-tx-id"
           ]
         }
+      ],
+      "input_query_strings": [
+        "tenant_key",
+        "channel_key",
+        "external-tx-id"
       ]
     },
     {
@@ -471,6 +636,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -481,6 +674,11 @@
             "external-tx-id"
           ]
         }
+      ],
+      "input_query_strings": [
+        "tenant_key",
+        "channel_key",
+        "external-tx-id"
       ]
     },
     {
@@ -1983,23 +2181,37 @@
           "alg": "RS256",
           "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
           "issuer": "https://dev-chliep5q.auth0.com/",
-          "audience": ["https://dev-chliep5q.auth0.com/api/v2/"],
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
           "cache": true,
           "cache_duration": 900
         }
       },
-      "input_query_strings": ["*"],
-      "input_headers": ["Authorization"],
-      "headers_to_pass": ["Authorization"],
-      "backend": [{
-        "url_pattern": "/v1/admin/transactions/{id}/trigger-postback",
-        "encoding": "no-op",
-        "sd": "static",
-        "method": "POST",
-        "host": ["http://127.0.0.1:8084"],
-        "disable_host_sanitize": true,
-        "headers_to_pass": ["Authorization"]
-      }]
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Authorization"
+      ],
+      "headers_to_pass": [
+        "Authorization"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/v1/admin/transactions/{id}/trigger-postback",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://127.0.0.1:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization"
+          ]
+        }
+      ]
     },
     {
       "endpoint": "/v1/admin/transactions/{id}",
@@ -2135,22 +2347,34 @@
           "alg": "RS256",
           "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
           "issuer": "https://dev-chliep5q.auth0.com/",
-          "audience": ["https://dev-chliep5q.auth0.com/api/v2/"],
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
           "cache": true,
           "cache_duration": 900
         }
       },
-      "input_headers": ["Authorization"],
-      "headers_to_pass": ["Authorization"],
-      "backend": [{
-        "url_pattern": "/v1/admin/postbacks/stats",
-        "encoding": "no-op",
-        "sd": "static",
-        "method": "GET",
-        "host": ["http://127.0.0.1:8084"],
-        "disable_host_sanitize": true,
-        "headers_to_pass": ["Authorization"]
-      }]
+      "input_headers": [
+        "Authorization"
+      ],
+      "headers_to_pass": [
+        "Authorization"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/v1/admin/postbacks/stats",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://127.0.0.1:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization"
+          ]
+        }
+      ]
     },
     {
       "@comment": "Postback list by status (DLQ, FAILED, PENDING, etc.)",
@@ -2162,23 +2386,37 @@
           "alg": "RS256",
           "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
           "issuer": "https://dev-chliep5q.auth0.com/",
-          "audience": ["https://dev-chliep5q.auth0.com/api/v2/"],
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
           "cache": true,
           "cache_duration": 900
         }
       },
-      "input_query_strings": ["*"],
-      "input_headers": ["Authorization"],
-      "headers_to_pass": ["Authorization"],
-      "backend": [{
-        "url_pattern": "/v1/admin/postbacks/status/{status}",
-        "encoding": "no-op",
-        "sd": "static",
-        "method": "GET",
-        "host": ["http://127.0.0.1:8084"],
-        "disable_host_sanitize": true,
-        "headers_to_pass": ["Authorization"]
-      }]
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Authorization"
+      ],
+      "headers_to_pass": [
+        "Authorization"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/v1/admin/postbacks/status/{status}",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://127.0.0.1:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization"
+          ]
+        }
+      ]
     },
     {
       "@comment": "Retry a single postback (DLQ recovery)",
@@ -2190,22 +2428,34 @@
           "alg": "RS256",
           "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
           "issuer": "https://dev-chliep5q.auth0.com/",
-          "audience": ["https://dev-chliep5q.auth0.com/api/v2/"],
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
           "cache": true,
           "cache_duration": 900
         }
       },
-      "input_headers": ["Authorization"],
-      "headers_to_pass": ["Authorization"],
-      "backend": [{
-        "url_pattern": "/v1/admin/postbacks/{id}/retry",
-        "encoding": "no-op",
-        "sd": "static",
-        "method": "POST",
-        "host": ["http://127.0.0.1:8084"],
-        "disable_host_sanitize": true,
-        "headers_to_pass": ["Authorization"]
-      }]
+      "input_headers": [
+        "Authorization"
+      ],
+      "headers_to_pass": [
+        "Authorization"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/v1/admin/postbacks/{id}/retry",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://127.0.0.1:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization"
+          ]
+        }
+      ]
     },
     {
       "@comment": "Bulk requeue all DLQ postbacks",
@@ -2217,23 +2467,37 @@
           "alg": "RS256",
           "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
           "issuer": "https://dev-chliep5q.auth0.com/",
-          "audience": ["https://dev-chliep5q.auth0.com/api/v2/"],
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
           "cache": true,
           "cache_duration": 900
         }
       },
-      "input_query_strings": ["*"],
-      "input_headers": ["Authorization"],
-      "headers_to_pass": ["Authorization"],
-      "backend": [{
-        "url_pattern": "/v1/admin/postbacks/requeue-dlq",
-        "encoding": "no-op",
-        "sd": "static",
-        "method": "POST",
-        "host": ["http://127.0.0.1:8084"],
-        "disable_host_sanitize": true,
-        "headers_to_pass": ["Authorization"]
-      }]
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Authorization"
+      ],
+      "headers_to_pass": [
+        "Authorization"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/v1/admin/postbacks/requeue-dlq",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://127.0.0.1:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization"
+          ]
+        }
+      ]
     },
     {
       "@comment": "Get campaign postback rules",
@@ -2245,22 +2509,34 @@
           "alg": "RS256",
           "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
           "issuer": "https://dev-chliep5q.auth0.com/",
-          "audience": ["https://dev-chliep5q.auth0.com/api/v2/"],
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
           "cache": true,
           "cache_duration": 900
         }
       },
-      "input_headers": ["Authorization"],
-      "headers_to_pass": ["Authorization"],
-      "backend": [{
-        "url_pattern": "/v1/admin/campaigns/{slug}/postback-rules",
-        "encoding": "no-op",
-        "sd": "static",
-        "method": "GET",
-        "host": ["http://127.0.0.1:8084"],
-        "disable_host_sanitize": true,
-        "headers_to_pass": ["Authorization"]
-      }]
+      "input_headers": [
+        "Authorization"
+      ],
+      "headers_to_pass": [
+        "Authorization"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/v1/admin/campaigns/{slug}/postback-rules",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://127.0.0.1:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization"
+          ]
+        }
+      ]
     },
     {
       "@comment": "Update campaign postback rules",
@@ -2272,22 +2548,37 @@
           "alg": "RS256",
           "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
           "issuer": "https://dev-chliep5q.auth0.com/",
-          "audience": ["https://dev-chliep5q.auth0.com/api/v2/"],
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
           "cache": true,
           "cache_duration": 900
         }
       },
-      "input_headers": ["Authorization", "Content-Type"],
-      "headers_to_pass": ["Authorization", "Content-Type"],
-      "backend": [{
-        "url_pattern": "/v1/admin/campaigns/{slug}/postback-rules",
-        "encoding": "no-op",
-        "sd": "static",
-        "method": "PUT",
-        "host": ["http://127.0.0.1:8084"],
-        "disable_host_sanitize": true,
-        "headers_to_pass": ["Authorization", "Content-Type"]
-      }]
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "Content-Type"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/v1/admin/campaigns/{slug}/postback-rules",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "PUT",
+          "host": [
+            "http://127.0.0.1:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "Content-Type"
+          ]
+        }
+      ]
     },
     {
       "@comment": "HE Bootstrap with campaign slug",
@@ -2295,25 +2586,44 @@
       "method": "GET",
       "output_encoding": "no-op",
       "input_headers": [
-        "X-HE-Trusted-Proxy", "X-MSISDN", "X-UP-CALLING-LINE-ID",
-        "X_WAP_NETWORK_CLIENT_MSISDN", "X-MCC", "X-MNC", "X-Operator-ID"
+        "X-HE-Trusted-Proxy",
+        "X-MSISDN",
+        "X-UP-CALLING-LINE-ID",
+        "X_WAP_NETWORK_CLIENT_MSISDN",
+        "X-MCC",
+        "X-MNC",
+        "X-Operator-ID"
       ],
       "headers_to_pass": [
-        "X-HE-Trusted-Proxy", "X-MSISDN", "X-UP-CALLING-LINE-ID",
-        "X_WAP_NETWORK_CLIENT_MSISDN", "X-MCC", "X-MNC", "X-Operator-ID"
+        "X-HE-Trusted-Proxy",
+        "X-MSISDN",
+        "X-UP-CALLING-LINE-ID",
+        "X_WAP_NETWORK_CLIENT_MSISDN",
+        "X-MCC",
+        "X-MNC",
+        "X-Operator-ID"
       ],
-      "backend": [{
-        "url_pattern": "/v1/he/bootstrap/campaign/{slug}",
-        "encoding": "no-op",
-        "sd": "static",
-        "method": "GET",
-        "host": ["http://127.0.0.1:8084"],
-        "disable_host_sanitize": true,
-        "headers_to_pass": [
-          "X-HE-Trusted-Proxy", "X-MSISDN", "X-UP-CALLING-LINE-ID",
-          "X_WAP_NETWORK_CLIENT_MSISDN", "X-MCC", "X-MNC", "X-Operator-ID"
-        ]
-      }]
+      "backend": [
+        {
+          "url_pattern": "/v1/he/bootstrap/campaign/{slug}",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://127.0.0.1:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "X-HE-Trusted-Proxy",
+            "X-MSISDN",
+            "X-UP-CALLING-LINE-ID",
+            "X_WAP_NETWORK_CLIENT_MSISDN",
+            "X-MCC",
+            "X-MNC",
+            "X-Operator-ID"
+          ]
+        }
+      ]
     },
     {
       "@comment": "HE Token Exchange - POST method",
@@ -2328,17 +2638,30 @@
           "capacity": 100
         }
       },
-      "input_headers": ["X-HE-Bootstrap-Token", "Content-Type"],
-      "headers_to_pass": ["X-HE-Bootstrap-Token", "Content-Type"],
-      "backend": [{
-        "url_pattern": "/v1/he/token/exchange",
-        "encoding": "no-op",
-        "sd": "static",
-        "method": "POST",
-        "host": ["http://127.0.0.1:8084"],
-        "disable_host_sanitize": true,
-        "headers_to_pass": ["X-HE-Bootstrap-Token", "Content-Type"]
-      }]
+      "input_headers": [
+        "X-HE-Bootstrap-Token",
+        "Content-Type"
+      ],
+      "headers_to_pass": [
+        "X-HE-Bootstrap-Token",
+        "Content-Type"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/v1/he/token/exchange",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://127.0.0.1:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "X-HE-Bootstrap-Token",
+            "Content-Type"
+          ]
+        }
+      ]
     },
     {
       "endpoint": "/v1/admin/cadence/series",

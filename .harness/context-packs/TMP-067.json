@@ -1,0 +1,46 @@
+{
+  "pack_type": "slice",
+  "slice_id": "TMP-067",
+  "slice_name": "krakend-notification-tenant-propagation",
+  "spec_path": "slices/TMP-067-krakend-notification-tenant-propagation/spec.md",
+  "manifest_state": "planned",
+  "user_story": "As an MNO partner, my callback to /api/v1/notification/{type}/{partnerRole}?tenant_key=careerify&channel_key=web-gh-airteltigo reaches the notification service with X-Tenant-Key and X-Channel-Key injected by KrakenD so tenant context is resolved before any work.",
+  "acceptance_criteria": [
+    "All 6 /api/v1/notification/... endpoints in krakend/krakend.json declare input_query_strings containing tenant_key, channel_key (and preserve external-tx-id).",
+    "KrakenD injects X-Tenant-Key and X-Channel-Key headers to upstream from those query params using the martian/modifier extra_config block.",
+    "Smoke script scripts/smoke/krakend-notification-tenant.sh returns 0; each URL gets a 2xx and notification service logs the resolved tenant_id."
+  ],
+  "key_facts": {
+    "endpoints_to_modify": [
+      "/api/v1/notification/mo/{partnerRole}",
+      "/api/v1/notification/mt/dn/{partnerRole}",
+      "/api/v1/notification/user-optin/{partnerRole}",
+      "/api/v1/notification/user-renewed/{partnerRole}",
+      "/api/v1/notification/user-optout/{partnerRole}",
+      "/api/v1/notification/charge/{partnerRole}"
+    ],
+    "current_state": "All 6 endpoints have input_query_strings:null and input_headers:null. Backend host is http://127.0.0.1:8082. Each already has headers_to_pass:[external-tx-id].",
+    "krakend_config_file": "krakend/krakend.json",
+    "krakend_templates_dir_present": false,
+    "header_injection_mechanism": "Use the per-backend extra_config block `modifier/martian` with `header.Modifier` entries. KrakenD substitutes endpoint path/query captures into the value. Example:",
+    "header_injection_example": "\"modifier/martian\": {\"fifo.Group\": {\"scope\": [\"request\"], \"aggregateErrors\": true, \"modifiers\": [{\"header.Modifier\": {\"scope\": [\"request\"], \"name\": \"X-Tenant-Key\", \"value\": \"{tenant_key}\"}}, {\"header.Modifier\": {\"scope\": [\"request\"], \"name\": \"X-Channel-Key\", \"value\": \"{channel_key}\"}}]}}",
+    "alternative_header_mechanism_note": "If the martian plugin is not in the running KrakenD image, an acceptable fallback is to ONLY set input_query_strings (so query reaches the backend) and rely on the canonical tenantctx resolver in TMP-069 to read tenant_key/channel_key from query. The slice spec explicitly says: 'No services/notification/ code changes expected (existing tenantctx middleware reads X-Tenant-Key/X-Channel-Key headers). Verify; if a small fallback is needed, lift it to TMP-069.' So if martian is unavailable, document the gap and leave the resolver fallback to TMP-069.",
+    "smoke_script_location": "scripts/smoke/krakend-notification-tenant.sh",
+    "gateway_host": "127.0.0.1:8080 (KrakenD listens here per ops/nginx/conf.d/ssl.conf)",
+    "smoke_url_pattern": "http://127.0.0.1:8080/api/v1/notification/{type}/{partnerRole}?tenant_key=careerify&channel_key=web-gh-airteltigo"
+  },
+  "scope_in": [
+    "krakend/krakend.json — modify 6 notification endpoint entries.",
+    "scripts/smoke/krakend-notification-tenant.sh — new smoke script.",
+    "slices/TMP-067-krakend-notification-tenant-propagation/value-gate-report.md."
+  ],
+  "scope_out": [
+    "services/notification/ code changes (no Go code edits unless absolutely required; lift to TMP-069 instead).",
+    "Anything in services/subscription-external/ (TMP-068)."
+  ],
+  "dependencies_shipped": ["TMP-066"],
+  "risk_boundary": "Gateway config change — operator confirmation REQUIRED before commit.",
+  "pre_loaded_skills": ["slice-build"],
+  "run_id": "slice-TMP-067-build-2026-05-13T2025Z",
+  "monitor_progress_log": ".harness/runs/slice-TMP-067-build-2026-05-13T2025Z/progress.log"
+}
