@@ -21,29 +21,15 @@ set -euo pipefail
 HOST="${HOST:-http://127.0.0.1:8080}"
 TENANT_KEY="${TENANT_KEY:-careerify}"
 CHANNEL_KEY="${CHANNEL_KEY:-web-gh-airteltigo}"
-PARTNER_ROLE="${PARTNER_ROLE:-airtelgh}"
+PARTNER_ROLE="${PARTNER_ROLE:-2117}"
 MSISDN="${MSISDN:-233572503330}"
 EXTERNAL_TX_ID="${EXTERNAL_TX_ID:-smoke-adv-$(date +%s)}"
 
 # Minimal notification body reused across adversarial cases
-NOTIFY_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "partnerRole": "${PARTNER_ROLE}",
-  "message": "probe",
-  "keyword": "probe"
-}
-JSON
-)
+NOTIFY_BODY="{\"msisdn\":\"${MSISDN}\",\"partnerRole\":${PARTNER_ROLE},\"message\":\"probe\",\"keyword\":\"probe\"}"
 
 # Minimal subscription body for Case A (conflict on subscription endpoint)
-SUB_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "externalTxId": "${EXTERNAL_TX_ID}"
-}
-JSON
-)
+SUB_BODY="{\"msisdn\":\"${MSISDN}\",\"externalTxId\":\"${EXTERNAL_TX_ID}\"}"
 
 PASS=0
 FAIL=0

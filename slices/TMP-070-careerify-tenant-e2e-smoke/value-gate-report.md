@@ -163,3 +163,81 @@ Operator validates against staging and records results in this document.
 
 Gate: **operator sign-off** on this value-gate-report.md after a clean run of both scripts
 against the staging environment containing commits 77f9359 through 3897e89.
+
+---
+
+## Local Smoke Run Transcript — 2026-05-13
+
+**Operator authorization:** apply careerify seed to shared DB at 139.59.135.253 and run both smoke matrices against a local stack pointed at that DB.
+
+### Environment
+
+- Shared DB: `139.59.135.253:5432` (subscription_manager). Seed applied via `psql -f services/acquisition-api/migrations/seed_careerify_tenant_channel.sql`. `ON CONFLICT DO NOTHING` left existing `tenants(careerify)` untouched and inserted `tenant_channels(web-gh-airteltigo)` + `tenant_channel_credentials(purpose=provider_api, version=1)`.
+- Local services rebuilt from current main (post-TMP-069): `services/notification` (PID listening on 8082), `services/subscription-external` (8083), `services/acquisition-api` (8084).
+- KrakenD: `docker.io/library/krakend:latest` running on host port **8090** (host 8080 occupied by an unrelated Hyperswitch container). Static config = `krakend/krakend.json` with `127.0.0.1:808X` rewritten to `host.containers.internal:808X` for container→host loopback only (the in-repo file uses `127.0.0.1` unchanged).
+
+### Pre-flight gateway fix
+
+KrakenD refused to load the static `krakend/krakend.json` because Gin's router rejected the TMP-068 endpoint paths:
+```
+panic: ':tenant_key' in new path '/api/external/v1/:tenant_key/:channel_key/subscriptions/optin'
+       conflicts with existing wildcard ':channel' in existing prefix '/api/external/v1/:channel'
+```
+The conflicting legacy endpoint `POST /api/external/v1/{channel}/mt` was removed from `krakend/krakend.json` (operator authorized, single-endpoint deletion, no body change in any service). Endpoint count: 84 → 83.
+
+### Happy-path smoke (`scripts/smoke/careerify-tenant-e2e.sh`)
+
+After patching the script to send minified one-line JSON bodies (heredoc multi-line bodies were truncated by `read -r` at the first newline; partnerRole default changed from string `airtelgh` to integer `2117` to satisfy `strconv.Atoi`):
+
+```
+=== Results: 6/10 PASS  4/10 FAIL ===
+
+  notification/mo                  PASS  HTTP 200
+  notification/mt-dn               PASS  HTTP 200
+  notification/user-optin          PASS  HTTP 200
+  notification/user-renewed        PASS  HTTP 200
+  notification/user-optout         PASS  HTTP 200
+  notification/charge              PASS  HTTP 200
+  subscription/optin               FAIL  HTTP 400  body: "trusted service secret is not configured"
+  subscription/confirm             FAIL  HTTP 400  body: "trusted service secret is not configured"
+  subscription/optout              FAIL  HTTP 400  body: "trusted service secret is not configured"
+  subscription/status              FAIL  HTTP 400  body: "trusted service secret is not configured"
+```
+
+### Cross-tenant refusal smoke (`scripts/smoke/careerify-tenant-cross-tenant-refusal.sh`)
+
+After the same body-minification + integer-partnerRole patches:
+
+```
+=== Results: 0/3 PASS  3/3 FAIL ===
+
+  Case A — header/query conflict on subscription/optin
+    Expect HTTP 409 (TENANT_CONTEXT_REQUIRED)
+    Actual HTTP 400 — body: "trusted service secret is not configured"
+    (Conflict resolver never reached; trusted-service auth gate fires first.)
+
+  Case B — foreign tenant_key=evil-tenant on notification/mo/2117
+    Expect HTTP 4xx (tenant resolution failure)
+    Actual HTTP 200 — body: "{"message":"NotificationRequest processed successfully", ...}"
+    (Notification handler accepts unknown tenant_key silently.)
+
+  Case C — missing channel_key on notification/mo/2117
+    Expect HTTP 4xx (TENANT_CHANNEL_REQUIRED)
+    Actual HTTP 200 — body: "{"message":"NotificationRequest processed successfully", ...}"
+    (Notification handler does not require channel_key.)
+```
+
+### Verdict and ownership of gaps
+
+| Finding | Owning slice | Severity | Recommended action |
+|---|---|---|---|
+| Notification routing through KrakenD works for all 6 endpoints (200 with tenant_key+channel_key in query). | TMP-067 | — | None. |
+| Notification handler silently accepts unknown `tenant_key` (Case B HTTP 200). | TMP-067/TMP-069 | High — breaks tenant isolation. | New slice (TMP-071): tighten `tenantIDForAdminRead` to reject unknown tenant_key, returning 4xx. |
+| Notification handler silently accepts missing `channel_key` (Case C HTTP 200). | TMP-067/TMP-069 | High — channel is a contract requirement. | Part of TMP-071. |
+| Subscription admin handlers require trusted-service HMAC token (`cfg.Auth.JwtToken.Secret`) that KrakenD does not sign. All 4 subscription endpoints unreachable via gateway as currently wired. | TMP-068 | High — slice's Option A design is incomplete. | New slice (TMP-072): either (a) wire KrakenD to mint and inject the trusted-service Identity header, or (b) bypass admin and route subscription endpoints to non-trusted external handlers. |
+| TMP-068 created path-name conflict with legacy `/api/external/v1/{channel}/mt` in krakend.json. | TMP-068 | Med — caught at smoke; legacy endpoint removed under operator authorization. | Verify no live partner depends on the removed `/{channel}/mt` route. |
+| FC-templated KrakenD config (`krakend/config/krakend.tmpl` + `templates/`) does NOT include TMP-067/068 endpoints. Only the static `krakend/krakend.json` was edited. Production deployment via `docker-compose.yml` builds the krakend image with `CMD krakend run -dc /etc/krakend/config/krakend.tmpl` and would NOT serve the new endpoints. | TMP-067/TMP-068 | High — slices marked shipped but the production runtime path is unchanged. | New slice (TMP-073): port TMP-067/068 endpoints into `krakend/config/templates/Endpoint.tmpl` so the FC-rendered config matches the static reference. |
+
+**Status revision recommendation:** TMP-067 and TMP-068 should not remain `shipped` in `slices/manifest.json` until the gaps above are addressed. TMP-066 (seed) and TMP-069 (resolver unit tests) are unaffected.
+
+Logs from this run are saved at `/tmp/smoke-out/e2e-v2.log` and `/tmp/smoke-out/refusal-v2.log` on the operator's workstation (not persisted in repo).

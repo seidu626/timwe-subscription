@@ -16,7 +16,7 @@ set -euo pipefail
 HOST="${HOST:-http://127.0.0.1:8080}"
 TENANT_KEY="${TENANT_KEY:-careerify}"
 CHANNEL_KEY="${CHANNEL_KEY:-web-gh-airteltigo}"
-PARTNER_ROLE="${PARTNER_ROLE:-airtelgh}"
+PARTNER_ROLE="${PARTNER_ROLE:-2117}"
 MSISDN="${MSISDN:-233572503330}"
 EXTERNAL_TX_ID="${EXTERNAL_TX_ID:-smoke-$(date +%s)}"
 
@@ -26,95 +26,17 @@ BASE_SUB="${HOST}/api/external/v1/${TENANT_KEY}/${CHANNEL_KEY}/subscriptions"
 # ---------------------------------------------------------------------------
 # Request bodies
 # ---------------------------------------------------------------------------
-MO_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "partnerRole": "${PARTNER_ROLE}",
-  "message": "STOP",
-  "keyword": "STOP"
-}
-JSON
-)
-
-MT_DN_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "partnerRole": "${PARTNER_ROLE}",
-  "status": "DELIVERED",
-  "messageId": "smoke-msg-001"
-}
-JSON
-)
-
-USER_OPTIN_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "partnerRole": "${PARTNER_ROLE}",
-  "optinDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-}
-JSON
-)
-
-USER_RENEWED_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "partnerRole": "${PARTNER_ROLE}",
-  "renewalDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-}
-JSON
-)
-
-USER_OPTOUT_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "partnerRole": "${PARTNER_ROLE}",
-  "optoutDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-}
-JSON
-)
-
-CHARGE_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "partnerRole": "${PARTNER_ROLE}",
-  "amount": "1.00",
-  "currency": "GHS",
-  "status": "SUCCESS",
-  "transactionId": "${EXTERNAL_TX_ID}"
-}
-JSON
-)
-
-OPTIN_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "externalTxId": "${EXTERNAL_TX_ID}"
-}
-JSON
-)
-
-CONFIRM_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "externalTxId": "${EXTERNAL_TX_ID}"
-}
-JSON
-)
-
-OPTOUT_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}",
-  "externalTxId": "${EXTERNAL_TX_ID}"
-}
-JSON
-)
-
-STATUS_BODY=$(cat <<JSON
-{
-  "msisdn": "${MSISDN}"
-}
-JSON
-)
+NOW_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+MO_BODY="{\"msisdn\":\"${MSISDN}\",\"partnerRole\":${PARTNER_ROLE},\"message\":\"STOP\",\"keyword\":\"STOP\"}"
+MT_DN_BODY="{\"msisdn\":\"${MSISDN}\",\"partnerRole\":${PARTNER_ROLE},\"status\":\"DELIVERED\",\"messageId\":\"smoke-msg-001\"}"
+USER_OPTIN_BODY="{\"msisdn\":\"${MSISDN}\",\"partnerRole\":${PARTNER_ROLE},\"optinDate\":\"${NOW_ISO}\"}"
+USER_RENEWED_BODY="{\"msisdn\":\"${MSISDN}\",\"partnerRole\":${PARTNER_ROLE},\"renewalDate\":\"${NOW_ISO}\"}"
+USER_OPTOUT_BODY="{\"msisdn\":\"${MSISDN}\",\"partnerRole\":${PARTNER_ROLE},\"optoutDate\":\"${NOW_ISO}\"}"
+CHARGE_BODY="{\"msisdn\":\"${MSISDN}\",\"partnerRole\":${PARTNER_ROLE},\"amount\":\"1.00\",\"currency\":\"GHS\",\"status\":\"SUCCESS\",\"transactionId\":\"${EXTERNAL_TX_ID}\"}"
+OPTIN_BODY="{\"msisdn\":\"${MSISDN}\",\"externalTxId\":\"${EXTERNAL_TX_ID}\"}"
+CONFIRM_BODY="{\"msisdn\":\"${MSISDN}\",\"externalTxId\":\"${EXTERNAL_TX_ID}\"}"
+OPTOUT_BODY="{\"msisdn\":\"${MSISDN}\",\"externalTxId\":\"${EXTERNAL_TX_ID}\"}"
+STATUS_BODY="{\"msisdn\":\"${MSISDN}\"}"
 
 # ---------------------------------------------------------------------------
 # Endpoint list: label|url|body
