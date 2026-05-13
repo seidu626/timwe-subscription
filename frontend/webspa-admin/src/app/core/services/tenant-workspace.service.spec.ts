@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { AuthService } from '@auth0/auth0-angular';
+import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 
 import { TenantWorkspaceService } from './tenant-workspace.service';
+import { environment } from '../../../environments/environment';
 
 describe('TenantWorkspaceService', () => {
   beforeEach(() => {
@@ -210,5 +212,47 @@ describe('TenantWorkspaceService', () => {
 
     expect(workspace.status).toBe('missing-tenant');
     expect(workspace.platformScoped).toBeFalse();
+  });
+
+  it('loads backend tenant workspaces with an Auth0 bearer token outside interceptors', () => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              email: 'tenant.admin@example.com',
+              email_verified: true,
+              name: 'Tenant Admin'
+            }),
+            getAccessTokenSilently: jasmine.createSpy('getAccessTokenSilently').and.returnValue(of('workspace-token'))
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const http = TestBed.inject(HttpTestingController);
+    const req = http.expectOne(`${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`);
+
+    expect(req.request.headers.get('Authorization')).toBe('Bearer workspace-token');
+    req.flush({
+      platform_scoped: false,
+      tenants: [
+        {
+          id: 'tenant-a',
+          tenant_key: 'tenant-a',
+          name: 'Tenant A'
+        }
+      ]
+    });
+    http.verify();
+
+    const workspace = service.getCurrentWorkspace();
+    expect(workspace.status).toBe('ready');
+    expect(workspace.currentTenant?.tenantKey).toBe('tenant-a');
   });
 });

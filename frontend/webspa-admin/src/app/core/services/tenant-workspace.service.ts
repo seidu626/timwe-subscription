@@ -2,7 +2,7 @@ import { HttpBackend, HttpClient } from '@angular/common/http';
 import { Injectable, Injector } from '@angular/core';
 import { AuthService, User } from '@auth0/auth0-angular';
 import { BehaviorSubject, combineLatest, Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 const TENANT_SELECTION_STORAGE_KEY = 'webspa-admin.selected-tenant';
@@ -281,7 +281,12 @@ export class TenantWorkspaceService {
     if (!http) {
       return;
     }
-    http.get<AdminTenantWorkspaceResponse>(this.workspaceEndpoint).pipe(
+    this.auth.getAccessTokenSilently().pipe(
+      switchMap((token) => http.get<AdminTenantWorkspaceResponse>(this.workspaceEndpoint, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })),
       catchError(() => of(null))
     ).subscribe((response) => {
       this.backendWorkspaceSubject.next(this.toBackendWorkspaceSnapshot(response));
