@@ -1,0 +1,68 @@
+{
+  "work_order_id": "WO-TMP-063-001",
+  "issue_id": "TMP-063",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "The Angular admin cadence page can preflight tenant-scoped requests to the local cadence admin API without browser CORS rejection.",
+  "actor": "admin user",
+  "entrypoint": "GET http://localhost:8091/v1/admin/cadence/series?limit=500 from http://localhost:4200",
+  "trigger": "Admin navigates to the cadence page in the local admin UI.",
+  "allowed_files": [
+    "services/cadence-engine/internal/adminhttp/access.go",
+    "services/cadence-engine/internal/adminhttp/access_test.go",
+    "agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md",
+    "agent/state/TMP-063.work-order.json",
+    "agent/state/TMP-063.handoff.json",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "frontend/webspa-admin/**",
+    "services/cadence-engine/go.mod",
+    "services/cadence-engine/go.sum",
+    "services/cadence-engine/internal/repository/**",
+    "services/cadence-engine/internal/scheduler/**",
+    "services/cadence-engine/internal/planner/**",
+    "services/cadence-engine/migrations/**",
+    "docker-compose*.yml"
+  ],
+  "acceptance_tests": [
+    "hvc check agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md --fail-on block",
+    "cd services/cadence-engine && go test ./internal/adminhttp"
+  ],
+  "required_evidence": [
+    "go test ./internal/adminhttp",
+    "OPTIONS preflight includes X-Tenant-Key",
+    "hvc check agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md --fail-on block"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-063",
+    "title": "Cadence admin CORS tenant header",
+    "path": "agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

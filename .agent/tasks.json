@@ -5489,6 +5489,144 @@
       "unresolved": [],
       "updated_at": "2026-05-13T11:02:44Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "services/cadence-engine/internal/adminhttp/access.go",
+            "services/cadence-engine/internal/adminhttp/access_test.go",
+            "cd services/cadence-engine && go test ./internal/adminhttp -run TestHandlePreflightAllowsAdminTenantHeaders -v"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": "Access-Control-Allow-Headers now includes X-Tenant-Key, X-Tenant-Id, X-Tenant-Channel-Id, and X-Channel-Id, with a unit test covering OPTIONS from http://localhost:4200.",
+          "status": "passed",
+          "text": "Cadence admin CORS allows X-Tenant-Key and tenant/channel scope headers."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "services/cadence-engine/internal/adminhttp/access.go",
+            "services/cadence-engine/internal/adminhttp/access_test.go"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": "The allowed-header list preserves Content-Type, Authorization, and X-Admin-Token.",
+          "status": "passed",
+          "text": "Existing Content-Type, Authorization, and X-Admin-Token CORS support remains."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "cd services/cadence-engine && go test ./internal/adminhttp"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": "The cadence admin HTTP package test suite passed.",
+          "status": "passed",
+          "text": "go test ./internal/adminhttp passes."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Added tenant/channel headers to cadence admin Access-Control-Allow-Headers",
+        "Added OPTIONS preflight unit test for local admin origin and X-Tenant-Key",
+        "Verified cadence-engine tests and local build",
+        "Created TMP-063 classified defect issue and work order.",
+        "Identified root cause: cadence admin CORS allowed X-Admin-Token but omitted X-Tenant-Key from Access-Control-Allow-Headers.",
+        "Added tenant and channel admin UI headers to the cadence admin CORS allow list.",
+        "Added a preflight unit test for the local admin origin and tenant headers."
+      ],
+      "created_at": "2026-05-13T11:15:06Z",
+      "details": "Fix cadence admin HTTP CORS preflight so admin UI tenant workspace requests with X-Tenant-Key are allowed.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "hvc check agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "assignment_decision allow; no blocking or review reasons",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:15:00Z"
+          },
+          {
+            "command": "cd services/cadence-engine && go test ./internal/adminhttp",
+            "exit_code": 0,
+            "output_excerpt": "ok github.com/seidu626/subscription-manager/cadence-engine/internal/adminhttp",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:16:00Z"
+          },
+          {
+            "command": "cd services/cadence-engine && go test ./internal/adminhttp -run TestHandlePreflightAllowsAdminTenantHeaders -v",
+            "exit_code": 0,
+            "output_excerpt": "PASS TestHandlePreflightAllowsAdminTenantHeaders",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:17:00Z"
+          },
+          {
+            "command": "cd services/cadence-engine && go test ./...",
+            "exit_code": 0,
+            "output_excerpt": "cadence-engine package tests passed",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:17:00Z"
+          },
+          {
+            "command": "make build-local-cadence-engine",
+            "exit_code": 0,
+            "output_excerpt": "Cadence Engine built successfully",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:17:00Z"
+          },
+          {
+            "command": "git diff --check",
+            "exit_code": 0,
+            "output_excerpt": "no whitespace errors",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:17:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "hvc_all_ok",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:17:00Z"
+          },
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; only existing historical/schedulable warnings",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:17:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/TMP-063.json",
+          ".agent/sessions/codex-cadence-cors-20260513-111420/handoff.json",
+          ".agent/tasks.json",
+          "agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md",
+          "agent/state/TMP-063.handoff.json",
+          "agent/state/TMP-063.work-order.json",
+          "services/cadence-engine/internal/adminhttp/access.go",
+          "services/cadence-engine/internal/adminhttp/access_test.go"
+        ]
+      },
+      "goal": "",
+      "id": "TMP-063",
+      "owner": "codex-cadence-cors-20260513-111420",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Cadence admin CORS tenant header",
+      "unresolved": [],
+      "updated_at": "2026-05-13T11:17:25Z",
+      "worktree": null
     }
   ],
   "version": 1

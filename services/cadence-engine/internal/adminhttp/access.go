@@ -17,6 +17,8 @@ type access struct {
 	allowedOrigins []string
 }
 
+const cadenceAdminAllowedCORSHeaders = "Content-Type, Authorization, X-Admin-Token, X-Tenant-Id, X-Tenant-Key, X-Tenant-Channel-Id, X-Channel-Id"
+
 func newAccess() *access {
 	domain := os.Getenv("ADMIN_AUTH0_DOMAIN")
 	audience := os.Getenv("ADMIN_AUTH0_AUDIENCE")
@@ -73,7 +75,7 @@ func (a *access) setCORS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
 	w.Header().Set("Vary", "Origin")
 	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Token")
+	w.Header().Set("Access-Control-Allow-Headers", cadenceAdminAllowedCORSHeaders)
 	w.Header().Set("Access-Control-Max-Age", "600")
 }
 

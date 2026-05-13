@@ -1,0 +1,11 @@
+{
+  "blockers": [],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-cadence-cors-20260513-111420",
+  "status": "done",
+  "summary": "Fixed cadence admin CORS preflight for tenant-scoped admin UI requests by adding the tenant and channel headers emitted or consumed by the admin cadence path while preserving existing admin auth headers.",
+  "task_id": "TMP-063",
+  "unfinished_work": [],
+  "written_at": "2026-05-13T11:17:25Z"
+}
