@@ -12,9 +12,10 @@ import (
 )
 
 type adminAccess struct {
-	validator               *auth0jwt.Validator
-	allowedOrigins          []string
-	bootstrapPlatformEmails map[string]struct{}
+	validator                 *auth0jwt.Validator
+	allowedOrigins            []string
+	bootstrapPlatformEmails   map[string]struct{}
+	bootstrapPlatformSubjects map[string]struct{}
 }
 
 func newAdminAccess() *adminAccess {
@@ -44,9 +45,10 @@ func newAdminAccess() *adminAccess {
 	}
 
 	return &adminAccess{
-		validator:               validator,
-		allowedOrigins:          allowed,
-		bootstrapPlatformEmails: bootstrapPlatformEmailSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_EMAILS")),
+		validator:                 validator,
+		allowedOrigins:            allowed,
+		bootstrapPlatformEmails:   bootstrapPlatformEmailSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_EMAILS")),
+		bootstrapPlatformSubjects: bootstrapPlatformSubjectSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS")),
 	}
 }
 
@@ -110,18 +112,34 @@ func (a *adminAccess) require(ctx *fasthttp.RequestCtx) bool {
 }
 
 func (a *adminAccess) applyBootstrapPlatformScope(identity tenantctx.Identity) tenantctx.Identity {
-	if identity.PlatformScoped || len(a.bootstrapPlatformEmails) == 0 {
+	if identity.PlatformScoped {
 		return identity
 	}
-	if identity.EmailVerifiedSet && !identity.EmailVerified {
-		return identity
-	}
-	email := strings.TrimSpace(strings.ToLower(identity.Email))
-	if _, ok := a.bootstrapPlatformEmails[email]; ok {
-		identity.PlatformScoped = true
-		if !identity.HasPermission("platform:all_tenants") {
-			identity.Permissions = append(identity.Permissions, "platform:all_tenants")
+
+	if len(a.bootstrapPlatformSubjects) > 0 {
+		subject := strings.TrimSpace(identity.Subject)
+		if _, ok := a.bootstrapPlatformSubjects[subject]; ok {
+			return grantPlatformScope(identity)
 		}
+	}
+
+	if len(a.bootstrapPlatformEmails) > 0 {
+		if identity.EmailVerifiedSet && !identity.EmailVerified {
+			return identity
+		}
+		email := strings.TrimSpace(strings.ToLower(identity.Email))
+		if _, ok := a.bootstrapPlatformEmails[email]; ok {
+			return grantPlatformScope(identity)
+		}
+	}
+
+	return identity
+}
+
+func grantPlatformScope(identity tenantctx.Identity) tenantctx.Identity {
+	identity.PlatformScoped = true
+	if !identity.HasPermission("platform:all_tenants") {
+		identity.Permissions = append(identity.Permissions, "platform:all_tenants")
 	}
 	return identity
 }
@@ -143,6 +161,17 @@ func bootstrapPlatformEmailSet(raw string) map[string]struct{} {
 	out := map[string]struct{}{}
 	for _, email := range strings.Split(raw, ",") {
 		normalized := strings.TrimSpace(strings.ToLower(email))
+		if normalized != "" {
+			out[normalized] = struct{}{}
+		}
+	}
+	return out
+}
+
+func bootstrapPlatformSubjectSet(raw string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, subject := range strings.Split(raw, ",") {
+		normalized := strings.TrimSpace(subject)
 		if normalized != "" {
 			out[normalized] = struct{}{}
 		}

@@ -123,6 +123,44 @@ func TestAdminRequireAppliesBootstrapPlatformEmailWhenEmailVerifiedMissing(t *te
 	}
 }
 
+func TestAdminRequireAppliesBootstrapPlatformSubjectAndSelectedTenant(t *testing.T) {
+	privateKey := mustAdminRSAKey(t)
+	validator, err := auth0jwt.NewWithKeyfunc("example.auth0.com", "api", func(token *jwt.Token) (any, error) {
+		return &privateKey.PublicKey, nil
+	})
+	if err != nil {
+		t.Fatalf("new validator: %v", err)
+	}
+	access := &adminAccess{
+		validator: validator,
+		bootstrapPlatformSubjects: map[string]struct{}{
+			"google-oauth2|118328773120143328716": {},
+		},
+	}
+	token := mustAdminToken(t, privateKey, jwt.MapClaims{
+		"iss": "https://example.auth0.com/",
+		"aud": []string{"api"},
+		"sub": "google-oauth2|118328773120143328716",
+		"iat": time.Now().Unix(),
+		"exp": time.Now().Add(time.Hour).Unix(),
+	})
+
+	var ctx fasthttp.RequestCtx
+	ctx.Request.Header.Set("Authorization", "Bearer "+token)
+	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "nrg")
+
+	if !access.require(&ctx) {
+		t.Fatalf("expected admin auth to pass, status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	identity := ctx.UserValue(tenantctx.FastHTTPUserValueKey).(tenantctx.Identity)
+	if !identity.PlatformScoped || !identity.HasPermission("platform:all_tenants") || identity.TenantKey != "nrg" {
+		t.Fatalf("identity = %#v", identity)
+	}
+	if identity.Email != "" {
+		t.Fatalf("test token should not rely on email claim, identity = %#v", identity)
+	}
+}
+
 func TestAdminRequireIgnoresSelectedTenantHeaderForUnscopedIdentity(t *testing.T) {
 	privateKey := mustAdminRSAKey(t)
 	validator, err := auth0jwt.NewWithKeyfunc("example.auth0.com", "api", func(token *jwt.Token) (any, error) {
@@ -199,6 +237,12 @@ func TestAdminRequireDoesNotBootstrapUnverifiedEmail(t *testing.T) {
 func TestBootstrapPlatformEmailSetDefaultsClosed(t *testing.T) {
 	if got := bootstrapPlatformEmailSet(""); len(got) != 0 {
 		t.Fatalf("empty bootstrap config must not grant platform scope, got %#v", got)
+	}
+}
+
+func TestBootstrapPlatformSubjectSetDefaultsClosed(t *testing.T) {
+	if got := bootstrapPlatformSubjectSet(""); len(got) != 0 {
+		t.Fatalf("empty bootstrap subject config must not grant platform scope, got %#v", got)
 	}
 }
 
