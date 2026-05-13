@@ -1,5 +1,5 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable, Optional } from '@angular/core';
+import { HttpBackend, HttpClient } from '@angular/common/http';
+import { Injectable, Injector } from '@angular/core';
 import { AuthService, User } from '@auth0/auth0-angular';
 import { BehaviorSubject, combineLatest, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
@@ -56,12 +56,13 @@ export class TenantWorkspaceService {
   private readonly workspaceSubject = new BehaviorSubject<TenantWorkspaceState>(this.createLoadingState());
   private readonly backendWorkspaceSubject = new BehaviorSubject<BackendWorkspaceSnapshot | null>(null);
   private readonly workspaceEndpoint = `${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`;
+  private backendHttp: HttpClient | null = null;
 
   readonly workspace$: Observable<TenantWorkspaceState> = this.workspaceSubject.asObservable();
 
   constructor(
     private readonly auth: AuthService,
-    @Optional() private readonly http: HttpClient | null
+    private readonly injector: Injector
   ) {
     combineLatest([
       this.auth.isLoading$,
@@ -275,14 +276,31 @@ export class TenantWorkspaceService {
   }
 
   private refreshBackendWorkspace(): void {
-    if (!this.http) {
+    const http = this.getBackendHttp();
+
+    if (!http) {
       return;
     }
-    this.http.get<AdminTenantWorkspaceResponse>(this.workspaceEndpoint).pipe(
+    http.get<AdminTenantWorkspaceResponse>(this.workspaceEndpoint).pipe(
       catchError(() => of(null))
     ).subscribe((response) => {
       this.backendWorkspaceSubject.next(this.toBackendWorkspaceSnapshot(response));
     });
+  }
+
+  private getBackendHttp(): HttpClient | null {
+    if (this.backendHttp) {
+      return this.backendHttp;
+    }
+
+    const backend = this.injector.get(HttpBackend, null);
+
+    if (!backend) {
+      return null;
+    }
+
+    this.backendHttp = new HttpClient(backend);
+    return this.backendHttp;
   }
 
   private toBackendWorkspaceSnapshot(response: AdminTenantWorkspaceResponse | null): BackendWorkspaceSnapshot | null {
