@@ -1,0 +1,11 @@
+{
+  "blockers": [],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-admin-sentry-peer-20260513-112040",
+  "status": "done",
+  "summary": "Resolved the admin UI npm ERESOLVE failure by replacing deprecated @sentry/angular-ivy with @sentry/angular, whose peer dependency range supports the Angular 18 admin app.",
+  "task_id": "TMP-064",
+  "unfinished_work": [],
+  "written_at": "2026-05-13T11:34:44Z"
+}

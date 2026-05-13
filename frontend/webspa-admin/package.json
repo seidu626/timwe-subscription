@@ -22,7 +22,7 @@
   "private": true,
   "dependencies": {
     "@angular/animations": "^18.2.9",
-    "@sentry/angular-ivy": "^7.120.4",
+    "@sentry/angular": "^10.52.0",
     "@angular/cdk": "^18.2.10",
     "@angular/common": "^18.2.9",
     "@angular/compiler": "^18.2.9",

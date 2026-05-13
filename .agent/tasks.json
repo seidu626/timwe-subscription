@@ -5627,6 +5627,168 @@
       "unresolved": [],
       "updated_at": "2026-05-13T11:17:25Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "npm install succeeds without --force or --legacy-peer-deps."
+        },
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "Sentry initialization still compiles with the replacement package."
+        },
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "Admin Angular build passes."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/package.json",
+            "frontend/webspa-admin/package-lock.json",
+            "cd frontend/webspa-admin && npm install --ignore-scripts --no-audit --no-fund --prefer-offline --fetch-timeout=5000 --fetch-retries=0"
+          ],
+          "id": "AC-4",
+          "next_task_id": null,
+          "reason": "Install completed after seeding the Sentry tarball cache; the previous @sentry/angular-ivy Angular <=17 peer conflict is gone. The remaining warning is the local Node 24 engine mismatch against the project-declared Node 18/20 range.",
+          "status": "passed",
+          "text": "npm install in frontend/webspa-admin resolves without --force or --legacy-peer-deps."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/main.ts",
+            "frontend/webspa-admin/src/app/app.module.ts",
+            "cd frontend/webspa-admin && npm run build"
+          ],
+          "id": "AC-5",
+          "next_task_id": null,
+          "reason": "Angular build completed successfully with @sentry/angular imports and createErrorHandler provider usage.",
+          "status": "passed",
+          "text": "Admin build compiles with the replacement Sentry package."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "rg -n \"@sentry/angular-ivy|@sentry/angular\" frontend/webspa-admin/package.json frontend/webspa-admin/package-lock.json frontend/webspa-admin/src"
+          ],
+          "id": "AC-6",
+          "next_task_id": null,
+          "reason": "Search results show only @sentry/angular references.",
+          "status": "passed",
+          "text": "Deprecated @sentry/angular-ivy is removed from source and lockfile."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Created classified TMP-064 issue and work order.",
+        "Replaced @sentry/angular-ivy with @sentry/angular@10.52.0 in package manifests.",
+        "Updated admin Sentry imports/provider usage and verified npm install plus Angular build.",
+        "Created TMP-064 classified defect issue and work order.",
+        "Identified root cause: @sentry/angular-ivy@7.120.4 peers @angular/common/core/router only through <=17.x while webspa-admin uses Angular 18.2.x.",
+        "Replaced the admin dependency with @sentry/angular@10.52.0, whose peer range is >=14.x <=21.x.",
+        "Updated Sentry imports in the standalone bootstrap and legacy NgModule file.",
+        "Regenerated package-lock.json without legacy peer dependency flags."
+      ],
+      "created_at": "2026-05-13T11:24:05Z",
+      "details": "Replace deprecated @sentry/angular-ivy dependency so webspa-admin npm install resolves under Angular 18 without legacy peer flags.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "npm view @sentry/angular version peerDependencies --json --fetch-retries=1 --fetch-timeout=15000",
+            "exit_code": 0,
+            "output_excerpt": "@sentry/angular 10.52.0 peers @angular/common/core/router >= 14.x <= 21.x",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:21:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm install --package-lock-only --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=20000 --loglevel=notice",
+            "exit_code": 0,
+            "output_excerpt": "up to date in 3m; no ERESOLVE",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:30:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm install --ignore-scripts --no-audit --no-fund --prefer-offline --fetch-timeout=5000 --fetch-retries=0",
+            "exit_code": 0,
+            "output_excerpt": "added 1016 packages in 4s; no ERESOLVE; EBADENGINE warning for local Node 24",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:33:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm run build",
+            "exit_code": 0,
+            "output_excerpt": "Application bundle generation complete",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:33:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-064 assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:33:00Z"
+          },
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; only existing historical/schedulable warnings",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:33:00Z"
+          },
+          {
+            "command": "git diff --check",
+            "exit_code": 0,
+            "output_excerpt": "no whitespace errors",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:33:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/TMP-064.json",
+          ".agent/sessions/codex-admin-sentry-peer-20260513-112040/handoff.json",
+          ".agent/tasks.json",
+          "agent/backlog/issues/TMP-064-admin-sentry-angular18-peer.md",
+          "agent/state/TMP-064.handoff.json",
+          "agent/state/TMP-064.work-order.json",
+          "frontend/webspa-admin/package-lock.json",
+          "frontend/webspa-admin/package.json",
+          "frontend/webspa-admin/src/app/app.module.ts",
+          "frontend/webspa-admin/src/main.ts"
+        ]
+      },
+      "goal": "",
+      "id": "TMP-064",
+      "owner": "codex-admin-sentry-peer-20260513-112040",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Admin Sentry Angular 18 peer dependency",
+      "unresolved": [],
+      "updated_at": "2026-05-13T11:34:44Z",
+      "worktree": null
     }
   ],
   "version": 1
