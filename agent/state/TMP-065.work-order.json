@@ -1,0 +1,69 @@
+{
+  "work_order_id": "WO-TMP-065-001",
+  "issue_id": "TMP-065",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "The Angular admin app opens protected tenant-scoped pages for an account that already has the NRG tenant workspace.",
+  "actor": "tenant admin user",
+  "entrypoint": "Protected admin routes and their initial tenant-scoped HTTP requests from http://localhost:4200",
+  "trigger": "Admin navigates directly to a protected admin page immediately after authentication or page reload.",
+  "allowed_files": [
+    "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.ts",
+    "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts",
+    "frontend/webspa-admin/src/app/views/pages/page403/page403.component.ts",
+    "frontend/webspa-admin/src/app/views/pages/page403/page403.component.spec.ts",
+    "agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md",
+    "agent/state/TMP-065.work-order.json",
+    "agent/state/TMP-065.handoff.json",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "frontend/webspa-admin/package.json",
+    "frontend/webspa-admin/package-lock.json",
+    "frontend/webspa-admin/src/environments/**",
+    "frontend/webspa-admin/src/app/core/guards/**",
+    "docker-compose*.yml"
+  ],
+  "acceptance_tests": [
+    "hvc check agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md --fail-on block",
+    "cd frontend/webspa-admin && npm run build"
+  ],
+  "required_evidence": [
+    "tenant-workspace.interceptor spec proves loading requests wait for a ready workspace",
+    "page403 spec proves forbidden/not-found copy is not reported as missing assignment",
+    "npm run build",
+    "hvc check agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md --fail-on block"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-065",
+    "title": "Tenant workspace interceptor readiness",
+    "path": "agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "blockers": [],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-tenant-workspace-guard-20260513-114433",
+  "status": "done",
+  "summary": "Fixed the false tenant workspace unavailable screen by making tenant-scoped HTTP requests wait for tenant workspace readiness before forwarding, and clarified 403 copy for real backend denials.",
+  "task_id": "TMP-065",
+  "unfinished_work": [],
+  "written_at": "2026-05-13T11:49:14Z"
+}

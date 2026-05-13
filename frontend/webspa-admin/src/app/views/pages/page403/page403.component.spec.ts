@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { of } from 'rxjs';
 import { AuthService } from '@auth0/auth0-angular';
@@ -11,8 +12,11 @@ import { iconSubset } from '../../../icons/icon-subset';
 describe('Page403Component', () => {
   let component: Page403Component;
   let fixture: ComponentFixture<Page403Component>;
+  let queryParams: Record<string, string>;
 
   beforeEach(async () => {
+    queryParams = {};
+
     await TestBed.configureTestingModule({
       imports: [RouterTestingModule, Page403Component],
       providers: [
@@ -40,6 +44,16 @@ describe('Page403Component', () => {
             }),
             selectTenant: jasmine.createSpy('selectTenant').and.returnValue(true)
           }
+        },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              get queryParams() {
+                return queryParams;
+              }
+            }
+          }
         }
       ]
     }).compileComponents();
@@ -54,5 +68,19 @@ describe('Page403Component', () => {
 
   it('creates the denial page', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('does not describe backend forbidden responses as a missing tenant assignment', () => {
+    queryParams = { reason: 'forbidden' };
+
+    expect(component.title).toBe('Tenant workspace denied');
+    expect(component.description).toContain('backend rejected access');
+  });
+
+  it('does not describe backend tenant lookup failures as a missing account assignment', () => {
+    queryParams = { reason: 'tenant-not-found' };
+
+    expect(component.title).toBe('Tenant workspace not found');
+    expect(component.description).toContain('backend could not resolve');
   });
 });

@@ -5789,6 +5789,133 @@
       "unresolved": [],
       "updated_at": "2026-05-13T11:34:44Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.ts",
+            "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts",
+            "npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include=src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts --include=src/app/views/pages/page403/page403.component.spec.ts"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": "The interceptor now filters out loading workspace states before take(1), and the regression spec proves the handler is not invoked until a ready tenant state arrives.",
+          "status": "passed",
+          "text": "Workspace API requests emitted while loading wait for a non-loading workspace state."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": "The focused spec verifies X-Tenant-Key: nrg and X-Tenant-Id: tenant-nrg on the forwarded request.",
+          "status": "passed",
+          "text": "Forwarded workspace API requests include X-Tenant-Key when currentTenant exists."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/views/pages/page403/page403.component.ts",
+            "frontend/webspa-admin/src/app/views/pages/page403/page403.component.spec.ts"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": "The page now maps forbidden and tenant-not-found reasons to backend denial copy instead of the missing assignment message.",
+          "status": "passed",
+          "text": "403 copy distinguishes backend forbidden/not-found from missing tenant assignment."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Created TMP-065 issue and work order.",
+        "Added TenantWorkspaceInterceptor readiness filter and regression coverage.",
+        "Clarified /403 copy for backend forbidden and tenant-not-found responses.",
+        "Created TMP-065 classified defect issue and work order.",
+        "Identified root cause: TenantWorkspaceInterceptor took the initial loading workspace emission and could forward tenant API requests without X-Tenant-Key.",
+        "Added readiness filtering before forwarding workspace requests.",
+        "Added interceptor regression coverage for loading-to-ready tenant header attachment.",
+        "Added page403 copy coverage for backend forbidden and tenant-not-found reasons."
+      ],
+      "created_at": "2026-05-13T11:45:36Z",
+      "details": "Wait for tenant workspace readiness before forwarding tenant-scoped admin HTTP requests so assigned tenants do not land on the 403 page from headerless startup requests.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "hvc check agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:46:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include=src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts --include=src/app/views/pages/page403/page403.component.spec.ts",
+            "exit_code": 0,
+            "output_excerpt": "TOTAL: 5 SUCCESS",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:47:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm run build",
+            "exit_code": 0,
+            "output_excerpt": "Application bundle generation complete",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:48:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-065 assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:48:00Z"
+          },
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; only existing historical/schedulable warnings",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:48:00Z"
+          },
+          {
+            "command": "git diff --check",
+            "exit_code": 0,
+            "output_excerpt": "no whitespace errors",
+            "status": "passed",
+            "timestamp": "2026-05-13T11:48:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/TMP-065.json",
+          ".agent/sessions/codex-tenant-workspace-guard-20260513-114433/handoff.json",
+          ".agent/tasks.json",
+          "agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md",
+          "agent/state/TMP-065.handoff.json",
+          "agent/state/TMP-065.work-order.json",
+          "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts",
+          "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.ts",
+          "frontend/webspa-admin/src/app/views/pages/page403/page403.component.spec.ts",
+          "frontend/webspa-admin/src/app/views/pages/page403/page403.component.ts"
+        ]
+      },
+      "goal": "",
+      "id": "TMP-065",
+      "owner": "codex-tenant-workspace-guard-20260513-114433",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Tenant workspace interceptor readiness",
+      "unresolved": [],
+      "updated_at": "2026-05-13T11:49:14Z",
+      "worktree": null
     }
   ],
   "version": 1

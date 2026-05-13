@@ -1,0 +1,137 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "Workspace API requests emitted while loading wait for a non-loading workspace state.",
+      "evidence": [
+        "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.ts",
+        "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts",
+        "npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include=src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts --include=src/app/views/pages/page403/page403.component.spec.ts"
+      ],
+      "next_task_id": null,
+      "reason": "The interceptor now filters out loading workspace states before take(1), and the regression spec proves the handler is not invoked until a ready tenant state arrives.",
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "Forwarded workspace API requests include X-Tenant-Key when currentTenant exists.",
+      "evidence": [
+        "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts"
+      ],
+      "next_task_id": null,
+      "reason": "The focused spec verifies X-Tenant-Key: nrg and X-Tenant-Id: tenant-nrg on the forwarded request.",
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "403 copy distinguishes backend forbidden/not-found from missing tenant assignment.",
+      "evidence": [
+        "frontend/webspa-admin/src/app/views/pages/page403/page403.component.ts",
+        "frontend/webspa-admin/src/app/views/pages/page403/page403.component.spec.ts"
+      ],
+      "next_task_id": null,
+      "reason": "The page now maps forbidden and tenant-not-found reasons to backend denial copy instead of the missing assignment message.",
+      "status": "passed"
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/heartbeats/TMP-065.json",
+    ".agent/sessions/codex-tenant-workspace-guard-20260513-114433/capsule.json",
+    ".agent/sessions/codex-tenant-workspace-guard-20260513-114433/capsule.md",
+    ".agent/sessions/codex-tenant-workspace-guard-20260513-114433/git_snapshot.json",
+    ".agent/sessions/codex-tenant-workspace-guard-20260513-114433/handoff.json",
+    ".agent/sessions/supervisor-20260513T114914Z-e07a9316/capsule.json",
+    ".agent/sessions/supervisor-20260513T114914Z-e07a9316/capsule.md",
+    ".agent/tasks.json",
+    "agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md",
+    "agent/state/TMP-065.handoff.json",
+    "agent/state/TMP-065.work-order.json",
+    "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts",
+    "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.ts",
+    "frontend/webspa-admin/src/app/views/pages/page403/page403.component.spec.ts",
+    "frontend/webspa-admin/src/app/views/pages/page403/page403.component.ts"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "Installed frontend dependencies in the isolated worktree to run Angular/Karma verification; dependency manifests were unchanged.",
+    "No backend service or database migration changed."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Created TMP-065 classified defect issue and work order.",
+    "Identified root cause: TenantWorkspaceInterceptor took the initial loading workspace emission and could forward tenant API requests without X-Tenant-Key.",
+    "Added readiness filtering before forwarding workspace requests.",
+    "Added interceptor regression coverage for loading-to-ready tenant header attachment.",
+    "Added page403 copy coverage for backend forbidden and tenant-not-found reasons."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "high"
+  },
+  "known_gaps": [
+    "The local shell uses Node v24.15.0 while webspa-admin declares Node ^18.19.0 || ^20.9.0; npm reports EBADENGINE as a warning.",
+    "The Angular build still reports pre-existing campaign SCSS budget and selector warnings unrelated to this fix."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-065 is complete: assigned tenant workspaces wait for tenant readiness before admin API calls are sent, preventing false /403 workspace-unavailable redirects from headerless startup requests.",
+  "residual_work_policy": "complete",
+  "risk_notes": [
+    "The change can delay tenant-scoped API calls until Auth0/workspace resolution completes, matching the existing route guard behavior.",
+    "Non-workspace requests still bypass the tenant workspace stream."
+  ],
+  "safe_to_continue": false,
+  "schema_version": 1,
+  "session_id": "codex-tenant-workspace-guard-20260513-114433",
+  "status": "done",
+  "summary": "Fixed the false tenant workspace unavailable screen by making tenant-scoped HTTP requests wait for tenant workspace readiness before forwarding, and clarified 403 copy for real backend denials.",
+  "supervisor_decision": "ready_for_review",
+  "task_id": "TMP-065",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "hvc check agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "assignment_decision allow; no blocking reasons",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:46:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include=src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts --include=src/app/views/pages/page403/page403.component.spec.ts",
+      "exit_code": 0,
+      "output_excerpt": "TOTAL: 5 SUCCESS",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:47:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm run build",
+      "exit_code": 0,
+      "output_excerpt": "Application bundle generation complete",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:48:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "TMP-065 assignment_decision allow; no blocking reasons",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:48:00Z"
+    },
+    {
+      "command": "agent-supervisor --config .harness/config.json preflight",
+      "exit_code": 0,
+      "output_excerpt": "ok true; only existing historical/schedulable warnings",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:48:00Z"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "output_excerpt": "no whitespace errors",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:48:00Z"
+    }
+  ]
+}

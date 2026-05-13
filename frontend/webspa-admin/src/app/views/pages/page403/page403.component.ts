@@ -49,7 +49,10 @@ export class Page403Component {
       case 'selection-required':
         return 'Select a tenant workspace';
       case 'invalid-selection':
+      case 'forbidden':
         return 'Tenant workspace denied';
+      case 'tenant-not-found':
+        return 'Tenant workspace not found';
       case 'missing-tenant':
       default:
         return 'Tenant workspace unavailable';
@@ -64,6 +67,10 @@ export class Page403Component {
         return 'Choose one of your permitted tenants before opening tenant-scoped admin views.';
       case 'invalid-selection':
         return 'The selected tenant is not available for this account or no longer matches the active assignment.';
+      case 'forbidden':
+        return 'The active tenant is assigned, but the backend rejected access to this workspace view.';
+      case 'tenant-not-found':
+        return 'The active tenant is assigned, but the backend could not resolve the tenant for this workspace view.';
       case 'missing-tenant':
       default:
         return 'This account does not currently have a tenant assignment, so the workspace cannot load protected data.';
