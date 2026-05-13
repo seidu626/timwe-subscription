@@ -10,13 +10,16 @@ import (
 
 type Claims struct {
 	jwt.RegisteredClaims
-	TenantID       string   `json:"tenant_id,omitempty"`
-	TenantKey      string   `json:"tenant_key,omitempty"`
-	OrgID          string   `json:"org_id,omitempty"`
-	Roles          []string `json:"roles,omitempty"`
-	Permissions    []string `json:"permissions,omitempty"`
-	Scope          string   `json:"scope,omitempty"`
-	PlatformScoped bool     `json:"-"`
+	TenantID         string   `json:"tenant_id,omitempty"`
+	TenantKey        string   `json:"tenant_key,omitempty"`
+	OrgID            string   `json:"org_id,omitempty"`
+	Email            string   `json:"email,omitempty"`
+	EmailVerified    bool     `json:"email_verified,omitempty"`
+	EmailVerifiedSet bool     `json:"-"`
+	Roles            []string `json:"roles,omitempty"`
+	Permissions      []string `json:"permissions,omitempty"`
+	Scope            string   `json:"scope,omitempty"`
+	PlatformScoped   bool     `json:"-"`
 }
 
 func (c *Claims) UnmarshalJSON(data []byte) error {
@@ -37,6 +40,8 @@ func (c *Claims) UnmarshalJSON(data []byte) error {
 	c.TenantID = firstString(raw, "tenant_id", "https://platform/tenant_id")
 	c.TenantKey = firstString(raw, "tenant_key", "https://platform/tenant_key")
 	c.OrgID = firstString(raw, "org_id", "organization_id", "https://platform/org_id")
+	c.Email = firstString(raw, "email", "https://platform/email")
+	c.EmailVerified, c.EmailVerifiedSet = firstBool(raw, "email_verified", "https://platform/email_verified")
 	c.Roles = uniqueStrings(append(
 		stringList(raw, "roles", "https://platform/roles"),
 		splitScope(firstString(raw, "role", "https://platform/role"))...,
@@ -52,15 +57,39 @@ func (c *Claims) UnmarshalJSON(data []byte) error {
 
 func (c Claims) Identity() tenantctx.Identity {
 	return tenantctx.Identity{
-		TenantID:       c.TenantID,
-		TenantKey:      c.TenantKey,
-		OrgID:          c.OrgID,
-		Subject:        c.Subject,
-		Roles:          append([]string(nil), c.Roles...),
-		Permissions:    append([]string(nil), c.Permissions...),
-		PlatformScoped: c.PlatformScoped,
-		TrustSource:    tenantctx.TrustSourceJWT,
+		TenantID:         c.TenantID,
+		TenantKey:        c.TenantKey,
+		OrgID:            c.OrgID,
+		Subject:          c.Subject,
+		Email:            c.Email,
+		EmailVerified:    c.EmailVerified,
+		EmailVerifiedSet: c.EmailVerifiedSet,
+		Roles:            append([]string(nil), c.Roles...),
+		Permissions:      append([]string(nil), c.Permissions...),
+		PlatformScoped:   c.PlatformScoped,
+		TrustSource:      tenantctx.TrustSourceJWT,
 	}
+}
+
+func firstBool(raw map[string]any, keys ...string) (bool, bool) {
+	for _, key := range keys {
+		value, ok := raw[key]
+		if !ok {
+			continue
+		}
+		if b, ok := value.(bool); ok {
+			return b, true
+		}
+		if s, ok := value.(string); ok {
+			switch strings.TrimSpace(strings.ToLower(s)) {
+			case "true", "1", "yes", "y":
+				return true, true
+			case "false", "0", "no", "n":
+				return false, true
+			}
+		}
+	}
+	return false, false
 }
 
 func firstString(raw map[string]any, keys ...string) string {

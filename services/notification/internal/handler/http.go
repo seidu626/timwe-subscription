@@ -106,24 +106,50 @@ func (h *NotificationHandler) tenantIDForAdminRead(ctx *fasthttp.RequestCtx) str
 	if tenantID := strings.TrimSpace(identity.TenantID); tenantID != "" {
 		return tenantID
 	}
-	if identity.PlatformScoped {
-		if tenantID := headerOrQueryTenantID(ctx); tenantID != "" {
-			return tenantID
-		}
-		tenantKey := firstNonBlank(
-			identity.TenantKey,
-			string(ctx.Request.Header.Peek(tenantctx.HeaderTenantKey)),
-			firstQuery(ctx, "tenant_key", "tenantKey"),
-		)
-		if tenantKey == "" || h.service == nil {
-			return ""
-		}
-		tenantID, err := h.service.TenantIDByKey(context.Background(), tenantKey)
-		if err != nil {
-			log.Printf("failed to resolve notification tenant key %q: %v", tenantKey, err)
-			return ""
-		}
+	if !identity.PlatformScoped {
+		return ""
+	}
+	if tenantID := headerOrQueryTenantID(ctx); tenantID != "" {
 		return tenantID
+	}
+	// Resolve tenant key through the canonical resolver so header-vs-query
+	// conflict is detected and mixed-case keys are normalised.
+	pair, err := tenantctx.ResolveKeyPair(
+		fasthttpHeaderGetter{ctx: ctx},
+		tenantctx.KeyPair{TenantKey: firstQuery(ctx, "tenant_key", "tenantKey")},
+		tenantctx.ResolveKeyPairOptions{
+			GatewayTrusted: identity.TrustSource == tenantctx.TrustSourceTrustedService,
+		},
+	)
+	if err != nil {
+		log.Printf("tenant key resolution error in notification handler: %v", err)
+		return ""
+	}
+	tenantKey := firstNonBlank(identity.TenantKey, pair.TenantKey)
+	if tenantKey == "" || h.service == nil {
+		return ""
+	}
+	tenantID, err := h.service.TenantIDByKey(context.Background(), tenantKey)
+	if err != nil {
+		log.Printf("failed to resolve notification tenant key %q: %v", tenantKey, err)
+		return ""
+	}
+	return tenantID
+}
+
+type fasthttpHeaderGetter struct {
+	ctx *fasthttp.RequestCtx
+}
+
+func (g fasthttpHeaderGetter) Get(name string) string {
+	return string(g.ctx.Request.Header.Peek(name))
+}
+
+func firstNonBlank(values ...string) string {
+	for _, v := range values {
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			return trimmed
+		}
 	}
 	return ""
 }
@@ -134,7 +160,10 @@ func tenantIdentityFromRequest(ctx *fasthttp.RequestCtx) (tenantctx.Identity, bo
 	return identity, ok
 }
 
-func tenantIDFromRequest(ctx *fasthttp.RequestCtx) string {
+func (h *NotificationHandler) tenantIDFromRequest(ctx *fasthttp.RequestCtx) string {
+	if tenantID := h.tenantIDForAdminRead(ctx); tenantID != "" {
+		return tenantID
+	}
 	return headerOrQueryTenantID(ctx)
 }
 
@@ -149,15 +178,6 @@ func firstQuery(ctx *fasthttp.RequestCtx, keys ...string) string {
 	for _, key := range keys {
 		if value := strings.TrimSpace(string(ctx.QueryArgs().Peek(key))); value != "" {
 			return value
-		}
-	}
-	return ""
-}
-
-func firstNonBlank(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
 		}
 	}
 	return ""
@@ -196,7 +216,7 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 
 	notification.PartnerRole = partnerRole
 	notification.Type = notificationType
-	if tenantID := tenantIDFromRequest(ctx); tenantID != "" {
+	if tenantID := h.tenantIDFromRequest(ctx); tenantID != "" {
 		notification.TenantID = &tenantID
 	}
 	if channelID := channelIDFromRequest(ctx); channelID != "" {

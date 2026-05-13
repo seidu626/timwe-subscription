@@ -151,3 +151,40 @@ examples/tenant-channel-onboarding/validate-fixtures.sh
 ```
 
 The fixture bundle includes supported opt-in, charge, callback, and postback examples plus negative examples for missing callback signatures and unsupported charge capability.
+
+## Tenant / Channel Key Resolver Precedence
+
+The canonical resolver lives in `common/auth/tenantctx.ResolveKeyPair`. All service handlers must call it; direct inline parsing of `X-Tenant-Key` / `X-Channel-Key` is not permitted.
+
+### Four-rule contract (evaluated in order)
+
+| # | Header present | Query present | Gateway trust | Outcome |
+|---|---|---|---|---|
+| 1 | Yes | No | Any | Header value accepted. |
+| 2 | Yes | Yes, same value | Any | Header value accepted (agreement). |
+| 3 | Yes | Yes, different value | Any | **Refused** — `ErrTenantKeyConflict` (HTTP 409). Error message names the conflicting header and both values. |
+| 4 | No | Yes | **Verified** | Query value accepted. |
+| — | No | Yes | Not verified | **Refused** — query-only resolution without gateway trust is rejected. |
+
+### Case sensitivity
+
+Values are normalised to lowercase before comparison. `Careerify`, `CAREERIFY`, and `careerify` are treated as the same tenant key.
+
+### Gateway trust boundary
+
+"Gateway trusted" means the request carries a valid HMAC-signed service context as defined in `common/auth/tenantctx.IdentityFromTrustedRequest` (headers `X-Service-Id`, `X-Service-Timestamp`, `X-Service-Signature`). KrakenD signs every forwarded request with the shared `AUTH.JWT_TOKEN.SECRET`. Handlers set `GatewayTrusted: true` after `IdentityFromTrustedRequest` succeeds; they never set it unconditionally.
+
+### Error envelope
+
+Conflict errors are returned through the existing `writeError` envelope:
+
+```json
+{
+  "code": "TENANT_CONTEXT_REQUIRED",
+  "message": "tenant key conflict: header and query parameter disagree: X-Tenant-Key header=\"careerify\" query=\"other-tenant\"",
+  "inError": true,
+  "responseData": {}
+}
+```
+
+HTTP status is **409 Conflict**.

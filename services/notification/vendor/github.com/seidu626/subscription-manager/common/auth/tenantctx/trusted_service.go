@@ -14,6 +14,7 @@ import (
 const (
 	HeaderTenantID         = "X-Tenant-Id"
 	HeaderTenantKey        = "X-Tenant-Key"
+	HeaderChannelKey       = "X-Channel-Key"
 	HeaderServiceID        = "X-Service-Id"
 	HeaderServiceTimestamp = "X-Service-Timestamp"
 	HeaderServiceNonce     = "X-Service-Nonce"

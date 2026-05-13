@@ -259,15 +259,9 @@ func (g fastHTTPHeaderGetter) Get(name string) string {
 }
 
 func tenantRouteFromRequest(ctx *fasthttp.RequestCtx, cfg *config.Config, required bool, bodyChannelID, bodyChannelKey string) (domain.TenantRouteContext, error) {
-	channelID := firstHeader(ctx, "X-Tenant-Channel-Id", "X-Channel-Id")
-	channelKey := firstHeader(ctx, "X-Tenant-Channel-Key", "X-Channel-Key")
-	if strings.TrimSpace(channelID) == "" {
-		channelID = strings.TrimSpace(bodyChannelID)
-	}
-	if strings.TrimSpace(channelKey) == "" {
-		channelKey = strings.TrimSpace(bodyChannelKey)
-	}
-	if !required && channelID == "" && channelKey == "" && firstHeader(ctx, tenantctx.HeaderTenantID, tenantctx.HeaderTenantKey) == "" {
+	if !required && firstHeader(ctx, "X-Tenant-Channel-Id", "X-Channel-Id") == "" &&
+		firstHeader(ctx, "X-Tenant-Channel-Key", "X-Channel-Key") == "" &&
+		firstHeader(ctx, tenantctx.HeaderTenantID, tenantctx.HeaderTenantKey) == "" {
 		return domain.TenantRouteContext{}, nil
 	}
 	if cfg == nil || strings.TrimSpace(cfg.Auth.JwtToken.Secret) == "" {
@@ -285,6 +279,35 @@ func tenantRouteFromRequest(ctx *fasthttp.RequestCtx, cfg *config.Config, requir
 	if err != nil {
 		return domain.TenantRouteContext{}, err
 	}
+
+	// Resolve channel key through the canonical resolver so header-vs-query
+	// conflict is detected consistently.
+	channelPair, err := tenantctx.ResolveKeyPair(
+		fastHTTPHeaderGetter{ctx: ctx},
+		tenantctx.KeyPair{
+			ChannelKey: strings.TrimSpace(string(ctx.QueryArgs().Peek("channel_key"))),
+		},
+		tenantctx.ResolveKeyPairOptions{
+			GatewayTrusted: true, // trusted because IdentityFromTrustedRequest succeeded above
+		},
+	)
+	if err != nil {
+		return domain.TenantRouteContext{}, err
+	}
+
+	// Channel header wins; body field fills in when header is absent.
+	channelID := firstHeader(ctx, "X-Tenant-Channel-Id", "X-Channel-Id")
+	if strings.TrimSpace(channelID) == "" {
+		channelID = strings.TrimSpace(bodyChannelID)
+	}
+	channelKey := channelPair.ChannelKey
+	if channelKey == "" {
+		channelKey = firstHeader(ctx, "X-Tenant-Channel-Key", "X-Channel-Key")
+	}
+	if strings.TrimSpace(channelKey) == "" {
+		channelKey = strings.TrimSpace(bodyChannelKey)
+	}
+
 	if strings.TrimSpace(channelID) == "" && strings.TrimSpace(channelKey) == "" {
 		return domain.TenantRouteContext{}, fmt.Errorf("tenant channel context is required")
 	}
@@ -308,6 +331,9 @@ func firstHeader(ctx *fasthttp.RequestCtx, names ...string) string {
 func tenantRouteStatus(err error) int {
 	if err == nil {
 		return fasthttp.StatusBadRequest
+	}
+	if errors.Is(err, tenantctx.ErrTenantKeyConflict) {
+		return fasthttp.StatusConflict
 	}
 	if strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "not configured") {
 		return fasthttp.StatusBadRequest
