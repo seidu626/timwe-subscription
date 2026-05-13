@@ -41,7 +41,7 @@ func setCORSHeaders(ctx *fasthttp.RequestCtx, origin string, allowedOrigins []st
 	}
 	ctx.Response.Header.Set("Access-Control-Allow-Origin", allowOrigin)
 	ctx.Response.Header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	ctx.Response.Header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-RequestId, Accept, Origin, Access-Control-Allow-Origin, Access-Control-Allow-Methods, Cache-Control, X-Forwarded-For, User-Agent, Referer")
+	ctx.Response.Header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Tenant-Id, X-Tenant-Key, X-Requested-With, X-RequestId, Accept, Origin, Access-Control-Allow-Origin, Access-Control-Allow-Methods, Cache-Control, X-Forwarded-For, User-Agent, Referer")
 	ctx.Response.Header.Set("Access-Control-Allow-Credentials", "true")
 	ctx.Response.Header.Set("Access-Control-Max-Age", "600")
 }
