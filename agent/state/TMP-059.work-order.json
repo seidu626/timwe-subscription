@@ -1,0 +1,72 @@
+{
+  "work_order_id": "WO-TMP-059-001",
+  "issue_id": "TMP-059",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "Local `make dev` reaches the Angular admin server without paying a npm dependency check on every run when dependencies are already installed.",
+  "actor": "developer",
+  "entrypoint": "Makefile dev-admin target",
+  "trigger": "Developer runs `make dev` or `make dev-admin` in a checkout with existing webspa-admin dependencies.",
+  "allowed_files": [
+    "Makefile",
+    "agent/backlog/issues/TMP-059-admin-dev-startup-latency.md",
+    "agent/state/TMP-059.work-order.json",
+    "agent/state/TMP-059.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-059-admin-dev-startup-latency/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "frontend/webspa-admin/package.json",
+    "frontend/webspa-admin/package-lock.json",
+    "frontend/webspa-admin/src/**",
+    "services/**",
+    "common/**",
+    "ops/**",
+    "go.mod",
+    "go.sum",
+    "docker-compose*.yml"
+  ],
+  "acceptance_tests": [
+    "hvc check agent/backlog/issues/TMP-059-admin-dev-startup-latency.md --fail-on block",
+    "make -n dev-admin",
+    "WEBSPA_ADMIN_PORT=<free port> make dev-admin"
+  ],
+  "required_evidence": [
+    "Baseline timing for the current admin dependency/start command path",
+    "After timing for the patched admin dependency/start command path",
+    "make -n dev-admin",
+    "WEBSPA_ADMIN_PORT=<free port> make dev-admin"
+  ],
+  "non_goals": [],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-059",
+    "title": "Admin dev startup latency",
+    "path": "agent/backlog/issues/TMP-059-admin-dev-startup-latency.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 88,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 6,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

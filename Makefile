@@ -218,26 +218,36 @@ dev-landing:
 .PHONY: dev-admin
 dev-admin:
 	@echo "🖥️  Starting Admin Panel (Angular)..."
-	@cd $(WEBSPA_ADMIN_DIR) && npm install --silent 2>/dev/null || true
+	@cd $(WEBSPA_ADMIN_DIR) && \
+		if [ ! -d node_modules ] || [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then \
+			echo "📦 Installing Admin Panel dependencies..."; \
+			npm install; \
+		else \
+			echo "📦 Admin Panel dependencies current; skipping npm install."; \
+		fi
 	@PORT=$(WEBSPA_ADMIN_PORT); \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "ℹ️  Admin Panel port $$PORT is already in use; skipping start."; \
 		echo "   Use 'make stop-admin' first if you want to restart it."; \
 		exit 0; \
 	fi; \
-	(cd $(WEBSPA_ADMIN_DIR); nohup npx ng serve --port $$PORT > webspa-admin.log 2>&1 & echo $$! > webspa-admin.pid)
+	(cd $(WEBSPA_ADMIN_DIR); nohup npm run start -- --port $$PORT > webspa-admin.log 2>&1 & echo $$! > webspa-admin.pid)
 	@echo "   Waiting for Angular to compile..."
-	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+	@PORT=$(WEBSPA_ADMIN_PORT); \
+	for i in 1 2 3 4 5 6 7 8 9 10; do \
 		sleep 2; \
-		if grep -q "Compiled successfully\|listening on\|open your browser" $(WEBSPA_ADMIN_DIR)/webspa-admin.log 2>/dev/null; then \
+		if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
+			break; \
+		fi; \
+		if grep -q "Compiled successfully\|Application bundle generation complete\|Watch mode enabled\|listening on\|Local:\|open your browser" $(WEBSPA_ADMIN_DIR)/webspa-admin.log 2>/dev/null; then \
 			break; \
 		fi; \
 	done
-	@ADMIN_PORT=$$(grep -oE 'localhost:[0-9]+' $(WEBSPA_ADMIN_DIR)/webspa-admin.log 2>/dev/null | head -1 | grep -oE '[0-9]+$$'); \
-	if [ "$$ADMIN_PORT" = "$(WEBSPA_ADMIN_PORT)" ]; then \
-		echo "✅ Admin Panel started on port $(WEBSPA_ADMIN_PORT)"; \
+	@PORT=$(WEBSPA_ADMIN_PORT); \
+	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
+		echo "✅ Admin Panel started on port $$PORT"; \
 	else \
-		echo "❌ Admin Panel did not bind to expected port $(WEBSPA_ADMIN_PORT)"; \
+		echo "❌ Admin Panel did not bind to expected port $$PORT"; \
 		tail -20 $(WEBSPA_ADMIN_DIR)/webspa-admin.log 2>/dev/null || true; \
 		exit 1; \
 	fi

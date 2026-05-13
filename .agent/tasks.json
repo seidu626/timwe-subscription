@@ -4576,7 +4576,7 @@
       "parent_id": null,
       "priority": 0,
       "review_findings": [],
-      "status": "in_progress",
+      "status": "stale",
       "title": "Tenant nullable runtime enforcement",
       "unresolved": [
         {
@@ -4628,7 +4628,7 @@
           "severity": "medium"
         }
       ],
-      "updated_at": "2026-05-11T23:29:52Z",
+      "updated_at": "2026-05-13T06:18:22Z",
       "worktree": null
     },
     {
@@ -5008,6 +5008,125 @@
       "title": "Bootstrap admin email without email_verified claim",
       "unresolved": [],
       "updated_at": "2026-05-11T02:40:10Z",
+      "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "slices/TMP-059-admin-dev-startup-latency/performance-ledger.md"
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": "Clean-worktree npm install exceeded five minutes before termination, proving the wait happens before Angular serve starts.",
+          "status": "passed",
+          "text": "Baseline identifies the slow admin startup segment."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "Makefile",
+            "make -n dev-admin"
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": "The recipe checks node_modules and node_modules/.package-lock.json against package-lock.json before running npm install.",
+          "status": "passed",
+          "text": "dev-admin skips npm install when node_modules is current and still installs when missing or stale."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "make WEBSPA_ADMIN_PORT=4420 dev-admin",
+            "slices/TMP-059-admin-dev-startup-latency/value-gate-report.md"
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": "Warm-start smoke returned rc=0 in 8185 ms and Angular logged Local: http://localhost:4420/.",
+          "status": "passed",
+          "text": "Admin dev server starts on a configured free port after the patch."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Baseline clean-worktree npm install stayed running beyond five minutes before being terminated.",
+        "Makefile dev-admin dependency setup is now conditional and visible.",
+        "Baseline: clean npm install exceeded five minutes before termination.",
+        "After: warm dependency check skipped npm install in 1 ms and dev-admin smoke returned rc=0 in 8185 ms on port 4420.",
+        "Evidence written to agent/state/TMP-059.handoff.json and slices/TMP-059-admin-dev-startup-latency/.",
+        "Created TMP-059 classified defect issue and work order.",
+        "Measured the admin startup bottleneck as npm dependency setup before Angular serve.",
+        "Patched dev-admin to skip npm install on warm starts and make install work visible when required.",
+        "Patched readiness to check the configured listening port instead of depending on a localhost log line."
+      ],
+      "created_at": "2026-05-13T06:05:18Z",
+      "details": "Investigate and reduce repeated webspa-admin startup latency in make dev without changing admin runtime behavior or dependencies.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "hvc check agent/backlog/issues/TMP-059-admin-dev-startup-latency.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "assignment_decision allow; no blocking or review reasons",
+            "status": "passed",
+            "timestamp": "2026-05-13T06:13:00Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "hvc_all_ok",
+            "status": "passed",
+            "timestamp": "2026-05-13T06:20:00Z"
+          },
+          {
+            "command": "make -n dev-admin",
+            "exit_code": 0,
+            "output_excerpt": "make_n_ok",
+            "status": "passed",
+            "timestamp": "2026-05-13T06:15:00Z"
+          },
+          {
+            "command": "make WEBSPA_ADMIN_PORT=4420 dev-admin",
+            "exit_code": 0,
+            "output_excerpt": "Admin Panel dependencies current; skipping npm install. Admin Panel started on port 4420. rc=0 elapsed_ms=8185",
+            "status": "passed",
+            "timestamp": "2026-05-13T06:18:00Z"
+          },
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; only historical/schedulable warnings including known gitignore drift",
+            "status": "passed",
+            "timestamp": "2026-05-13T06:20:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/TMP-059.json",
+          ".agent/sessions/codex-admin-startup-20260513-060306/handoff.json",
+          ".agent/tasks.json",
+          "Makefile",
+          "agent/backlog/issues/TMP-059-admin-dev-startup-latency.md",
+          "agent/state/TMP-059.handoff.json",
+          "agent/state/TMP-059.work-order.json",
+          "slices/TMP-059-admin-dev-startup-latency/performance-ledger.md",
+          "slices/TMP-059-admin-dev-startup-latency/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "TMP-059",
+      "owner": "codex-admin-startup-20260513-060306",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Admin dev startup latency",
+      "unresolved": [],
+      "updated_at": "2026-05-13T06:19:21Z",
       "worktree": null
     }
   ],
