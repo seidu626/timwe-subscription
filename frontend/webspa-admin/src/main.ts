@@ -1,6 +1,6 @@
 /// <reference types="@angular/localize" />
 
-import * as Sentry from '@sentry/angular-ivy';
+import * as Sentry from '@sentry/angular';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { ErrorHandler } from '@angular/core';
 
