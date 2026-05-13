@@ -89,6 +89,45 @@ define build_go_binary
 	fi
 endef
 
+define stop_pid_file
+	@if [ -f "$(1)" ]; then \
+		PID=$$(cat "$(1)" 2>/dev/null); \
+		if printf '%s' "$$PID" | grep -Eq '^[0-9]+$$' && kill -0 "$$PID" 2>/dev/null; then \
+			CMD=$$(ps -p "$$PID" -o args= 2>/dev/null || true); \
+			if printf '%s' "$$CMD" | grep -Eq "$(2)"; then \
+				for C in $$(pgrep -P "$$PID" 2>/dev/null || true); do \
+					pkill -TERM -P "$$C" 2>/dev/null || true; \
+					kill -TERM "$$C" 2>/dev/null || true; \
+				done; \
+				pkill -TERM -P "$$PID" 2>/dev/null || true; \
+				kill -TERM "$$PID" 2>/dev/null || true; \
+				for _ in 1 2 3 4 5; do \
+					kill -0 "$$PID" 2>/dev/null || break; \
+					sleep 0.2; \
+				done; \
+				if kill -0 "$$PID" 2>/dev/null; then \
+					pkill -KILL -P "$$PID" 2>/dev/null || true; \
+					kill -KILL "$$PID" 2>/dev/null || true; \
+				fi; \
+			else \
+				echo "ℹ️  Ignoring stale pid file $(1) for pid $$PID ($$CMD)"; \
+			fi; \
+		fi; \
+		rm -f "$(1)"; \
+	fi
+endef
+
+define stop_matching_processes
+	@PIDS=$$(pgrep -f "$(1)" 2>/dev/null || true); \
+	if [ -n "$$PIDS" ]; then \
+		kill -TERM $$PIDS 2>/dev/null || true; \
+		sleep 0.2; \
+		for PID in $$PIDS; do \
+			kill -0 "$$PID" 2>/dev/null && kill -KILL "$$PID" 2>/dev/null || true; \
+		done; \
+	fi
+endef
+
 # Development targets
 .PHONY: dev
 dev:
@@ -110,7 +149,7 @@ dev-subscription-external: build-local-subscription-external
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	( cd $(SUBSCRIPTION_EXTERNAL_DIR); APP_APPLICATION_PORT=$$PORT nohup ./subscription-external > subscription-external.log 2>&1 & echo $$! > subscription-external.pid ); \
+	( cd $(SUBSCRIPTION_EXTERNAL_DIR); nohup setsid env APP_APPLICATION_PORT=$$PORT ./subscription-external > subscription-external.log 2>&1 & echo $$! > subscription-external.pid ); \
 	sleep 2; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Subscription External Service started on port $$PORT"; \
@@ -126,7 +165,7 @@ dev-subscription: build-local-subscription
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	( cd $(SUBSCRIPTION_DIR); APP_APPLICATION_PORT=$$PORT nohup ./subscription > subscription.log 2>&1 & echo $$! > subscription.pid ); \
+	( cd $(SUBSCRIPTION_DIR); nohup setsid env APP_APPLICATION_PORT=$$PORT ./subscription > subscription.log 2>&1 & echo $$! > subscription.pid ); \
 	sleep 2; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Subscription Service started on port $$PORT"; \
@@ -142,7 +181,7 @@ dev-billing: build-local-billing
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	( cd $(BILLING_DIR); APPLICATION_PORT=$$PORT nohup ./billing > billing.log 2>&1 & echo $$! > billing.pid ); \
+	( cd $(BILLING_DIR); nohup setsid env APPLICATION_PORT=$$PORT ./billing > billing.log 2>&1 & echo $$! > billing.pid ); \
 	sleep 2; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Billing Service started on port $$PORT"; \
@@ -158,7 +197,7 @@ dev-notification: build-local-notification
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	( cd $(NOTIFICATION_DIR); APPLICATION_PORT=$$PORT nohup ./notification > notification.log 2>&1 & echo $$! > notification.pid ); \
+	( cd $(NOTIFICATION_DIR); nohup setsid env APPLICATION_PORT=$$PORT ./notification > notification.log 2>&1 & echo $$! > notification.pid ); \
 	sleep 2; \
 	if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 		echo "✅ Notification Service started on port $$PORT"; \
@@ -184,7 +223,7 @@ dev-acquisition-api: build-local-acquisition-api
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	( cd $(ACQUISITION_API_DIR); APP_APPLICATION_PORT=$$PORT nohup ./acquisition-api > acquisition-api.log 2>&1 & echo $$! > acquisition-api.pid ); \
+	( cd $(ACQUISITION_API_DIR); nohup setsid env APP_APPLICATION_PORT=$$PORT ./acquisition-api > acquisition-api.log 2>&1 & echo $$! > acquisition-api.pid ); \
 	for i in $$(seq 1 45); do \
 		if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 			break; \
@@ -205,7 +244,7 @@ dev-cadence-engine: build-local-cadence-engine
 	while ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; do \
 		PORT=$$((PORT + 1)); \
 	done; \
-	( cd $(CADENCE_ENGINE_DIR); CADENCE_ADMIN_HTTP_ADDR=:$$PORT nohup ./cadence-engine > cadence-engine.log 2>&1 & echo $$! > cadence-engine.pid ); \
+	( cd $(CADENCE_ENGINE_DIR); nohup setsid env CADENCE_ADMIN_HTTP_ADDR=:$$PORT ./cadence-engine > cadence-engine.log 2>&1 & echo $$! > cadence-engine.pid ); \
 	for i in 1 2 3 4 5 6 7 8 9 10; do \
 		if ss -ltn 2>/dev/null | grep -q ":$$PORT " || netstat -ltn 2>/dev/null | grep -q ":$$PORT "; then \
 			break; \
@@ -229,7 +268,7 @@ dev-landing:
 		else \
 			echo "📦 Landing Web dependencies current; skipping npm install."; \
 		fi
-	@(cd $(LANDING_WEB_DIR); nohup npm run dev > landing-web.log 2>&1 & echo $$! > landing-web.pid)
+	@(cd $(LANDING_WEB_DIR); nohup setsid npm run dev > landing-web.log 2>&1 & echo $$! > landing-web.pid)
 	@sleep 4
 	@LANDING_PORT=$$(grep -oE 'localhost:[0-9]+' $(LANDING_WEB_DIR)/landing-web.log 2>/dev/null | head -1 | grep -oE '[0-9]+$$'); \
 	if [ -n "$$LANDING_PORT" ]; then \
@@ -254,7 +293,7 @@ dev-admin:
 		echo "   Use 'make stop-admin' first if you want to restart it."; \
 		exit 0; \
 	fi; \
-	(cd $(WEBSPA_ADMIN_DIR); nohup npm run start -- --port $$PORT > webspa-admin.log 2>&1 & echo $$! > webspa-admin.pid)
+	(cd $(WEBSPA_ADMIN_DIR); nohup setsid npm run start -- --port $$PORT > webspa-admin.log 2>&1 & echo $$! > webspa-admin.pid)
 	@echo "   Waiting for Angular to compile..."
 	@PORT=$(WEBSPA_ADMIN_PORT); \
 	for i in 1 2 3 4 5 6 7 8 9 10; do \
@@ -381,127 +420,74 @@ stop-all:
 .PHONY: stop-subscription-external
 stop-subscription-external:
 	@echo "🛑 Stopping Subscription External Service..."
-	@if [ -f "$(SUBSCRIPTION_EXTERNAL_PID_FILE)" ]; then \
-		PID=$$(cat "$(SUBSCRIPTION_EXTERNAL_PID_FILE)" 2>/dev/null); \
-		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
-			kill "$$PID" 2>/dev/null || true; \
-		fi; \
-		rm -f "$(SUBSCRIPTION_EXTERNAL_PID_FILE)"; \
-	fi
+	$(call stop_pid_file,$(SUBSCRIPTION_EXTERNAL_PID_FILE),(^|/)(subscription-external|subscription-ex)( |$$))
 	@rm -f subscription-external.pid
-	@pkill -f "[s]ervices/subscription-external/subscription-external$$" 2>/dev/null || true
-	@pkill -f "./subscription-external$$" 2>/dev/null || true
+	$(call stop_matching_processes,[s]ervices/subscription-external/subscription-external$$)
+	$(call stop_matching_processes,\./subscription-external$$)
 	@echo "✅ Subscription External Service stopped"
 
 .PHONY: stop-subscription
 stop-subscription:
 	@echo "🛑 Stopping Subscription Service..."
-	@if [ -f "$(SUBSCRIPTION_PID_FILE)" ]; then \
-		PID=$$(cat "$(SUBSCRIPTION_PID_FILE)" 2>/dev/null); \
-		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
-			kill "$$PID" 2>/dev/null || true; \
-		fi; \
-		rm -f "$(SUBSCRIPTION_PID_FILE)"; \
-	fi
+	$(call stop_pid_file,$(SUBSCRIPTION_PID_FILE),(^|/)subscription( |$$))
 	@rm -f subscription.pid
-	@pkill -f "[s]ervices/subscription-partner/subscription$$" 2>/dev/null || true
-	@pkill -f "./subscription$$" 2>/dev/null || true
+	$(call stop_matching_processes,[s]ervices/subscription-partner/subscription$$)
+	$(call stop_matching_processes,\./subscription$$)
 	@echo "✅ Subscription Service stopped"
 
 .PHONY: stop-billing
 stop-billing:
 	@echo "🛑 Stopping Billing Service..."
-	@if [ -f "$(BILLING_PID_FILE)" ]; then \
-		PID=$$(cat "$(BILLING_PID_FILE)" 2>/dev/null); \
-		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
-			kill "$$PID" 2>/dev/null || true; \
-		fi; \
-		rm -f "$(BILLING_PID_FILE)"; \
-	fi
+	$(call stop_pid_file,$(BILLING_PID_FILE),(^|/)billing( |$$))
 	@rm -f billing.pid
-	@pkill -f "[s]ervices/billing/billing$$" 2>/dev/null || true
-	@pkill -f "./billing$$" 2>/dev/null || true
+	$(call stop_matching_processes,[s]ervices/billing/billing$$)
+	$(call stop_matching_processes,\./billing$$)
 	@echo "✅ Billing Service stopped"
 
 .PHONY: stop-notification
 stop-notification:
 	@echo "🛑 Stopping Notification Service..."
-	@if [ -f "$(NOTIFICATION_PID_FILE)" ]; then \
-		PID=$$(cat "$(NOTIFICATION_PID_FILE)" 2>/dev/null); \
-		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
-			kill "$$PID" 2>/dev/null || true; \
-		fi; \
-		rm -f "$(NOTIFICATION_PID_FILE)"; \
-	fi
+	$(call stop_pid_file,$(NOTIFICATION_PID_FILE),(^|/)notification( |$$))
 	@rm -f notification.pid
-	@pkill -f "[s]ervices/notification/notification$$" 2>/dev/null || true
-	@pkill -f "./notification$$" 2>/dev/null || true
+	$(call stop_matching_processes,[s]ervices/notification/notification$$)
+	$(call stop_matching_processes,\./notification$$)
 	@echo "✅ Notification Service stopped"
 
 .PHONY: stop-acquisition-api
 stop-acquisition-api:
 	@echo "🛑 Stopping Acquisition API..."
-	@if [ -f "$(ACQUISITION_API_PID_FILE)" ]; then \
-		PID=$$(cat "$(ACQUISITION_API_PID_FILE)" 2>/dev/null); \
-		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
-			kill "$$PID" 2>/dev/null || true; \
-		fi; \
-		rm -f "$(ACQUISITION_API_PID_FILE)"; \
-	fi
+	$(call stop_pid_file,$(ACQUISITION_API_PID_FILE),(^|/)acquisition-api( |$$))
 	@rm -f acquisition-api.pid
-	@pkill -f "[s]ervices/acquisition-api/acquisition-api$$" 2>/dev/null || true
-	@pkill -f "./acquisition-api$$" 2>/dev/null || true
+	$(call stop_matching_processes,[s]ervices/acquisition-api/acquisition-api$$)
+	$(call stop_matching_processes,\./acquisition-api$$)
 	@echo "✅ Acquisition API stopped"
 
 .PHONY: stop-cadence-engine
 stop-cadence-engine:
 	@echo "🛑 Stopping Cadence Engine..."
-	@if [ -f "$(CADENCE_ENGINE_PID_FILE)" ]; then \
-		PID=$$(cat "$(CADENCE_ENGINE_PID_FILE)" 2>/dev/null); \
-		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
-			kill "$$PID" 2>/dev/null || true; \
-		fi; \
-		rm -f "$(CADENCE_ENGINE_PID_FILE)"; \
-	fi
+	$(call stop_pid_file,$(CADENCE_ENGINE_PID_FILE),(^|/)cadence-engine( |$$))
 	@rm -f cadence-engine.pid
-	@pkill -f "[s]ervices/cadence-engine/cadence-engine$$" 2>/dev/null || true
-	@pkill -f "./cadence-engine$$" 2>/dev/null || true
+	$(call stop_matching_processes,[s]ervices/cadence-engine/cadence-engine$$)
+	$(call stop_matching_processes,\./cadence-engine$$)
 	@echo "✅ Cadence Engine stopped"
 
 .PHONY: stop-landing
 stop-landing:
 	@echo "🛑 Stopping Landing Web..."
-	@if [ -f "$(LANDING_WEB_PID_FILE)" ]; then \
-		PID=$$(cat "$(LANDING_WEB_PID_FILE)" 2>/dev/null); \
-		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
-			kill "$$PID" 2>/dev/null || true; \
-		fi; \
-		rm -f "$(LANDING_WEB_PID_FILE)"; \
-	fi
+	$(call stop_pid_file,$(LANDING_WEB_PID_FILE),(npm run dev|next dev))
 	@rm -f landing-web.pid
-	@pkill -f "[s]ervices/landing-web/node_modules/.bin/next dev" 2>/dev/null || true
+	$(call stop_matching_processes,[s]ervices/landing-web/node_modules/.bin/next dev)
 	@echo "✅ Landing Web stopped"
 
 .PHONY: stop-admin
 stop-admin:
 	@echo "🛑 Stopping Admin Panel..."
-	@if [ -f "$(WEBSPA_ADMIN_PID_FILE)" ]; then \
-		PID=$$(cat "$(WEBSPA_ADMIN_PID_FILE)" 2>/dev/null); \
-		if [ -n "$$PID" ] && kill -0 "$$PID" 2>/dev/null; then \
-			for C in $$(pgrep -P "$$PID" 2>/dev/null); do \
-				pkill -TERM -P "$$C" 2>/dev/null || true; \
-				kill "$$C" 2>/dev/null || true; \
-			done; \
-			pkill -TERM -P "$$PID" 2>/dev/null || true; \
-			kill "$$PID" 2>/dev/null || true; \
-		fi; \
-		rm -f "$(WEBSPA_ADMIN_PID_FILE)"; \
-	fi
+	$(call stop_pid_file,$(WEBSPA_ADMIN_PID_FILE),(npm run start|ng serve))
 	@rm -f webspa-admin.pid
-	@pkill -f "[n]g serve --port $(WEBSPA_ADMIN_PORT)" 2>/dev/null || true
-	@pkill -f "[n]px ng serve --port $(WEBSPA_ADMIN_PORT)" 2>/dev/null || true
-	@pkill -f "[n]ode ./node_modules/@angular/cli/bin/ng.js serve --port $(WEBSPA_ADMIN_PORT)" 2>/dev/null || true
-	@pkill -f "[f]rontend/webspa-admin/node_modules/@esbuild/" 2>/dev/null || true
+	$(call stop_matching_processes,[n]g serve --port $(WEBSPA_ADMIN_PORT))
+	$(call stop_matching_processes,[n]px ng serve --port $(WEBSPA_ADMIN_PORT))
+	$(call stop_matching_processes,[n]ode ./node_modules/@angular/cli/bin/ng.js serve --port $(WEBSPA_ADMIN_PORT))
+	$(call stop_matching_processes,[f]rontend/webspa-admin/node_modules/@esbuild/)
 	@echo "✅ Admin Panel stopped"
 
 # Restart services
