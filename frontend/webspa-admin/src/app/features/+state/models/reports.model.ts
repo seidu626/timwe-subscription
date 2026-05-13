@@ -46,7 +46,7 @@ export interface CampaignPerformance {
 
 export interface CampaignPerformanceResponse {
   filters: ReportFilters;
-  campaigns: CampaignPerformance[];
+  campaigns: CampaignPerformance[] | null;
 }
 
 export interface TimeSeriesPoint {

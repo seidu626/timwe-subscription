@@ -189,7 +189,7 @@ func (r *ReportsRepository) GetCampaignPerformance(filters domain.ReportFilters)
 	}
 	defer rows.Close()
 
-	var campaigns []domain.CampaignPerformance
+	campaigns := make([]domain.CampaignPerformance, 0)
 	for rows.Next() {
 		var cp domain.CampaignPerformance
 		if err := rows.Scan(
@@ -280,7 +280,7 @@ func (r *ReportsRepository) GetTimeSeries(filters domain.ReportFilters, interval
 		}
 	}
 
-	var dataPoints []domain.TimeSeriesPoint
+	dataPoints := make([]domain.TimeSeriesPoint, 0, len(dataMap))
 	for _, pt := range dataMap {
 		dataPoints = append(dataPoints, *pt)
 	}

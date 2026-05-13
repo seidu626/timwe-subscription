@@ -108,6 +108,81 @@ func TestGetKPIsExposesRevenueDatasourceFailure(t *testing.T) {
 	assertContains(t, err.Error(), "failed to calculate revenue")
 }
 
+func TestGetCampaignPerformanceReturnsEmptyArrayWhenNoRows(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	filters := domain.ReportFilters{
+		StartDate: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:   time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+	}
+
+	mock.ExpectQuery("(?s)FROM campaigns c").
+		WithArgs(filters.StartDate, filters.EndDate).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"slug",
+			"country",
+			"views",
+			"transactions",
+			"subscribed",
+			"charged",
+			"revenue",
+		}))
+
+	repo := NewReportsRepository(db, zap.NewNop())
+	got, err := repo.GetCampaignPerformance(filters)
+	if err != nil {
+		t.Fatalf("GetCampaignPerformance: %v", err)
+	}
+	if got.Campaigns == nil {
+		t.Fatal("expected campaigns to be an empty slice, got nil")
+	}
+	if len(got.Campaigns) != 0 {
+		t.Fatalf("campaigns len = %d, want 0", len(got.Campaigns))
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestGetTimeSeriesReturnsEmptyArrayWhenNoRows(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	filters := domain.ReportFilters{
+		StartDate: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:   time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+	}
+
+	mock.ExpectQuery("(?s)FROM landing_events le").
+		WithArgs(filters.StartDate, filters.EndDate).
+		WillReturnRows(sqlmock.NewRows([]string{"timestamp", "views"}))
+	mock.ExpectQuery("(?s)FROM acquisition_transactions at").
+		WithArgs(filters.StartDate, filters.EndDate).
+		WillReturnRows(sqlmock.NewRows([]string{"timestamp", "transactions", "subscribed", "charged", "revenue"}))
+
+	repo := NewReportsRepository(db, zap.NewNop())
+	got, err := repo.GetTimeSeries(filters, "daily")
+	if err != nil {
+		t.Fatalf("GetTimeSeries: %v", err)
+	}
+	if got.DataPoints == nil {
+		t.Fatal("expected data points to be an empty slice, got nil")
+	}
+	if len(got.DataPoints) != 0 {
+		t.Fatalf("data points len = %d, want 0", len(got.DataPoints))
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func assertContains(t *testing.T, got, want string) {
 	t.Helper()
 	if !stringsContains(got, want) {

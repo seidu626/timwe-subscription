@@ -197,7 +197,7 @@
         mat-raised-button
         color="accent"
         (click)="exportToCSV()"
-        [disabled]="exporting || !campaignPerformance.campaigns.length"
+        [disabled]="exporting || !campaignPerformance.campaigns?.length"
         class="export-btn">
         <mat-icon>download</mat-icon>
         <span *ngIf="!exporting">Export CSV</span>
@@ -205,7 +205,7 @@
       </button>
     </mat-card-header>
     <mat-card-content>
-      <div class="table-container" *ngIf="campaignPerformance.campaigns.length">
+      <div class="table-container" *ngIf="campaignPerformance.campaigns?.length">
         <table mat-table [dataSource]="campaignPerformance.campaigns || []" class="performance-table">
 
           <ng-container matColumnDef="campaign_slug">
