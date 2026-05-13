@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -22,6 +23,10 @@ func (s *serviceRepoStub) FetchNotifications(startDate, endDate time.Time, tenan
 
 func (s *serviceRepoStub) Save(notification *domain.NotificationRequest) error {
 	return nil
+}
+
+func (s *serviceRepoStub) TenantIDByKey(_ context.Context, tenantKey string) (string, error) {
+	return strings.TrimSpace(tenantKey), nil
 }
 
 func TestGetNotifications_DefaultPaginationAndErrorContext(t *testing.T) {

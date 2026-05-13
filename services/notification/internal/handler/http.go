@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"strconv"
@@ -24,7 +25,7 @@ func NewNotificationHandler(service *service.NotificationService) *NotificationH
 
 func (h *NotificationHandler) ListNotifications(ctx *fasthttp.RequestCtx) {
 	log.Println("Processing notification list request")
-	tenantID := tenantIDForAdminRead(ctx)
+	tenantID := h.tenantIDForAdminRead(ctx)
 	if tenantID == "" {
 		ctx.Error("tenant context required", fasthttp.StatusForbidden)
 		return
@@ -97,7 +98,7 @@ func (h *NotificationHandler) ListNotifications(ctx *fasthttp.RequestCtx) {
 	ctx.SetBody(response)
 }
 
-func tenantIDForAdminRead(ctx *fasthttp.RequestCtx) string {
+func (h *NotificationHandler) tenantIDForAdminRead(ctx *fasthttp.RequestCtx) string {
 	identity, ok := tenantIdentityFromRequest(ctx)
 	if !ok {
 		return ""
@@ -106,7 +107,23 @@ func tenantIDForAdminRead(ctx *fasthttp.RequestCtx) string {
 		return tenantID
 	}
 	if identity.PlatformScoped {
-		return headerOrQueryTenantID(ctx)
+		if tenantID := headerOrQueryTenantID(ctx); tenantID != "" {
+			return tenantID
+		}
+		tenantKey := firstNonBlank(
+			identity.TenantKey,
+			string(ctx.Request.Header.Peek(tenantctx.HeaderTenantKey)),
+			firstQuery(ctx, "tenant_key", "tenantKey"),
+		)
+		if tenantKey == "" || h.service == nil {
+			return ""
+		}
+		tenantID, err := h.service.TenantIDByKey(context.Background(), tenantKey)
+		if err != nil {
+			log.Printf("failed to resolve notification tenant key %q: %v", tenantKey, err)
+			return ""
+		}
+		return tenantID
 	}
 	return ""
 }
@@ -118,9 +135,6 @@ func tenantIdentityFromRequest(ctx *fasthttp.RequestCtx) (tenantctx.Identity, bo
 }
 
 func tenantIDFromRequest(ctx *fasthttp.RequestCtx) string {
-	if tenantID := tenantIDForAdminRead(ctx); tenantID != "" {
-		return tenantID
-	}
 	return headerOrQueryTenantID(ctx)
 }
 
@@ -135,6 +149,15 @@ func firstQuery(ctx *fasthttp.RequestCtx, keys ...string) string {
 	for _, key := range keys {
 		if value := strings.TrimSpace(string(ctx.QueryArgs().Peek(key))); value != "" {
 			return value
+		}
+	}
+	return ""
+}
+
+func firstNonBlank(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
 		}
 	}
 	return ""

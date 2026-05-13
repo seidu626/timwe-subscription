@@ -1,12 +1,15 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -83,6 +86,12 @@ func InitConfig(logger *zap.Logger, path string, files []string) Config {
 	conf.SetDefault("DB.POSTGRESQL.PORT", "5432")
 	conf.SetDefault("DB.POSTGRESQL.SSL_MODE", "disable")
 
+	for _, file := range files {
+		if strings.HasSuffix(file, ".env") {
+			loadDotEnv(logger, filepath.Join(path, file))
+		}
+	}
+
 	conf.AddConfigPath(path)
 	for _, file := range files {
 		conf.SetConfigFile(file)
@@ -137,6 +146,34 @@ func bindEnv(logger *zap.Logger, conf *viper.Viper) {
 
 	// JWT secret is provided via env var `JWT_SECRET` (documented in config.yaml and compose files).
 	mustBindEnv(logger, conf, "AUTH.JWT_TOKEN.SECRET", "JWT_SECRET", "AUTH_JWT_TOKEN_SECRET", "AUTH.JWT_TOKEN.SECRET")
+}
+
+func loadDotEnv(logger *zap.Logger, path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer func() { _ = f.Close() }()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if key != "" && os.Getenv(key) == "" {
+			_ = os.Setenv(key, value)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		logger.Warn("Env file scan error (continuing)", zap.String("path", path), zap.Error(err))
+	}
 }
 
 func mustBindEnv(logger *zap.Logger, conf *viper.Viper, key string, envs ...string) {

@@ -30,6 +30,28 @@ func NewNotificationRepository(db *sql.DB, client cached.RedisClient) *Notificat
 	}
 }
 
+func (r *NotificationRepository) TenantIDByKey(ctx context.Context, tenantKey string) (string, error) {
+	tenantKey = strings.TrimSpace(tenantKey)
+	if tenantKey == "" {
+		return "", fmt.Errorf("tenant_key is required")
+	}
+
+	var tenantID string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id::text
+		FROM tenants
+		WHERE tenant_key = $1 AND status = 'ACTIVE'
+		LIMIT 1
+	`, tenantKey).Scan(&tenantID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("tenant not found")
+	}
+	if err != nil {
+		return "", err
+	}
+	return tenantID, nil
+}
+
 // GenerateCacheKey generates a unique cache key for query filters.
 func (r *NotificationRepository) GenerateCacheKey(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, channel, notificationType string, page, pageSize int) string {
 	return fmt.Sprintf("notifications:%s:%s:%s:%s:%s:%s:%s:%s:%d:%d", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), tenantID, channelID, partnerRole, msisdn, channel, notificationType, page, pageSize)

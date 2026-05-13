@@ -2,7 +2,9 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +25,28 @@ func NewPostbackRepository(db *sql.DB, logger *zap.Logger) *PostbackRepository {
 		db:     db,
 		logger: logger,
 	}
+}
+
+func (r *PostbackRepository) TenantIDByKey(tenantKey string) (string, error) {
+	tenantKey = strings.TrimSpace(tenantKey)
+	if tenantKey == "" {
+		return "", fmt.Errorf("tenant_key is required")
+	}
+
+	var tenantID string
+	err := r.db.QueryRow(`
+		SELECT id::text
+		FROM tenants
+		WHERE tenant_key = $1 AND status = 'ACTIVE'
+		LIMIT 1
+	`, tenantKey).Scan(&tenantID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("tenant not found")
+	}
+	if err != nil {
+		return "", err
+	}
+	return tenantID, nil
 }
 
 // CreateOutbox creates a new postback in the outbox

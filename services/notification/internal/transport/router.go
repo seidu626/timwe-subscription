@@ -100,7 +100,8 @@ func extractPartnerRole(path, prefix string) string {
 }
 
 type adminAccess struct {
-	validator *auth0jwt.Validator
+	validator                 *auth0jwt.Validator
+	bootstrapPlatformSubjects map[string]struct{}
 }
 
 func newAdminAccess() *adminAccess {
@@ -108,7 +109,10 @@ func newAdminAccess() *adminAccess {
 	if err != nil {
 		validator = nil
 	}
-	return &adminAccess{validator: validator}
+	return &adminAccess{
+		validator:                 validator,
+		bootstrapPlatformSubjects: bootstrapPlatformSubjectSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS")),
+	}
 }
 
 func (a *adminAccess) require(ctx *fasthttp.RequestCtx) bool {
@@ -122,6 +126,51 @@ func (a *adminAccess) require(ctx *fasthttp.RequestCtx) bool {
 		ctx.Error("Unauthorized", fasthttp.StatusUnauthorized)
 		return false
 	}
-	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, claims.Identity())
+	identity := claims.Identity()
+	identity = a.applyBootstrapPlatformScope(identity)
+	identity = a.applySelectedTenantContext(ctx, identity)
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, identity)
 	return true
+}
+
+func (a *adminAccess) applyBootstrapPlatformScope(identity tenantctx.Identity) tenantctx.Identity {
+	if identity.PlatformScoped {
+		return identity
+	}
+	if len(a.bootstrapPlatformSubjects) == 0 {
+		return identity
+	}
+	subject := strings.TrimSpace(identity.Subject)
+	if _, ok := a.bootstrapPlatformSubjects[subject]; !ok {
+		return identity
+	}
+	identity.PlatformScoped = true
+	if !identity.HasPermission("platform:all_tenants") {
+		identity.Permissions = append(identity.Permissions, "platform:all_tenants")
+	}
+	return identity
+}
+
+func (a *adminAccess) applySelectedTenantContext(ctx *fasthttp.RequestCtx, identity tenantctx.Identity) tenantctx.Identity {
+	if !identity.PlatformScoped {
+		return identity
+	}
+	if tenantID := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderTenantID))); tenantID != "" {
+		identity.TenantID = tenantID
+	}
+	if tenantKey := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderTenantKey))); tenantKey != "" {
+		identity.TenantKey = tenantKey
+	}
+	return identity
+}
+
+func bootstrapPlatformSubjectSet(raw string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, subject := range strings.Split(raw, ",") {
+		normalized := strings.TrimSpace(subject)
+		if normalized != "" {
+			out[normalized] = struct{}{}
+		}
+	}
+	return out
 }

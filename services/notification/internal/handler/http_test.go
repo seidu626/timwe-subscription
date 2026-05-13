@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -18,6 +19,7 @@ type handlerRepoStub struct {
 	fetchErr       error
 	fetchTenantID  string
 	fetchChannelID string
+	tenantIDByKey  map[string]string
 	saved          *domain.NotificationRequest
 }
 
@@ -36,6 +38,15 @@ func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, tenan
 func (h *handlerRepoStub) Save(notification *domain.NotificationRequest) error {
 	h.saved = notification
 	return nil
+}
+
+func (h *handlerRepoStub) TenantIDByKey(_ context.Context, tenantKey string) (string, error) {
+	if h.tenantIDByKey != nil {
+		if tenantID := h.tenantIDByKey[strings.TrimSpace(tenantKey)]; tenantID != "" {
+			return tenantID, nil
+		}
+	}
+	return "", errors.New("tenant not found")
 }
 
 func TestListNotifications_ReturnsInternalServerError(t *testing.T) {
@@ -146,6 +157,23 @@ func TestListNotifications_AllowsPlatformScopedTenantSelection(t *testing.T) {
 
 	if ctx.Response.StatusCode() != fasthttp.StatusOK {
 		t.Fatalf("expected status 200 for platform tenant selection, got %d", ctx.Response.StatusCode())
+	}
+}
+
+func TestListNotifications_ResolvesPlatformTenantKey(t *testing.T) {
+	repo := &handlerRepoStub{tenantIDByKey: map[string]string{"nrg": "66d39a9a-f1ef-4721-a31c-5bb966d25c3d"}}
+	svc := service.NewNotificationService(repo)
+	h := NewNotificationHandler(svc)
+	ctx := newListRequestContext("/api/v1/notification/list?page=1&pageSize=10")
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{PlatformScoped: true, TenantKey: "nrg"})
+
+	h.ListNotifications(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("expected status 200 for platform tenant key, got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if repo.fetchTenantID != "66d39a9a-f1ef-4721-a31c-5bb966d25c3d" {
+		t.Fatalf("expected resolved tenant id, got %q", repo.fetchTenantID)
 	}
 }
 

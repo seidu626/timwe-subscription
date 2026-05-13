@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -26,7 +27,7 @@ func NewPostbackAdminHandler(repo *repository.PostbackRepository, logger *zap.Lo
 // GetByTransactionID handles:
 // GET /v1/admin/postbacks?transaction_id=<uuid>
 func (h *PostbackAdminHandler) GetByTransactionID(ctx *fasthttp.RequestCtx) {
-	tenantID, ok := postbackTenantIDFromRequest(ctx)
+	tenantID, ok := h.postbackTenantIDFromRequest(ctx)
 	if !ok {
 		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
 		return
@@ -81,7 +82,7 @@ func (h *PostbackAdminHandler) GetByTransactionID(ctx *fasthttp.RequestCtx) {
 // ListByStatus handles:
 // GET /v1/admin/postbacks/status/:status?limit=50&offset=0
 func (h *PostbackAdminHandler) ListByStatus(ctx *fasthttp.RequestCtx) {
-	tenantID, ok := postbackTenantIDFromRequest(ctx)
+	tenantID, ok := h.postbackTenantIDFromRequest(ctx)
 	if !ok {
 		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
 		return
@@ -131,7 +132,7 @@ func (h *PostbackAdminHandler) ListByStatus(ctx *fasthttp.RequestCtx) {
 // RetryPostback handles:
 // POST /v1/admin/postbacks/:id/retry
 func (h *PostbackAdminHandler) RetryPostback(ctx *fasthttp.RequestCtx) {
-	tenantID, ok := postbackTenantIDFromRequest(ctx)
+	tenantID, ok := h.postbackTenantIDFromRequest(ctx)
 	if !ok {
 		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
 		return
@@ -169,7 +170,7 @@ func (h *PostbackAdminHandler) RetryPostback(ctx *fasthttp.RequestCtx) {
 // BulkRequeueDLQ handles:
 // POST /v1/admin/postbacks/requeue-dlq?limit=100&offset=0
 func (h *PostbackAdminHandler) BulkRequeueDLQ(ctx *fasthttp.RequestCtx) {
-	tenantID, ok := postbackTenantIDFromRequest(ctx)
+	tenantID, ok := h.postbackTenantIDFromRequest(ctx)
 	if !ok {
 		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
 		return
@@ -208,7 +209,7 @@ func (h *PostbackAdminHandler) BulkRequeueDLQ(ctx *fasthttp.RequestCtx) {
 // GetStats handles:
 // GET /v1/admin/postbacks/stats
 func (h *PostbackAdminHandler) GetStats(ctx *fasthttp.RequestCtx) {
-	tenantID, ok := postbackTenantIDFromRequest(ctx)
+	tenantID, ok := h.postbackTenantIDFromRequest(ctx)
 	if !ok {
 		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
 		return
@@ -238,11 +239,42 @@ func (h *PostbackAdminHandler) String() string {
 	return "PostbackAdminHandler"
 }
 
-func postbackTenantIDFromRequest(ctx *fasthttp.RequestCtx) (string, bool) {
+func (h *PostbackAdminHandler) postbackTenantIDFromRequest(ctx *fasthttp.RequestCtx) (string, bool) {
 	identity, ok := tenantIdentityFromRequest(ctx)
 	if !ok {
 		return "", false
 	}
-	tenantID := strings.TrimSpace(identity.TenantID)
+	if tenantID := strings.TrimSpace(identity.TenantID); tenantID != "" {
+		return tenantID, true
+	}
+	if !identity.PlatformScoped {
+		return "", false
+	}
+	if tenantID := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderTenantID))); tenantID != "" {
+		return tenantID, true
+	}
+	tenantKey := firstNonBlankString(
+		identity.TenantKey,
+		string(ctx.Request.Header.Peek(tenantctx.HeaderTenantKey)),
+		string(ctx.QueryArgs().Peek("tenantKey")),
+		string(ctx.QueryArgs().Peek("tenant_key")),
+	)
+	if tenantKey == "" || h.repo == nil {
+		return "", false
+	}
+	tenantID, err := h.repo.TenantIDByKey(tenantKey)
+	if err != nil {
+		h.logger.Warn("Failed to resolve postback tenant key", zap.String("tenant_key", tenantKey), zap.Error(err))
+		return "", false
+	}
 	return tenantID, tenantID != ""
+}
+
+func firstNonBlankString(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }

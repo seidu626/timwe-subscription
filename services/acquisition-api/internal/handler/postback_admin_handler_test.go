@@ -61,3 +61,34 @@ func TestRetryPostbackCrossTenantReturnsNotFound(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
+
+func TestPostbackTenantIDFromRequestResolvesPlatformTenantKey(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("FROM tenants").
+		WithArgs("nrg").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("66d39a9a-f1ef-4721-a31c-5bb966d25c3d"))
+
+	h := NewPostbackAdminHandler(repository.NewPostbackRepository(db, zap.NewNop()), zap.NewNop())
+	ctx := &fasthttp.RequestCtx{}
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		PlatformScoped: true,
+		TenantKey:      "nrg",
+		TrustSource:    tenantctx.TrustSourceJWT,
+	})
+
+	tenantID, ok := h.postbackTenantIDFromRequest(ctx)
+	if !ok {
+		t.Fatal("expected tenant key to resolve")
+	}
+	if tenantID != "66d39a9a-f1ef-4721-a31c-5bb966d25c3d" {
+		t.Fatalf("tenantID = %q", tenantID)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}

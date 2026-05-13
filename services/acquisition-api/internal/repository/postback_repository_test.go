@@ -94,3 +94,27 @@ func TestResetForRetryForTenantScopesUpdate(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
+
+func TestPostbackTenantIDByKeyReturnsActiveTenant(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("FROM tenants").
+		WithArgs("nrg").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("66d39a9a-f1ef-4721-a31c-5bb966d25c3d"))
+
+	repo := NewPostbackRepository(db, zap.NewNop())
+	tenantID, err := repo.TenantIDByKey(" nrg ")
+	if err != nil {
+		t.Fatalf("TenantIDByKey: %v", err)
+	}
+	if tenantID != "66d39a9a-f1ef-4721-a31c-5bb966d25c3d" {
+		t.Fatalf("tenantID = %q", tenantID)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}

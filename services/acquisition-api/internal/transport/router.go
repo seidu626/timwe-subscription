@@ -36,6 +36,7 @@ func NewRouter(
 			if !admin.require(ctx) {
 				return
 			}
+			defer admin.setCORS(ctx)
 		}
 
 		// Public analytics endpoints need CORS for landing-web

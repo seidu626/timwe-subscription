@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
 	"strconv"
@@ -14,6 +15,7 @@ type NotificationService struct {
 
 type notificationRepository interface {
 	FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error)
+	TenantIDByKey(ctx context.Context, tenantKey string) (string, error)
 	Save(notification *domain.NotificationRequest) error
 }
 
@@ -52,6 +54,10 @@ func (s *NotificationService) GetNotifications(filters map[string]string) (*doma
 	}
 
 	return listResponse, nil
+}
+
+func (s *NotificationService) TenantIDByKey(ctx context.Context, tenantKey string) (string, error) {
+	return s.repo.TenantIDByKey(ctx, tenantKey)
 }
 
 func (s *NotificationService) ProcessNotification(notification *domain.NotificationRequest) error {

@@ -167,10 +167,8 @@ func (r *ReportsRepository) GetCampaignPerformance(filters domain.ReportFilters)
 				SELECT SUM(
 					CASE
 						WHEN at.charge_payout IS NOT NULL
-						  AND at.charge_payout <> ''
-						  AND at.charge_payout ~ '^[0-9]+(\.[0-9]+)?$'
-						  AND at.charge_payout::numeric > 0
-						THEN at.charge_payout::numeric
+						  AND at.charge_payout > 0
+						THEN at.charge_payout
 						ELSE COALESCE(c.price, 0)
 					END
 				)
@@ -336,10 +334,8 @@ func buildRevenueAggregateQuery(filters domain.ReportFilters) (string, []interfa
 		SELECT COALESCE(SUM(
 			CASE
 				WHEN at.charge_payout IS NOT NULL
-				  AND at.charge_payout <> ''
-				  AND at.charge_payout ~ '^[0-9]+(\.[0-9]+)?$'
-				  AND at.charge_payout::numeric > 0
-				THEN at.charge_payout::numeric
+				  AND at.charge_payout > 0
+				THEN at.charge_payout
 				ELSE COALESCE(c.price, 0)
 			END
 		), 0) AS revenue
@@ -378,9 +374,8 @@ func buildTransactionTimeSeriesQuery(filters domain.ReportFilters, truncFunc str
 				CASE
 					WHEN at.status = 'CHARGED'
 					  AND at.charge_payout IS NOT NULL
-					  AND at.charge_payout <> ''
-					  AND at.charge_payout ~ '^[0-9]+(\.[0-9]+)?$'
-					THEN at.charge_payout::numeric
+					  AND at.charge_payout > 0
+					THEN at.charge_payout
 					ELSE 0
 				END
 			), 0) AS revenue
