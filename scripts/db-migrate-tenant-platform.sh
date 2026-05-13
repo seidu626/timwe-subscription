@@ -47,6 +47,36 @@ BACKFILL_TABLES=(
   "message_outbox"
 )
 
+REQUESTED_BACKFILL_TABLES="${MIGRATION_TABLES:-${TENANT_MIGRATION_TABLES:-}}"
+if [[ -n "$REQUESTED_BACKFILL_TABLES" ]]; then
+  declare -A allowed_tables=()
+  for table in "${BACKFILL_TABLES[@]}"; do
+    allowed_tables["$table"]=1
+  done
+
+  IFS=',' read -r -a requested_tables <<< "$REQUESTED_BACKFILL_TABLES"
+  selected_tables=()
+  for requested in "${requested_tables[@]}"; do
+    table="${requested//[[:space:]]/}"
+    if [[ -z "$table" ]]; then
+      continue
+    fi
+    if [[ -z "${allowed_tables[$table]:-}" ]]; then
+      echo "ERROR: unsupported migration table: ${table}" >&2
+      echo "Allowed tables: ${BACKFILL_TABLES[*]}" >&2
+      exit 1
+    fi
+    selected_tables+=("$table")
+  done
+
+  if [[ "${#selected_tables[@]}" -eq 0 ]]; then
+    echo "ERROR: MIGRATION_TABLES did not include any supported table names" >&2
+    exit 1
+  fi
+
+  BACKFILL_TABLES=("${selected_tables[@]}")
+fi
+
 eligible_predicate_for_table() {
   echo "tenant_id IS NULL"
 }
@@ -364,6 +394,7 @@ Usage: $0 [--dry-run|--apply]
 Environment:
   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
   BATCH_SIZE (default 500)
+  MIGRATION_TABLES (optional comma-separated subset, e.g. subscriptions,acquisition_transactions)
   CANONICAL_TENANT_KEY (default nrg)
   CANONICAL_TENANT_NAME (default NRG)
   CANONICAL_TENANT_COUNTRY (default GH)

@@ -6,6 +6,8 @@ This runbook covers TMP-050, the canonical `nrg` tenant backfill used to move ex
 
 - `make db-migrate-tenant-platform-dry-run`
 - `make db-migrate-tenant-platform`
+- `make db-migrate-nrg-subscriptions-transactions-dry-run`
+- `make db-migrate-nrg-subscriptions-transactions`
 
 ## Dry Run
 
@@ -25,6 +27,19 @@ make db-migrate-tenant-platform-dry-run
 
 The dry-run script does not update tenant ownership on any table rows and does not create the canonical tenant record.
 
+For a focused subscription and transaction migration window, use:
+
+```bash
+make db-migrate-nrg-subscriptions-transactions-dry-run
+```
+
+This is equivalent to:
+
+```bash
+MIGRATION_TABLES=subscriptions,acquisition_transactions \
+  bash scripts/db-migrate-tenant-platform.sh --dry-run
+```
+
 ## Apply
 
 Apply runs a batched, idempotent backfill for tenantless rows.
@@ -35,12 +50,19 @@ Recommended command:
 make db-migrate-tenant-platform
 ```
 
+For a focused subscription and transaction migration window, use:
+
+```bash
+make db-migrate-nrg-subscriptions-transactions
+```
+
 Implementation details:
 
 - `nrg` is inserted if missing, or reused if already present
 - rows are updated when `tenant_id IS NULL`
 - rows with `channel_id` are still eligible when `tenant_id IS NULL`
 - batches default to 500 rows and can be overridden with `BATCH_SIZE`
+- table scope can be narrowed with `MIGRATION_TABLES`, a comma-separated subset of supported tenant-owned tables
 - the script aborts before changing data if duplicate/conflict checks fail
 
 ## Verification Queries
@@ -58,6 +80,10 @@ WHERE tenant_id IS NULL
 UNION ALL
 SELECT 'subscriptions', COUNT(*)
 FROM subscriptions
+WHERE tenant_id IS NULL
+UNION ALL
+SELECT 'acquisition_transactions', COUNT(*)
+FROM acquisition_transactions
 WHERE tenant_id IS NULL
 UNION ALL
 SELECT 'postback_outbox', COUNT(*)

@@ -1338,6 +1338,16 @@ DB_PORT ?= 5432
 DB_USER ?= sm_admin
 DB_NAME ?= subscription_manager
 
+define tenant_migration_env
+DB_PASSWORD_VALUE="$${DB_PASSWORD:-$$(sed -n 's/^APP_DATABASE_POSTGRESQL_PASSWORD=//p' .env 2>/dev/null | tail -n 1)}"; \
+DB_HOST_VALUE="$${DB_HOST:-$$(sed -n 's/^APP_DATABASE_POSTGRESQL_HOST=//p' .env 2>/dev/null | tail -n 1)}"; \
+DB_PORT_VALUE="$${DB_PORT:-$$(sed -n 's/^APP_DATABASE_POSTGRESQL_PORT=//p' .env 2>/dev/null | tail -n 1)}"; \
+DB_USER_VALUE="$${DB_USER:-$$(sed -n 's/^APP_DATABASE_POSTGRESQL_USER=//p' .env 2>/dev/null | tail -n 1)}"; \
+DB_NAME_VALUE="$${DB_NAME:-$$(sed -n 's/^APP_DATABASE_POSTGRESQL_DB_NAME=//p' .env 2>/dev/null | tail -n 1)}"; \
+if [ -z "$$DB_PASSWORD_VALUE" ]; then echo "❌ ERROR: DB_PASSWORD or APP_DATABASE_POSTGRESQL_PASSWORD is required"; exit 1; fi; \
+export DB_PASSWORD="$$DB_PASSWORD_VALUE" DB_HOST="$${DB_HOST_VALUE:-$(DB_HOST)}" DB_PORT="$${DB_PORT_VALUE:-$(DB_PORT)}" DB_USER="$${DB_USER_VALUE:-$(DB_USER)}" DB_NAME="$${DB_NAME_VALUE:-$(DB_NAME)}";
+endef
+
 .PHONY: db-connect
 db-connect: ## Connect to remote PostgreSQL database
 	@echo "🔌 Connecting to PostgreSQL at $(DB_HOST):$(DB_PORT)..."
@@ -1377,13 +1387,24 @@ db-migrate-cadence: ## Run cadence engine migration
 .PHONY: db-migrate-tenant-platform-dry-run
 db-migrate-tenant-platform-dry-run: ## Dry-run the canonical nrg tenant backfill and readiness checks
 	@echo "🔎 Dry-running tenant platform migration..."
-	@bash scripts/db-migrate-tenant-platform.sh --dry-run
+	@$(tenant_migration_env) bash scripts/db-migrate-tenant-platform.sh --dry-run
 
 .PHONY: db-migrate-tenant-platform
 db-migrate-tenant-platform: ## Backfill tenantless rows into the canonical nrg tenant
 	@echo "🗄️ Running tenant platform migration..."
-	@bash scripts/db-migrate-tenant-platform.sh --apply
+	@$(tenant_migration_env) bash scripts/db-migrate-tenant-platform.sh --apply
 	@echo "✅ Tenant platform migration complete!"
+
+.PHONY: db-migrate-nrg-subscriptions-transactions-dry-run
+db-migrate-nrg-subscriptions-transactions-dry-run: ## Dry-run nrg backfill for subscriptions and acquisition transactions
+	@echo "🔎 Dry-running nrg subscription/transaction migration..."
+	@$(tenant_migration_env) MIGRATION_TABLES=subscriptions,acquisition_transactions bash scripts/db-migrate-tenant-platform.sh --dry-run
+
+.PHONY: db-migrate-nrg-subscriptions-transactions
+db-migrate-nrg-subscriptions-transactions: ## Backfill subscriptions and acquisition transactions into canonical nrg
+	@echo "🗄️ Running nrg subscription/transaction migration..."
+	@$(tenant_migration_env) MIGRATION_TABLES=subscriptions,acquisition_transactions bash scripts/db-migrate-tenant-platform.sh --apply
+	@echo "✅ nrg subscription/transaction migration complete!"
 
 .PHONY: db-create-mobplus-campaign
 db-create-mobplus-campaign: ## Create a new Mobplus campaign with click_id support
@@ -1552,6 +1573,8 @@ help:
 	@echo "  make db-migrate-cadence     - Run cadence engine migration"
 	@echo "  make db-migrate-tenant-platform-dry-run - Dry-run tenant platform migration"
 	@echo "  make db-migrate-tenant-platform - Apply tenant platform migration"
+	@echo "  make db-migrate-nrg-subscriptions-transactions-dry-run - Dry-run nrg subscriptions/transactions migration"
+	@echo "  make db-migrate-nrg-subscriptions-transactions - Apply nrg subscriptions/transactions migration"
 	@echo "  make db-create-mobplus-campaign - Create Mobplus campaign with click_id"
 	@echo "  make db-configure-level23-campaign - Configure Level23 campaign/postback"
 	@echo "  make db-generate-level23-share-info - Print Level23 sharing templates"
