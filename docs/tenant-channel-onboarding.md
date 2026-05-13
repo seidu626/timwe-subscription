@@ -188,3 +188,35 @@ Conflict errors are returned through the existing `writeError` envelope:
 ```
 
 HTTP status is **409 Conflict**.
+
+## Operator Smoke Matrix
+
+Two scripts in `scripts/smoke/` cover the careerify/web-gh-airteltigo tenant end-to-end.
+Full evidence and run instructions are in
+`slices/TMP-070-careerify-tenant-e2e-smoke/value-gate-report.md`.
+
+### Happy-path (10 URLs)
+
+```bash
+# Defaults: HOST=http://127.0.0.1:8080  TENANT_KEY=careerify  CHANNEL_KEY=web-gh-airteltigo
+HOST=https://staging-gw.example.com ./scripts/smoke/careerify-tenant-e2e.sh
+```
+
+Exercises 6 notification endpoints (`/api/v1/notification/…`) and 4 subscription endpoints
+(`/api/external/v1/careerify/web-gh-airteltigo/subscriptions/…`).  
+Asserts HTTP 2xx on all 10. Prints a final 10-row PASS/FAIL matrix. Exit 0 = gate passes.
+
+### Adversarial / cross-tenant refusal (3 cases)
+
+```bash
+HOST=https://staging-gw.example.com ./scripts/smoke/careerify-tenant-cross-tenant-refusal.sh
+```
+
+| Case | What it probes | Expected |
+|------|---------------|----------|
+| A — conflict | `X-Tenant-Key: careerify` header + `?tenant_key=other-tenant` query | HTTP 409 |
+| B — foreign tenant | `tenant_key=evil-tenant` (unknown tenant) | HTTP 4xx |
+| C — missing channel | `tenant_key=careerify` only, no `channel_key` | HTTP 4xx |
+
+PASS means the server **rejected** the request. A 2xx is a FAIL (tenant-scoping gap).  
+Targets commits: TMP-066=77f9359, TMP-067=7e10692, TMP-068=3027c86, TMP-069=3897e89.

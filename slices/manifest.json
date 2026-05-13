@@ -2089,8 +2089,8 @@
         "adversarial-review",
         "evidence"
       ],
-      "state": "planned",
-      "branch": null,
+      "state": "shipped",
+      "branch": "main",
       "created_at": "2026-05-13T00:00:00Z",
       "verification": {
         "automated": [
