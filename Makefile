@@ -498,6 +498,7 @@ stop-admin:
 		rm -f "$(WEBSPA_ADMIN_PID_FILE)"; \
 	fi
 	@rm -f webspa-admin.pid
+	@pkill -f "[n]g serve --port $(WEBSPA_ADMIN_PORT)" 2>/dev/null || true
 	@pkill -f "[n]px ng serve --port $(WEBSPA_ADMIN_PORT)" 2>/dev/null || true
 	@pkill -f "[n]ode ./node_modules/@angular/cli/bin/ng.js serve --port $(WEBSPA_ADMIN_PORT)" 2>/dev/null || true
 	@pkill -f "[f]rontend/webspa-admin/node_modules/@esbuild/" 2>/dev/null || true
@@ -738,6 +739,7 @@ status:
 	@state='🔴 Stopped'; \
 	if [ -f "$(WEBSPA_ADMIN_PID_FILE)" ] && kill -0 $$(cat "$(WEBSPA_ADMIN_PID_FILE)" 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
 	elif [ -f "webspa-admin.pid" ] && kill -0 $$(cat webspa-admin.pid 2>/dev/null) 2>/dev/null; then state='🟢 Running'; \
+	elif pgrep -f '[n]g serve --port $(WEBSPA_ADMIN_PORT)' > /dev/null; then state='🟢 Running'; \
 	elif pgrep -f '[n]px ng serve --port $(WEBSPA_ADMIN_PORT)' > /dev/null; then state='🟢 Running'; \
 	elif pgrep -f '[n]ode ./node_modules/@angular/cli/bin/ng.js serve --port $(WEBSPA_ADMIN_PORT)' > /dev/null; then state='🟢 Running'; \
 	elif pgrep -f '[f]rontend/webspa-admin/node_modules/@esbuild/' > /dev/null; then state='🟢 Running'; fi; \
