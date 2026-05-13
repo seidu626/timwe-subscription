@@ -18,7 +18,7 @@ type handlerRepoStub struct {
 	fetchErr  error
 }
 
-func (h *handlerRepoStub) FetchSubscriptions(startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
+func (h *handlerRepoStub) FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
 	if h.fetchErr != nil {
 		return nil, h.fetchErr
 	}
@@ -53,6 +53,7 @@ func TestListSubscriptions_ReturnsInternalServerError(t *testing.T) {
 	h := NewSubscriptionHandler(svc, &config.Config{})
 
 	ctx := newListRequestContext("/api/v1/subscription/list?page=1&pageSize=10")
+	ctx.Request.Header.Set("X-Tenant-Key", "nrg")
 	h.ListSubscriptions(ctx)
 
 	if ctx.Response.StatusCode() != fasthttp.StatusInternalServerError {
@@ -87,6 +88,7 @@ func TestListSubscriptions_ReturnsPaginationHeaderAndBody(t *testing.T) {
 	svc := service.NewSubscriptionService(&handlerRepoStub{fetchResp: listResponse}, &config.Config{})
 	h := NewSubscriptionHandler(svc, &config.Config{})
 	ctx := newListRequestContext("/api/v1/subscription/list?page=1&pageSize=10")
+	ctx.Request.Header.Set("X-Tenant-Key", "nrg")
 
 	h.ListSubscriptions(ctx)
 
@@ -113,6 +115,18 @@ func TestListSubscriptions_ReturnsPaginationHeaderAndBody(t *testing.T) {
 	}
 	if body.TotalCount != 1 || len(body.Data) != 1 {
 		t.Fatalf("unexpected body: %+v", body)
+	}
+}
+
+func TestListSubscriptions_RequiresTenantContext(t *testing.T) {
+	svc := service.NewSubscriptionService(&handlerRepoStub{}, &config.Config{})
+	h := NewSubscriptionHandler(svc, &config.Config{})
+
+	ctx := newListRequestContext("/api/v1/subscription/list?page=1&pageSize=10")
+	h.ListSubscriptions(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", ctx.Response.StatusCode())
 	}
 }
 

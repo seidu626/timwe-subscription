@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
+	"strconv"
+	"strings"
+
 	"github.com/seidu626/subscription-manager/common/config"
 	"github.com/seidu626/subscription-manager/subscription/internal/domain"
 	"github.com/seidu626/subscription-manager/subscription/internal/service"
 	"github.com/valyala/fasthttp"
-	"log"
-	"strconv"
 )
 
 type SubscriptionHandler struct {
@@ -21,9 +23,23 @@ func NewSubscriptionHandler(service *service.SubscriptionService, c *config.Conf
 
 func (h *SubscriptionHandler) ListSubscriptions(ctx *fasthttp.RequestCtx) {
 	log.Println("Processing subscription list request")
+	tenantID := firstRequestValue(ctx, "tenantId", "tenant_id")
+	if tenantID == "" {
+		tenantID = firstHeader(ctx, "X-Tenant-Id", "X-Tenant-ID")
+	}
+	tenantKey := firstRequestValue(ctx, "tenantKey", "tenant_key")
+	if tenantKey == "" {
+		tenantKey = firstHeader(ctx, "X-Tenant-Key")
+	}
+	if tenantID == "" && tenantKey == "" {
+		ctx.Error("Tenant context is required", fasthttp.StatusForbidden)
+		return
+	}
 
 	// Extract query parameters
 	queryParams := map[string]string{
+		"tenantId":       tenantID,
+		"tenantKey":      tenantKey,
 		"startDate":      string(ctx.QueryArgs().Peek("startDate")),
 		"endDate":        string(ctx.QueryArgs().Peek("endDate")),
 		"productId":      string(ctx.QueryArgs().Peek("productId")),
@@ -79,6 +95,24 @@ func (h *SubscriptionHandler) ListSubscriptions(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	ctx.SetBody(response)
+}
+
+func firstRequestValue(ctx *fasthttp.RequestCtx, names ...string) string {
+	for _, name := range names {
+		if value := strings.TrimSpace(string(ctx.QueryArgs().Peek(name))); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func firstHeader(ctx *fasthttp.RequestCtx, names ...string) string {
+	for _, name := range names {
+		if value := strings.TrimSpace(string(ctx.Request.Header.Peek(name))); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func (h *SubscriptionHandler) handleSubscription(ctx *fasthttp.RequestCtx, subscriptionType string) {

@@ -139,3 +139,19 @@ func TestApplySubscriptionDateFilters_UsesCreatedAtWindow(t *testing.T) {
 		t.Fatalf("expected next arg index 3, got %d", nextArg)
 	}
 }
+
+func TestGenerateCacheKeyIncludesTenantID(t *testing.T) {
+	repo := &SubscriptionRepository{}
+	startDate := time.Date(2026, time.May, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2026, time.May, 13, 23, 59, 59, 0, time.UTC)
+
+	nrgKey := repo.GenerateCacheKey("11111111-1111-1111-1111-111111111111", startDate, endDate, 8509, "", "", "", 1, 10)
+	careerKey := repo.GenerateCacheKey("22222222-2222-2222-2222-222222222222", startDate, endDate, 8509, "", "", "", 1, 10)
+
+	if nrgKey == careerKey {
+		t.Fatalf("expected tenant-specific cache keys, got %q", nrgKey)
+	}
+	if !strings.Contains(nrgKey, "11111111-1111-1111-1111-111111111111") {
+		t.Fatalf("expected tenant id in cache key, got %q", nrgKey)
+	}
+}

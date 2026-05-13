@@ -58,6 +58,29 @@ func NewSubscriptionRepository(db *sql.DB, logger *zap.Logger, client cached.Red
 	}
 }
 
+func (r *SubscriptionRepository) TenantIDByKey(tenantKey string) (string, error) {
+	tenantKey = strings.TrimSpace(tenantKey)
+	if tenantKey == "" {
+		return "", fmt.Errorf("tenant_key is required")
+	}
+
+	var tenantID string
+	err := r.db.QueryRowContext(r.ctx, `
+		SELECT id::text
+		FROM tenants
+		WHERE tenant_key = $1
+		  AND status = 'ACTIVE'
+		LIMIT 1
+	`, tenantKey).Scan(&tenantID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("tenant not found")
+	}
+	if err != nil {
+		return "", fmt.Errorf("resolve tenant by key: %w", err)
+	}
+	return tenantID, nil
+}
+
 // getContextWithTimeout returns a context with timeout for database operations
 func (r *SubscriptionRepository) getContextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
 	if timeout <= 0 {

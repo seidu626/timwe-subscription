@@ -31,16 +31,51 @@ func NewSubscriptionRepository(db *sql.DB, client cached.RedisClient) *Subscript
 }
 
 // GenerateCacheKey generates a unique cache key for query filters
-func (r *SubscriptionRepository) GenerateCacheKey(startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) string {
-	return fmt.Sprintf("notifications:%s:%s:%d:%s:%s:%s:%d:%d", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), productId, shortcode, userIdentifier, entryChannel, page, pageSize)
+func (r *SubscriptionRepository) GenerateCacheKey(tenantID string, startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) string {
+	return fmt.Sprintf("subscriptions:%s:%s:%s:%d:%s:%s:%s:%d:%d", tenantID, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), productId, shortcode, userIdentifier, entryChannel, page, pageSize)
 }
 
-func (r *SubscriptionRepository) FetchSubscriptions(startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
+func (r *SubscriptionRepository) TenantIDByKey(tenantKey string) (string, error) {
+	tenantKey = strings.TrimSpace(tenantKey)
+	if tenantKey == "" {
+		return "", fmt.Errorf("tenant_key is required")
+	}
+
+	var tenantID string
+	err := r.db.QueryRowContext(r.ctx, `
+		SELECT id::text
+		FROM tenants
+		WHERE tenant_key = $1
+		  AND status = 'ACTIVE'
+		LIMIT 1
+	`, tenantKey).Scan(&tenantID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("tenant not found")
+	}
+	if err != nil {
+		return "", fmt.Errorf("resolve tenant by key: %w", err)
+	}
+	return tenantID, nil
+}
+
+func (r *SubscriptionRepository) FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		resolvedTenantID, err := r.TenantIDByKey(tenantKey)
+		if err != nil {
+			return nil, err
+		}
+		tenantID = resolvedTenantID
+	}
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required")
+	}
+
 	shortcode = strings.TrimSpace(shortcode)
 	userIdentifier = strings.TrimSpace(userIdentifier)
 	entryChannel = strings.TrimSpace(entryChannel)
 
-	cacheKey := r.GenerateCacheKey(startDate, endDate, productId, shortcode, userIdentifier, entryChannel, page, pageSize)
+	cacheKey := r.GenerateCacheKey(tenantID, startDate, endDate, productId, shortcode, userIdentifier, entryChannel, page, pageSize)
 
 	log.Printf("Fetching notifications from cache: %s", cacheKey)
 	// Check if cached data exists
@@ -80,6 +115,11 @@ func (r *SubscriptionRepository) FetchSubscriptions(startDate, endDate time.Time
 	countQuery := `SELECT COUNT(*) FROM subscriptions WHERE 1=1`
 	var args []interface{}
 	argIndex := 1 // PostgreSQL placeholders start with $1
+
+	query += fmt.Sprintf(" AND tenant_id = $%d::uuid", argIndex)
+	countQuery += fmt.Sprintf(" AND tenant_id = $%d::uuid", argIndex)
+	args = append(args, tenantID)
+	argIndex++
 
 	// startDate/endDate filter by record creation time for list semantics.
 	query, countQuery, args, argIndex = applySubscriptionDateFilters(query, countQuery, args, argIndex, startDate, endDate)

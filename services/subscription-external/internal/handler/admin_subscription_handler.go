@@ -19,6 +19,10 @@ type adminActionAuditRepository interface {
 	GetAdminActionLogByID(id string) (*domain.AdminSubscriptionActionLog, error)
 }
 
+type adminTenantResolver interface {
+	TenantIDByKey(tenantKey string) (string, error)
+}
+
 func normalizeAdminOperation(operation string) (domain.AdminActionOperation, bool) {
 	switch strings.ToLower(strings.TrimSpace(operation)) {
 	case string(domain.AdminActionOptin):
@@ -169,21 +173,27 @@ func (h *SubscriptionHandler) AdminActionHistoryHandler(ctx *fasthttp.RequestCtx
 		pageSize = 100
 	}
 
+	auditRepo, ok := h.getAdminAuditRepository()
+	if !ok {
+		h.logger.Error("Admin action audit repository not available on subscription repository implementation")
+		ctx.Error("Admin action auditing is not configured", fasthttp.StatusInternalServerError)
+		return
+	}
+
+	tenantID, ok := adminActionTenantIDFromRequest(ctx, queryArgs, auditRepo)
+	if !ok {
+		ctx.Error("tenant context is required", fasthttp.StatusForbidden)
+		return
+	}
+
 	filter := domain.AdminActionLogFilter{
-		TenantID:       adminActionTenantIDFromRequest(ctx, queryArgs),
+		TenantID:       tenantID,
 		Operation:      operationValue,
 		MSISDN:         strings.TrimSpace(string(queryArgs.Peek("msisdn"))),
 		ExternalTxID:   strings.TrimSpace(string(queryArgs.Peek("externalTxId"))),
 		AdminRequestID: strings.TrimSpace(string(queryArgs.Peek("adminRequestId"))),
 		Page:           page,
 		PageSize:       pageSize,
-	}
-
-	auditRepo, ok := h.getAdminAuditRepository()
-	if !ok {
-		h.logger.Error("Admin action audit repository not available on subscription repository implementation")
-		ctx.Error("Admin action auditing is not configured", fasthttp.StatusInternalServerError)
-		return
 	}
 
 	summaries, totalCount, err := auditRepo.ListAdminActionLogs(filter)
@@ -215,16 +225,40 @@ func (h *SubscriptionHandler) AdminActionHistoryHandler(ctx *fasthttp.RequestCtx
 	}
 }
 
-func adminActionTenantIDFromRequest(ctx *fasthttp.RequestCtx, queryArgs *fasthttp.Args) string {
+func adminActionTenantIDFromRequest(ctx *fasthttp.RequestCtx, queryArgs *fasthttp.Args, repo adminActionAuditRepository) (string, bool) {
 	if queryArgs != nil {
 		if tenantID := strings.TrimSpace(string(queryArgs.Peek("tenantId"))); tenantID != "" {
-			return tenantID
+			return tenantID, true
 		}
 		if tenantID := strings.TrimSpace(string(queryArgs.Peek("tenant_id"))); tenantID != "" {
-			return tenantID
+			return tenantID, true
+		}
+		if tenantKey := strings.TrimSpace(string(queryArgs.Peek("tenantKey"))); tenantKey != "" {
+			return resolveAdminTenantKey(tenantKey, repo)
+		}
+		if tenantKey := strings.TrimSpace(string(queryArgs.Peek("tenant_key"))); tenantKey != "" {
+			return resolveAdminTenantKey(tenantKey, repo)
 		}
 	}
-	return firstHeader(ctx, tenantctx.HeaderTenantID, "X-Tenant-ID")
+	if tenantID := firstHeader(ctx, tenantctx.HeaderTenantID, "X-Tenant-ID"); tenantID != "" {
+		return tenantID, true
+	}
+	if tenantKey := firstHeader(ctx, tenantctx.HeaderTenantKey, "X-Tenant-Key"); tenantKey != "" {
+		return resolveAdminTenantKey(tenantKey, repo)
+	}
+	return "", false
+}
+
+func resolveAdminTenantKey(tenantKey string, repo adminActionAuditRepository) (string, bool) {
+	resolver, ok := repo.(adminTenantResolver)
+	if !ok {
+		return "", false
+	}
+	tenantID, err := resolver.TenantIDByKey(tenantKey)
+	if err != nil {
+		return "", false
+	}
+	return tenantID, tenantID != ""
 }
 
 func (h *SubscriptionHandler) AdminActionDetailHandler(ctx *fasthttp.RequestCtx, id string) {
@@ -241,6 +275,12 @@ func (h *SubscriptionHandler) AdminActionDetailHandler(ctx *fasthttp.RequestCtx,
 		return
 	}
 
+	tenantID, ok := adminActionTenantIDFromRequest(ctx, ctx.QueryArgs(), auditRepo)
+	if !ok {
+		ctx.Error("tenant context is required", fasthttp.StatusForbidden)
+		return
+	}
+
 	entry, err := auditRepo.GetAdminActionLogByID(id)
 	if err != nil {
 		h.logger.Error("Failed to fetch admin action detail", zap.String("actionId", id), zap.Error(err))
@@ -248,6 +288,10 @@ func (h *SubscriptionHandler) AdminActionDetailHandler(ctx *fasthttp.RequestCtx,
 		return
 	}
 	if entry == nil {
+		ctx.Error("admin action not found", fasthttp.StatusNotFound)
+		return
+	}
+	if entry.TenantID == nil || strings.TrimSpace(*entry.TenantID) != tenantID {
 		ctx.Error("admin action not found", fasthttp.StatusNotFound)
 		return
 	}

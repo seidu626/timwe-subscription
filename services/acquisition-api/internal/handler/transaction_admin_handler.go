@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -58,6 +60,11 @@ type TransactionSummary struct {
 
 // ListTransactions handles GET /v1/admin/transactions
 func (h *TransactionAdminHandler) ListTransactions(ctx *fasthttp.RequestCtx) {
+	tenantID, ok := h.selectedTenantID(ctx)
+	if !ok {
+		return
+	}
+
 	// Parse query parameters
 	args := ctx.QueryArgs()
 
@@ -73,8 +80,9 @@ func (h *TransactionAdminHandler) ListTransactions(ctx *fasthttp.RequestCtx) {
 
 	// Filters
 	filter := &repository.TransactionListFilter{
-		Limit:  pageSize,
-		Offset: (page - 1) * pageSize,
+		TenantID: tenantID,
+		Limit:    pageSize,
+		Offset:   (page - 1) * pageSize,
 	}
 
 	if campaignSlug := string(args.Peek("campaign_slug")); campaignSlug != "" {
@@ -153,6 +161,11 @@ func (h *TransactionAdminHandler) ListTransactions(ctx *fasthttp.RequestCtx) {
 
 // GetTransaction handles GET /v1/admin/transactions/:id
 func (h *TransactionAdminHandler) GetTransaction(ctx *fasthttp.RequestCtx) {
+	tenantID, ok := h.selectedTenantID(ctx)
+	if !ok {
+		return
+	}
+
 	// Extract transaction ID from path
 	path := string(ctx.Path())
 	// /v1/admin/transactions/{id}
@@ -169,7 +182,7 @@ func (h *TransactionAdminHandler) GetTransaction(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	tx, err := h.txRepo.GetByID(txID)
+	tx, err := h.txRepo.GetByIDForTenant(txID, tenantID)
 	if err != nil {
 		h.logger.Error("Transaction not found", zap.String("id", txIDStr), zap.Error(err))
 		ctx.Error("Transaction not found", fasthttp.StatusNotFound)
@@ -183,6 +196,11 @@ func (h *TransactionAdminHandler) GetTransaction(ctx *fasthttp.RequestCtx) {
 
 // GetTransactionStats handles GET /v1/admin/transactions/stats
 func (h *TransactionAdminHandler) GetTransactionStats(ctx *fasthttp.RequestCtx) {
+	tenantID, ok := h.selectedTenantID(ctx)
+	if !ok {
+		return
+	}
+
 	// Parse date range
 	args := ctx.QueryArgs()
 
@@ -215,12 +233,14 @@ func (h *TransactionAdminHandler) GetTransactionStats(ctx *fasthttp.RequestCtx) 
 			status,
 			COUNT(*) as count
 		FROM acquisition_transactions
-		WHERE created_at >= $1 AND created_at <= $2
+		WHERE created_at >= $1
+		  AND created_at <= $2
+		  AND tenant_id = $3::uuid
 		GROUP BY status
 		ORDER BY count DESC
 	`
 
-	rows, err := h.txRepo.DB().Query(query, startDate, endDate)
+	rows, err := h.txRepo.DB().Query(query, startDate, endDate, tenantID)
 	if err != nil {
 		h.logger.Error("Failed to get transaction stats", zap.Error(err))
 		ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
@@ -272,9 +292,47 @@ func splitPathParts(path string) []string {
 	return parts
 }
 
+func (h *TransactionAdminHandler) selectedTenantID(ctx *fasthttp.RequestCtx) (string, bool) {
+	identity, hasIdentity := tenantIdentityFromRequest(ctx)
+	if !hasIdentity {
+		writeJSONError(ctx, fasthttp.StatusForbidden, "tenant context is required")
+		return "", false
+	}
+
+	if tenantID := strings.TrimSpace(identity.TenantID); tenantID != "" {
+		return tenantID, true
+	}
+	tenantKey := strings.TrimSpace(identity.TenantKey)
+	if tenantKey == "" {
+		writeJSONError(ctx, fasthttp.StatusForbidden, "tenant context is required")
+		return "", false
+	}
+	if h.txRepo == nil {
+		writeJSONError(ctx, fasthttp.StatusInternalServerError, "tenant resolver is not configured")
+		return "", false
+	}
+
+	tenantID, err := h.txRepo.TenantIDByKey(tenantKey)
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			writeJSONError(ctx, fasthttp.StatusForbidden, "tenant not available")
+			return "", false
+		}
+		h.logger.Error("Failed to resolve tenant key", zap.String("tenant_key", tenantKey), zap.Error(err))
+		writeJSONError(ctx, fasthttp.StatusInternalServerError, "failed to resolve tenant")
+		return "", false
+	}
+	return tenantID, true
+}
+
 // TriggerPostback handles POST /v1/admin/transactions/:id/trigger-postback
 // Manually enqueues a postback for a transaction that never had one fired.
 func (h *TransactionAdminHandler) TriggerPostback(ctx *fasthttp.RequestCtx) {
+	tenantID, ok := h.selectedTenantID(ctx)
+	if !ok {
+		return
+	}
+
 	path := string(ctx.Path())
 	parts := splitPathParts(path)
 	// /v1/admin/transactions/{id}/trigger-postback => [v1, admin, transactions, {id}, trigger-postback]
@@ -287,6 +345,14 @@ func (h *TransactionAdminHandler) TriggerPostback(ctx *fasthttp.RequestCtx) {
 	txID, err := parseTransactionUUID(txIDStr)
 	if err != nil {
 		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid transaction ID")
+		return
+	}
+	if _, err := h.txRepo.GetByIDForTenant(txID, tenantID); err != nil {
+		h.logger.Error("Transaction not found for selected tenant",
+			zap.String("transaction_id", txIDStr),
+			zap.String("tenant_id", tenantID),
+			zap.Error(err))
+		writeJSONError(ctx, fasthttp.StatusNotFound, "Transaction not found")
 		return
 	}
 

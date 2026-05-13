@@ -143,6 +143,98 @@ func TestFindByTenantAndTimweTransactionIDScopesLookup(t *testing.T) {
 	}
 }
 
+func TestTenantIDByKeyResolvesActiveTenant(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	tenantID := "11111111-1111-1111-1111-111111111111"
+	mock.ExpectQuery("FROM tenants").
+		WithArgs("nrg").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(tenantID))
+
+	repo := NewTransactionRepository(db, zap.NewNop())
+	got, err := repo.TenantIDByKey(" nrg ")
+	if err != nil {
+		t.Fatalf("TenantIDByKey: %v", err)
+	}
+	if got != tenantID {
+		t.Fatalf("expected tenant id %q, got %q", tenantID, got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListTransactionsScopesByTenantID(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	tenantID := "11111111-1111-1111-1111-111111111111"
+	txID := uuid.New()
+	correlationID := uuid.New()
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+
+	mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM acquisition_transactions WHERE 1=1 AND tenant_id = \\$1::uuid").
+		WithArgs(tenantID).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+	rows := sqlmock.NewRows(transactionSelectColumns()).
+		AddRow(
+			txID,
+			correlationID,
+			"daily",
+			"233241234567",
+			domain.StatusSubscribed,
+			nil,
+			nil,
+			"mobplus",
+			"click-1",
+			[]byte(`{"provider":"mobplus","click_id":"click-1"}`),
+			nil,
+			nil,
+			false,
+			true,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			"timwe-123",
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			false,
+			now,
+			now,
+		)
+	mock.ExpectQuery("FROM acquisition_transactions\\s+WHERE 1=1 AND tenant_id = \\$1::uuid\\s+ORDER BY created_at DESC").
+		WithArgs(tenantID, 20, 0).
+		WillReturnRows(rows)
+
+	repo := NewTransactionRepository(db, zap.NewNop())
+	result, err := repo.ListTransactions(&TransactionListFilter{TenantID: tenantID, Limit: 20})
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if result.TotalCount != 1 || len(result.Transactions) != 1 {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func transactionSelectColumns() []string {
 	return []string{
 		"id",

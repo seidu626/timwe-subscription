@@ -31,6 +31,30 @@ func (r *TransactionRepository) DB() *sql.DB {
 	return r.db
 }
 
+// TenantIDByKey resolves a tenant key to an active tenant UUID.
+func (r *TransactionRepository) TenantIDByKey(tenantKey string) (string, error) {
+	tenantKey = strings.TrimSpace(tenantKey)
+	if tenantKey == "" {
+		return "", fmt.Errorf("tenant_key is required")
+	}
+
+	var tenantID string
+	err := r.db.QueryRow(`
+		SELECT id::text
+		FROM tenants
+		WHERE tenant_key = $1
+		  AND status = 'ACTIVE'
+		LIMIT 1
+	`, tenantKey).Scan(&tenantID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", ErrAdminNotFound
+		}
+		return "", fmt.Errorf("failed to resolve tenant by key: %w", err)
+	}
+	return tenantID, nil
+}
+
 // Create creates a new acquisition transaction
 func (r *TransactionRepository) Create(tx *domain.AcquisitionTransaction) error {
 	query := `
@@ -178,6 +202,36 @@ func (r *TransactionRepository) GetByID(id uuid.UUID) (*domain.AcquisitionTransa
 		return nil, err
 	}
 
+	return tx, nil
+}
+
+// GetByIDForTenant retrieves a transaction only when it belongs to the selected tenant.
+func (r *TransactionRepository) GetByIDForTenant(id uuid.UUID, tenantID string) (*domain.AcquisitionTransaction, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required")
+	}
+
+	query := `
+		SELECT id, correlation_id, campaign_slug, msisdn, status, next_action,
+		       next_action_payload, ad_provider, click_id, attribution_data,
+		       ip_address, user_agent, consent_required, consent_checked,
+		       consent_version, consent_timestamp, landing_version_hash,
+		       offer_product_id, pricepoint_id, partner_role_id,
+		       timwe_transaction_id, transaction_auth_code, timwe_status,
+		       he_source, he_msisdn, he_operator,
+		       charged_at, charge_payout, conversion_postback_sent,
+		       created_at, updated_at
+		FROM acquisition_transactions
+		WHERE id = $1
+		  AND tenant_id = $2::uuid
+	`
+
+	tx, err := r.scanTransaction(query, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	tx.TenantID = &tenantID
 	return tx, nil
 }
 
@@ -794,6 +848,7 @@ func (r *TransactionRepository) MarkConversionPostbackSent(id uuid.UUID) error {
 
 // TransactionListFilter represents filters for listing transactions
 type TransactionListFilter struct {
+	TenantID     string
 	CampaignSlug string
 	Status       string
 	Provider     string
@@ -816,6 +871,11 @@ func (r *TransactionRepository) ListTransactions(filter *TransactionListFilter) 
 	args := []interface{}{}
 	argIndex := 1
 
+	if filter.TenantID != "" {
+		conditions = append(conditions, fmt.Sprintf("tenant_id = $%d::uuid", argIndex))
+		args = append(args, strings.TrimSpace(filter.TenantID))
+		argIndex++
+	}
 	if filter.CampaignSlug != "" {
 		conditions = append(conditions, fmt.Sprintf("campaign_slug = $%d", argIndex))
 		args = append(args, filter.CampaignSlug)
