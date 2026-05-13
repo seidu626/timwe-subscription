@@ -30,6 +30,7 @@ VERSION ?= latest
 DOCKER_PUSH_REGISTRY ?= docker.io
 PUSH_RETRIES ?= 4
 PUSH_RETRY_DELAY_SECONDS ?= 5
+DEV_JOBS ?= 8
 
 # Directories
 SUBSCRIPTION_DIR = services/subscription-partner
@@ -73,15 +74,31 @@ ACQUISITION_API_PID_FILE = $(ACQUISITION_API_DIR)/acquisition-api.pid
 CADENCE_ENGINE_PID_FILE = $(CADENCE_ENGINE_DIR)/cadence-engine.pid
 LANDING_WEB_PID_FILE = $(LANDING_WEB_DIR)/landing-web.pid
 WEBSPA_ADMIN_PID_FILE = $(WEBSPA_ADMIN_DIR)/webspa-admin.pid
+DEV_SERVICE_TARGETS = dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api dev-cadence-engine dev-landing dev-admin
+DEV_CORE_TARGETS = dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api
+STOP_DEV_TARGETS = stop-subscription-external stop-subscription stop-billing stop-notification stop-acquisition-api stop-cadence-engine stop-landing stop-admin
+
+define build_go_binary
+	@cd $(1) && \
+	if [ ! -x "$(2)" ] || find . -path './vendor' -prune -o \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -newer "$(2)" -print -quit | grep -q .; then \
+		echo "🔨 Building $(3)..."; \
+		go build -o $(2) $(4); \
+		echo "✅ $(3) built successfully"; \
+	else \
+		echo "✅ $(3) binary current; skipping build."; \
+	fi
+endef
 
 # Development targets
 .PHONY: dev
-dev: dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api dev-cadence-engine dev-landing dev-admin
+dev:
+	@$(MAKE) --no-print-directory -j$(DEV_JOBS) $(DEV_SERVICE_TARGETS)
 	@echo ""
 	@echo "🚀 All development services started! (see ports above)"
 
 .PHONY: dev-all
-dev-all: dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api
+dev-all:
+	@$(MAKE) --no-print-directory -j$(DEV_JOBS) $(DEV_CORE_TARGETS)
 	@echo ""
 	@echo "🚀 All development services started! (see ports above)"
 
@@ -205,7 +222,13 @@ dev-cadence-engine: build-local-cadence-engine
 .PHONY: dev-landing
 dev-landing:
 	@echo "🌐 Starting Landing Web (Next.js)..."
-	@cd $(LANDING_WEB_DIR) && npm install --silent 2>/dev/null || true
+	@cd $(LANDING_WEB_DIR) && \
+		if [ ! -d node_modules ] || [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then \
+			echo "📦 Installing Landing Web dependencies..."; \
+			npm install --silent; \
+		else \
+			echo "📦 Landing Web dependencies current; skipping npm install."; \
+		fi
 	@(cd $(LANDING_WEB_DIR); nohup npm run dev > landing-web.log 2>&1 & echo $$! > landing-web.pid)
 	@sleep 4
 	@LANDING_PORT=$$(grep -oE 'localhost:[0-9]+' $(LANDING_WEB_DIR)/landing-web.log 2>/dev/null | head -1 | grep -oE '[0-9]+$$'); \
@@ -346,11 +369,13 @@ start-cadence-engine:
 
 # Stop services
 .PHONY: stop
-stop: stop-subscription stop-notification stop-acquisition-api stop-landing stop-admin
+stop:
+	@$(MAKE) --no-print-directory -j$(DEV_JOBS) $(STOP_DEV_TARGETS)
 	@echo "🛑 All services stopped!"
 
 .PHONY: stop-all
-stop-all: stop-subscription-external stop-subscription stop-billing stop-notification stop-acquisition-api stop-cadence-engine stop-landing stop-admin
+stop-all:
+	@$(MAKE) --no-print-directory -j$(DEV_JOBS) $(STOP_DEV_TARGETS)
 	@echo "🛑 All services stopped!"
 
 .PHONY: stop-subscription-external
@@ -510,39 +535,27 @@ build-all-local: build-local-subscription-external build-local-subscription buil
 
 .PHONY: build-local-subscription-external
 build-local-subscription-external:
-	@echo "🔨 Building Subscription External Service..."
-	@cd $(SUBSCRIPTION_EXTERNAL_DIR) && go build -o subscription-external cmd/main.go
-	@echo "✅ Subscription External Service built successfully"
+	$(call build_go_binary,$(SUBSCRIPTION_EXTERNAL_DIR),subscription-external,Subscription External Service,cmd/main.go)
 
 .PHONY: build-local-subscription
 build-local-subscription:
-	@echo "🔨 Building Subscription Service..."
-	@cd $(SUBSCRIPTION_DIR) && go build -o subscription cmd/main.go
-	@echo "✅ Subscription Service built successfully"
+	$(call build_go_binary,$(SUBSCRIPTION_DIR),subscription,Subscription Service,cmd/main.go)
 
 .PHONY: build-local-billing
 build-local-billing:
-	@echo "🔨 Building Billing Service..."
-	@cd $(BILLING_DIR) && go build -o billing cmd/main.go
-	@echo "✅ Billing Service built successfully"
+	$(call build_go_binary,$(BILLING_DIR),billing,Billing Service,cmd/main.go)
 
 .PHONY: build-local-notification
 build-local-notification:
-	@echo "🔨 Building Notification Service..."
-	@cd $(NOTIFICATION_DIR) && go build -o notification cmd/main.go
-	@echo "✅ Notification Service built successfully"
+	$(call build_go_binary,$(NOTIFICATION_DIR),notification,Notification Service,cmd/main.go)
 
 .PHONY: build-local-notification-worker
 build-local-notification-worker:
-	@echo "🔨 Building Notification Worker..."
-	@cd $(NOTIFICATION_DIR) && go build -o notification-worker cmd/notification-worker/main.go
-	@echo "✅ Notification Worker built successfully"
+	$(call build_go_binary,$(NOTIFICATION_DIR),notification-worker,Notification Worker,cmd/notification-worker/main.go)
 
 .PHONY: build-local-acquisition-api
 build-local-acquisition-api:
-	@echo "🔨 Building Acquisition API..."
-	@cd $(ACQUISITION_API_DIR) && go build -o acquisition-api cmd/main.go
-	@echo "✅ Acquisition API built successfully"
+	$(call build_go_binary,$(ACQUISITION_API_DIR),acquisition-api,Acquisition API,cmd/main.go)
 
 .PHONY: build-local-postback-dispatcher
 build-local-postback-dispatcher:
@@ -552,9 +565,7 @@ build-local-postback-dispatcher:
 
 .PHONY: build-local-cadence-engine
 build-local-cadence-engine:
-	@echo "🔨 Building Cadence Engine..."
-	@cd $(CADENCE_ENGINE_DIR) && go build -o cadence-engine cmd/cadence-engine/main.go
-	@echo "✅ Cadence Engine built successfully"
+	$(call build_go_binary,$(CADENCE_ENGINE_DIR),cadence-engine,Cadence Engine,cmd/cadence-engine/main.go)
 
 # Test targets
 .PHONY: test

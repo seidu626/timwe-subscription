@@ -1,0 +1,11 @@
+{
+  "blockers": [],
+  "next_tasks": [],
+  "safe_to_continue": false,
+  "session_id": "codex-dev-loop-fast-20260513-105610",
+  "status": "done",
+  "summary": "Optimized the local dev restart loop by aligning stop coverage with the full dev service set, starting dev targets through bounded parallel make fan-out, skipping current Go rebuilds, and skipping current Landing Web dependency installs.",
+  "task_id": "TMP-062",
+  "unfinished_work": [],
+  "written_at": "2026-05-13T11:02:44Z"
+}

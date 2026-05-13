@@ -1,0 +1,187 @@
+{
+  "acceptance_results": [
+    {
+      "blocker": null,
+      "criterion": "make stop stops the same dev service set that make dev starts.",
+      "evidence": [
+        "Makefile",
+        "make -n stop"
+      ],
+      "next_task_id": null,
+      "reason": "The stop target now fans out to subscription-external, subscription, billing, notification, acquisition-api, cadence-engine, landing, and admin stop targets.",
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "make dev uses bounded parallelism for the local dev service set.",
+      "evidence": [
+        "Makefile",
+        "make -n dev"
+      ],
+      "next_task_id": null,
+      "reason": "The dev target now invokes a recursive make with -j$(DEV_JOBS), defaulting to 8, over the dev service target list.",
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "Warm Go builds skip rebuilds when outputs are current.",
+      "evidence": [
+        "Makefile",
+        "make build-local-subscription-external && make build-local-subscription-external"
+      ],
+      "next_task_id": null,
+      "reason": "The second build reported the subscription-external binary current and skipped go build.",
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "Landing and admin frontend dependency checks skip npm install when node_modules is current.",
+      "evidence": [
+        "Makefile",
+        "make -n dev-landing",
+        "make -n dev-admin"
+      ],
+      "next_task_id": null,
+      "reason": "Landing now matches the existing admin warm dependency check using node_modules/.package-lock.json against package-lock.json.",
+      "status": "passed"
+    },
+    {
+      "blocker": null,
+      "criterion": "No package manifests, lockfiles, Go modules, service source files, schemas, or deploy targets are changed.",
+      "evidence": [
+        "git status --short",
+        "git diff --check"
+      ],
+      "next_task_id": null,
+      "reason": "The only source change is the Makefile plus harness issue/work-order/handoff artifacts.",
+      "status": "passed"
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/heartbeats/TMP-062.json",
+    ".agent/sessions/codex-dev-loop-fast-20260513-105610/capsule.json",
+    ".agent/sessions/codex-dev-loop-fast-20260513-105610/capsule.md",
+    ".agent/sessions/codex-dev-loop-fast-20260513-105610/git_snapshot.json",
+    ".agent/sessions/codex-dev-loop-fast-20260513-105610/handoff.json",
+    ".agent/sessions/supervisor-20260513T110244Z-b7822bc3/capsule.json",
+    ".agent/sessions/supervisor-20260513T110244Z-b7822bc3/capsule.md",
+    ".agent/tasks.json",
+    "Makefile",
+    "agent/backlog/issues/TMP-062-dev-loop-fast-restart.md",
+    "agent/state/TMP-062.handoff.json",
+    "agent/state/TMP-062.work-order.json"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "No long-running process was started by validation except a local subscription-external binary build.",
+    "The built subscription-external binary is ignored by git and was left as a normal local build artifact."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Created TMP-062 classified defect issue and work order.",
+    "Identified root cause: make stop omitted subscription-external, billing, and cadence-engine while make dev started them, causing stale processes and port drift.",
+    "Changed make stop and stop-all to stop the full dev service set in parallel.",
+    "Changed make dev and dev-all to use bounded parallel recursive make fan-out.",
+    "Added a reusable Makefile Go binary freshness check for local dev build targets.",
+    "Changed dev-landing to skip npm install when dependencies are current."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "medium"
+  },
+  "known_gaps": [
+    "A full make stop && make dev smoke was not run to avoid disrupting currently running local services and because make dev starts long-lived background processes.",
+    "Fresh checkouts without frontend node_modules still need npm install and therefore depend on npm cache or registry speed.",
+    "Existing supervisor warnings about historical ledger drift remain unrelated to TMP-062."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-062 is complete: repeated stop && make dev now avoids stale dev services, unnecessary Go rebuilds, and unnecessary Landing Web npm installs.",
+  "residual_work_policy": "complete",
+  "risk_notes": [
+    "No dependency manifests, lockfiles, Go modules, service runtime code, schema, or production Docker/deploy targets changed.",
+    "Parallel dev startup can interleave console output; DEV_JOBS can be lowered when debugging startup logs."
+  ],
+  "safe_to_continue": false,
+  "schema_version": 1,
+  "session_id": "codex-dev-loop-fast-20260513-105610",
+  "status": "done",
+  "summary": "Optimized the local dev restart loop by aligning stop coverage with the full dev service set, starting dev targets through bounded parallel make fan-out, skipping current Go rebuilds, and skipping current Landing Web dependency installs.",
+  "supervisor_decision": "ready_for_review",
+  "task_id": "TMP-062",
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "hvc check agent/backlog/issues/TMP-062-dev-loop-fast-restart.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "assignment_decision allow; no blocking or review reasons",
+      "status": "passed",
+      "timestamp": "2026-05-13T10:57:00Z"
+    },
+    {
+      "command": "make -n stop",
+      "exit_code": 0,
+      "output_excerpt": "make --no-print-directory -j8 stop-subscription-external stop-subscription stop-billing stop-notification stop-acquisition-api stop-cadence-engine stop-landing stop-admin",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:00:00Z"
+    },
+    {
+      "command": "make -n dev",
+      "exit_code": 0,
+      "output_excerpt": "make --no-print-directory -j8 dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api dev-cadence-engine dev-landing dev-admin",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:00:00Z"
+    },
+    {
+      "command": "make -n dev-landing",
+      "exit_code": 0,
+      "output_excerpt": "Landing Web dependencies current; skipping npm install.",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:00:00Z"
+    },
+    {
+      "command": "make -n dev-admin",
+      "exit_code": 0,
+      "output_excerpt": "Admin Panel dependencies current; skipping npm install.",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:00:00Z"
+    },
+    {
+      "command": "make build-local-subscription-external && make build-local-subscription-external",
+      "exit_code": 0,
+      "output_excerpt": "Subscription External Service built successfully; Subscription External Service binary current; skipping build.",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:01:00Z"
+    },
+    {
+      "command": "make -n build-all-local >/tmp/timwe-build-all-local-dryrun.out && tail -5 /tmp/timwe-build-all-local-dryrun.out",
+      "exit_code": 0,
+      "output_excerpt": "All services built successfully dry-run completed.",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:01:00Z"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "output_excerpt": "no whitespace errors",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:01:00Z"
+    },
+    {
+      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "exit_code": 0,
+      "output_excerpt": "hvc_all_ok",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:01:00Z"
+    },
+    {
+      "command": "agent-supervisor --config .harness/config.json preflight",
+      "exit_code": 0,
+      "output_excerpt": "ok true; only existing historical/schedulable warnings",
+      "status": "passed",
+      "timestamp": "2026-05-13T11:01:00Z"
+    }
+  ]
+}
