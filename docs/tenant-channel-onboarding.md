@@ -189,6 +189,41 @@ Conflict errors are returned through the existing `writeError` envelope:
 
 HTTP status is **409 Conflict**.
 
+## Notification Handler Tenant Enforcement (TMP-071)
+
+The notification handler at `services/notification/internal/handler/http.go` enforces tenant resolution before persisting any inbound MNO callback. Resolution runs in `resolveNotificationTenant` and produces one of three outcomes:
+
+1. **No tenant context supplied** (legacy callers, no header / query / middleware identity) — handler proceeds with `TenantID = nil` and persists the row tenantless. This preserves backwards compatibility with partner callbacks that pre-date tenant scoping.
+2. **Tenant context resolves cleanly** — handler attaches the canonical `tenant_id` UUID and, when `channel_key` is also supplied, resolves it to a `channel_id` UUID via `repository.ChannelIDByKeys`. The persisted notification carries both.
+3. **Tenant context supplied but invalid** — handler returns a structured error envelope and one of the following statuses:
+
+| Code | HTTP | Trigger |
+|---|---|---|
+| `TENANT_KEY_CONFLICT` | 409 | Header and query disagree (delegated to `tenantctx.ResolveKeyPair`, `ErrTenantKeyConflict`). |
+| `UNKNOWN_TENANT` | 400 | `tenant_key` supplied but no row in `tenants` matches. |
+| `CHANNEL_REQUIRED` | 400 | `tenant_key` supplied without a `channel_key`. |
+| `UNKNOWN_CHANNEL` | 400 | `(tenant_id, channel_key)` pair has no row in `tenant_channels` (status filter applied). |
+
+The rejection envelope matches the existing `writeError` shape:
+
+```json
+{
+  "message": "unknown tenant_key",
+  "code": "UNKNOWN_TENANT",
+  "inError": "true"
+}
+```
+
+### Migration impact for existing partners
+
+Partners that have been sending `tenant_key` with no channel context, or with an unknown tenant slug, were previously silently accepted with HTTP 200 and stored with `tenant_id = NULL` / `channel_id = NULL`. They now receive HTTP 400. Operators onboarding a new tenant must:
+
+1. Seed the row in `tenants` (e.g., careerify — see `ops/db/migrations/`).
+2. Seed the corresponding `tenant_channels` row with `status = 'ACTIVE'`.
+3. Coordinate with the partner so their submissions include both `tenant_key` and `channel_key`, or send no tenant context at all (legacy path).
+
+The cross-tenant refusal smoke (`scripts/smoke/careerify-tenant-cross-tenant-refusal.sh`) is the regression gate for this behavior: Cases B and C must return 4xx, Case A must return 409.
+
 ## Operator Smoke Matrix
 
 Two scripts in `scripts/smoke/` cover the careerify/web-gh-airteltigo tenant end-to-end.
