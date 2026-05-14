@@ -19,13 +19,21 @@ import (
 // It exposes MT and Direct Billing charge endpoints per swagger 1.4
 // and delegates business logic to SubscriptionService.
 type PartnerHandler struct {
-	logger *zap.Logger
-	svc    *service.SubscriptionService
-	cfg    *config.Config
+	logger     *zap.Logger
+	svc        *service.SubscriptionService
+	cfg        *config.Config
+	tenantRepo gatewayTenantLookup
 }
 
 func NewPartnerHandler(logger *zap.Logger, svc *service.SubscriptionService, cfg *config.Config) *PartnerHandler {
 	return &PartnerHandler{logger: logger, svc: svc, cfg: cfg}
+}
+
+// WithTenantRepo sets the repository used by gateway-trust partner subscription handlers.
+// Call this after NewPartnerHandler when the concrete repository implements gatewayTenantLookup.
+func (h *PartnerHandler) WithTenantRepo(repo gatewayTenantLookup) *PartnerHandler {
+	h.tenantRepo = repo
+	return h
 }
 
 // partnerMtRequest is a DTO matching the swagger PartnerMtRequest shape
@@ -242,6 +250,228 @@ func (h *PartnerHandler) PartnerOptinConfirmHandler(ctx *fasthttp.RequestCtx) {
 	resp, err := h.svc.SendOptinConfirm(req, h.cfg.Application.TIMWE.Realm)
 	if err != nil {
 		h.logger.Error("Partner optin confirm failed", zap.Error(err))
+		writeError(ctx, serviceErrorStatus(err), serviceErrorCode(err), err.Error())
+		return
+	}
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(resp)
+}
+
+// gatewayTenantLookup is the minimal repo interface needed by tenantRouteFromGatewayHeaders.
+type gatewayTenantLookup interface {
+	TenantIDByKey(tenantKey string) (string, error)
+	ChannelIDByKeys(tenantID, channelKey string) (string, error)
+}
+
+// tenantRouteFromGatewayHeaders resolves tenant context from KrakenD-injected
+// headers/query params (path captures: {tenant_key}/{channel_key}).
+//
+// GatewayTrusted is set to true because KrakenD's martian header.Modifier
+// injects both X-Tenant-Key and X-Channel-Key from path captures, establishing
+// gateway trust structurally.
+//
+// Error codes mapped by callers:
+//   - ErrTenantKeyConflict  → 409 TENANT_KEY_CONFLICT
+//   - "TENANT_CONTEXT_REQUIRED" → 400
+//   - "UNKNOWN_TENANT"          → 400
+//   - "UNKNOWN_CHANNEL"         → 400
+func tenantRouteFromGatewayHeaders(
+	ctx *fasthttp.RequestCtx,
+	repo gatewayTenantLookup,
+) (domain.TenantRouteContext, error) {
+	tenantKeyQuery := strings.TrimSpace(string(ctx.QueryArgs().Peek("tenant_key")))
+	channelKeyQuery := strings.TrimSpace(string(ctx.QueryArgs().Peek("channel_key")))
+
+	pair, err := tenantctx.ResolveKeyPair(
+		fastHTTPHeaderGetter{ctx: ctx},
+		tenantctx.KeyPair{TenantKey: tenantKeyQuery, ChannelKey: channelKeyQuery},
+		tenantctx.ResolveKeyPairOptions{GatewayTrusted: true},
+	)
+	if err != nil {
+		// Preserve ErrTenantKeyConflict so caller can map to 409.
+		return domain.TenantRouteContext{}, err
+	}
+
+	tenantKey := pair.TenantKey
+	channelKey := pair.ChannelKey
+
+	if strings.TrimSpace(tenantKey) == "" {
+		return domain.TenantRouteContext{}, fmt.Errorf("TENANT_CONTEXT_REQUIRED: tenant_key is required")
+	}
+	if strings.TrimSpace(channelKey) == "" {
+		return domain.TenantRouteContext{}, fmt.Errorf("TENANT_CONTEXT_REQUIRED: channel_key is required")
+	}
+
+	tenantID, err := repo.TenantIDByKey(tenantKey)
+	if err != nil || strings.TrimSpace(tenantID) == "" {
+		return domain.TenantRouteContext{}, fmt.Errorf("UNKNOWN_TENANT: tenant_key %q not found", tenantKey)
+	}
+
+	channelID, err := repo.ChannelIDByKeys(tenantID, channelKey)
+	if err != nil || strings.TrimSpace(channelID) == "" {
+		return domain.TenantRouteContext{}, fmt.Errorf("UNKNOWN_CHANNEL: channel_key %q not found for tenant", channelKey)
+	}
+
+	return domain.TenantRouteContext{
+		TenantID:   tenantID,
+		TenantKey:  tenantKey,
+		ChannelID:  channelID,
+		ChannelKey: channelKey,
+	}, nil
+}
+
+// gatewayRouteStatus maps tenantRouteFromGatewayHeaders errors to HTTP status codes.
+func gatewayRouteStatus(err error) (int, string) {
+	if errors.Is(err, tenantctx.ErrTenantKeyConflict) {
+		return fasthttp.StatusConflict, "TENANT_KEY_CONFLICT"
+	}
+	msg := err.Error()
+	switch {
+	case strings.HasPrefix(msg, "TENANT_CONTEXT_REQUIRED"):
+		return fasthttp.StatusBadRequest, "TENANT_CONTEXT_REQUIRED"
+	case strings.HasPrefix(msg, "UNKNOWN_TENANT"):
+		return fasthttp.StatusBadRequest, "UNKNOWN_TENANT"
+	case strings.HasPrefix(msg, "UNKNOWN_CHANNEL"):
+		return fasthttp.StatusBadRequest, "UNKNOWN_CHANNEL"
+	default:
+		return fasthttp.StatusBadRequest, "TENANT_CONTEXT_REQUIRED"
+	}
+}
+
+// PartnerSubscriptionOptin handles POST /api/v1/subscription-external/partners/optin.
+// Tenant context is resolved from KrakenD-injected headers (no trusted-service HMAC required).
+func (h *PartnerHandler) PartnerSubscriptionOptin(ctx *fasthttp.RequestCtx) {
+	if h.tenantRepo == nil {
+		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
+		return
+	}
+	route, err := tenantRouteFromGatewayHeaders(ctx, h.tenantRepo)
+	if err != nil {
+		status, code := gatewayRouteStatus(err)
+		writeError(ctx, status, code, err.Error())
+		return
+	}
+	h.logger.Info("partner subscription optin",
+		zap.String("tenant_id", route.TenantID),
+		zap.String("channel_id", route.ChannelID),
+	)
+
+	var req domain.MTRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
+		return
+	}
+	req.TenantRoute = route
+
+	resp, err := h.svc.SendMT(req, h.cfg.Application.TIMWE.Realm, strings.TrimSpace(string(ctx.QueryArgs().Peek("channel"))))
+	if err != nil {
+		h.logger.Error("Partner subscription optin failed", zap.Error(err))
+		writeError(ctx, serviceErrorStatus(err), serviceErrorCode(err), err.Error())
+		return
+	}
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(resp)
+}
+
+// PartnerSubscriptionConfirm handles POST /api/v1/subscription-external/partners/confirm.
+func (h *PartnerHandler) PartnerSubscriptionConfirm(ctx *fasthttp.RequestCtx) {
+	if h.tenantRepo == nil {
+		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
+		return
+	}
+	route, err := tenantRouteFromGatewayHeaders(ctx, h.tenantRepo)
+	if err != nil {
+		status, code := gatewayRouteStatus(err)
+		writeError(ctx, status, code, err.Error())
+		return
+	}
+	h.logger.Info("partner subscription confirm",
+		zap.String("tenant_id", route.TenantID),
+		zap.String("channel_id", route.ChannelID),
+	)
+
+	var req domain.SubscriptionConfirmationRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
+		return
+	}
+	req.TenantRoute = route
+
+	resp, err := h.svc.SendOptinConfirm(req, h.cfg.Application.TIMWE.Realm)
+	if err != nil {
+		h.logger.Error("Partner subscription confirm failed", zap.Error(err))
+		writeError(ctx, serviceErrorStatus(err), serviceErrorCode(err), err.Error())
+		return
+	}
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(resp)
+}
+
+// PartnerSubscriptionOptout handles POST /api/v1/subscription-external/partners/optout.
+func (h *PartnerHandler) PartnerSubscriptionOptout(ctx *fasthttp.RequestCtx) {
+	if h.tenantRepo == nil {
+		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
+		return
+	}
+	route, err := tenantRouteFromGatewayHeaders(ctx, h.tenantRepo)
+	if err != nil {
+		status, code := gatewayRouteStatus(err)
+		writeError(ctx, status, code, err.Error())
+		return
+	}
+	h.logger.Info("partner subscription optout",
+		zap.String("tenant_id", route.TenantID),
+		zap.String("channel_id", route.ChannelID),
+	)
+
+	var req domain.UnsubscriptionRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
+		return
+	}
+	req.TenantRoute = route
+
+	resp, err := h.svc.SendOptout(req, h.cfg.Application.TIMWE.Realm)
+	if err != nil {
+		h.logger.Error("Partner subscription optout failed", zap.Error(err))
+		writeError(ctx, serviceErrorStatus(err), serviceErrorCode(err), err.Error())
+		return
+	}
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(resp)
+}
+
+// PartnerSubscriptionStatus handles POST /api/v1/subscription-external/partners/status.
+func (h *PartnerHandler) PartnerSubscriptionStatus(ctx *fasthttp.RequestCtx) {
+	if h.tenantRepo == nil {
+		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
+		return
+	}
+	route, err := tenantRouteFromGatewayHeaders(ctx, h.tenantRepo)
+	if err != nil {
+		status, code := gatewayRouteStatus(err)
+		writeError(ctx, status, code, err.Error())
+		return
+	}
+	h.logger.Info("partner subscription status",
+		zap.String("tenant_id", route.TenantID),
+		zap.String("channel_id", route.ChannelID),
+	)
+
+	var req domain.GetStatusRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
+		return
+	}
+	req.TenantRoute = route
+
+	resp, err := h.svc.SendStatusCheck(req, h.cfg.Application.TIMWE.Realm)
+	if err != nil {
+		h.logger.Error("Partner subscription status failed", zap.Error(err))
 		writeError(ctx, serviceErrorStatus(err), serviceErrorCode(err), err.Error())
 		return
 	}

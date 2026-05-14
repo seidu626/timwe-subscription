@@ -541,6 +541,33 @@ func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler
 				ctx.Error("Method not allowed", fasthttp.StatusMethodNotAllowed)
 			}
 			return
+		// Gateway-trusted partner subscription routes (Option B — TMP-072)
+		// These bypass trusted-service HMAC; tenant context is resolved via DB lookup.
+		case strings.EqualFold(path, "/api/v1/subscription-external/partners/optin"):
+			if method == fasthttp.MethodPost {
+				partnerHandler.PartnerSubscriptionOptin(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+		case strings.EqualFold(path, "/api/v1/subscription-external/partners/confirm"):
+			if method == fasthttp.MethodPost {
+				partnerHandler.PartnerSubscriptionConfirm(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+		case strings.EqualFold(path, "/api/v1/subscription-external/partners/optout"):
+			if method == fasthttp.MethodPost {
+				partnerHandler.PartnerSubscriptionOptout(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+		case strings.EqualFold(path, "/api/v1/subscription-external/partners/status"):
+			if method == fasthttp.MethodPost {
+				partnerHandler.PartnerSubscriptionStatus(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+
 		// Partner MT: /api/external/v1/{channel}/mt
 		case strings.HasPrefix(path, "/api/external/v1/") && strings.HasSuffix(path, "/mt"):
 			if method != fasthttp.MethodPost {

@@ -3982,7 +3982,7 @@
       ],
       "backend": [
         {
-          "url_pattern": "/api/v1/subscription-external/admin/optin",
+          "url_pattern": "/api/v1/subscription-external/partners/optin",
           "encoding": "json",
           "sd": "static",
           "method": "POST",
@@ -4069,7 +4069,7 @@
       ],
       "backend": [
         {
-          "url_pattern": "/api/v1/subscription-external/admin/confirm",
+          "url_pattern": "/api/v1/subscription-external/partners/confirm",
           "encoding": "json",
           "sd": "static",
           "method": "POST",
@@ -4156,7 +4156,7 @@
       ],
       "backend": [
         {
-          "url_pattern": "/api/v1/subscription-external/admin/optout",
+          "url_pattern": "/api/v1/subscription-external/partners/optout",
           "encoding": "json",
           "sd": "static",
           "method": "POST",
@@ -4243,7 +4243,7 @@
       ],
       "backend": [
         {
-          "url_pattern": "/api/v1/subscription-external/admin/status",
+          "url_pattern": "/api/v1/subscription-external/partners/status",
           "encoding": "json",
           "sd": "static",
           "method": "POST",
