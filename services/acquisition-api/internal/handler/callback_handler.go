@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -197,7 +198,7 @@ func (h *CallbackHandler) enqueuePostback(tx *domain.AcquisitionTransaction, eve
 	if tx.TenantID != nil && strings.TrimSpace(*tx.TenantID) != "" {
 		campaign, campaignErr = h.campaignRepo.GetAdminByTenantAndSlug(strings.TrimSpace(*tx.TenantID), tx.CampaignSlug)
 	} else {
-		campaign, campaignErr = h.campaignRepo.GetBySlug(tx.CampaignSlug)
+		campaignErr = fmt.Errorf("transaction tenant is required for postback template lookup")
 	}
 	if campaignErr != nil {
 		h.logger.Warn("Could not load campaign for postback template lookup",

@@ -4536,24 +4536,48 @@
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "services/cadence-engine/internal/repository/postgres.go",
+            "services/cadence-engine/internal/repository/postgres_admin_test.go",
+            "cd services/cadence-engine && go test ./internal/repository ./internal/adminhttp"
+          ],
           "id": "AC-2",
           "next_task_id": null,
-          "reason": null,
-          "status": "pending",
+          "reason": "ClaimDueStatesTx and ListMissingStates now require tenant equality between subscription state, subscriptions, and product message series.",
+          "status": "passed",
           "text": "Cadence due/missing-state queries no longer accept NULL tenant matches after proof."
         },
         {
           "blocker": null,
-          "evidence": [],
+          "evidence": [
+            "services/acquisition-api/migrations/remove_legacy_campaign_slug_index.sql",
+            "services/subscription-external/migrations/019_tenant_nullable_runtime_cleanup.sql",
+            "services/acquisition-api/internal/repository/admin_management_schema.go",
+            "cd services/subscription-external && go test ./internal/service ./internal/repository ./internal/handler"
+          ],
           "id": "AC-3",
           "next_task_id": null,
-          "reason": null,
-          "status": "pending",
+          "reason": "The new migrations drop idx_campaigns_legacy_slug and idx_product_message_series_legacy_key. Acquisition cleanup is wired into the service-local schema bootstrap after campaign tenant binding. Notification legacy idempotency is preserved because live notifications still contain tenantless rows.",
+          "status": "passed",
           "text": "Forward migrations clean legacy partial indexes or nullable constraints only where proof exists."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "services/acquisition-api/internal/service/transaction_service.go",
+            "services/acquisition-api/internal/handler/transaction_handler.go",
+            "services/acquisition-api/internal/repository/reports_repository.go",
+            "services/acquisition-api/internal/handler/callback_handler.go",
+            "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler"
+          ],
+          "id": "AC-4",
+          "next_task_id": null,
+          "reason": "Transaction creation now requires tenant_key and resolves campaigns through GetByTenantKeyAndSlug; signed public tenant headers are copied into the request when the body omits tenant_key. Report joins and postback template lookup also require tenant equality. The remaining public GetBySlug/ListEnabled path is documented as explicit API compatibility with zero live tenantless campaign rows.",
+          "status": "passed",
+          "text": "Acquisition slug-only campaign lookup no longer depends on tenant_id IS NULL as the canonical runtime path."
         }
       ],
-      "attempts": 1,
+      "attempts": 2,
       "blockers": [
         "TMP-053 acquisition/admin proof blocked: DB_PASSWORD/PGPASSWORD/DATABASE_URL or equivalent documented connection material is unavailable.",
         "TMP-054 subscription/cadence proof blocked: no .env file exists and APP_DATABASE_POSTGRESQL_*, PG_*, DB_*, DATABASE_URL variables are unset.",
@@ -4562,21 +4586,98 @@
       ],
       "branch": null,
       "children": [],
-      "completed": [],
+      "completed": [
+        "Live proof refreshed: acquisition/subscription owned tables have zero tenantless rows except admin_activity_logs and notifications residuals.",
+        "Acquisition transaction/report/postback runtime paths now require tenant ownership; no hardcoded nrg path was introduced.",
+        "Cadence due/missing-state tenant-null matching collapsed to tenant equality.",
+        "Forward cleanup migrations added for proven legacy partial indexes.",
+        "Refreshed credentialed live schema proof using the root workspace .env.",
+        "Confirmed zero tenantless rows for campaigns, acquisition_transactions, products, userbase, postback_outbox, subscriptions, product_message_series, subscription_message_state, message_outbox, and admin_subscription_action_logs.",
+        "Kept admin_activity_logs and notifications nullable because live proof still shows one and ten tenantless rows respectively.",
+        "Removed acquisition runtime nullable campaign matching from transaction creation, report joins, manual postback trigger, and callback template lookup.",
+        "Removed cadence runtime tenant-null matching from due-state claiming and missing-state listing.",
+        "Added forward cleanup migrations for proven legacy partial indexes and wired acquisition cleanup into service-local schema bootstrap.",
+        "Updated TMP-055 evidence with residual API/data gaps and verification commands."
+      ],
       "created_at": "2026-05-11T00:33:41Z",
       "details": "Collapse active runtime nullable tenant paths into canonical tenant-aware logic after proof slices complete.",
       "evidence": {
-        "commands": [],
+        "commands": [
+          {
+            "command": "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler",
+            "exit_code": 0,
+            "output_excerpt": "ok acquisition-api/internal/repository; ok acquisition-api/internal/service; ok acquisition-api/internal/handler",
+            "status": "passed",
+            "timestamp": "2026-05-14T03:48:12Z"
+          },
+          {
+            "command": "cd services/cadence-engine && go test ./internal/repository ./internal/adminhttp",
+            "exit_code": 0,
+            "output_excerpt": "ok cadence-engine/internal/repository; ok cadence-engine/internal/adminhttp",
+            "status": "passed",
+            "timestamp": "2026-05-14T03:48:12Z"
+          },
+          {
+            "command": "cd services/subscription-external && go test ./internal/service ./internal/repository ./internal/handler",
+            "exit_code": 0,
+            "output_excerpt": "ok subscription-external/internal/service; ok subscription-external/internal/repository; ok subscription-external/internal/handler",
+            "status": "passed",
+            "timestamp": "2026-05-14T03:48:12Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "HVC_OK",
+            "status": "passed",
+            "timestamp": "2026-05-14T03:48:12Z"
+          },
+          {
+            "command": "git diff --check && jq empty slices/manifest.json agent/state/TMP-055.work-order.json",
+            "exit_code": 0,
+            "output_excerpt": "STATIC_OK",
+            "status": "passed",
+            "timestamp": "2026-05-14T03:48:12Z"
+          },
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; six existing historical/schedulable warnings",
+            "status": "passed",
+            "timestamp": "2026-05-14T03:48:12Z"
+          }
+        ],
         "commits": [],
-        "files": []
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/heartbeats/TMP-055.json",
+          ".agent/tasks.json",
+          "agent/state/TMP-055.handoff.json",
+          "docs/tenant-nullability-enforcement-plan.md",
+          "services/acquisition-api/internal/handler/callback_handler.go",
+          "services/acquisition-api/internal/handler/transaction_handler.go",
+          "services/acquisition-api/internal/repository/admin_management_schema.go",
+          "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+          "services/acquisition-api/internal/repository/campaign_repository_test.go",
+          "services/acquisition-api/internal/repository/reports_repository.go",
+          "services/acquisition-api/internal/repository/reports_repository_test.go",
+          "services/acquisition-api/internal/repository/transaction_repository.go",
+          "services/acquisition-api/internal/service/transaction_service.go",
+          "services/acquisition-api/internal/service/transaction_service_test.go",
+          "services/acquisition-api/migrations/remove_legacy_campaign_slug_index.sql",
+          "services/cadence-engine/internal/repository/postgres.go",
+          "services/cadence-engine/internal/repository/postgres_admin_test.go",
+          "services/subscription-external/migrations/019_tenant_nullable_runtime_cleanup.sql",
+          "slices/TMP-055-tenant-null-runtime-enforcement/value-gate-report.md",
+          "slices/manifest.json"
+        ]
       },
       "goal": "",
       "id": "TMP-055",
-      "owner": "claude-sonnet-4-6-auto-pilot",
+      "owner": "codex-tmp055-20260514T032620Z",
       "parent_id": null,
       "priority": 0,
       "review_findings": [],
-      "status": "stale",
+      "status": "done",
       "title": "Tenant nullable runtime enforcement",
       "unresolved": [
         {
@@ -4626,9 +4727,25 @@
           "next_task_id": null,
           "reason": "checkpoint",
           "severity": "medium"
+        },
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "Public campaign GetBySlug/ListEnabled still expose explicit tenant_id IS NULL compatibility with zero live rows; removal is an API compatibility decision.",
+          "next_task_id": null,
+          "reason": "checkpoint",
+          "severity": "medium"
+        },
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "One admin_activity_logs row and ten notifications rows remain tenantless before future NOT NULL cleanup.",
+          "next_task_id": null,
+          "reason": "checkpoint",
+          "severity": "medium"
         }
       ],
-      "updated_at": "2026-05-13T06:18:22Z",
+      "updated_at": "2026-05-14T03:48:58Z",
       "worktree": null
     },
     {

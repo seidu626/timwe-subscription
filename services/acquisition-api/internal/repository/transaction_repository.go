@@ -447,7 +447,7 @@ func (r *TransactionRepository) CheckThrottle(campaignSlug, msisdn, ipAddress st
 
 func (r *TransactionRepository) CheckThrottleForTenant(tenantID, campaignSlug, msisdn, ipAddress string, throttles map[string]interface{}) (bool, error) {
 	if strings.TrimSpace(tenantID) == "" {
-		return r.CheckThrottle(campaignSlug, msisdn, ipAddress, throttles)
+		return false, fmt.Errorf("tenant_id is required for throttle check")
 	}
 
 	if msisdnLimit, ok := throttles["per_msisdn_per_day"].(float64); ok && msisdnLimit > 0 {
@@ -759,7 +759,7 @@ func (r *TransactionRepository) FindLatestByCampaignAndMSISDN(campaignSlug, msis
 
 func (r *TransactionRepository) FindLatestByTenantCampaignAndMSISDN(tenantID, campaignSlug, msisdn string, statuses []domain.TransactionStatus, notOlderThan time.Time) (*domain.AcquisitionTransaction, error) {
 	if strings.TrimSpace(tenantID) == "" {
-		return r.FindLatestByCampaignAndMSISDN(campaignSlug, msisdn, statuses, notOlderThan)
+		return nil, fmt.Errorf("tenant_id is required for campaign msisdn lookup")
 	}
 	if len(statuses) == 0 {
 		return nil, fmt.Errorf("statuses are required")

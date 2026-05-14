@@ -88,17 +88,25 @@ func (s *TransactionService) SetPendingTransactionTTL(ttl time.Duration) {
 
 // CreateTransaction creates a new acquisition transaction
 func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequest) (*domain.CreateTransactionResponse, error) {
-	// Get campaign. Tenant-key requests must use the tenant-scoped public lookup;
-	// legacy slug-only requests can only resolve unscoped campaigns.
-	var campaign *domain.Campaign
-	var err error
-	if req.TenantKey != nil && strings.TrimSpace(*req.TenantKey) != "" {
-		campaign, err = s.campaignRepo.GetByTenantKeyAndSlug(strings.TrimSpace(*req.TenantKey), req.CampaignSlug)
-	} else {
-		campaign, err = s.campaignRepo.GetBySlug(req.CampaignSlug)
+	// Get campaign. Runtime transaction creation must resolve through tenant
+	// ownership; slug-only legacy campaign lookup is not a transaction path.
+	tenantKey := ""
+	if req.TenantKey != nil {
+		tenantKey = strings.TrimSpace(*req.TenantKey)
 	}
+	if tenantKey == "" {
+		return nil, fmt.Errorf("tenant_key is required for campaign lookup")
+	}
+	campaign, err := s.campaignRepo.GetByTenantKeyAndSlug(tenantKey, req.CampaignSlug)
 	if err != nil {
 		return nil, fmt.Errorf("campaign not found: %w", err)
+	}
+	campaignTenantID := ""
+	if campaign.TenantID != nil {
+		campaignTenantID = strings.TrimSpace(*campaign.TenantID)
+	}
+	if campaignTenantID == "" {
+		return nil, fmt.Errorf("campaign tenant is required for transaction creation")
 	}
 
 	// Normalize attribution
@@ -180,23 +188,13 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 		domain.StatusConfirmRequired,
 		domain.StatusActionRequired,
 	}
-	var existingByMSISDN *domain.AcquisitionTransaction
-	if campaign.TenantID != nil && strings.TrimSpace(*campaign.TenantID) != "" {
-		existingByMSISDN, err = s.txRepo.FindLatestByTenantCampaignAndMSISDN(
-			strings.TrimSpace(*campaign.TenantID),
-			campaign.Slug,
-			msisdnToUse,
-			statusesForReuse,
-			reuseCutoff,
-		)
-	} else {
-		existingByMSISDN, err = s.txRepo.FindLatestByCampaignAndMSISDN(
-			campaign.Slug,
-			msisdnToUse,
-			statusesForReuse,
-			reuseCutoff,
-		)
-	}
+	existingByMSISDN, err := s.txRepo.FindLatestByTenantCampaignAndMSISDN(
+		campaignTenantID,
+		campaign.Slug,
+		msisdnToUse,
+		statusesForReuse,
+		reuseCutoff,
+	)
 	if err == nil && existingByMSISDN != nil {
 		s.logger.Info("Returning existing transaction for campaign+msisdn",
 			zap.String("campaign_slug", campaign.Slug),
@@ -212,12 +210,7 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 		return nil, fmt.Errorf("failed to check existing campaign+msisdn transaction: %w", err)
 	}
 
-	var throttled bool
-	if campaign.TenantID != nil && strings.TrimSpace(*campaign.TenantID) != "" {
-		throttled, err = s.txRepo.CheckThrottleForTenant(strings.TrimSpace(*campaign.TenantID), campaign.Slug, msisdnToUse, ipAddr, throttles)
-	} else {
-		throttled, err = s.txRepo.CheckThrottle(campaign.Slug, msisdnToUse, ipAddr, throttles)
-	}
+	throttled, err := s.txRepo.CheckThrottleForTenant(campaignTenantID, campaign.Slug, msisdnToUse, ipAddr, throttles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check throttle: %w", err)
 	}
@@ -890,13 +883,13 @@ func (s *TransactionService) campaignForTransaction(tx *domain.AcquisitionTransa
 			}
 		}
 		if err != nil {
-			s.logger.Debug("transaction tenant lookup failed, falling back to legacy campaign slug", zap.Error(err))
+			return nil, fmt.Errorf("failed to resolve transaction tenant: %w", err)
 		}
 	}
 	if tenantID != "" {
 		return s.campaignRepo.GetAdminByTenantAndSlug(tenantID, tx.CampaignSlug)
 	}
-	return s.campaignRepo.GetBySlug(tx.CampaignSlug)
+	return nil, fmt.Errorf("transaction tenant is required for campaign lookup")
 }
 
 // GetTransactionByTimweID retrieves a transaction by TIMWE transaction ID
@@ -929,7 +922,7 @@ func (s *TransactionService) TriggerPostback(transactionID uuid.UUID, event doma
 	}
 
 	// Get campaign for postback rules
-	campaign, err := s.campaignRepo.GetBySlug(tx.CampaignSlug)
+	campaign, err := s.campaignForTransaction(tx)
 	if err != nil {
 		s.logger.Warn("Campaign not found for manual postback",
 			zap.String("campaign_slug", tx.CampaignSlug),

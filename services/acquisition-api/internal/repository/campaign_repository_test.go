@@ -36,3 +36,14 @@ func TestTenantCampaignMigrationUsesScopedSlugUniqueness(t *testing.T) {
 		}
 	}
 }
+
+func TestTenantNullableCleanupDropsLegacyCampaignSlugIndex(t *testing.T) {
+	raw, err := os.ReadFile("../../migrations/remove_legacy_campaign_slug_index.sql")
+	if err != nil {
+		t.Fatalf("read cleanup migration: %v", err)
+	}
+	sql := string(raw)
+	if !strings.Contains(sql, "DROP INDEX IF EXISTS idx_campaigns_legacy_slug") {
+		t.Fatalf("expected cleanup migration to drop legacy campaign slug index, got: %s", sql)
+	}
+}

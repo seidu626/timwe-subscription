@@ -39,6 +39,15 @@ func TestReportQueryBuildersIncludeTenantAndChannelPredicates(t *testing.T) {
 	}
 }
 
+func TestTransactionCampaignPredicateRequiresMatchingTenant(t *testing.T) {
+	got := transactionCampaignPredicate("c", "at")
+	assertContains(t, got, "c.slug = at.campaign_slug")
+	assertContains(t, got, "c.tenant_id = at.tenant_id")
+	if stringsContains(got, "tenant_id IS NULL") {
+		t.Fatalf("transaction campaign predicate must not accept tenantless campaign rows: %s", got)
+	}
+}
+
 func TestGetKPIsReturnsZeroedTenantReportWithFiltersEchoed(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {

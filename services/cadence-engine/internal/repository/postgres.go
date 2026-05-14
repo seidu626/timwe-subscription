@@ -63,8 +63,8 @@ func (r *CadenceRepository) ClaimDueStatesTx(ctx context.Context, tx *sql.Tx, li
 			  AND (sms.inflight_until IS NULL OR sms.inflight_until < NOW())
 			  AND s.status = 'active'
 			  AND s.renewal_status = 'active'
-			  AND (sms.tenant_id IS NULL OR s.tenant_id IS NULL OR sms.tenant_id = s.tenant_id)
-			  AND (pms.tenant_id IS NULL OR s.tenant_id IS NULL OR pms.tenant_id = s.tenant_id)
+			  AND sms.tenant_id = s.tenant_id
+			  AND pms.tenant_id = s.tenant_id
 			  AND (sms.channel_id IS NULL OR s.channel_id IS NULL OR sms.channel_id = s.channel_id)
 			  AND (pms.channel_id IS NULL OR s.channel_id IS NULL OR pms.channel_id = s.channel_id)
 			ORDER BY sms.next_send_at
@@ -638,7 +638,7 @@ func (r *CadenceRepository) ListMissingStates(ctx context.Context, limit int) ([
 		JOIN product_message_series pms
 			ON pms.partner_role_id = s.partner_role_id
 		   AND pms.product_id = s.product_id
-		   AND (pms.tenant_id IS NULL OR s.tenant_id IS NULL OR pms.tenant_id = s.tenant_id)
+		   AND pms.tenant_id = s.tenant_id
 		   AND (pms.channel_id IS NULL OR s.channel_id IS NULL OR pms.channel_id = s.channel_id)
 		   AND pms.is_active = TRUE
 		JOIN message_schedule_rules msr

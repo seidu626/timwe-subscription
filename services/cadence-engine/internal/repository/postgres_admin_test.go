@@ -222,7 +222,7 @@ func TestClaimDueStatesTxOnlyClaimsActiveTenantCompatibleStates(t *testing.T) {
 	}
 
 	now := time.Now().UTC()
-	mock.ExpectQuery("sms.status = 'ACTIVE'").
+	mock.ExpectQuery("sms.tenant_id = s.tenant_id").
 		WithArgs(10).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"subscription_id", "tenant_id", "channel_id", "series_id", "cursor_seq", "next_send_at",
@@ -243,6 +243,64 @@ func TestClaimDueStatesTxOnlyClaimsActiveTenantCompatibleStates(t *testing.T) {
 	}
 
 	_ = tx.Rollback()
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
+	}
+}
+
+func TestListMissingStatesRequiresTenantCompatibleSeries(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewCadenceRepository(db, zap.NewNop())
+	now := time.Now().UTC()
+	mock.ExpectQuery("pms.tenant_id = s.tenant_id").
+		WithArgs(10).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"subscription_id",
+			"tenant_id",
+			"channel_id",
+			"series_id",
+			"start_date",
+			"rule_kind",
+			"preferred_time",
+			"days_of_week",
+			"n_days",
+			"send_start_time",
+			"send_end_time",
+			"timezone",
+			"max_per_day",
+			"catchup_mode",
+		}).AddRow(
+			int64(42),
+			"tenant-1",
+			"channel-1",
+			int64(7),
+			now,
+			"after_n_days",
+			now,
+			0,
+			1,
+			now,
+			now,
+			"UTC",
+			1,
+			"none",
+		))
+
+	states, err := repo.ListMissingStates(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ListMissingStates: %v", err)
+	}
+	if len(states) != 1 {
+		t.Fatalf("expected one state, got %d", len(states))
+	}
+	if states[0].TenantID == nil || *states[0].TenantID != "tenant-1" {
+		t.Fatalf("expected tenant on missing state, got %#v", states[0].TenantID)
+	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("ExpectationsWereMet: %v", err)
 	}

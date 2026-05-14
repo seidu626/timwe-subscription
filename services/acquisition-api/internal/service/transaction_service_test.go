@@ -2,6 +2,7 @@ package service
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"regexp"
 	"strings"
@@ -15,6 +16,16 @@ import (
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
 	"go.uber.org/zap"
 )
+
+const (
+	testTenantKey = "nrg"
+	testTenantID  = "11111111-1111-1111-1111-111111111111"
+)
+
+func testTenantKeyPtr() *string {
+	v := testTenantKey
+	return &v
+}
 
 type fakeTIMWEClient struct{}
 
@@ -135,6 +146,36 @@ func TestNormalizeProviderMessage(t *testing.T) {
 	}
 }
 
+func TestCreateTransaction_RequiresTenantKey(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	logger := zap.NewNop()
+	service := NewTransactionService(
+		repository.NewTransactionRepository(db, logger),
+		repository.NewCampaignRepository(db, logger),
+		repository.NewPostbackRepository(db, logger),
+		NewProviderRegistry(logger),
+		fakeTIMWEClient{},
+		logger,
+	)
+
+	_, err = service.CreateTransaction(&domain.CreateTransactionRequest{
+		CampaignSlug:   "test-campaign",
+		MSISDN:         "0561914461",
+		ConsentChecked: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "tenant_key is required") {
+		t.Fatalf("expected tenant_key required error, got: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}
+
 func campaignColumns() []string {
 	return []string{
 		"id", "slug", "language", "country", "operator", "offer_product_id", "pricepoint_id", "partner_role_id",
@@ -143,6 +184,20 @@ func campaignColumns() []string {
 		"throttles", "allowed_referrers", "allowed_sources", "landing_page_urls", "tracking_config", "lp_copy",
 		"enabled", "created_at", "updated_at", "created_by", "updated_by",
 	}
+}
+
+func adminCampaignColumns() []string {
+	return append([]string{"id", "tenant_id", "channel_id"}, campaignColumns()[1:]...)
+}
+
+func expectTenantCampaign(mock sqlmock.Sqlmock, tenantKey, slug string, values ...driver.Value) {
+	row := make([]driver.Value, 0, len(values)+2)
+	row = append(row, values[0], testTenantID, nil)
+	row = append(row, values[1:]...)
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT c.id, c.tenant_id, c.channel_id, c.slug, c.language")).
+		WithArgs(tenantKey, slug).
+		WillReturnRows(sqlmock.NewRows(adminCampaignColumns()).AddRow(row...))
 }
 
 func acquisitionTransactionColumns() []string {
@@ -159,9 +214,15 @@ func acquisitionTransactionColumns() []string {
 	}
 }
 
+func expectTransactionTenantID(mock sqlmock.Sqlmock, transactionID uuid.UUID, tenantID string) {
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT tenant_id FROM acquisition_transactions WHERE id = $1")).
+		WithArgs(transactionID).
+		WillReturnRows(sqlmock.NewRows([]string{"tenant_id"}).AddRow(tenantID))
+}
+
 func expectNoExistingCampaignMSISDNTransaction(mock sqlmock.Sqlmock, campaignSlug, msisdn string) {
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, correlation_id, campaign_slug, msisdn, status, next_action")).
-		WithArgs(campaignSlug, msisdn, "CONFIRM_REQUIRED", "ACTION_REQUIRED", sqlmock.AnyArg()).
+		WithArgs(testTenantID, campaignSlug, msisdn, "CONFIRM_REQUIRED", "ACTION_REQUIRED", sqlmock.AnyArg()).
 		WillReturnError(sql.ErrNoRows)
 }
 
@@ -188,20 +249,18 @@ func TestCreateTransaction_UsesHEMSISDNForThrottle(t *testing.T) {
 	now := time.Now()
 	campaignID := 1
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			campaignID, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"OTP", nil, nil, nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			throttles, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		campaignID, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"OTP", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		throttles, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
 
 	expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, heMSISDN)
 
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*)")).
-		WithArgs(campaignSlug, heMSISDN).
+		WithArgs(testTenantID, campaignSlug, heMSISDN).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
 	source := domain.HESourceReal
@@ -211,6 +270,7 @@ func TestCreateTransaction_UsesHEMSISDNForThrottle(t *testing.T) {
 		ConsentChecked: true,
 		HESource:       &source,
 		HEMSISDN:       &heMSISDN,
+		TenantKey:      testTenantKeyPtr(),
 	}
 
 	_, err = service.CreateTransaction(req)
@@ -244,15 +304,13 @@ func TestCreateTransaction_NormalizesGhanaMSISDNBeforeOptIn(t *testing.T) {
 	now := time.Now()
 	campaignID := 1
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			campaignID, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"OTP", nil, nil, nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		campaignID, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"OTP", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
 
 	expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, "233561914461")
 
@@ -263,6 +321,7 @@ func TestCreateTransaction_NormalizesGhanaMSISDNBeforeOptIn(t *testing.T) {
 		CampaignSlug:   campaignSlug,
 		MSISDN:         "0561914461",
 		ConsentChecked: true,
+		TenantKey:      testTenantKeyPtr(),
 	}
 
 	_, err = service.CreateTransaction(req)
@@ -303,20 +362,19 @@ func TestCreateTransaction_InvalidGhanaMSISDNSkipsOptIn(t *testing.T) {
 	now := time.Now()
 	campaignID := 1
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			campaignID, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"OTP", nil, nil, nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		campaignID, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"OTP", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
 
 	req := &domain.CreateTransactionRequest{
 		CampaignSlug:   campaignSlug,
 		MSISDN:         "123456",
 		ConsentChecked: true,
+		TenantKey:      testTenantKeyPtr(),
 	}
 
 	_, err = service.CreateTransaction(req)
@@ -353,20 +411,18 @@ func TestCreateTransaction_ReturnsExistingCampaignMSISDNTransactionBeforeThrottl
 	campaignSlug := "test-campaign-existing"
 	now := time.Now()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"OTP", nil, nil, nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		1, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"OTP", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
 
 	existingID := uuid.New()
 	correlationID := uuid.New()
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, correlation_id, campaign_slug, msisdn, status, next_action")).
-		WithArgs(campaignSlug, "233561914461", "CONFIRM_REQUIRED", "ACTION_REQUIRED", sqlmock.AnyArg()).
+		WithArgs(testTenantID, campaignSlug, "233561914461", "CONFIRM_REQUIRED", "ACTION_REQUIRED", sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows(acquisitionTransactionColumns()).AddRow(
 			existingID, correlationID, campaignSlug, "233561914461", "CONFIRM_REQUIRED", "OTP",
 			`{"transaction_id":"`+existingID.String()+`","prompt":"Please enter the confirmation code sent to your phone"}`, nil, nil, nil,
@@ -383,6 +439,7 @@ func TestCreateTransaction_ReturnsExistingCampaignMSISDNTransactionBeforeThrottl
 		CampaignSlug:   campaignSlug,
 		MSISDN:         "0561914461",
 		ConsentChecked: true,
+		TenantKey:      testTenantKeyPtr(),
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
@@ -427,15 +484,13 @@ func TestCreateTransaction_StalePendingTransactionTriggersFreshOptIn(t *testing.
 	campaignSlug := "test-campaign-stale"
 	now := time.Now()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"OTP", nil, nil, nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		1, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"OTP", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
 
 	expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, "233561914461")
 
@@ -446,6 +501,7 @@ func TestCreateTransaction_StalePendingTransactionTriggersFreshOptIn(t *testing.
 		CampaignSlug:   campaignSlug,
 		MSISDN:         "0561914461",
 		ConsentChecked: true,
+		TenantKey:      testTenantKeyPtr(),
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
@@ -481,15 +537,13 @@ func TestCreateTransaction_OTPFlowRequiresConfirmOnOptInSuccessWithoutHE(t *test
 	campaignSlug := "test-campaign-otp"
 	now := time.Now()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"OTP", nil, nil, nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		1, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"OTP", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
 
 	expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, "233561914461")
 
@@ -500,6 +554,7 @@ func TestCreateTransaction_OTPFlowRequiresConfirmOnOptInSuccessWithoutHE(t *test
 		CampaignSlug:   campaignSlug,
 		MSISDN:         "0561914461",
 		ConsentChecked: true,
+		TenantKey:      testTenantKeyPtr(),
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
@@ -539,15 +594,13 @@ func TestCreateTransaction_OTPFlowBypassesConfirmWhenHEIsDetected(t *testing.T) 
 	campaignSlug := "test-campaign-otp-he"
 	now := time.Now()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"OTP", nil, nil, nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		1, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"OTP", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
 
 	heMSISDN := "233561914461"
 	expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, heMSISDN)
@@ -562,6 +615,7 @@ func TestCreateTransaction_OTPFlowBypassesConfirmWhenHEIsDetected(t *testing.T) 
 		ConsentChecked: true,
 		HESource:       &heSource,
 		HEMSISDN:       &heMSISDN,
+		TenantKey:      testTenantKeyPtr(),
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
@@ -598,15 +652,13 @@ func TestCreateTransaction_RedirectFlowDoesNotEnforceOTP(t *testing.T) {
 	campaignSlug := "test-campaign-redirect"
 	now := time.Now()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"REDIRECT", nil, nil, nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		1, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"REDIRECT", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
 
 	expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, "233561914461")
 
@@ -617,6 +669,7 @@ func TestCreateTransaction_RedirectFlowDoesNotEnforceOTP(t *testing.T) {
 		CampaignSlug:   campaignSlug,
 		MSISDN:         "0561914461",
 		ConsentChecked: true,
+		TenantKey:      testTenantKeyPtr(),
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
@@ -651,15 +704,13 @@ func TestCreateTransaction_RedirectFlowReturnsRedirectActionWhenConfigured(t *te
 	now := time.Now()
 	redirectCfg := `{"redirect_url":"https://partner.example.com/subscribe"}`
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"REDIRECT", nil, nil, nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, redirectCfg, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		1, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"REDIRECT", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, redirectCfg, nil,
+		true, now, now, nil, nil,
+	)
 
 	expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, "233561914461")
 
@@ -670,6 +721,7 @@ func TestCreateTransaction_RedirectFlowReturnsRedirectActionWhenConfigured(t *te
 		CampaignSlug:   campaignSlug,
 		MSISDN:         "0561914461",
 		ConsentChecked: true,
+		TenantKey:      testTenantKeyPtr(),
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
@@ -712,15 +764,13 @@ func TestCreateTransaction_MixedFlowStillSupportsExplicitProviderConfirm(t *test
 	campaignSlug := "test-campaign-mixed"
 	now := time.Now()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"MIXED", nil, nil, nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		1, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"MIXED", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
 
 	expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, "233561914461")
 
@@ -731,6 +781,7 @@ func TestCreateTransaction_MixedFlowStillSupportsExplicitProviderConfirm(t *test
 		CampaignSlug:   campaignSlug,
 		MSISDN:         "0561914461",
 		ConsentChecked: true,
+		TenantKey:      testTenantKeyPtr(),
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
@@ -767,15 +818,13 @@ func TestCreateTransaction_ClickToSMSFlowRemainsOpenSMS(t *testing.T) {
 	campaignSlug := "test-click-to-sms"
 	now := time.Now()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 101, nil, nil,
-			"CLICK_TO_SMS", "601061", "JOIN", nil, nil, nil, nil,
-			nil, false, nil, nil, nil,
-			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
-			true, now, now, nil, nil,
-		))
+	expectTenantCampaign(mock, testTenantKey, campaignSlug,
+		1, campaignSlug, "en", "GH", nil, 101, nil, nil,
+		"CLICK_TO_SMS", "601061", "JOIN", nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
 
 	expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, "233561914461")
 
@@ -786,6 +835,7 @@ func TestCreateTransaction_ClickToSMSFlowRemainsOpenSMS(t *testing.T) {
 		CampaignSlug:   campaignSlug,
 		MSISDN:         "0561914461",
 		ConsentChecked: true,
+		TenantKey:      testTenantKeyPtr(),
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
@@ -826,6 +876,7 @@ func TestConfirmTransaction_AmbiguousSuccessRemainsConfirmRequired(t *testing.T)
 	correlationID := uuid.New()
 	campaignSlug := "confirm-campaign"
 	timweTransactionID := "timwe-tx-123"
+	tenantID := "11111111-1111-1111-1111-111111111111"
 	now := time.Now()
 
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, correlation_id, campaign_slug, msisdn, status, next_action")).
@@ -842,10 +893,11 @@ func TestConfirmTransaction_AmbiguousSuccessRemainsConfirmRequired(t *testing.T)
 			now, now,
 		))
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 101, nil, 2117,
+	expectTransactionTenantID(mock, transactionID, tenantID)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, channel_id, slug, language")).
+		WithArgs(tenantID, campaignSlug).
+		WillReturnRows(sqlmock.NewRows(adminCampaignColumns()).AddRow(
+			1, tenantID, nil, campaignSlug, "en", "GH", nil, 101, nil, 2117,
 			"OTP", nil, nil, nil, nil, nil, nil,
 			nil, false, nil, nil, nil,
 			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
@@ -893,6 +945,7 @@ func TestConfirmTransaction_UsesTransactionScopedProductWhenCampaignChanges(t *t
 	correlationID := uuid.New()
 	campaignSlug := "confirm-campaign-drift"
 	timweTransactionID := "timwe-tx-555"
+	tenantID := "11111111-1111-1111-1111-111111111111"
 	now := time.Now()
 
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, correlation_id, campaign_slug, msisdn, status, next_action")).
@@ -910,10 +963,11 @@ func TestConfirmTransaction_UsesTransactionScopedProductWhenCampaignChanges(t *t
 		))
 
 	// Simulate campaign product/role drift after opt-in.
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 9999, nil, 3333,
+	expectTransactionTenantID(mock, transactionID, tenantID)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, channel_id, slug, language")).
+		WithArgs(tenantID, campaignSlug).
+		WillReturnRows(sqlmock.NewRows(adminCampaignColumns()).AddRow(
+			1, tenantID, nil, campaignSlug, "en", "GH", nil, 9999, nil, 3333,
 			"OTP", nil, nil, nil, nil, nil, nil,
 			nil, false, nil, nil, nil,
 			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
@@ -965,6 +1019,7 @@ func TestConfirmTransaction_DoesNotRetryWithPricepointOnInvalidPricepointID(t *t
 	correlationID := uuid.New()
 	campaignSlug := "confirm-campaign-pricepoint"
 	timweTransactionID := "timwe-tx-777"
+	tenantID := "11111111-1111-1111-1111-111111111111"
 	now := time.Now()
 
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, correlation_id, campaign_slug, msisdn, status, next_action")).
@@ -981,10 +1036,11 @@ func TestConfirmTransaction_DoesNotRetryWithPricepointOnInvalidPricepointID(t *t
 			now, now,
 		))
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, slug, language")).
-		WithArgs(campaignSlug).
-		WillReturnRows(sqlmock.NewRows(campaignColumns()).AddRow(
-			1, campaignSlug, "en", "GH", nil, 8509, 14397, 2117,
+	expectTransactionTenantID(mock, transactionID, tenantID)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, channel_id, slug, language")).
+		WithArgs(tenantID, campaignSlug).
+		WillReturnRows(sqlmock.NewRows(adminCampaignColumns()).AddRow(
+			1, tenantID, nil, campaignSlug, "en", "GH", nil, 8509, 14397, 2117,
 			"OTP", nil, nil, nil, nil, nil, nil,
 			nil, false, nil, nil, nil,
 			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,

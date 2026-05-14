@@ -270,6 +270,23 @@ func TestDefaultAdminManagementSchemaPathsIncludePostbackTenantRouting(t *testin
 	}
 }
 
+func TestDefaultAdminManagementSchemaPathsIncludeTenantNullableCleanup(t *testing.T) {
+	bindingPath := "migrations/add_tenant_z_campaign_binding.sql"
+	cleanupPath := "migrations/remove_legacy_campaign_slug_index.sql"
+
+	bindingIndex := indexOfString(defaultAdminManagementSchemaPaths, bindingPath)
+	if bindingIndex < 0 {
+		t.Fatalf("default schema bootstrap missing %q", bindingPath)
+	}
+	cleanupIndex := indexOfString(defaultAdminManagementSchemaPaths, cleanupPath)
+	if cleanupIndex < 0 {
+		t.Fatalf("default schema bootstrap missing %q", cleanupPath)
+	}
+	if cleanupIndex < bindingIndex {
+		t.Fatalf("tenant nullable cleanup must run after campaign tenant binding migration: %v", defaultAdminManagementSchemaPaths)
+	}
+}
+
 func TestTenantPostbackRoutingMigrationAddsColumnsUsedByRepository(t *testing.T) {
 	migrationPath := filepath.Join("..", "..", "migrations", "add_tenant_postback_routing.sql")
 	body, err := os.ReadFile(migrationPath)

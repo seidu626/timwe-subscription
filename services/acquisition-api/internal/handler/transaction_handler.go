@@ -78,6 +78,18 @@ func (h *TransactionHandler) CreateTransaction(ctx *fasthttp.RequestCtx) {
 		h.logger.Debug("No HE identity detected, using OTP flow")
 	}
 
+	if req.TenantKey == nil || strings.TrimSpace(*req.TenantKey) == "" {
+		if hasPublicTenantHeaders(ctx) {
+			identity, err := trustedPublicTenantIdentityFromRequest(ctx)
+			if err != nil || strings.TrimSpace(identity.TenantKey) == "" {
+				writeJSONError(ctx, fasthttp.StatusForbidden, "Tenant context invalid")
+				return
+			}
+			tenantKey := strings.TrimSpace(identity.TenantKey)
+			req.TenantKey = &tenantKey
+		}
+	}
+
 	response, err := h.service.CreateTransaction(&req)
 	if err != nil {
 		h.logger.Error("Failed to create transaction", zap.Error(err))

@@ -438,7 +438,7 @@ func campaignJoinPredicate(campaignAlias, landingAlias string) string {
 }
 
 func transactionCampaignPredicate(campaignAlias, txAlias string) string {
-	return fmt.Sprintf("%s.slug = %s.campaign_slug AND (%s.tenant_id IS NULL OR %s.tenant_id = %s.tenant_id)", campaignAlias, txAlias, campaignAlias, campaignAlias, txAlias)
+	return fmt.Sprintf("%s.slug = %s.campaign_slug AND %s.tenant_id = %s.tenant_id", campaignAlias, txAlias, campaignAlias, txAlias)
 }
 
 func joinConditions(conditions []string, sep string) string {
