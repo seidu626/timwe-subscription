@@ -29,6 +29,10 @@ func (s *serviceRepoStub) TenantIDByKey(_ context.Context, tenantKey string) (st
 	return strings.TrimSpace(tenantKey), nil
 }
 
+func (s *serviceRepoStub) ChannelIDByKeys(_ context.Context, tenantID, channelKey string) (string, error) {
+	return strings.TrimSpace(channelKey) + "-uuid", nil
+}
+
 func TestGetNotifications_DefaultPaginationAndErrorContext(t *testing.T) {
 	rootErr := errors.New("db offline")
 	stub := &serviceRepoStub{

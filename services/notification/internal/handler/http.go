@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -177,18 +178,36 @@ func (h *NotificationHandler) resolveNotificationTenant(ctx *fasthttp.RequestCtx
 	}
 
 	// --- 3. tenant_key / X-Tenant-Key partner-callback path ---
-	tenantKeyHeader := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderTenantKey)))
+	// Route through ResolveKeyPair to preserve header-vs-query conflict detection
+	// and the GatewayTrusted gate.
 	tenantKeyQuery := strings.TrimSpace(firstQuery(ctx, "tenant_key", "tenantKey"))
-	tenantKey := firstNonBlank(tenantKeyHeader, tenantKeyQuery)
-
-	// Also check channel context for detection purposes.
-	channelKeyHeader := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderChannelKey)))
 	channelKeyQuery := strings.TrimSpace(firstQuery(ctx, "channel_key", "channelKey"))
-	channelKey := firstNonBlank(channelKeyHeader, channelKeyQuery)
-	channelGiven := channelKey != ""
+
+	// Only enter the tenant_key branch if either the header or query param is present.
+	hTenantKey := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderTenantKey)))
+	hChannelKey := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderChannelKey)))
+	if hTenantKey == "" && tenantKeyQuery == "" && hChannelKey == "" && channelKeyQuery == "" {
+		// No tenant context of any kind supplied → legacy behaviour, caller proceeds with nil tenant.
+		return tenantResolution{}
+	}
+
+	pair, err := tenantctx.ResolveKeyPair(
+		fasthttpHeaderGetter{ctx: ctx},
+		tenantctx.KeyPair{TenantKey: tenantKeyQuery, ChannelKey: channelKeyQuery},
+		tenantctx.ResolveKeyPairOptions{GatewayTrusted: false},
+	)
+	if err != nil {
+		if errors.Is(err, tenantctx.ErrTenantKeyConflict) {
+			return tenantResolution{ContextGiven: true, Invalid: true, Reason: "TENANT_KEY_CONFLICT"}
+		}
+		// GatewayTrusted refusal or other resolver error → unknown context.
+		return tenantResolution{ContextGiven: true, Invalid: true, Reason: "UNKNOWN_TENANT"}
+	}
+	tenantKey := pair.TenantKey
+	channelKey := pair.ChannelKey
 
 	if tenantKey == "" {
-		// No tenant context of any kind supplied → legacy behaviour, caller proceeds with nil tenant.
+		// No tenant key after resolution → legacy behaviour.
 		return tenantResolution{}
 	}
 
@@ -203,15 +222,16 @@ func (h *NotificationHandler) resolveNotificationTenant(ctx *fasthttp.RequestCtx
 	}
 
 	// Tenant resolved → channel_key must also be present.
+	channelGiven := channelKey != ""
 	if !channelGiven {
 		return tenantResolution{ContextGiven: true, Invalid: true, Reason: "CHANNEL_REQUIRED"}
 	}
 
-	// Resolve channel ID from the existing helper (supports X-Tenant-Channel-Id / X-Channel-Id / channel_id).
-	channelID := channelIDFromRequest(ctx)
-	if channelID == "" {
-		// Fallback: use the raw channel key as the ID (gateway may forward the key directly).
-		channelID = channelKey
+	// Resolve channel_key → UUID via the repository. A slug is NOT a valid UUID.
+	channelID, err := h.service.ChannelIDByKeys(context.Background(), tenantID, channelKey)
+	if err != nil || channelID == "" {
+		log.Printf("failed to resolve channel key %q for tenant %q: %v", channelKey, tenantID, err)
+		return tenantResolution{ContextGiven: true, ChannelGiven: true, Invalid: true, Reason: "UNKNOWN_CHANNEL"}
 	}
 
 	return tenantResolution{
@@ -298,7 +318,11 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 		human := humanTenantReason(res.Reason)
 		body := fmt.Sprintf(`{"message":%s,"code":%s,"inError":"true"}`,
 			jsonString(human), jsonString(res.Reason))
-		ctx.Error(body, fasthttp.StatusBadRequest)
+		status := fasthttp.StatusBadRequest
+		if res.Reason == "TENANT_KEY_CONFLICT" {
+			status = fasthttp.StatusConflict
+		}
+		ctx.Error(body, status)
 		return
 	}
 
@@ -343,6 +367,10 @@ func humanTenantReason(code string) string {
 		return "tenant key does not resolve to a known tenant"
 	case "CHANNEL_REQUIRED":
 		return "channel_key is required when tenant_key is supplied"
+	case "UNKNOWN_CHANNEL":
+		return "channel_key does not resolve to a known channel for this tenant"
+	case "TENANT_KEY_CONFLICT":
+		return "tenant key conflict: header and query parameter disagree"
 	default:
 		return "invalid tenant context"
 	}

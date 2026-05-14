@@ -15,12 +15,13 @@ import (
 )
 
 type handlerRepoStub struct {
-	fetchResp      *domain.ListResponse
-	fetchErr       error
-	fetchTenantID  string
-	fetchChannelID string
-	tenantIDByKey  map[string]string
-	saved          *domain.NotificationRequest
+	fetchResp       *domain.ListResponse
+	fetchErr        error
+	fetchTenantID   string
+	fetchChannelID  string
+	tenantIDByKey   map[string]string
+	channelIDByKeys map[string]string // keyed by tenantID + "|" + channelKey
+	saved           *domain.NotificationRequest
 }
 
 func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
@@ -47,6 +48,16 @@ func (h *handlerRepoStub) TenantIDByKey(_ context.Context, tenantKey string) (st
 		}
 	}
 	return "", errors.New("tenant not found")
+}
+
+func (h *handlerRepoStub) ChannelIDByKeys(_ context.Context, tenantID, channelKey string) (string, error) {
+	if h.channelIDByKeys != nil {
+		key := strings.TrimSpace(tenantID) + "|" + strings.TrimSpace(channelKey)
+		if channelID := h.channelIDByKeys[key]; channelID != "" {
+			return channelID, nil
+		}
+	}
+	return "", errors.New("tenant channel not found")
 }
 
 func TestListNotifications_ReturnsInternalServerError(t *testing.T) {
@@ -226,36 +237,50 @@ func TestNotificationInboundPersistsTenantChannelContext(t *testing.T) {
 func TestHandleNotification_TenantEnforcement(t *testing.T) {
 	const (
 		careerifyTenantID  = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-		careerifyChannelID = "channel-web-gh-airteltigo"
+		careerifyChannelID = "00000000-0000-0000-0000-000000000001"
 	)
 
 	type testCase struct {
-		name           string
-		uri            string
-		headers        map[string]string
-		tenantIDByKey  map[string]string
-		wantStatus     int
-		wantBodySubstr string
-		wantTenantID   *string // nil means expect nil; non-nil means expect this value
-		wantChannelID  *string // nil means expect nil
+		name            string
+		uri             string
+		headers         map[string]string
+		tenantIDByKey   map[string]string
+		channelIDByKeys map[string]string // keyed by tenantID + "|" + channelKey
+		wantStatus      int
+		wantBodySubstr  string
+		wantTenantID    *string // nil means expect nil; non-nil means expect this value
+		wantChannelID   *string // nil means expect nil
 	}
 
 	ptr := func(s string) *string { return &s }
 
 	cases := []testCase{
 		{
-			name: "(a) tenant_key resolves + channel_key supplied",
+			// KrakenD injects both headers and query params with the same values;
+			// this case mirrors the real gateway path.
+			name: "(a) tenant_key resolves + channel_key supplied (header+query, KrakenD path)",
 			uri:  "/api/v1/notification/mo/2117?tenant_key=careerify&channel_key=web-gh-airteltigo",
+			headers: map[string]string{
+				"X-Tenant-Key":  "careerify",
+				"X-Channel-Key": "web-gh-airteltigo",
+			},
 			tenantIDByKey: map[string]string{
 				"careerify": careerifyTenantID,
 			},
+			channelIDByKeys: map[string]string{
+				careerifyTenantID + "|web-gh-airteltigo": careerifyChannelID,
+			},
 			wantStatus:    fasthttp.StatusOK,
 			wantTenantID:  ptr(careerifyTenantID),
-			wantChannelID: ptr("web-gh-airteltigo"),
+			wantChannelID: ptr(careerifyChannelID),
 		},
 		{
-			name:           "(b) unknown tenant_key",
-			uri:            "/api/v1/notification/mo/2117?tenant_key=evil-tenant&channel_key=web-gh-airteltigo",
+			name: "(b) unknown tenant_key",
+			uri:  "/api/v1/notification/mo/2117?tenant_key=evil-tenant&channel_key=web-gh-airteltigo",
+			headers: map[string]string{
+				"X-Tenant-Key":  "evil-tenant",
+				"X-Channel-Key": "web-gh-airteltigo",
+			},
 			tenantIDByKey:  map[string]string{},
 			wantStatus:     fasthttp.StatusBadRequest,
 			wantBodySubstr: "UNKNOWN_TENANT",
@@ -263,6 +288,9 @@ func TestHandleNotification_TenantEnforcement(t *testing.T) {
 		{
 			name: "(c) tenant_key present, channel_key absent",
 			uri:  "/api/v1/notification/mo/2117?tenant_key=careerify",
+			headers: map[string]string{
+				"X-Tenant-Key": "careerify",
+			},
 			tenantIDByKey: map[string]string{
 				"careerify": careerifyTenantID,
 			},
@@ -288,12 +316,44 @@ func TestHandleNotification_TenantEnforcement(t *testing.T) {
 			wantTenantID:  ptr("tenant-1"),
 			wantChannelID: nil,
 		},
+		{
+			name: "(f) header-only tenant + channel",
+			uri:  "/api/v1/notification/mo/2117",
+			headers: map[string]string{
+				"X-Tenant-Key": "careerify",
+				"X-Channel-Key": "web-gh-airteltigo",
+			},
+			tenantIDByKey: map[string]string{
+				"careerify": careerifyTenantID,
+			},
+			channelIDByKeys: map[string]string{
+				careerifyTenantID + "|web-gh-airteltigo": careerifyChannelID,
+			},
+			wantStatus:    fasthttp.StatusOK,
+			wantTenantID:  ptr(careerifyTenantID),
+			wantChannelID: ptr(careerifyChannelID),
+		},
+		{
+			name: "(g) header/query conflict → 409",
+			uri:  "/api/v1/notification/mo/2117?tenant_key=evil-tenant",
+			headers: map[string]string{
+				"X-Tenant-Key": "careerify",
+			},
+			tenantIDByKey: map[string]string{
+				"careerify": careerifyTenantID,
+			},
+			wantStatus:     fasthttp.StatusConflict,
+			wantBodySubstr: "TENANT_KEY_CONFLICT",
+		},
 	}
 
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			repo := &handlerRepoStub{tenantIDByKey: tc.tenantIDByKey}
+			repo := &handlerRepoStub{
+				tenantIDByKey:   tc.tenantIDByKey,
+				channelIDByKeys: tc.channelIDByKeys,
+			}
 			svc := service.NewNotificationService(repo)
 			h := NewNotificationHandler(svc)
 

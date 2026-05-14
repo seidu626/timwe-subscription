@@ -16,6 +16,7 @@ type NotificationService struct {
 type notificationRepository interface {
 	FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error)
 	TenantIDByKey(ctx context.Context, tenantKey string) (string, error)
+	ChannelIDByKeys(ctx context.Context, tenantID, channelKey string) (string, error)
 	Save(notification *domain.NotificationRequest) error
 }
 
@@ -58,6 +59,10 @@ func (s *NotificationService) GetNotifications(filters map[string]string) (*doma
 
 func (s *NotificationService) TenantIDByKey(ctx context.Context, tenantKey string) (string, error) {
 	return s.repo.TenantIDByKey(ctx, tenantKey)
+}
+
+func (s *NotificationService) ChannelIDByKeys(ctx context.Context, tenantID, channelKey string) (string, error) {
+	return s.repo.ChannelIDByKeys(ctx, tenantID, channelKey)
 }
 
 func (s *NotificationService) ProcessNotification(notification *domain.NotificationRequest) error {

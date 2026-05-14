@@ -52,6 +52,32 @@ func (r *NotificationRepository) TenantIDByKey(ctx context.Context, tenantKey st
 	return tenantID, nil
 }
 
+// ChannelIDByKeys resolves a channel_key to its UUID for a given tenant.
+// Returns ("", ErrTenantChannelNotFound) when no active row matches.
+var ErrTenantChannelNotFound = errors.New("tenant channel not found")
+
+func (r *NotificationRepository) ChannelIDByKeys(ctx context.Context, tenantID, channelKey string) (string, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	channelKey = strings.TrimSpace(channelKey)
+	if tenantID == "" || channelKey == "" {
+		return "", fmt.Errorf("tenantID and channelKey are required")
+	}
+
+	var channelID string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id::text FROM tenant_channels
+		WHERE tenant_id = $1 AND channel_key = $2 AND status = 'ACTIVE'
+		LIMIT 1
+	`, tenantID, channelKey).Scan(&channelID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrTenantChannelNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return channelID, nil
+}
+
 // GenerateCacheKey generates a unique cache key for query filters.
 func (r *NotificationRepository) GenerateCacheKey(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, channel, notificationType string, page, pageSize int) string {
 	return fmt.Sprintf("notifications:%s:%s:%s:%s:%s:%s:%s:%s:%d:%d", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), tenantID, channelID, partnerRole, msisdn, channel, notificationType, page, pageSize)
