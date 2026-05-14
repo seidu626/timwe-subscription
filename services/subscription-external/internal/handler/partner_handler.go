@@ -264,12 +264,12 @@ type gatewayTenantLookup interface {
 	ChannelIDByKeys(tenantID, channelKey string) (string, error)
 }
 
-// tenantRouteFromGatewayHeaders resolves tenant context from KrakenD-injected
-// headers/query params (path captures: {tenant_key}/{channel_key}).
+// tenantRouteFromGatewayHeaders resolves tenant context from KrakenD-forwarded
+// query params. Public path captures are rewritten by KrakenD into backend
+// tenant_key/channel_key query params.
 //
-// GatewayTrusted is set to true because KrakenD's martian header.Modifier
-// injects both X-Tenant-Key and X-Channel-Key from path captures, establishing
-// gateway trust structurally.
+// GatewayTrusted is set to true because these partner endpoints are reachable
+// publicly through KrakenD, which owns the public path-to-backend rewrite.
 //
 // Error codes mapped by callers:
 //   - ErrTenantKeyConflict  → 409 TENANT_KEY_CONFLICT
@@ -284,15 +284,15 @@ func tenantRouteFromGatewayHeaders(
 	channelKeyQuery := strings.TrimSpace(string(ctx.QueryArgs().Peek("channel_key")))
 
 	// GatewayTrusted=true is the locked Option B design choice (see slice TMP-072
-	// spec). In production traffic, KrakenD's martian header.Modifier injects
-	// X-Tenant-Key/X-Channel-Key from the path captures alongside the query
-	// params, so requests structurally carry gateway provenance. A direct-to-
-	// service request bypassing KrakenD can supply only query params and pass
-	// this gate — that bypass is mitigated operationally by nginx network
-	// isolation (subscription-external is not directly internet-exposed) and
-	// by the downstream DB lookup that still has to resolve to a real tenant
-	// and channel. Do NOT switch to GatewayTrusted=false here without a
-	// matching change in KrakenD to forward an HMAC trust marker.
+	// spec). In production traffic, KrakenD rewrites public
+	// /{tenant_key}/{channel_key}/subscriptions routes into backend
+	// tenant_key/channel_key query params. A direct-to-service request can
+	// supply those query params and pass this gate; that bypass is mitigated
+	// operationally by nginx network isolation (subscription-external is not
+	// directly internet-exposed) and by the downstream DB lookup that still has
+	// to resolve to a real tenant and channel. Do NOT switch to
+	// GatewayTrusted=false here without a matching change in KrakenD to forward
+	// an HMAC trust marker.
 	pair, err := tenantctx.ResolveKeyPair(
 		fastHTTPHeaderGetter{ctx: ctx},
 		tenantctx.KeyPair{TenantKey: tenantKeyQuery, ChannelKey: channelKeyQuery},

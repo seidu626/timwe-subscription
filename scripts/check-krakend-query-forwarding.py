@@ -57,6 +57,44 @@ def _validate(config: dict[str, Any], config_path: Path) -> list[str]:
     return errors
 
 
+def _validate_tenant_templates(repo_root: Path) -> list[str]:
+    errors: list[str] = []
+    tenant_template = repo_root / "krakend" / "config" / "templates" / "TenantApiEndpoint.tmpl"
+    endpoint_template = repo_root / "krakend" / "config" / "templates" / "Endpoint.tmpl"
+
+    tenant_source = tenant_template.read_text(encoding="utf-8")
+    endpoint_source = endpoint_template.read_text(encoding="utf-8")
+
+    for literal in ('"value": "{tenant_key}"', '"value": "{channel_key}"'):
+        if literal in tenant_source:
+            errors.append(
+                f"{tenant_template}: tenant routing must not use static Martian header value {literal}"
+            )
+
+    if "modifier/martian" in tenant_source:
+        errors.append(
+            f"{tenant_template}: tenant routing must use KrakenD parameter forwarding, not Martian"
+        )
+
+    required_path_routes = (
+        "/api/external/v1/{tenant_key}/{channel_key}/subscriptions/optin",
+        "/api/external/v1/{tenant_key}/{channel_key}/subscriptions/confirm",
+        "/api/external/v1/{tenant_key}/{channel_key}/subscriptions/optout",
+        "/api/external/v1/{tenant_key}/{channel_key}/subscriptions/status",
+    )
+    for route in required_path_routes:
+        route_line = next(
+            (line for line in endpoint_source.splitlines() if route in line),
+            "",
+        )
+        if "TenantPathApiEndpoint" not in route_line:
+            errors.append(
+                f"{endpoint_template}: route {route} must use TenantPathApiEndpoint"
+            )
+
+    return errors
+
+
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     config_path = (
@@ -68,6 +106,7 @@ def main() -> int:
     try:
         config = _load_config(config_path)
         errors = _validate(config, config_path)
+        errors.extend(_validate_tenant_templates(repo_root))
     except RuntimeError as exc:
         print(f"ERROR: {exc}")
         return 1

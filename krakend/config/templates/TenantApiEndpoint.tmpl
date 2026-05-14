@@ -40,28 +40,55 @@
                     "allow_origins": ["*"],
                     "allow_methods": ["GET", "POST", "DELETE", "PUT"],
                     "max_age": "12h"
+                }
+            },
+            "host": ["{{ .BackendHost }}"],
+            "disable_host_sanitize": true,
+            "headers_to_pass": [
+                "external-tx-id"
+            ]
+        }
+    ]
+}
+{{ end }}
+
+{{ define "TenantPathApiEndpoint" }}
+{
+    "endpoint": "{{ .Endpoint }}",
+    "method": "{{ .METHOD }}",
+    "output_encoding": "no-op",
+    "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+            "return_error_details": true
+        }
+    },
+    "headers_to_pass": [
+        "external-tx-id"
+    ],
+    "backend": [
+        {
+            "url_pattern": "{{ .BackendUrlPattern }}?tenant_key={tenant_key}&channel_key={channel_key}",
+            "encoding": "json",
+            "sd": "static",
+            "method": "{{ .METHOD }}",
+            "extra_config": {
+                "github.com/devopsfaith/krakend/http": {
+                    "return_error_details": true
                 },
-                "modifier/martian": {
-                    "fifo.Group": {
-                        "scope": ["request"],
-                        "aggregateErrors": true,
-                        "modifiers": [
-                            {
-                                "header.Modifier": {
-                                    "scope": ["request"],
-                                    "name": "X-Tenant-Key",
-                                    "value": "{tenant_key}"
-                                }
-                            },
-                            {
-                                "header.Modifier": {
-                                    "scope": ["request"],
-                                    "name": "X-Channel-Key",
-                                    "value": "{channel_key}"
-                                }
-                            }
-                        ]
-                    }
+                "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+                    "maxRate": 10,
+                    "capacity": 20,
+                    "strategy": "token-bucket"
+                },
+                "github.com/devopsfaith/krakend/logging": {
+                    "level": "INFO",
+                    "prefix": "[API Gateway]",
+                    "stdout": true
+                },
+                "github.com/devopsfaith/krakend-cors": {
+                    "allow_origins": ["*"],
+                    "allow_methods": ["GET", "POST", "DELETE", "PUT"],
+                    "max_age": "12h"
                 }
             },
             "host": ["{{ .BackendHost }}"],

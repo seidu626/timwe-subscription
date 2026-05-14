@@ -233,7 +233,7 @@ The container built from `krakend/Dockerfile` runs `krakend run -dc /etc/krakend
 | `krakend/config/krakend.tmpl` | Top-level shell. References `service.json` settings and includes the `Endpoint` template. |
 | `krakend/config/settings/service.json` | Service-wide values: port, timeouts, upstream URLs, CORS, TLS, telemetry. |
 | `krakend/config/templates/Endpoint.tmpl` | The endpoint list — invokes per-endpoint partials. |
-| `krakend/config/templates/TenantApiEndpoint.tmpl` | **Tenant-aware partial**. Whitelists `tenant_key`/`channel_key` in `input_query_strings` and injects `X-Tenant-Key`/`X-Channel-Key` request headers via `modifier/martian` `fifo.Group` + `header.Modifier`. Used by the 6 notification MNO callbacks and the 4 external `/api/external/v1/{tenant_key}/{channel_key}/subscriptions/{op}` routes. |
+| `krakend/config/templates/TenantApiEndpoint.tmpl` | **Tenant-aware partials**. `TenantApiEndpoint` forwards notification `tenant_key`/`channel_key` query params through `input_query_strings`. `TenantPathApiEndpoint` rewrites external `/api/external/v1/{tenant_key}/{channel_key}/subscriptions/{op}` path captures into backend `tenant_key`/`channel_key` query params. |
 | `krakend/config/templates/TimweApiEndpoint.tmpl` | Legacy (non tenant-aware) partial. Still used for `/api/v1/notification/list`, internal `/admin/{op}` admin routes, and non-tenant subscription paths. |
 
 When onboarding a new tenant, update **both** the static reference (`krakend/krakend.json`) and the FC template (`krakend/config/templates/Endpoint.tmpl`) — they must agree, or smoke tests against `docker-compose up krakend` will diverge from the static-config smoke. Verify with:
@@ -249,7 +249,7 @@ docker run --rm -v "$PWD/krakend:/etc/krakend" \
   check -dc /etc/krakend/config/krakend.tmpl
 ```
 
-The check is `Syntax OK!` and the rendered JSON contains the expected endpoint set with the correct `input_query_strings` and martian header injection.
+The check is `Syntax OK!` and the rendered JSON contains the expected endpoint set with tenant query forwarding and tenant-path backend query rewrites.
 
 ## Operator Smoke Matrix
 

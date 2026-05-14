@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # krakend-subscription-tenant.sh
-# Smoke test: verify KrakenD propagates tenant_key and channel_key to the subscription-external
-# admin handlers as X-Tenant-Key / X-Channel-Key headers for all 4 tenant-path endpoints.
+# Smoke test: verify KrakenD rewrites tenant_key and channel_key path captures
+# into backend query params for all 4 tenant-path subscription endpoints.
 #
 # Usage:
 #   ./scripts/smoke/krakend-subscription-tenant.sh
@@ -101,7 +101,7 @@ echo ""
 echo "=== Results: ${PASS} PASS / ${FAIL} FAIL ==="
 
 if [[ ${FAIL} -eq 0 ]]; then
-  echo "All 4 subscription endpoints returned 2xx with tenant headers propagated."
+  echo "All 4 subscription endpoints returned 2xx with tenant path context forwarded."
   exit 0
 else
   echo "FAILED endpoints: ${FAIL_LIST[*]}"

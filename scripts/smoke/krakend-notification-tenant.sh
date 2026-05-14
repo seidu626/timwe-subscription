@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # krakend-notification-tenant.sh
-# Smoke test: verify KrakenD propagates tenant_key and channel_key to the notification
-# service as X-Tenant-Key / X-Channel-Key headers for all 6 notification callback endpoints.
+# Smoke test: verify KrakenD forwards tenant_key and channel_key query params
+# to the notification service for all 6 notification callback endpoints.
 #
 # Usage:
 #   ./scripts/smoke/krakend-notification-tenant.sh
@@ -132,7 +132,7 @@ echo ""
 echo "=== Results: ${PASS} PASS / ${FAIL} FAIL ==="
 
 if [[ ${FAIL} -eq 0 ]]; then
-  echo "All 6 notification endpoints returned 2xx with tenant headers propagated."
+  echo "All 6 notification endpoints returned 2xx with tenant query params forwarded."
   exit 0
 else
   echo "FAILED endpoints: ${FAIL_LIST[*]}"
