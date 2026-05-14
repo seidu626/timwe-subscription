@@ -876,7 +876,7 @@ docker-build-notification:
 .PHONY: docker-build-acquisition-api
 docker-build-acquisition-api:
 	@echo "🐳 Building Acquisition API image..."
-	docker build -t $(ACQUISITION_API_IMAGE):$(VERSION) $(ACQUISITION_API_DIR)
+	docker build -f $(ACQUISITION_API_DIR)/Dockerfile -t $(ACQUISITION_API_IMAGE):$(VERSION) .
 	@echo "✅ Acquisition API image built: $(ACQUISITION_API_IMAGE):$(VERSION)"
 
 .PHONY: docker-build-postback-dispatcher
