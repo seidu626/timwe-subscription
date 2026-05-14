@@ -34,7 +34,6 @@
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/optout/{partnerRole}"         "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription/optout/{partnerRole}"        "BackendHost" $service.subscription_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/status/{partnerRole}"         "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription/status/{partnerRole}"        "BackendHost" $service.subscription_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/webhooks/timwe/notification"               "METHOD" "POST" "BackendUrlPattern" "/api/v1/webhooks/timwe/notification"              "BackendHost" $service.subscription_api_url) }},
-{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/external/v1/{channel}/mt"                      "METHOD" "POST" "BackendUrlPattern" "/api/external/v1/{channel}/mt"                     "BackendHost" $service.subscription_external_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/external/v1/subscription/optin/confirm"       "METHOD" "POST" "BackendUrlPattern" "/api/external/v1/subscription/optin/confirm"      "BackendHost" $service.subscription_external_api_url) }},
 
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/products/list"                             "METHOD" "GET" "BackendUrlPattern" "/api/v1/products/list"                             "BackendHost" $service.subscription_api_url) }},
