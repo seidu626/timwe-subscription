@@ -1,11 +1,35 @@
-<mat-toolbar color="primary">Cadence Management</mat-toolbar>
+<section class="cadence-page">
+  <section class="cadence-hero">
+    <div>
+      <p class="eyebrow">Cadence operations</p>
+      <h1>Cadence studio</h1>
+      <p class="subtitle">Create message series, govern schedule rules, and publish tenant-scoped content versions.</p>
+    </div>
+    <div class="cadence-hero-meta">
+      <span>{{ series.length }} series</span>
+      <span>{{ selectedSeries ? 'Series selected' : 'Select a series' }}</span>
+    </div>
+  </section>
 
-<div class="cadence-container">
-  <mat-card class="mb-3">
+  <mat-card class="cadence-card cadence-control-card">
     <mat-card-content>
+      <div class="control-heading">
+        <div>
+          <p class="eyebrow">Workspace control</p>
+          <h2>{{ selectedSeries?.name || 'Series command' }}</h2>
+        </div>
+        <button mat-stroked-button color="primary" (click)="loadSeries()" [disabled]="loading">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+      </div>
+
       <div *ngIf="error" class="error-alert">
         <mat-icon>error_outline</mat-icon>
-        <span>{{ error }}</span>
+        <div>
+          <strong>Cadence data unavailable</strong>
+          <span>{{ error }}</span>
+        </div>
       </div>
 
       <div class="series-row">
@@ -19,17 +43,23 @@
           </mat-select>
         </mat-form-field>
 
-        <button mat-stroked-button color="primary" (click)="loadSeries()" [disabled]="loading">
-          <mat-icon>refresh</mat-icon>
-          Refresh
-        </button>
+        <div class="series-summary">
+          <span>{{ selectedSeries?.mode || 'Mode pending' }}</span>
+          <span>Version {{ selectedSeries?.content_version || '-' }}</span>
+        </div>
       </div>
     </mat-card-content>
   </mat-card>
 
-  <mat-tab-group>
+  <mat-tab-group class="cadence-tabs">
     <mat-tab label="Create Series">
-      <mat-card>
+      <mat-card class="cadence-card">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">Series setup</p>
+            <mat-card-title>Create or update a cadence series</mat-card-title>
+          </div>
+        </div>
         <mat-card-content>
           <form [formGroup]="createSeriesForm" class="form-grid">
             <mat-form-field appearance="outline">
@@ -67,7 +97,13 @@
     </mat-tab>
 
     <mat-tab label="Schedule Rule" [disabled]="!selectedSeriesId">
-      <mat-card>
+      <mat-card class="cadence-card">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">Delivery rule</p>
+            <mat-card-title>Schedule and throttling controls</mat-card-title>
+          </div>
+        </div>
         <mat-card-content>
           <form [formGroup]="ruleForm" class="form-grid">
             <mat-form-field appearance="outline">
@@ -135,7 +171,13 @@
     </mat-tab>
 
     <mat-tab label="Content" [disabled]="!selectedSeriesId">
-      <mat-card>
+      <mat-card class="cadence-card">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">Message library</p>
+            <mat-card-title>Content items</mat-card-title>
+          </div>
+        </div>
         <mat-card-content>
           <form [formGroup]="contentForm" class="form-grid">
             <mat-form-field appearance="outline">
@@ -200,7 +242,13 @@
     </mat-tab>
 
     <mat-tab label="CSV Import">
-      <mat-card>
+      <mat-card class="cadence-card">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">Bulk content</p>
+            <mat-card-title>CSV import</mat-card-title>
+          </div>
+        </div>
         <mat-card-content>
           <div class="import-row">
             <input type="file" accept=".csv,text/csv" (change)="onFilePicked($event)" />
@@ -221,7 +269,13 @@
     </mat-tab>
 
     <mat-tab label="Publish Version" [disabled]="!selectedSeriesId">
-      <mat-card>
+      <mat-card class="cadence-card">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">Release control</p>
+            <mat-card-title>Publish active version</mat-card-title>
+          </div>
+        </div>
         <mat-card-content>
           <p class="publish-info">
             Current active content version for <strong>{{ selectedSeries?.name }}</strong>:
@@ -257,5 +311,4 @@
       </mat-card>
     </mat-tab>
   </mat-tab-group>
-</div>
-
+</section>

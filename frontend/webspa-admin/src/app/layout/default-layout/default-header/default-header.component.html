@@ -9,6 +9,12 @@
         <c-nav-item>
           <a cNavLink routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
         </c-nav-item>
+        <c-nav-item>
+          <a cNavLink routerLink="/reports" routerLinkActive="active">Reports</a>
+        </c-nav-item>
+        <c-nav-item>
+          <a cNavLink routerLink="/tenants" routerLinkActive="active">Tenants</a>
+        </c-nav-item>
       </c-header-nav>
 
       <c-header-nav class="d-none d-md-flex admin-header-nav ms-2">
@@ -16,8 +22,7 @@
           @if (workspace.currentTenant) {
             <c-dropdown alignment="end" variant="nav-item">
               <button [caret]="workspace.canSwitchTenant" cDropdownToggle class="tenant-workspace-chip" aria-label="Open tenant workspace menu">
-                <span class="tenant-workspace-chip-label">Workspace</span>
-                <span class="tenant-workspace-chip-value">{{ workspace.currentTenant.label }}</span>
+                <span class="tenant-workspace-chip-text">Workspace: {{ tenantDisplayName(workspace.currentTenant) }}</span>
                 @if (workspace.canSwitchTenant) {
                   <svg cIcon class="tenant-workspace-chip-caret" name="cilArrowBottom" size="sm"></svg>
                 }
@@ -25,16 +30,20 @@
               <div cDropdownMenu class="tenant-workspace-menu">
                 <h6 cDropdownHeader class="tenant-workspace-menu-title">Current tenant</h6>
                 <div cDropdownItem class="tenant-workspace-current">
-                  <span>{{ workspace.currentTenant.label }}</span>
-                  <small>{{ workspace.currentTenant.tenantKey }}</small>
+                  <span class="tenant-workspace-primary">{{ tenantDisplayName(workspace.currentTenant) }}</span>
+                  @if (tenantSecondaryText(workspace.currentTenant); as tenantMeta) {
+                    <small class="tenant-workspace-secondary">{{ tenantMeta }}</small>
+                  }
                 </div>
                 @if (workspace.canSwitchTenant) {
                   <hr cDropdownDivider />
                   <h6 cDropdownHeader class="tenant-workspace-menu-title">Switch tenant</h6>
                   @for (tenant of workspace.availableTenants; track tenant.identifier) {
                     <button cDropdownItem type="button" class="tenant-workspace-option" (click)="selectTenant(tenant)">
-                      <span>{{ tenant.label }}</span>
-                      <small>{{ tenant.tenantKey }}</small>
+                      <span class="tenant-workspace-primary">{{ tenantDisplayName(tenant) }}</span>
+                      @if (tenantSecondaryText(tenant); as tenantMeta) {
+                        <small class="tenant-workspace-secondary">{{ tenantMeta }}</small>
+                      }
                     </button>
                   }
                 }
@@ -42,9 +51,8 @@
             </c-dropdown>
           } @else {
             <a cNavLink routerLink="/403" class="tenant-workspace-chip tenant-workspace-chip-missing">
-              <span class="tenant-workspace-chip-label">Workspace</span>
-              <span class="tenant-workspace-chip-value">
-                {{ workspace.status === 'selection-required' ? 'Select tenant' : 'No tenant' }}
+              <span class="tenant-workspace-chip-text">
+                Workspace: {{ workspace.status === 'selection-required' ? 'Select tenant' : 'No tenant' }}
               </span>
             </a>
           }

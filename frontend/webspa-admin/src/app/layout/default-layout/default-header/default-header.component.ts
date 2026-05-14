@@ -103,6 +103,21 @@ export class DefaultHeaderComponent extends HeaderComponent {
     void this.#router.navigate(['/dashboard']);
   }
 
+  tenantDisplayName(tenant: TenantWorkspaceOption): string {
+    return tenant.label?.trim() || tenant.tenantKey || tenant.identifier;
+  }
+
+  tenantSecondaryText(tenant: TenantWorkspaceOption): string | null {
+    const tenantKey = tenant.tenantKey?.trim();
+    const displayName = this.tenantDisplayName(tenant).trim();
+
+    if (!tenantKey || tenantKey.toLowerCase() === displayName.toLowerCase()) {
+      return null;
+    }
+
+    return `Key: ${tenantKey}`;
+  }
+
   @Input() sidebarId: string = 'sidebar1';
 
 }

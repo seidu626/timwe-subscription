@@ -15,6 +15,9 @@
   --admin-primary-light: #6366f1;
   --admin-primary-dark: #3730a3;
   --admin-primary-rgb: 79, 70, 229;
+  --admin-accent: #14b8a6;
+  --admin-accent-dark: #0f766e;
+  --admin-accent-rgb: 20, 184, 166;
 
   // Secondary palette
   --admin-secondary: #64748b;
@@ -50,6 +53,7 @@
   --admin-border: var(--admin-gray-200);
   --admin-text: var(--admin-gray-800);
   --admin-text-muted: var(--admin-gray-500);
+  --admin-ink: #132238;
 
   // Shadows
   --admin-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -86,8 +90,10 @@
 // SIDEBAR STYLING
 // ============================================
 .admin-sidebar {
-  background: linear-gradient(180deg, var(--admin-gray-900) 0%, var(--admin-gray-800) 100%) !important;
-  border-right: 1px solid var(--admin-gray-700) !important;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(var(--admin-accent-rgb), 0.16), transparent 24%),
+    linear-gradient(180deg, #132238 0%, #172033 48%, #101827 100%) !important;
+  border-right: 1px solid rgba(148, 163, 184, 0.16) !important;
 
   .sidebar-header-custom {
     background: transparent !important;
@@ -112,13 +118,13 @@
 
     &:hover {
       color: var(--admin-gray-100) !important;
-      background: rgba(var(--admin-primary-rgb), 0.15) !important;
+      background: rgba(var(--admin-accent-rgb), 0.12) !important;
     }
 
     &.active {
       color: #fff !important;
-      background: var(--admin-primary) !important;
-      box-shadow: var(--admin-shadow);
+      background: linear-gradient(90deg, var(--admin-accent-dark), var(--admin-primary)) !important;
+      box-shadow: 0 12px 24px -20px rgba(var(--admin-accent-rgb), 0.9);
     }
   }
 

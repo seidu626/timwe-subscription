@@ -1,9 +1,24 @@
 <div class="tenant-page">
-  <h2>Tenants</h2>
-  <p class="subtitle">Tenant catalog records and lifecycle state.</p>
+  <section class="tenant-hero">
+    <div>
+      <p class="eyebrow">Tenant operations</p>
+      <h1>Tenant catalog</h1>
+      <p class="subtitle">Catalog records, workspace membership, and lifecycle state.</p>
+    </div>
+    <div class="tenant-hero-meta">
+      <span>{{ totalCount || dataSource.data.length }} records</span>
+      <span>{{ editingTenantId ? 'Editing tenant' : 'Create mode' }}</span>
+    </div>
+  </section>
 
-  <mat-card class="card">
-    <mat-card-title>{{ editingTenantId ? 'Edit Tenant' : 'Create Tenant' }}</mat-card-title>
+  <mat-card class="card tenant-editor-card">
+    <div class="card-heading">
+      <div>
+        <p class="eyebrow">{{ editingTenantId ? 'Selected tenant' : 'New tenant' }}</p>
+        <mat-card-title>{{ editingTenantId ? 'Edit Tenant' : 'Create Tenant' }}</mat-card-title>
+      </div>
+      <span class="mode-pill" [class.editing]="editingTenantId">{{ editingTenantId ? 'Edit' : 'Create' }}</span>
+    </div>
     <mat-card-content>
       <div class="row">
         <mat-form-field appearance="outline">
@@ -32,15 +47,20 @@
       </mat-form-field>
       <div class="actions">
         <button mat-raised-button color="primary" (click)="saveTenant()" [disabled]="saving">
-          {{ editingTenantId ? 'Update' : 'Create' }}
+          {{ saving ? 'Saving...' : (editingTenantId ? 'Update Tenant' : 'Create Tenant') }}
         </button>
         <button mat-stroked-button (click)="resetForm()" [disabled]="saving">
-          Clear
+          {{ editingTenantId ? 'Exit Edit' : 'Clear' }}
         </button>
       </div>
 
       <section *ngIf="editingTenantId" class="tenant-members">
-        <h3>Tenant Members</h3>
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Access control</p>
+            <h3>Tenant members</h3>
+          </div>
+        </div>
         <div class="row">
           <mat-form-field appearance="outline">
             <mat-label>Auth0 Subject</mat-label>
@@ -65,14 +85,15 @@
         </div>
         <div class="actions">
           <button mat-raised-button color="primary" (click)="saveMember()" [disabled]="memberSaving">
-            Add / Update Member
+            {{ memberSaving ? 'Saving member...' : 'Add / Update Member' }}
           </button>
         </div>
 
         <div *ngIf="memberLoading" class="loading">
           <mat-spinner diameter="28"></mat-spinner>
         </div>
-        <table *ngIf="!memberLoading" mat-table [dataSource]="memberDataSource" class="member-table mat-elevation-z1">
+        <div class="table-shell member-table-shell" *ngIf="!memberLoading">
+        <table mat-table [dataSource]="memberDataSource" class="member-table">
           <ng-container matColumnDef="auth0_subject">
             <th mat-header-cell *matHeaderCellDef>Auth0 Subject</th>
             <td mat-cell *matCellDef="let row">{{ row.auth0_subject }}</td>
@@ -106,17 +127,23 @@
           <tr mat-header-row *matHeaderRowDef="memberDisplayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: memberDisplayedColumns"></tr>
         </table>
+        </div>
       </section>
     </mat-card-content>
   </mat-card>
 
-  <mat-card class="card">
-    <mat-card-title>Tenant Catalog</mat-card-title>
+  <mat-card class="card tenant-catalog-card">
+    <div class="card-heading">
+      <div>
+        <p class="eyebrow">Workspace source of truth</p>
+        <mat-card-title>Tenant Catalog</mat-card-title>
+      </div>
+    </div>
     <mat-card-content>
       <div class="row filters">
         <mat-form-field appearance="outline">
-          <mat-label>Search</mat-label>
-          <input matInput [(ngModel)]="filters.q" placeholder="Tenant key or name" />
+          <mat-label>Tenant key or name</mat-label>
+          <input matInput [(ngModel)]="filters.q" />
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Status</mat-label>
@@ -137,11 +164,12 @@
       </div>
 
       <div *ngIf="!loading">
-        <table mat-table [dataSource]="dataSource" class="mat-elevation-z2">
+        <div class="table-shell">
+        <table mat-table [dataSource]="dataSource">
           <ng-container matColumnDef="tenant_key">
             <th mat-header-cell *matHeaderCellDef>Tenant Key</th>
             <td mat-cell *matCellDef="let row">
-              <strong>{{ row.tenant_key }}</strong>
+              <strong class="tenant-key">{{ row.tenant_key }}</strong>
               <span class="metadata">{{ metadataPreview(row) }}</span>
             </td>
           </ng-container>
@@ -180,6 +208,7 @@
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
         </table>
+        </div>
 
         <mat-paginator
           [length]="totalCount"

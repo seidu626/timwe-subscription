@@ -21,9 +21,11 @@
 
 // Main sidebar container
 .admin-sidebar {
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
-  border-right: 1px solid rgba(51, 65, 85, 0.5) !important;
-  box-shadow: 4px 0 6px -1px rgba(0, 0, 0, 0.1);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(20, 184, 166, 0.16), transparent 24%),
+    linear-gradient(180deg, #132238 0%, #172033 48%, #101827 100%) !important;
+  border-right: 1px solid rgba(148, 163, 184, 0.16) !important;
+  box-shadow: 12px 0 38px -34px rgba(15, 23, 42, 0.9);
 
   // Sidebar header with logo
   .sidebar-header-custom {
@@ -85,17 +87,17 @@
 
       &:hover {
         color: #f1f5f9 !important;
-        background: rgba(79, 70, 229, 0.15) !important;
+        background: rgba(20, 184, 166, 0.12) !important;
 
         .nav-icon {
-          color: #818cf8 !important;
+          color: #5eead4 !important;
         }
       }
 
       &.active {
         color: #ffffff !important;
-        background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%) !important;
-        box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3), 0 2px 4px -2px rgba(79, 70, 229, 0.2);
+        background: linear-gradient(90deg, #0f766e 0%, #4f46e5 100%) !important;
+        box-shadow: 0 10px 24px -18px rgba(20, 184, 166, 0.9);
 
         .nav-icon {
           color: #ffffff !important;
@@ -169,8 +171,9 @@
 .body {
   padding: 1rem 0 2rem;
   background:
-    radial-gradient(circle at top, rgba(99, 102, 241, 0.08), transparent 28%),
-    linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(241, 245, 249, 0.65));
+    radial-gradient(circle at 12% 0%, rgba(20, 184, 166, 0.12), transparent 25%),
+    radial-gradient(circle at 90% 6%, rgba(245, 158, 11, 0.1), transparent 22%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.7));
 }
 
 .admin-page-container {
@@ -180,7 +183,8 @@
 :host-context([data-coreui-theme='dark']) {
   .body {
     background:
-      radial-gradient(circle at top, rgba(79, 70, 229, 0.16), transparent 24%),
+      radial-gradient(circle at 12% 0%, rgba(20, 184, 166, 0.14), transparent 24%),
+      radial-gradient(circle at 90% 6%, rgba(245, 158, 11, 0.09), transparent 22%),
       linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.98));
   }
 }
