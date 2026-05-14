@@ -488,7 +488,7 @@ func main() {
 	userBaseSvc := service.NewUserBaseService(logger, userBaseRepo, cfg)
 	subscriptionHandler := handler.NewSubscriptionHandler(logger, svc, cfg)
 	userBaseHandler := handler.NewUserBaseHandler(logger, userBaseSvc, cfg)
-	partnerHandler := handler.NewPartnerHandler(logger, svc, cfg)
+	partnerHandler := handler.NewPartnerHandler(logger, svc, cfg).WithTenantRepo(repo)
 
 	// Initialize monitoring and worker components
 	monitor := monitoring.NewChargingFailureMonitor(logger)

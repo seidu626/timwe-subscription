@@ -46,7 +46,7 @@ echo ""
 
 # ---------------------------------------------------------------------------
 # Case A: Conflict — X-Tenant-Key header disagrees with ?tenant_key query param
-# Precedence rule 3: header and query disagree -> 409 TENANT_CONTEXT_REQUIRED
+# Precedence rule 3: header and query disagree -> 409 TENANT_KEY_CONFLICT
 # Route: subscription endpoint so the header is inspected by the resolver
 # ---------------------------------------------------------------------------
 CASE_A_NAME="A) header/query conflict (tenant key mismatch)"
