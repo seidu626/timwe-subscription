@@ -102,3 +102,5 @@
 {"created_at": "2026-05-11T22:52:51.929621+00:00", "id": "31ba5cea-8ebd-4a39-a39b-e5ec0e125a70", "payload": {"task_count": 44}, "type": "ROUND_SNAPSHOT"}
 {"created_at": "2026-05-11T22:52:51.932379+00:00", "id": "58ba735a-f852-43b4-81d7-e7760881d09b", "payload": {"reason": "task_not_ready", "status": "blocked", "task_id": "TMP-055"}, "type": "PINNED_TASK_UNAVAILABLE"}
 {"created_at": "2026-05-11T22:52:51.932453+00:00", "id": "1cff791c-1e9d-41a6-bd69-dd7fa51ee047", "payload": {"reason": "No ready tasks", "task_id": "TMP-055"}, "type": "ROUND_SKIPPED"}
+{"ts":"2026-05-13T20:36:50Z","kind":"dispatch_monitor_alert","run_id":"slice-TMP-069-build-2026-05-13T2025Z","signal":"stall","last_event":"phase=write-tests ts=2026-05-13T20:31:11Z","stale_seconds":339}
+{"ts":"2026-05-13T20:36:50Z","kind":"dispatch_monitor_alert","run_id":"slice-TMP-067-build-2026-05-13T2025Z","signal":"stall","last_event":"2026-05-13T20:30:52Z phase=done","stale_seconds":358}
