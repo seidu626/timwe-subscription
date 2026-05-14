@@ -2,7 +2,7 @@
   "version": 1,
   "roadmap": "tenant-multichannel-platform",
   "generated_at": "2026-05-08T01:50:00Z",
-  "current_slice": "TMP-072",
+  "current_slice": null,
   "source_domain_brief": "slices/TMP-000-domain-grounding/domain-brief.md",
   "supporting_documents": [
     "slices/README.md",
@@ -2163,9 +2163,14 @@
         "tests",
         "evidence"
       ],
-      "state": "specced",
+      "state": "shipped",
       "spec_decision": "Option B — partner handlers without trusted-service auth (locked 2026-05-14)",
       "branch": null,
+      "shipped_at": "2026-05-14T03:50:00Z",
+      "ship_commits": [
+        "14720cd",
+        "7e28426"
+      ],
       "created_at": "2026-05-14T00:00:00Z",
       "verification": {
         "automated": [
@@ -2212,5 +2217,5 @@
       "notes": "Follow-up from TMP-070 smoke: krakend.json edits are not in krakend/config/templates/. Production runtime path uses FC; static-config edits do not reach it."
     }
   ],
-  "updated_at": "2026-05-14T03:30:00Z"
+  "updated_at": "2026-05-14T03:50:00Z"
 }
