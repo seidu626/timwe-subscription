@@ -20,8 +20,9 @@ func NewRouter(
 	adminManagementHandler *handler.AdminManagementHandler,
 	clickOutHandler *handler.ClickOutHandler,
 	heBootstrapHandler *handler.HEBootstrapHandler,
+	memberTenantLookup MemberTenantLookup,
 ) fasthttp.RequestHandler {
-	admin := newAdminAccess()
+	admin := newAdminAccess(memberTenantLookup)
 
 	router := func(ctx *fasthttp.RequestCtx) {
 		path := string(ctx.Path())

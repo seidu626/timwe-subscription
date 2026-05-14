@@ -11,14 +11,27 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// MemberTenant is a minimal active-membership record used to stamp tenant
+// context for non-platform admins whose JWT carries no tenant claim.
+type MemberTenant struct {
+	ID        string
+	TenantKey string
+}
+
+// MemberTenantLookup returns the active tenant memberships for an Auth0
+// subject and email. The membership table is the source of truth — the
+// gate never trusts a tenant header for non-platform identities.
+type MemberTenantLookup func(auth0Subject, email string) ([]MemberTenant, error)
+
 type adminAccess struct {
 	validator                 *auth0jwt.Validator
 	allowedOrigins            []string
 	bootstrapPlatformEmails   map[string]struct{}
 	bootstrapPlatformSubjects map[string]struct{}
+	memberLookup              MemberTenantLookup
 }
 
-func newAdminAccess() *adminAccess {
+func newAdminAccess(memberLookup MemberTenantLookup) *adminAccess {
 	domain := os.Getenv("ADMIN_AUTH0_DOMAIN")
 	audience := os.Getenv("ADMIN_AUTH0_AUDIENCE")
 
@@ -49,6 +62,7 @@ func newAdminAccess() *adminAccess {
 		allowedOrigins:            allowed,
 		bootstrapPlatformEmails:   bootstrapPlatformEmailSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_EMAILS")),
 		bootstrapPlatformSubjects: bootstrapPlatformSubjectSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS")),
+		memberLookup:              memberLookup,
 	}
 }
 
@@ -106,9 +120,54 @@ func (a *adminAccess) require(ctx *fasthttp.RequestCtx) bool {
 	}
 	identity := claims.Identity()
 	identity = a.applyBootstrapPlatformScope(identity)
+	identity = a.applyMembershipTenantContext(ctx, identity)
 	identity = a.applySelectedTenantContext(ctx, identity)
 	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, identity)
 	return true
+}
+
+// applyMembershipTenantContext stamps Identity.TenantID/TenantKey from the
+// active-membership table when a non-platform identity arrives without a
+// tenant claim. Single membership is auto-stamped; multiple memberships
+// require the request's X-Tenant-Key header to match one of them, which
+// the membership table validates — the header itself is never trusted.
+func (a *adminAccess) applyMembershipTenantContext(ctx *fasthttp.RequestCtx, identity tenantctx.Identity) tenantctx.Identity {
+	if identity.PlatformScoped || identity.HasTenant() || a.memberLookup == nil {
+		return identity
+	}
+	subject := strings.TrimSpace(identity.Subject)
+	email := strings.TrimSpace(strings.ToLower(identity.Email))
+	if identity.EmailVerifiedSet && !identity.EmailVerified {
+		email = ""
+	}
+	if subject == "" && email == "" {
+		return identity
+	}
+	memberships, err := a.memberLookup(subject, email)
+	if err != nil {
+		log.Printf("admin tenant resolution failed (acquisition-api): subject=%s err=%v", subject, err)
+		return identity
+	}
+	if len(memberships) == 0 {
+		return identity
+	}
+	if len(memberships) == 1 {
+		identity.TenantID = memberships[0].ID
+		identity.TenantKey = memberships[0].TenantKey
+		return identity
+	}
+	selected := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderTenantKey)))
+	if selected == "" {
+		return identity
+	}
+	for _, m := range memberships {
+		if strings.EqualFold(m.TenantKey, selected) {
+			identity.TenantID = m.ID
+			identity.TenantKey = m.TenantKey
+			return identity
+		}
+	}
+	return identity
 }
 
 func (a *adminAccess) applyBootstrapPlatformScope(identity tenantctx.Identity) tenantctx.Identity {

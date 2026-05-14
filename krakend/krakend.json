@@ -1553,10 +1553,14 @@
         }
       },
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Tenant-Id"
       ],
       "headers_to_pass": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Tenant-Id"
       ],
       "backend": [
         {
@@ -1569,7 +1573,9 @@
           ],
           "disable_host_sanitize": true,
           "headers_to_pass": [
-            "Authorization"
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Tenant-Id"
           ]
         }
       ]
@@ -1591,10 +1597,14 @@
         }
       },
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Tenant-Id"
       ],
       "headers_to_pass": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Tenant-Id"
       ],
       "backend": [
         {
@@ -1607,7 +1617,9 @@
           ],
           "disable_host_sanitize": true,
           "headers_to_pass": [
-            "Authorization"
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Tenant-Id"
           ]
         }
       ]
@@ -1629,10 +1641,14 @@
         }
       },
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Tenant-Id"
       ],
       "headers_to_pass": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Tenant-Id"
       ],
       "backend": [
         {
@@ -1645,7 +1661,9 @@
           ],
           "disable_host_sanitize": true,
           "headers_to_pass": [
-            "Authorization"
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Tenant-Id"
           ]
         }
       ]
@@ -1667,10 +1685,14 @@
         }
       },
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Tenant-Id"
       ],
       "headers_to_pass": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Tenant-Id"
       ],
       "backend": [
         {
@@ -1683,7 +1705,9 @@
           ],
           "disable_host_sanitize": true,
           "headers_to_pass": [
-            "Authorization"
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Tenant-Id"
           ]
         }
       ]
@@ -1705,10 +1729,14 @@
         }
       },
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Tenant-Id"
       ],
       "headers_to_pass": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Tenant-Id"
       ],
       "backend": [
         {
@@ -1721,7 +1749,9 @@
           ],
           "disable_host_sanitize": true,
           "headers_to_pass": [
-            "Authorization"
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Tenant-Id"
           ]
         }
       ]

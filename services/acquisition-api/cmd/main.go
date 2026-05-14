@@ -174,8 +174,22 @@ func main() {
 		logger.Info("HE bootstrap handler not configured (Redis not available)")
 	}
 
+	// Admin gate uses the membership table to stamp tenant context for
+	// non-platform identities whose JWT carries no tenant claim.
+	memberTenantLookup := func(auth0Subject, email string) ([]transport.MemberTenant, error) {
+		tenants, err := adminManagementRepo.ListActiveTenantsForMember(auth0Subject, email)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]transport.MemberTenant, 0, len(tenants))
+		for _, t := range tenants {
+			out = append(out, transport.MemberTenant{ID: t.ID, TenantKey: t.TenantKey})
+		}
+		return out, nil
+	}
+
 	// Create router
-	router := transport.NewRouter(campaignHandler, transactionHandler, callbackHandler, internalHandler, analyticsHandler, reportsHandler, postbackAdminHandler, transactionAdminHandler, adminManagementHandler, clickOutHandler, heBootstrapHandler)
+	router := transport.NewRouter(campaignHandler, transactionHandler, callbackHandler, internalHandler, analyticsHandler, reportsHandler, postbackAdminHandler, transactionAdminHandler, adminManagementHandler, clickOutHandler, heBootstrapHandler, memberTenantLookup)
 
 	// Create server
 	server := &fasthttp.Server{
