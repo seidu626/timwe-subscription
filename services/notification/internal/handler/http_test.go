@@ -223,6 +223,129 @@ func TestNotificationInboundPersistsTenantChannelContext(t *testing.T) {
 	}
 }
 
+func TestHandleNotification_TenantEnforcement(t *testing.T) {
+	const (
+		careerifyTenantID  = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+		careerifyChannelID = "channel-web-gh-airteltigo"
+	)
+
+	type testCase struct {
+		name           string
+		uri            string
+		headers        map[string]string
+		tenantIDByKey  map[string]string
+		wantStatus     int
+		wantBodySubstr string
+		wantTenantID   *string // nil means expect nil; non-nil means expect this value
+		wantChannelID  *string // nil means expect nil
+	}
+
+	ptr := func(s string) *string { return &s }
+
+	cases := []testCase{
+		{
+			name: "(a) tenant_key resolves + channel_key supplied",
+			uri:  "/api/v1/notification/mo/2117?tenant_key=careerify&channel_key=web-gh-airteltigo",
+			tenantIDByKey: map[string]string{
+				"careerify": careerifyTenantID,
+			},
+			wantStatus:    fasthttp.StatusOK,
+			wantTenantID:  ptr(careerifyTenantID),
+			wantChannelID: ptr("web-gh-airteltigo"),
+		},
+		{
+			name:           "(b) unknown tenant_key",
+			uri:            "/api/v1/notification/mo/2117?tenant_key=evil-tenant&channel_key=web-gh-airteltigo",
+			tenantIDByKey:  map[string]string{},
+			wantStatus:     fasthttp.StatusBadRequest,
+			wantBodySubstr: "UNKNOWN_TENANT",
+		},
+		{
+			name: "(c) tenant_key present, channel_key absent",
+			uri:  "/api/v1/notification/mo/2117?tenant_key=careerify",
+			tenantIDByKey: map[string]string{
+				"careerify": careerifyTenantID,
+			},
+			wantStatus:     fasthttp.StatusBadRequest,
+			wantBodySubstr: "CHANNEL_REQUIRED",
+		},
+		{
+			name:          "(d) no tenant context at all (legacy)",
+			uri:           "/api/v1/notification/mo/2117",
+			tenantIDByKey: map[string]string{},
+			wantStatus:    fasthttp.StatusOK,
+			wantTenantID:  nil,
+			wantChannelID: nil,
+		},
+		{
+			name: "(e) X-Tenant-Id (UUID, legacy admin path) only",
+			uri:  "/api/v1/notification/mo/2117",
+			headers: map[string]string{
+				"X-Tenant-Id": "tenant-1",
+			},
+			tenantIDByKey: map[string]string{},
+			wantStatus:    fasthttp.StatusOK,
+			wantTenantID:  ptr("tenant-1"),
+			wantChannelID: nil,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &handlerRepoStub{tenantIDByKey: tc.tenantIDByKey}
+			svc := service.NewNotificationService(repo)
+			h := NewNotificationHandler(svc)
+
+			ctx := &fasthttp.RequestCtx{}
+			ctx.Request.SetRequestURI(tc.uri)
+			ctx.Request.Header.SetMethod(fasthttp.MethodPost)
+			ctx.SetUserValue("partnerRole", "2117")
+			ctx.Request.SetBodyString(`{"msisdn":"233241234567","productId":8509,"message":"ok"}`)
+			for k, v := range tc.headers {
+				ctx.Request.Header.Set(k, v)
+			}
+
+			h.MOHandler(ctx)
+
+			if ctx.Response.StatusCode() != tc.wantStatus {
+				t.Fatalf("expected status %d, got %d body=%s", tc.wantStatus, ctx.Response.StatusCode(), ctx.Response.Body())
+			}
+			if tc.wantBodySubstr != "" && !strings.Contains(string(ctx.Response.Body()), tc.wantBodySubstr) {
+				t.Fatalf("expected body to contain %q, got: %s", tc.wantBodySubstr, ctx.Response.Body())
+			}
+			if tc.wantStatus == fasthttp.StatusOK {
+				if tc.wantTenantID == nil {
+					if repo.saved != nil && repo.saved.TenantID != nil {
+						t.Fatalf("expected TenantID to be nil, got %q", *repo.saved.TenantID)
+					}
+				} else {
+					if repo.saved == nil || repo.saved.TenantID == nil || *repo.saved.TenantID != *tc.wantTenantID {
+						var got interface{} = "<not saved>"
+						if repo.saved != nil {
+							got = repo.saved.TenantID
+						}
+						t.Fatalf("expected TenantID=%q, got %#v", *tc.wantTenantID, got)
+					}
+				}
+				if tc.wantChannelID == nil {
+					if repo.saved != nil && repo.saved.ChannelID != nil {
+						t.Fatalf("expected ChannelID to be nil, got %q", *repo.saved.ChannelID)
+					}
+				} else {
+					if repo.saved == nil || repo.saved.ChannelID == nil || *repo.saved.ChannelID != *tc.wantChannelID {
+						var got interface{} = "<not saved>"
+						if repo.saved != nil {
+							got = repo.saved.ChannelID
+						}
+						t.Fatalf("expected ChannelID=%q, got %#v", *tc.wantChannelID, got)
+					}
+				}
+			}
+		})
+	}
+}
+
 func newListRequestContext(uri string) *fasthttp.RequestCtx {
 	req := fasthttp.AcquireRequest()
 	req.Header.SetMethod(fasthttp.MethodGet)

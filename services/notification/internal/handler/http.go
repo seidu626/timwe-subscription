@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -137,6 +138,90 @@ func (h *NotificationHandler) tenantIDForAdminRead(ctx *fasthttp.RequestCtx) str
 	return tenantID
 }
 
+// tenantResolution is the tri-state result of resolveNotificationTenant.
+type tenantResolution struct {
+	TenantID     string // populated only when successfully resolved
+	ChannelID    string // populated only when TenantID is set and channel was supplied
+	ContextGiven bool   // true when the caller supplied tenant_key/X-Tenant-Key or tenant_id/X-Tenant-Id
+	ChannelGiven bool   // true when the caller supplied channel_key/X-Channel-Key
+	Invalid      bool   // true when context was supplied but did not resolve
+	Reason       string // short reason code, e.g. "UNKNOWN_TENANT", "CHANNEL_REQUIRED"
+}
+
+// resolveNotificationTenant implements the partner-callback tenant resolution
+// contract for handleNotification. It distinguishes three states:
+//
+//  1. No tenant context supplied at all → ContextGiven=false (legacy path, caller may proceed with nil tenant).
+//  2. tenant_key supplied and resolves, but channel_key absent → Invalid=true, Reason="CHANNEL_REQUIRED".
+//  3. tenant_key supplied but unknown → Invalid=true, Reason="UNKNOWN_TENANT".
+//
+// The UUID (X-Tenant-Id / tenant_id) path is treated as a trusted admin path
+// and does NOT require a paired channel_key.
+//
+// Middleware-populated identity with a TenantID is returned directly (admin/platform path).
+func (h *NotificationHandler) resolveNotificationTenant(ctx *fasthttp.RequestCtx) tenantResolution {
+	// --- 1. Middleware identity: admin / platform path ---
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if ok && strings.TrimSpace(identity.TenantID) != "" {
+		// Verified identity carries a tenant UUID → return immediately (no channel requirement).
+		// Still propagate any channel ID that was supplied alongside the identity.
+		return tenantResolution{TenantID: strings.TrimSpace(identity.TenantID), ChannelID: channelIDFromRequest(ctx)}
+	}
+
+	// --- 2. Raw UUID via X-Tenant-Id header or tenant_id query (legacy admin path) ---
+	rawTenantID := headerOrQueryTenantID(ctx)
+	if rawTenantID != "" {
+		// UUID-based callers do not go through the tenant_key/channel_key contract.
+		// Still propagate any channel ID that was supplied (e.g. X-Tenant-Channel-Id).
+		return tenantResolution{TenantID: rawTenantID, ChannelID: channelIDFromRequest(ctx), ContextGiven: true}
+	}
+
+	// --- 3. tenant_key / X-Tenant-Key partner-callback path ---
+	tenantKeyHeader := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderTenantKey)))
+	tenantKeyQuery := strings.TrimSpace(firstQuery(ctx, "tenant_key", "tenantKey"))
+	tenantKey := firstNonBlank(tenantKeyHeader, tenantKeyQuery)
+
+	// Also check channel context for detection purposes.
+	channelKeyHeader := strings.TrimSpace(string(ctx.Request.Header.Peek(tenantctx.HeaderChannelKey)))
+	channelKeyQuery := strings.TrimSpace(firstQuery(ctx, "channel_key", "channelKey"))
+	channelKey := firstNonBlank(channelKeyHeader, channelKeyQuery)
+	channelGiven := channelKey != ""
+
+	if tenantKey == "" {
+		// No tenant context of any kind supplied → legacy behaviour, caller proceeds with nil tenant.
+		return tenantResolution{}
+	}
+
+	// Tenant key was supplied → it must resolve.
+	if h.service == nil {
+		return tenantResolution{ContextGiven: true, Invalid: true, Reason: "UNKNOWN_TENANT"}
+	}
+	tenantID, err := h.service.TenantIDByKey(context.Background(), tenantKey)
+	if err != nil || tenantID == "" {
+		log.Printf("failed to resolve notification tenant key %q: %v", tenantKey, err)
+		return tenantResolution{ContextGiven: true, Invalid: true, Reason: "UNKNOWN_TENANT"}
+	}
+
+	// Tenant resolved → channel_key must also be present.
+	if !channelGiven {
+		return tenantResolution{ContextGiven: true, Invalid: true, Reason: "CHANNEL_REQUIRED"}
+	}
+
+	// Resolve channel ID from the existing helper (supports X-Tenant-Channel-Id / X-Channel-Id / channel_id).
+	channelID := channelIDFromRequest(ctx)
+	if channelID == "" {
+		// Fallback: use the raw channel key as the ID (gateway may forward the key directly).
+		channelID = channelKey
+	}
+
+	return tenantResolution{
+		TenantID:     tenantID,
+		ChannelID:    channelID,
+		ContextGiven: true,
+		ChannelGiven: true,
+	}
+}
+
 type fasthttpHeaderGetter struct {
 	ctx *fasthttp.RequestCtx
 }
@@ -208,6 +293,15 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 		return
 	}
 
+	res := h.resolveNotificationTenant(ctx)
+	if res.Invalid {
+		human := humanTenantReason(res.Reason)
+		body := fmt.Sprintf(`{"message":%s,"code":%s,"inError":"true"}`,
+			jsonString(human), jsonString(res.Reason))
+		ctx.Error(body, fasthttp.StatusBadRequest)
+		return
+	}
+
 	var notification domain.NotificationRequest
 	if err := json.Unmarshal(ctx.PostBody(), &notification); err != nil {
 		ctx.Error("Invalid request payload", fasthttp.StatusBadRequest)
@@ -216,11 +310,11 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 
 	notification.PartnerRole = partnerRole
 	notification.Type = notificationType
-	if tenantID := h.tenantIDFromRequest(ctx); tenantID != "" {
-		notification.TenantID = &tenantID
+	if res.TenantID != "" {
+		notification.TenantID = &res.TenantID
 	}
-	if channelID := channelIDFromRequest(ctx); channelID != "" {
-		notification.ChannelID = &channelID
+	if res.ChannelID != "" {
+		notification.ChannelID = &res.ChannelID
 	}
 	if err := h.service.ProcessNotification(&notification); err != nil {
 		log.Printf("Error processing notification: %v", err)
@@ -240,6 +334,26 @@ func channelIDFromRequest(ctx *fasthttp.RequestCtx) string {
 		return value
 	}
 	return strings.TrimSpace(firstQuery(ctx, "channel_id", "channelId"))
+}
+
+// humanTenantReason returns a human-readable message for a resolution reason code.
+func humanTenantReason(code string) string {
+	switch code {
+	case "UNKNOWN_TENANT":
+		return "tenant key does not resolve to a known tenant"
+	case "CHANNEL_REQUIRED":
+		return "channel_key is required when tenant_key is supplied"
+	default:
+		return "invalid tenant context"
+	}
+}
+
+// jsonString returns a JSON-encoded string literal (double-quoted, with
+// special characters escaped). It is a minimal replacement for json.Marshal
+// on a string to avoid importing additional packages.
+func jsonString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 // Endpoint handlers
