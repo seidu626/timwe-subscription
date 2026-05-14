@@ -58,6 +58,12 @@
 {{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/acquisition/transactions/{id}/status" "METHOD" "GET" "BackendUrlPattern" "/v1/acquisition/transactions/{id}/status" "BackendHost" $service.acquisition_api_url) }},
 {{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/callbacks/{telco}" "METHOD" "POST" "BackendUrlPattern" "/v1/callbacks/{telco}" "BackendHost" $service.acquisition_api_url) }},
 
+{{/* Header Enrichment bootstrap and token exchange routes. */}}
+{{ template "HEApiEndpoint" (dict "Endpoint" "/v1/he/bootstrap" "METHOD" "GET" "BackendUrlPattern" "/v1/he/bootstrap" "BackendHost" $service.acquisition_api_url) }},
+{{ template "HEApiEndpoint" (dict "Endpoint" "/v1/he/bootstrap/campaign/{slug}" "METHOD" "GET" "BackendUrlPattern" "/v1/he/bootstrap/campaign/{slug}" "BackendHost" $service.acquisition_api_url) }},
+{{ template "HEApiEndpoint" (dict "Endpoint" "/v1/he/token/exchange" "METHOD" "GET" "BackendUrlPattern" "/v1/he/token/exchange" "BackendHost" $service.acquisition_api_url) }},
+{{ template "HEApiEndpoint" (dict "Endpoint" "/v1/he/token/exchange" "METHOD" "POST" "BackendUrlPattern" "/v1/he/token/exchange" "BackendHost" $service.acquisition_api_url) }},
+
 {{/* Admin API Routes - Acquisition Reports */}}
 {{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/kpis" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/kpis" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
 {{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/acquisition-funnel" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/acquisition-funnel" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
