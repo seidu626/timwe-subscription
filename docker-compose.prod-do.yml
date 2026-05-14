@@ -34,7 +34,7 @@ services:
   #     - FC_OUT=/tmp/krakend.json
   #   command: ["run", "-d", "-c", "/etc/krakend/config/krakend.tmpl"]
   #   healthcheck:
-  #     test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/__health"]
+  #     test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/__health"]
   #     interval: 30s
   #     timeout: 10s
   #     retries: 3
@@ -74,7 +74,7 @@ services:
       - APP_CACHE_REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET}
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8081/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -108,7 +108,7 @@ services:
       - APP_APPLICATION_TIMWE_MA_PSK=${TIMWE_PSK}
       - ACQUISITION_API_URL=http://acquisition-api:8084
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8083/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8083/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -137,7 +137,7 @@ services:
   #     - AUTH_JWT_TOKEN_SECRET=${JWT_SECRET}
   #     - ENVIRONMENT=PRODUCTION
   #   healthcheck:
-  #     test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8085/health"]
+  #     test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8085/health"]
   #     interval: 30s
   #     timeout: 10s
   #     retries: 3
@@ -165,7 +165,7 @@ services:
       - APP_CACHE_REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET}
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8082/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -266,7 +266,7 @@ services:
       - CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES=${CAMPAIGN_ASSET_STORAGE_MAX_UPLOAD_BYTES:-2097152}
       - CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY=${CAMPAIGN_ASSET_STORAGE_PRESIGN_EXPIRY:-10m}
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8084/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8084/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -298,7 +298,7 @@ services:
       - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
       - CADENCE_ADMIN_CORS_ORIGINS=${CADENCE_ADMIN_CORS_ORIGINS:-*}
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8091/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8091/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -336,7 +336,7 @@ services:
       # Server-side API calls (API routes) use internal Docker network
       - ACQUISITION_API_URL=http://acquisition-api:8084
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -354,7 +354,7 @@ services:
     ports:
       - "127.0.0.1:4200:80"
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:80/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
