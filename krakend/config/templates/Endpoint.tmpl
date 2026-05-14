@@ -3,13 +3,14 @@
 {{$service := .}}
 
 {{ template "DefaultEndpoint"  "http://localhost/status" }},
-{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/list"                         "METHOD" "GET" "BackendUrlPattern" "/api/v1/notification/list"                         "BackendHost" $service.notification_api_url) }},
-{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/mo/{partnerRole}"             "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/mo/{partnerRole}"            "BackendHost" $service.notification_api_url) }},
-{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/mt/dn/{partnerRole}"          "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/mt/dn/{partnerRole}"         "BackendHost" $service.notification_api_url) }},
-{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/user-optin/{partnerRole}"     "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/user-optin/{partnerRole}"    "BackendHost" $service.notification_api_url) }},
-{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/user-renewed/{partnerRole}"   "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/user-renewed/{partnerRole}"  "BackendHost" $service.notification_api_url) }},
-{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/user-optout/{partnerRole}"    "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/user-optout/{partnerRole}"   "BackendHost" $service.notification_api_url) }},
-{{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/notification/charge/{partnerRole}"         "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/charge/{partnerRole}"        "BackendHost" $service.notification_api_url) }},
+{{ template "TimweApiEndpoint"  (dict "Endpoint" "/api/v1/notification/list"                         "METHOD" "GET"  "BackendUrlPattern" "/api/v1/notification/list"                         "BackendHost" $service.notification_api_url) }},
+{{/* Notification MNO callbacks — tenant-aware via TenantApiEndpoint (injects X-Tenant-Key/X-Channel-Key from query params). */}}
+{{ template "TenantApiEndpoint" (dict "Endpoint" "/api/v1/notification/mo/{partnerRole}"             "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/mo/{partnerRole}"            "BackendHost" $service.notification_api_url) }},
+{{ template "TenantApiEndpoint" (dict "Endpoint" "/api/v1/notification/mt/dn/{partnerRole}"          "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/mt/dn/{partnerRole}"         "BackendHost" $service.notification_api_url) }},
+{{ template "TenantApiEndpoint" (dict "Endpoint" "/api/v1/notification/user-optin/{partnerRole}"     "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/user-optin/{partnerRole}"    "BackendHost" $service.notification_api_url) }},
+{{ template "TenantApiEndpoint" (dict "Endpoint" "/api/v1/notification/user-renewed/{partnerRole}"   "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/user-renewed/{partnerRole}"  "BackendHost" $service.notification_api_url) }},
+{{ template "TenantApiEndpoint" (dict "Endpoint" "/api/v1/notification/user-optout/{partnerRole}"    "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/user-optout/{partnerRole}"   "BackendHost" $service.notification_api_url) }},
+{{ template "TenantApiEndpoint" (dict "Endpoint" "/api/v1/notification/charge/{partnerRole}"         "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/charge/{partnerRole}"        "BackendHost" $service.notification_api_url) }},
 
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external"                           "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external"                          "BackendHost" $service.subscription_external_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/batch"                     "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/batch"                    "BackendHost" $service.subscription_external_api_url) }},
@@ -20,6 +21,12 @@
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/admin/actions"             "METHOD" "GET" "BackendUrlPattern" "/api/v1/subscription-external/admin/actions"             "BackendHost" $service.subscription_external_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription-external/admin/actions/{id}"        "METHOD" "GET" "BackendUrlPattern" "/api/v1/subscription-external/admin/actions/{id}"        "BackendHost" $service.subscription_external_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/userbase/upload"                           "METHOD" "POST" "BackendUrlPattern" "/api/v1/userbase/upload"                          "BackendHost" $service.subscription_external_api_url) }},
+
+{{/* External tenant-aware subscription endpoints — capture tenant_key/channel_key from path, inject as headers, and rewrite to the subscription-external /partners/{op} routes from TMP-072. */}}
+{{ template "TenantApiEndpoint" (dict "Endpoint" "/api/external/v1/{tenant_key}/{channel_key}/subscriptions/optin"   "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/partners/optin"   "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TenantApiEndpoint" (dict "Endpoint" "/api/external/v1/{tenant_key}/{channel_key}/subscriptions/confirm" "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/partners/confirm" "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TenantApiEndpoint" (dict "Endpoint" "/api/external/v1/{tenant_key}/{channel_key}/subscriptions/optout"  "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/partners/optout"  "BackendHost" $service.subscription_external_api_url) }},
+{{ template "TenantApiEndpoint" (dict "Endpoint" "/api/external/v1/{tenant_key}/{channel_key}/subscriptions/status"  "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription-external/partners/status"  "BackendHost" $service.subscription_external_api_url) }},
 
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/list"                         "METHOD" "GET" "BackendUrlPattern" "/api/v1/subscription/list"                         "BackendHost" $service.subscription_api_url) }},
 {{ template "TimweApiEndpoint" (dict "Endpoint" "/api/v1/subscription/optin/{partnerRole}"          "METHOD" "POST" "BackendUrlPattern" "/api/v1/subscription/optin/{partnerRole}"         "BackendHost" $service.subscription_api_url) }},

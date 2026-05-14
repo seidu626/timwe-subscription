@@ -224,6 +224,33 @@ Partners that have been sending `tenant_key` with no channel context, or with an
 
 The cross-tenant refusal smoke (`scripts/smoke/careerify-tenant-cross-tenant-refusal.sh`) is the regression gate for this behavior: Cases B and C must return 4xx, Case A must return 409.
 
+## KrakenD FC Template Layout (TMP-073)
+
+The container built from `krakend/Dockerfile` runs `krakend run -dc /etc/krakend/config/krakend.tmpl`. The static `krakend/krakend.json` reference is **not** what the runtime serves — the runtime renders config at startup from:
+
+| Path | Role |
+| --- | --- |
+| `krakend/config/krakend.tmpl` | Top-level shell. References `service.json` settings and includes the `Endpoint` template. |
+| `krakend/config/settings/service.json` | Service-wide values: port, timeouts, upstream URLs, CORS, TLS, telemetry. |
+| `krakend/config/templates/Endpoint.tmpl` | The endpoint list — invokes per-endpoint partials. |
+| `krakend/config/templates/TenantApiEndpoint.tmpl` | **Tenant-aware partial**. Whitelists `tenant_key`/`channel_key` in `input_query_strings` and injects `X-Tenant-Key`/`X-Channel-Key` request headers via `modifier/martian` `fifo.Group` + `header.Modifier`. Used by the 6 notification MNO callbacks and the 4 external `/api/external/v1/{tenant_key}/{channel_key}/subscriptions/{op}` routes. |
+| `krakend/config/templates/TimweApiEndpoint.tmpl` | Legacy (non tenant-aware) partial. Still used for `/api/v1/notification/list`, internal `/admin/{op}` admin routes, and non-tenant subscription paths. |
+
+When onboarding a new tenant, update **both** the static reference (`krakend/krakend.json`) and the FC template (`krakend/config/templates/Endpoint.tmpl`) — they must agree, or smoke tests against `docker-compose up krakend` will diverge from the static-config smoke. Verify with:
+
+```bash
+docker run --rm -v "$PWD/krakend:/etc/krakend" \
+  -e FC_ENABLE=1 \
+  -e FC_SETTINGS=/etc/krakend/config/settings \
+  -e FC_PARTIALS=/etc/krakend/config/partials \
+  -e FC_TEMPLATES=/etc/krakend/config/templates \
+  -e FC_OUT=/tmp/rendered.json \
+  docker.io/library/krakend:latest \
+  check -dc /etc/krakend/config/krakend.tmpl
+```
+
+The check is `Syntax OK!` and the rendered JSON contains the expected endpoint set with the correct `input_query_strings` and martian header injection.
+
 ## Operator Smoke Matrix
 
 Two scripts in `scripts/smoke/` cover the careerify/web-gh-airteltigo tenant end-to-end.

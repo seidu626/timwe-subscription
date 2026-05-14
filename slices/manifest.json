@@ -2202,8 +2202,8 @@
         "templates",
         "evidence"
       ],
-      "state": "planned",
-      "branch": null,
+      "state": "shipped",
+      "branch": "main",
       "created_at": "2026-05-14T00:00:00Z",
       "verification": {
         "automated": [
@@ -2214,8 +2214,9 @@
         ],
         "dod_path": "slices/TMP-073-krakend-fc-template-parity/value-gate-report.md"
       },
-      "notes": "Follow-up from TMP-070 smoke: krakend.json edits are not in krakend/config/templates/. Production runtime path uses FC; static-config edits do not reach it."
+      "notes": "Follow-up from TMP-070 smoke: krakend.json edits are not in krakend/config/templates/. Production runtime path uses FC; static-config edits do not reach it.",
+      "shipped_at": "2026-05-14T03:25:00Z"
     }
   ],
-  "updated_at": "2026-05-14T03:50:00Z"
+  "updated_at": "2026-05-14T03:25:00Z"
 }
