@@ -18,10 +18,18 @@
     },
     "input_query_strings": ["*"],
     "input_headers": [
-        "Authorization"
+        "Authorization",
+        "X-Tenant-Id",
+        "X-Tenant-Key",
+        "X-Tenant-Channel-Id",
+        "X-Channel-Id"
     ],
     "headers_to_pass": [
         "Authorization",
+        "X-Tenant-Id",
+        "X-Tenant-Key",
+        "X-Tenant-Channel-Id",
+        "X-Channel-Id",
         "x-forwarded-for",
         "x-real-ip",
         "user-agent"
@@ -50,7 +58,11 @@
             "host": ["{{ .BackendHost }}"],
             "disable_host_sanitize": true,
             "headers_to_pass": [
-                "Authorization"
+                "Authorization",
+                "X-Tenant-Id",
+                "X-Tenant-Key",
+                "X-Tenant-Channel-Id",
+                "X-Channel-Id"
             ]
         }
     ]

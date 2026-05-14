@@ -49,6 +49,10 @@
         "Authorization",
         "Content-Type",
         "External-Tx-Id",
+        "X-Tenant-Id",
+        "X-Tenant-Key",
+        "X-Tenant-Channel-Id",
+        "X-Channel-Id",
         "Accept",
         "X-Requested-With",
         "X-Requestid"
