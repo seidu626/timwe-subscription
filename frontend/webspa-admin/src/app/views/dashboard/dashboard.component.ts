@@ -130,4 +130,8 @@ export class DashboardComponent implements OnInit {
   formatPercent(value: number): string {
     return value.toFixed(1) + '%';
   }
+
+  formatPercentWidth(value: number): string {
+    return Math.max(0, Math.min(100, value)).toFixed(1) + '%';
+  }
 }

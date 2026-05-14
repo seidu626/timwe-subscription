@@ -5916,6 +5916,189 @@
       "unresolved": [],
       "updated_at": "2026-05-13T11:49:14Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "HVC check for TMP-071 passes"
+        },
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "webspa-admin npm run build passes"
+        },
+        {
+          "blocker": null,
+          "evidence": [],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "pending",
+          "text": "Dashboard and tenant catalog preserve existing data/actions"
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.html",
+            "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.scss",
+            "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.ts",
+            "npm run build"
+          ],
+          "id": "AC-4",
+          "next_task_id": null,
+          "reason": "The dashboard still uses the existing KPI response fields and adds a bounded percent-width helper for funnel meters.",
+          "status": "passed",
+          "text": "Dashboard renders existing KPI data in a clearer operator command-center layout."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html",
+            "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss",
+            "npm run build"
+          ],
+          "id": "AC-5",
+          "next_task_id": null,
+          "reason": "Existing form bindings, save/filter/member/deactivate handlers, table columns, and paginator bindings are preserved.",
+          "status": "passed",
+          "text": "Tenant catalog create/edit and member management preserve existing actions while improving hierarchy and scanability."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html",
+            "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.scss",
+            "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss",
+            "frontend/webspa-admin/src/app/views/pages/login/login.component.html",
+            "frontend/webspa-admin/src/app/views/pages/login/login.component.scss",
+            "frontend/webspa-admin/src/scss/_custom.scss",
+            "frontend/webspa-admin/src/scss/_theme.scss",
+            "npm run build"
+          ],
+          "id": "AC-6",
+          "next_task_id": null,
+          "reason": "No dependency manifests changed; the dev login route was screenshot-tested with Chromium after a clean dev-server restart.",
+          "status": "passed",
+          "text": "Global shell/header/sidebar and login polish keep existing CoreUI and Angular Material dependencies."
+        }
+      ],
+      "attempts": 1,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Created HVC issue and work order for TMP-071",
+        "Implemented command-center dashboard using existing KPI fields",
+        "Improved tenant catalog hierarchy without changing existing actions",
+        "Improved login and shell/header/sidebar presentation",
+        "Verified HVC, Angular build, diff check, preflight, and login screenshot",
+        "Created TMP-071 issue and work order with HVC allow classification.",
+        "Wrote a Mythos packet under .agent-work for the UI refresh.",
+        "Reworked the login page into a branded operator access screen.",
+        "Reworked the dashboard into a command-center layout using existing KPI fields and conversion rates.",
+        "Reworked the tenant catalog visual hierarchy while preserving current create/update/filter/member workflows.",
+        "Polished global shell/header/sidebar tokens away from the generic default palette."
+      ],
+      "created_at": "2026-05-14T02:01:16Z",
+      "details": "Improve the existing webspa-admin shell, dashboard, and tenant catalog UI while preserving behavior and dependencies.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "hvc check agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "assignment_decision allow; no blocking reasons",
+            "status": "passed",
+            "timestamp": "2026-05-14T02:16:00Z"
+          },
+          {
+            "command": "cd frontend/webspa-admin && npm run build",
+            "exit_code": 0,
+            "output_excerpt": "Application bundle generation complete",
+            "status": "passed",
+            "timestamp": "2026-05-14T02:17:00Z"
+          },
+          {
+            "command": "git diff --check",
+            "exit_code": 0,
+            "output_excerpt": "no whitespace errors",
+            "status": "passed",
+            "timestamp": "2026-05-14T02:19:00Z"
+          },
+          {
+            "command": "agent-supervisor --config .harness/config.json preflight",
+            "exit_code": 0,
+            "output_excerpt": "ok true; existing schedulable/historical warnings only",
+            "status": "passed",
+            "timestamp": "2026-05-14T02:19:00Z"
+          },
+          {
+            "command": "chromium --headless --disable-gpu --no-sandbox --virtual-time-budget=5000 --screenshot=/tmp/webspa-admin-login.png --window-size=1440,1000 http://127.0.0.1:4210/login",
+            "exit_code": 0,
+            "output_excerpt": "PNG image data, 1440 x 1000",
+            "status": "passed",
+            "timestamp": "2026-05-14T02:19:00Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          ".agent/events.jsonl",
+          ".agent/tasks.json",
+          "agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md",
+          "agent/state/TMP-071.handoff.json",
+          "agent/state/TMP-071.work-order.json",
+          "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html",
+          "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss",
+          "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html",
+          "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.scss",
+          "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss",
+          "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.html",
+          "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.scss",
+          "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.ts",
+          "frontend/webspa-admin/src/app/views/pages/login/login.component.html",
+          "frontend/webspa-admin/src/app/views/pages/login/login.component.scss",
+          "frontend/webspa-admin/src/scss/_custom.scss",
+          "frontend/webspa-admin/src/scss/_theme.scss"
+        ]
+      },
+      "goal": "",
+      "id": "TMP-071",
+      "owner": "codex-webspa-admin-ui",
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "webspa-admin operator UI refresh",
+      "unresolved": [
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "Authenticated dashboard and tenant browser screenshots require Auth0 credentials/session",
+          "next_task_id": null,
+          "reason": "checkpoint",
+          "severity": "medium"
+        },
+        {
+          "blocker": null,
+          "disposition": null,
+          "item": "worker returned without accepted handoff",
+          "next_task_id": "TMP-071",
+          "reason": "closeout gate",
+          "session_id": "codex-webspa-admin-ui-20260514-015842",
+          "severity": "high"
+        }
+      ],
+      "updated_at": "2026-05-14T02:21:35Z",
+      "worktree": null
     }
   ],
   "version": 1

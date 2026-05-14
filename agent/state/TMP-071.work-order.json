@@ -1,0 +1,85 @@
+{
+  "work_order_id": "WO-TMP-071-001",
+  "issue_id": "TMP-071",
+  "class": "vertical_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "The admin user can scan acquisition health, tenant workspace state, and tenant catalog operations faster from the existing webspa-admin surfaces.",
+  "actor": "tenant operations admin",
+  "entrypoint": "Authenticated webspa-admin routes under /dashboard and /tenants",
+  "trigger": "Admin opens the portal after authentication or navigates to the tenant catalog.",
+  "allowed_files": [
+    "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.html",
+    "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss",
+    "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html",
+    "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.scss",
+    "frontend/webspa-admin/src/app/layout/default-layout/_nav.ts",
+    "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.html",
+    "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.scss",
+    "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.ts",
+    "frontend/webspa-admin/src/app/views/pages/login/login.component.html",
+    "frontend/webspa-admin/src/app/views/pages/login/login.component.scss",
+    "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html",
+    "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss",
+    "frontend/webspa-admin/src/scss/_custom.scss",
+    "frontend/webspa-admin/src/scss/_theme.scss",
+    "agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md",
+    "agent/state/TMP-071.work-order.json",
+    "agent/state/TMP-071.handoff.json",
+    ".agent/**",
+    ".harness/**",
+    ".agent-work/**"
+  ],
+  "forbidden_files": [
+    "services/**",
+    "frontend/webspa-admin/package.json",
+    "frontend/webspa-admin/package-lock.json",
+    "frontend/webspa-admin/src/environments/**",
+    "frontend/webspa-admin/src/app/core/**",
+    "docker-compose*.yml"
+  ],
+  "acceptance_tests": [
+    "hvc check agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md --fail-on block",
+    "cd frontend/webspa-admin && npm run build"
+  ],
+  "required_evidence": [
+    "webspa-admin dashboard renders the existing KPI data in a clearer operator command-center layout",
+    "tenant catalog create/edit and member management preserve existing actions while improving hierarchy and scanability",
+    "global shell/header/sidebar polish keeps existing CoreUI and Angular Material dependencies",
+    "npm run build",
+    "hvc check agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md --fail-on block"
+  ],
+  "non_goals": [
+    "No backend behavior changes.",
+    "No dependency manifest or lockfile changes.",
+    "No API URL, Auth0, tenant resolution, database, migration, or deployment changes."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-071",
+    "title": "webspa-admin operator UI refresh",
+    "path": "agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md",
+    "declared_class": "vertical_slice",
+    "detected_class": "vertical_slice",
+    "confidence": 0.86,
+    "verticality_score": 82,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 10,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

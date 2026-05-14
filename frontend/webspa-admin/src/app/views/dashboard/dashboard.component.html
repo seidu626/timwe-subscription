@@ -1,180 +1,120 @@
-<!-- Dashboard Header -->
-<div class="dashboard-header mb-4">
-  <h2>Dashboard</h2>
-  <p class="text-muted">Acquisition performance overview (Last 30 days)</p>
-</div>
+<section class="dashboard-page">
+  <div class="dashboard-hero">
+    <div>
+      <p class="eyebrow">Acquisition command center</p>
+      <h1>Dashboard</h1>
+      <p class="hero-copy">Live tenant-scoped acquisition health for the last 30 days.</p>
+    </div>
+    <div class="hero-actions">
+      <a routerLink="/reports" class="btn btn-primary">Open reports</a>
+      <a routerLink="/campaign" class="btn btn-outline-primary">Campaigns</a>
+    </div>
+  </div>
 
-<!-- Loading State -->
-<div *ngIf="loading" class="text-center py-5">
-  <c-spinner color="primary"></c-spinner>
-  <p class="mt-3 text-muted">Loading dashboard data...</p>
-</div>
+  <div *ngIf="loading" class="dashboard-state">
+    <c-spinner color="primary"></c-spinner>
+    <p>Loading dashboard data...</p>
+  </div>
 
-<!-- Error State -->
-<div *ngIf="error" class="alert alert-danger d-flex align-items-center mb-4" role="alert">
-  <svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Danger:">
-    <use xlink:href="#exclamation-triangle-fill"/>
-  </svg>
-  <div>{{ error }}</div>
-</div>
+  <div *ngIf="error" class="dashboard-alert" role="alert">
+    <strong>Dashboard unavailable</strong>
+    <span>{{ error }}</span>
+  </div>
 
-<!-- KPI Cards -->
-<c-row *ngIf="!loading && kpis" class="mb-4" [gutter]="3">
-  <!-- Landing Views -->
-  <c-col [lg]="3" [md]="6" [sm]="12">
-    <c-card class="kpi-card kpi-views h-100">
-      <c-card-body class="d-flex align-items-center">
-        <div class="kpi-icon me-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-          </svg>
+  <ng-container *ngIf="!loading && kpis">
+    <section class="dashboard-grid">
+      <article class="revenue-panel">
+        <div class="panel-label">Estimated revenue</div>
+        <div class="revenue-value">{{ formatCurrency(kpis.estimated_revenue) }}</div>
+        <div class="revenue-meta">
+          <span>{{ formatPercent(kpis.overall_conversion_rate) }} overall conversion</span>
+          <span>{{ formatNumber(kpis.charged) }} charged</span>
         </div>
-        <div class="kpi-content">
-          <div class="kpi-label text-muted text-uppercase small fw-semibold">Landing Views</div>
-          <div class="kpi-value h3 mb-0 fw-bold">{{ formatNumber(kpis.landing_views) }}</div>
-        </div>
-      </c-card-body>
-    </c-card>
-  </c-col>
+      </article>
 
-  <!-- Transactions -->
-  <c-col [lg]="3" [md]="6" [sm]="12">
-    <c-card class="kpi-card kpi-transactions h-100">
-      <c-card-body class="d-flex align-items-center">
-        <div class="kpi-icon me-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M11.251.068a.5.5 0 0 1 .227.58L9.677 6.5H13a.5.5 0 0 1 .364.843l-8 8.5a.5.5 0 0 1-.842-.49L6.323 9.5H3a.5.5 0 0 1-.364-.843l8-8.5a.5.5 0 0 1 .615-.09z"/>
-          </svg>
-        </div>
-        <div class="kpi-content">
-          <div class="kpi-label text-muted text-uppercase small fw-semibold">Transactions</div>
-          <div class="kpi-value h3 mb-0 fw-bold">{{ formatNumber(kpis.transactions) }}</div>
-          <div class="kpi-subtitle small text-muted">{{ formatPercent(kpis.click_to_transaction_rate) }} from views</div>
-        </div>
-      </c-card-body>
-    </c-card>
-  </c-col>
+      <article class="kpi-tile kpi-views">
+        <span class="kpi-index">01</span>
+        <span class="kpi-label">Landing views</span>
+        <strong>{{ formatNumber(kpis.landing_views) }}</strong>
+      </article>
 
-  <!-- Subscribed -->
-  <c-col [lg]="3" [md]="6" [sm]="12">
-    <c-card class="kpi-card kpi-subscribed h-100">
-      <c-card-body class="d-flex align-items-center">
-        <div class="kpi-icon me-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
-            <path fill-rule="evenodd" d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5z"/>
-          </svg>
-        </div>
-        <div class="kpi-content">
-          <div class="kpi-label text-muted text-uppercase small fw-semibold">Subscribed</div>
-          <div class="kpi-value h3 mb-0 fw-bold">{{ formatNumber(kpis.subscribed) }}</div>
-          <div class="kpi-subtitle small text-muted">{{ formatPercent(kpis.transaction_to_sub_rate) }} conversion</div>
-        </div>
-      </c-card-body>
-    </c-card>
-  </c-col>
+      <article class="kpi-tile kpi-transactions">
+        <span class="kpi-index">02</span>
+        <span class="kpi-label">Transactions</span>
+        <strong>{{ formatNumber(kpis.transactions) }}</strong>
+        <small>{{ formatPercent(kpis.click_to_transaction_rate) }} from clicks</small>
+      </article>
 
-  <!-- Charged -->
-  <c-col [lg]="3" [md]="6" [sm]="12">
-    <c-card class="kpi-card kpi-charged h-100">
-      <c-card-body class="d-flex align-items-center">
-        <div class="kpi-icon me-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M4 10.781c.148 1.667 1.513 2.85 3.591 3.003V15h1.043v-1.216c2.27-.179 3.678-1.438 3.678-3.3 0-1.59-.947-2.51-2.956-3.028l-.722-.187V3.467c1.122.11 1.879.714 2.07 1.616h1.47c-.166-1.6-1.54-2.748-3.54-2.875V1H7.591v1.233c-1.939.23-3.27 1.472-3.27 3.156 0 1.454.966 2.483 2.661 2.917l.61.162v4.031c-1.149-.17-1.94-.8-2.131-1.718H4zm3.391-3.836c-1.043-.263-1.6-.825-1.6-1.616 0-.944.704-1.641 1.8-1.828v3.495l-.2-.05zm1.591 1.872c1.287.323 1.852.859 1.852 1.769 0 1.097-.826 1.828-2.2 1.939V8.73l.348.086z"/>
-          </svg>
-        </div>
-        <div class="kpi-content">
-          <div class="kpi-label text-muted text-uppercase small fw-semibold">Charged</div>
-          <div class="kpi-value h3 mb-0 fw-bold">{{ formatNumber(kpis.charged) }}</div>
-          <div class="kpi-subtitle small text-muted">{{ formatPercent(kpis.sub_to_charged_rate) }} of subs</div>
-        </div>
-      </c-card-body>
-    </c-card>
-  </c-col>
-</c-row>
+      <article class="kpi-tile kpi-subscribed">
+        <span class="kpi-index">03</span>
+        <span class="kpi-label">Subscribed</span>
+        <strong>{{ formatNumber(kpis.subscribed) }}</strong>
+        <small>{{ formatPercent(kpis.transaction_to_sub_rate) }} conversion</small>
+      </article>
+    </section>
 
-<!-- Revenue and Conversion Row -->
-<c-row *ngIf="!loading && kpis" class="mb-4" [gutter]="3">
-  <!-- Estimated Revenue -->
-  <c-col [lg]="6" [md]="6" [sm]="12">
-    <c-card class="kpi-card kpi-revenue h-100">
-      <c-card-body class="d-flex align-items-center">
-        <div class="kpi-icon me-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M4 3.06h2.726c1.22 0 2.12.575 2.325 1.724H4v1.051h5.051C8.855 7.001 8 7.558 6.788 7.558H4v1.317L8.437 14h2.11L6.095 8.884h.855c2.316-.018 3.465-1.476 3.688-3.049H12V4.784h-1.345c-.08-.778-.357-1.335-.793-1.732H12V2H4v1.06Z"/>
-          </svg>
+    <section class="operations-row">
+      <article class="funnel-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Conversion funnel</p>
+          <h2>Path efficiency</h2>
         </div>
-        <div class="kpi-content flex-grow-1">
-          <div class="kpi-label text-uppercase small fw-semibold" style="color: rgba(255,255,255,0.8);">Estimated Revenue</div>
-          <div class="kpi-value h2 mb-0 fw-bold text-white">{{ formatCurrency(kpis.estimated_revenue) }}</div>
-          <div class="kpi-subtitle small" style="color: rgba(255,255,255,0.7);">{{ formatPercent(kpis.overall_conversion_rate) }} overall conversion</div>
-        </div>
-      </c-card-body>
-    </c-card>
-  </c-col>
-
-  <!-- Conversion Funnel Summary -->
-  <c-col [lg]="6" [md]="6" [sm]="12">
-    <c-card class="h-100">
-      <c-card-body>
-        <h6 class="text-muted text-uppercase fw-semibold mb-3">Conversion Funnel</h6>
-        <div class="funnel-summary">
-          <div class="funnel-step d-flex align-items-center mb-2">
-            <span class="funnel-label flex-grow-1">Views → Clicks</span>
-            <span class="funnel-value fw-bold">{{ formatPercent(kpis.view_to_click_rate) }}</span>
+        <div class="funnel-track">
+          <div class="funnel-step">
+            <div>
+              <span>Views to clicks</span>
+              <strong>{{ formatPercent(kpis.view_to_click_rate) }}</strong>
+            </div>
+            <span class="meter"><span [style.width]="formatPercentWidth(kpis.view_to_click_rate)"></span></span>
           </div>
-          <div class="funnel-step d-flex align-items-center mb-2">
-            <span class="funnel-label flex-grow-1">Clicks → Transactions</span>
-            <span class="funnel-value fw-bold">{{ formatPercent(kpis.click_to_transaction_rate) }}</span>
+          <div class="funnel-step">
+            <div>
+              <span>Clicks to transactions</span>
+              <strong>{{ formatPercent(kpis.click_to_transaction_rate) }}</strong>
+            </div>
+            <span class="meter"><span [style.width]="formatPercentWidth(kpis.click_to_transaction_rate)"></span></span>
           </div>
-          <div class="funnel-step d-flex align-items-center mb-2">
-            <span class="funnel-label flex-grow-1">Transactions → Subscribed</span>
-            <span class="funnel-value fw-bold">{{ formatPercent(kpis.transaction_to_sub_rate) }}</span>
+          <div class="funnel-step">
+            <div>
+              <span>Transactions to subscribed</span>
+              <strong>{{ formatPercent(kpis.transaction_to_sub_rate) }}</strong>
+            </div>
+            <span class="meter"><span [style.width]="formatPercentWidth(kpis.transaction_to_sub_rate)"></span></span>
           </div>
-          <div class="funnel-step d-flex align-items-center">
-            <span class="funnel-label flex-grow-1">Subscribed → Charged</span>
-            <span class="funnel-value fw-bold">{{ formatPercent(kpis.sub_to_charged_rate) }}</span>
+          <div class="funnel-step">
+            <div>
+              <span>Subscribed to charged</span>
+              <strong>{{ formatPercent(kpis.sub_to_charged_rate) }}</strong>
+            </div>
+            <span class="meter"><span [style.width]="formatPercentWidth(kpis.sub_to_charged_rate)"></span></span>
           </div>
         </div>
-      </c-card-body>
-    </c-card>
-  </c-col>
-</c-row>
+      </article>
 
-<!-- Quick Actions -->
-<c-row *ngIf="!loading && !error" class="mb-4" [gutter]="3">
-  <c-col [sm]="12">
-    <c-card>
-      <c-card-body>
-        <h6 class="text-muted text-uppercase fw-semibold mb-3">Quick Actions</h6>
-        <div class="d-flex flex-wrap gap-2">
-          <a routerLink="/reports" class="btn btn-outline-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16">
-              <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
-            </svg>
-            View Reports
+      <article class="quick-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Operator routes</p>
+          <h2>Next action</h2>
+        </div>
+        <div class="quick-grid">
+          <a routerLink="/reports" class="quick-link">
+            <span>Reports</span>
+            <small>Inspect KPI source data</small>
           </a>
-          <a routerLink="/campaign" class="btn btn-outline-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16">
-              <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1h8zm-7.978-1A.261.261 0 0 1 7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002a.274.274 0 0 1-.014.002H7.022zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM6.936 9.28a5.88 5.88 0 0 0-1.23-.247A7.35 7.35 0 0 0 5 9c-4 0-5 3-5 4 0 .667.333 1 1 1h4.216A2.238 2.238 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816zM4.92 10A5.493 5.493 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275zM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0zm3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
-            </svg>
-            Manage Campaigns
+          <a routerLink="/campaign" class="quick-link">
+            <span>Campaigns</span>
+            <small>Adjust acquisition entrypoints</small>
           </a>
-          <a routerLink="/subscription" class="btn btn-outline-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16">
-              <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383-4.708 2.825L15 11.105V5.383zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741zM1 11.105l4.708-2.897L1 5.383v5.722z"/>
-            </svg>
-            Subscriptions
+          <a routerLink="/subscription" class="quick-link">
+            <span>Subscriptions</span>
+            <small>Run external operations</small>
           </a>
-          <a routerLink="/settings" class="btn btn-outline-secondary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16">
-              <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
-            </svg>
-            Settings
+          <a routerLink="/tenants" class="quick-link">
+            <span>Tenants</span>
+            <small>Manage workspace catalog</small>
           </a>
         </div>
-      </c-card-body>
-    </c-card>
-  </c-col>
-</c-row>
+      </article>
+    </section>
+  </ng-container>
+</section>

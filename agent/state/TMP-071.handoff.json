@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "task_id": "TMP-071",
+  "status": "done",
+  "supervisor_decision": "ready_for_review",
+  "summary": "Refreshed webspa-admin's login page, authenticated shell, dashboard, tenant catalog, and cadence studio into a more cohesive operator UI while preserving existing data fields, actions, routes, dependencies, and backend behavior.",
+  "session_id": "codex-webspa-admin-ui-20260514-015842",
+  "acceptance_results": [
+    {
+      "criterion": "Dashboard renders existing KPI data in a clearer operator command-center layout.",
+      "status": "passed",
+      "evidence": [
+        "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.html",
+        "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.scss",
+        "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.ts",
+        "npm run build"
+      ],
+      "blocker": null,
+      "reason": "The dashboard still uses the existing KPI response fields and adds a bounded percent-width helper for funnel meters.",
+      "next_task_id": null
+    },
+    {
+      "criterion": "Tenant catalog create/edit and member management preserve existing actions while improving hierarchy and scanability.",
+      "status": "passed",
+      "evidence": [
+        "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html",
+        "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss",
+        "npm run build"
+      ],
+      "blocker": null,
+      "reason": "Existing form bindings, save/filter/member/deactivate handlers, table columns, and paginator bindings are preserved.",
+      "next_task_id": null
+    },
+    {
+      "criterion": "Global shell/header/sidebar and login polish keep existing CoreUI and Angular Material dependencies.",
+      "status": "passed",
+      "evidence": [
+        "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html",
+        "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.scss",
+        "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss",
+        "frontend/webspa-admin/src/app/views/pages/login/login.component.html",
+        "frontend/webspa-admin/src/app/views/pages/login/login.component.scss",
+        "frontend/webspa-admin/src/scss/_custom.scss",
+        "frontend/webspa-admin/src/scss/_theme.scss",
+        "npm run build"
+      ],
+      "blocker": null,
+      "reason": "No dependency manifests changed; the dev login route was screenshot-tested with Chromium after a clean dev-server restart.",
+      "next_task_id": null
+    },
+    {
+      "criterion": "Cadence management is visually aligned with the refreshed authenticated admin shell.",
+      "status": "passed",
+      "evidence": [
+        "frontend/webspa-admin/src/app/features/cadence/cadence.component.html",
+        "frontend/webspa-admin/src/app/features/cadence/cadence.component.scss",
+        "npm run build",
+        "/tmp/webspa-admin-cadence-auth-v2.png"
+      ],
+      "blocker": null,
+      "reason": "The cadence route now uses the same hero, control card, rounded tabs, and operator hierarchy as the refreshed dashboard and tenant pages.",
+      "next_task_id": null
+    }
+  ],
+  "blockers": [],
+  "changed_files": [
+    ".agent/events.jsonl",
+    ".agent/tasks.json",
+    "agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md",
+    "agent/state/TMP-071.handoff.json",
+    "agent/state/TMP-071.work-order.json",
+    "frontend/webspa-admin/src/app/features/cadence/cadence.component.html",
+    "frontend/webspa-admin/src/app/features/cadence/cadence.component.scss",
+    "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html",
+    "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss",
+    "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html",
+    "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.scss",
+    "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss",
+    "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.html",
+    "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.scss",
+    "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.ts",
+    "frontend/webspa-admin/src/app/views/pages/login/login.component.html",
+    "frontend/webspa-admin/src/app/views/pages/login/login.component.scss",
+    "frontend/webspa-admin/src/scss/_custom.scss",
+    "frontend/webspa-admin/src/scss/_theme.scss"
+  ],
+  "child_handoffs": [],
+  "cleanup_notes": [
+    "Hydrated frontend dependencies with npm ci --legacy-peer-deps in the isolated worktree; dependency manifests were unchanged.",
+    "Removed a stale empty .agent/tasks.json.lock generated during harness task creation.",
+    "A dev server is running at http://127.0.0.1:4210 for operator review."
+  ],
+  "commits": [],
+  "completed_work": [
+    "Created TMP-071 issue and work order with HVC allow classification.",
+    "Wrote a Mythos packet under .agent-work for the UI refresh.",
+    "Reworked the login page into a branded operator access screen.",
+    "Reworked the dashboard into a command-center layout using existing KPI fields and conversion rates.",
+    "Reworked the tenant catalog visual hierarchy while preserving current create/update/filter/member workflows.",
+    "Reworked cadence management into a cadence studio layout and fixed authenticated-shell visual collisions found during token-backed screenshots.",
+    "Polished global shell/header/sidebar tokens away from the generic default palette."
+  ],
+  "confidence": {
+    "completeness": "high",
+    "implementation": "high",
+    "verification": "medium-high"
+  },
+  "known_gaps": [
+    "Authenticated routes were browser-screenshotted by seeding local Auth0 cache with the provided bearer token.",
+    "Local tenant and cadence API GETs are blocked in Chromium because localhost:8084 and localhost:8091 return 204 preflight responses without Access-Control-Allow-* headers; direct curl with Authorization plus tenant context succeeds for the tested endpoints.",
+    "Dashboard data remains unavailable locally because http://localhost:5001 was not listening during verification.",
+    "The Angular build still reports pre-existing campaign SCSS budget and selector warnings unrelated to TMP-071.",
+    "The local shell uses Node v24.15.0 while webspa-admin declares Node ^18.19.0 || ^20.9.0; npm reports EBADENGINE as a warning during hydration."
+  ],
+  "next_tasks": [],
+  "operator_message": "TMP-071 is ready for review: webspa-admin now has a refreshed login, shell, dashboard, and tenant catalog UI with existing behavior preserved.",
+  "residual_work_policy": "complete",
+  "risk_notes": [
+    "The UI changes are presentation-level and do not change API calls or tenant workspace behavior.",
+    "Dashboard funnel bars clamp display width to 0-100 while retaining the exact numeric percentage text."
+  ],
+  "safe_to_continue": false,
+  "unfinished_work": [],
+  "validation": [
+    {
+      "command": "hvc check agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md --fail-on block",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "assignment_decision allow; no blocking reasons",
+      "timestamp": "2026-05-14T02:16:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm run build",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "Application bundle generation complete",
+      "timestamp": "2026-05-14T02:17:00Z"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "no whitespace errors",
+      "timestamp": "2026-05-14T02:19:00Z"
+    },
+    {
+      "command": "agent-supervisor --config .harness/config.json preflight",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "ok true; existing schedulable/historical warnings only",
+      "timestamp": "2026-05-14T02:19:00Z"
+    },
+    {
+      "command": "chromium --headless --disable-gpu --no-sandbox --virtual-time-budget=5000 --screenshot=/tmp/webspa-admin-login.png --window-size=1440,1000 http://127.0.0.1:4210/login",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "PNG image data, 1440 x 1000",
+      "timestamp": "2026-05-14T02:19:00Z"
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm run build",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "Application bundle generation complete",
+      "timestamp": "2026-05-14T02:43:00Z"
+    },
+    {
+      "command": "CDP-authenticated Chromium screenshots for /#/tenants?tenant=nrg and /#/cadence?tenant=nrg",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "/tmp/webspa-admin-tenants-auth-v2.png and /tmp/webspa-admin-cadence-auth-v2.png captured under guarded shell",
+      "timestamp": "2026-05-14T02:41:00Z"
+    },
+    {
+      "command": "curl OPTIONS preflight for localhost:8084 and localhost:8091 from Origin http://localhost:4210",
+      "exit_code": 0,
+      "status": "passed",
+      "output_excerpt": "Both endpoints returned 204 with no Access-Control-Allow-* headers, matching Chromium net::ERR_FAILED.",
+      "timestamp": "2026-05-14T02:43:00Z"
+    }
+  ]
+}
