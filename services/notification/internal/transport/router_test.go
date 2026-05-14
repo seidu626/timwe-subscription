@@ -14,7 +14,7 @@ import (
 )
 
 func TestHealthReportsObservabilityStatus(t *testing.T) {
-	router := NewRouter(nil)
+	router := NewRouter(nil, nil)
 	ctx := &fasthttp.RequestCtx{}
 	ctx.Request.SetRequestURI("/health")
 	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
@@ -38,7 +38,7 @@ func TestHealthReportsObservabilityStatus(t *testing.T) {
 }
 
 func TestUnknownRouteReturnsErrorWithoutRequestDump(t *testing.T) {
-	router := NewRouter(nil)
+	router := NewRouter(nil, nil)
 	ctx := &fasthttp.RequestCtx{}
 	ctx.Request.SetRequestURI("/missing?msisdn=233241234567")
 	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
@@ -88,6 +88,152 @@ func TestAdminRequireAppliesBootstrapSubjectAndTenantKey(t *testing.T) {
 func TestBootstrapPlatformSubjectSetDefaultsClosed(t *testing.T) {
 	if got := bootstrapPlatformSubjectSet(""); len(got) != 0 {
 		t.Fatalf("empty bootstrap subject config must not grant platform scope, got %#v", got)
+	}
+}
+
+type notifAdminTestError string
+
+func (e notifAdminTestError) Error() string { return string(e) }
+
+const errNotifLookup = notifAdminTestError("lookup failed")
+
+func newAdminAccessForTest(t *testing.T, lookup MemberTenantLookup) (*adminAccess, *rsa.PrivateKey) {
+	t.Helper()
+	privateKey := mustAdminRSAKey(t)
+	validator, err := auth0jwt.NewWithKeyfunc("example.auth0.com", "api", func(token *jwt.Token) (any, error) {
+		return &privateKey.PublicKey, nil
+	})
+	if err != nil {
+		t.Fatalf("new validator: %v", err)
+	}
+	return &adminAccess{validator: validator, memberLookup: lookup}, privateKey
+}
+
+func notifAdminTokenForSubject(t *testing.T, privateKey *rsa.PrivateKey, subject string) string {
+	return mustAdminToken(t, privateKey, jwt.MapClaims{
+		"iss": "https://example.auth0.com/",
+		"aud": []string{"api"},
+		"sub": subject,
+		"iat": time.Now().Unix(),
+		"exp": time.Now().Add(time.Hour).Unix(),
+	})
+}
+
+func TestAdminRequireStampsSingleMembershipTenant(t *testing.T) {
+	lookup := func(subject, email string) ([]MemberTenant, error) {
+		return []MemberTenant{{ID: "tenant-uuid", TenantKey: "nrg"}}, nil
+	}
+	access, key := newAdminAccessForTest(t, lookup)
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Authorization", "Bearer "+notifAdminTokenForSubject(t, key, "google-oauth2|user"))
+
+	if !access.require(ctx) {
+		t.Fatalf("expected pass, status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	identity := ctx.UserValue(tenantctx.FastHTTPUserValueKey).(tenantctx.Identity)
+	if identity.TenantID != "tenant-uuid" || identity.TenantKey != "nrg" {
+		t.Fatalf("identity = %#v", identity)
+	}
+	if identity.PlatformScoped {
+		t.Fatalf("membership lookup must not grant platform scope")
+	}
+}
+
+func TestAdminRequireLeavesIdentityEmptyWhenNoMembership(t *testing.T) {
+	lookup := func(subject, email string) ([]MemberTenant, error) { return nil, nil }
+	access, key := newAdminAccessForTest(t, lookup)
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Authorization", "Bearer "+notifAdminTokenForSubject(t, key, "google-oauth2|nomember"))
+
+	if !access.require(ctx) {
+		t.Fatalf("expected pass (no membership leaves identity empty; handler enforces 403)")
+	}
+	identity := ctx.UserValue(tenantctx.FastHTTPUserValueKey).(tenantctx.Identity)
+	if identity.TenantID != "" || identity.TenantKey != "" {
+		t.Fatalf("tenant must remain empty when no membership matches, got %#v", identity)
+	}
+}
+
+func TestAdminRequireDisambiguatesMultipleMembershipsByHeader(t *testing.T) {
+	lookup := func(subject, email string) ([]MemberTenant, error) {
+		return []MemberTenant{
+			{ID: "uuid-a", TenantKey: "alpha"},
+			{ID: "uuid-b", TenantKey: "beta"},
+		}, nil
+	}
+	access, key := newAdminAccessForTest(t, lookup)
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Authorization", "Bearer "+notifAdminTokenForSubject(t, key, "google-oauth2|multi"))
+	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "beta")
+
+	if !access.require(ctx) {
+		t.Fatalf("expected pass, status=%d", ctx.Response.StatusCode())
+	}
+	identity := ctx.UserValue(tenantctx.FastHTTPUserValueKey).(tenantctx.Identity)
+	if identity.TenantID != "uuid-b" || identity.TenantKey != "beta" {
+		t.Fatalf("expected beta tenant, got %#v", identity)
+	}
+}
+
+func TestAdminRequireRejectsHeaderNotMatchingMemberships(t *testing.T) {
+	lookup := func(subject, email string) ([]MemberTenant, error) {
+		return []MemberTenant{
+			{ID: "uuid-a", TenantKey: "alpha"},
+			{ID: "uuid-b", TenantKey: "beta"},
+		}, nil
+	}
+	access, key := newAdminAccessForTest(t, lookup)
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Authorization", "Bearer "+notifAdminTokenForSubject(t, key, "google-oauth2|multi"))
+	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "gamma")
+
+	if !access.require(ctx) {
+		t.Fatalf("expected pass at gate, identity stays empty for handler 403")
+	}
+	identity := ctx.UserValue(tenantctx.FastHTTPUserValueKey).(tenantctx.Identity)
+	if identity.TenantID != "" || identity.TenantKey != "" {
+		t.Fatalf("header that does not match any membership must NOT stamp tenant, got %#v", identity)
+	}
+}
+
+func TestAdminRequireSkipsMembershipLookupForPlatformIdentity(t *testing.T) {
+	called := false
+	lookup := func(subject, email string) ([]MemberTenant, error) {
+		called = true
+		return nil, nil
+	}
+	access, key := newAdminAccessForTest(t, lookup)
+	access.bootstrapPlatformSubjects = map[string]struct{}{"google-oauth2|platform": {}}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Authorization", "Bearer "+notifAdminTokenForSubject(t, key, "google-oauth2|platform"))
+	ctx.Request.Header.Set(tenantctx.HeaderTenantKey, "nrg")
+
+	if !access.require(ctx) {
+		t.Fatalf("expected pass")
+	}
+	if called {
+		t.Fatalf("platform-scoped identity must short-circuit membership lookup")
+	}
+	identity := ctx.UserValue(tenantctx.FastHTTPUserValueKey).(tenantctx.Identity)
+	if !identity.PlatformScoped || identity.TenantKey != "nrg" {
+		t.Fatalf("expected platform identity with selected tenant, got %#v", identity)
+	}
+}
+
+func TestAdminRequireMembershipLookupErrorDoesNotEscalate(t *testing.T) {
+	lookup := func(subject, email string) ([]MemberTenant, error) {
+		return nil, errNotifLookup
+	}
+	access, key := newAdminAccessForTest(t, lookup)
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Authorization", "Bearer "+notifAdminTokenForSubject(t, key, "google-oauth2|err"))
+
+	if !access.require(ctx) {
+		t.Fatalf("lookup error must not surface as auth failure")
+	}
+	identity := ctx.UserValue(tenantctx.FastHTTPUserValueKey).(tenantctx.Identity)
+	if identity.TenantID != "" || identity.TenantKey != "" {
+		t.Fatalf("lookup error must leave identity empty, got %#v", identity)
 	}
 }
 

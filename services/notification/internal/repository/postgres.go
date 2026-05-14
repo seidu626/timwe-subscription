@@ -52,6 +52,66 @@ func (r *NotificationRepository) TenantIDByKey(ctx context.Context, tenantKey st
 	return tenantID, nil
 }
 
+// MemberTenant is a lightweight active-membership record returned to the
+// admin gate. Source of truth is tenant_admin_memberships JOIN tenants.
+type MemberTenant struct {
+	ID        string
+	TenantKey string
+}
+
+// ListActiveTenantsForMember returns active tenant memberships for an Auth0
+// subject and/or email. Matches acquisition-api's resolver — the membership
+// table is authoritative; tenant headers are never trusted on their own.
+func (r *NotificationRepository) ListActiveTenantsForMember(auth0Subject, email string) ([]MemberTenant, error) {
+	auth0Subject = strings.TrimSpace(auth0Subject)
+	email = strings.ToLower(strings.TrimSpace(email))
+	if auth0Subject == "" && email == "" {
+		return []MemberTenant{}, nil
+	}
+
+	where := []string{"m.status = 'ACTIVE'", "t.status = 'ACTIVE'"}
+	args := []any{}
+	principalFilters := []string{}
+	if auth0Subject != "" {
+		args = append(args, auth0Subject)
+		principalFilters = append(principalFilters, fmt.Sprintf("m.auth0_subject = $%d", len(args)))
+	}
+	if email != "" {
+		args = append(args, email)
+		principalFilters = append(principalFilters, fmt.Sprintf("LOWER(m.email) = $%d", len(args)))
+	}
+	if len(principalFilters) > 0 {
+		where = append(where, "("+strings.Join(principalFilters, " OR ")+")")
+	}
+
+	query := fmt.Sprintf(`
+		SELECT DISTINCT t.id::text, t.tenant_key
+		FROM tenant_admin_memberships m
+		JOIN tenants t ON t.id = m.tenant_id
+		WHERE %s
+		ORDER BY t.tenant_key ASC
+	`, strings.Join(where, " AND "))
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list active member tenants: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]MemberTenant, 0)
+	for rows.Next() {
+		var m MemberTenant
+		if err := rows.Scan(&m.ID, &m.TenantKey); err != nil {
+			return nil, fmt.Errorf("failed to scan member tenant: %w", err)
+		}
+		out = append(out, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate member tenants: %w", err)
+	}
+	return out, nil
+}
+
 // ChannelIDByKeys resolves a channel_key to its UUID for a given tenant.
 // Returns ("", ErrTenantChannelNotFound) when no active row matches.
 var ErrTenantChannelNotFound = errors.New("tenant channel not found")

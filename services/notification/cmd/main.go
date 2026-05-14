@@ -61,7 +61,18 @@ func main() {
 	svc := service.NewNotificationService(repo)
 	h := handler.NewNotificationHandler(svc)
 
-	router := transport.NewRouter(h)
+	memberTenantLookup := func(auth0Subject, email string) ([]transport.MemberTenant, error) {
+		tenants, err := repo.ListActiveTenantsForMember(auth0Subject, email)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]transport.MemberTenant, 0, len(tenants))
+		for _, t := range tenants {
+			out = append(out, transport.MemberTenant{ID: t.ID, TenantKey: t.TenantKey})
+		}
+		return out, nil
+	}
+	router := transport.NewRouter(h, memberTenantLookup)
 	handlerWithCORS := middleware.CORSMiddleware(router, cfg.Application.AllowedOrigins)
 
 	log.Printf("Starting notification service on port: %d...", cfg.Application.Port)

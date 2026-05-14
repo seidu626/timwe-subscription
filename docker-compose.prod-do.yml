@@ -164,6 +164,9 @@ services:
       - APP_CACHE_REDIS_HOST=${REDIS_HOST:-host.docker.internal}
       - APP_CACHE_REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
+      - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
+      - ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS=${ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS:-}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/health"]
       interval: 30s
