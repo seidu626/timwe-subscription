@@ -256,14 +256,9 @@ func TestHandleNotification_TenantEnforcement(t *testing.T) {
 
 	cases := []testCase{
 		{
-			// KrakenD injects both headers and query params with the same values;
-			// this case mirrors the real gateway path.
-			name: "(a) tenant_key resolves + channel_key supplied (header+query, KrakenD path)",
+			// KrakenD forwards notification tenant context as query params.
+			name: "(a) tenant_key resolves + channel_key supplied (query-only, KrakenD path)",
 			uri:  "/api/v1/notification/mo/2117?tenant_key=careerify&channel_key=web-gh-airteltigo",
-			headers: map[string]string{
-				"X-Tenant-Key":  "careerify",
-				"X-Channel-Key": "web-gh-airteltigo",
-			},
 			tenantIDByKey: map[string]string{
 				"careerify": careerifyTenantID,
 			},
@@ -277,10 +272,6 @@ func TestHandleNotification_TenantEnforcement(t *testing.T) {
 		{
 			name: "(b) unknown tenant_key",
 			uri:  "/api/v1/notification/mo/2117?tenant_key=evil-tenant&channel_key=web-gh-airteltigo",
-			headers: map[string]string{
-				"X-Tenant-Key":  "evil-tenant",
-				"X-Channel-Key": "web-gh-airteltigo",
-			},
 			tenantIDByKey:  map[string]string{},
 			wantStatus:     fasthttp.StatusBadRequest,
 			wantBodySubstr: "UNKNOWN_TENANT",
@@ -288,9 +279,6 @@ func TestHandleNotification_TenantEnforcement(t *testing.T) {
 		{
 			name: "(c) tenant_key present, channel_key absent",
 			uri:  "/api/v1/notification/mo/2117?tenant_key=careerify",
-			headers: map[string]string{
-				"X-Tenant-Key": "careerify",
-			},
 			tenantIDByKey: map[string]string{
 				"careerify": careerifyTenantID,
 			},

@@ -194,7 +194,7 @@ func (h *NotificationHandler) resolveNotificationTenant(ctx *fasthttp.RequestCtx
 	pair, err := tenantctx.ResolveKeyPair(
 		fasthttpHeaderGetter{ctx: ctx},
 		tenantctx.KeyPair{TenantKey: tenantKeyQuery, ChannelKey: channelKeyQuery},
-		tenantctx.ResolveKeyPairOptions{GatewayTrusted: false},
+		tenantctx.ResolveKeyPairOptions{GatewayTrusted: true},
 	)
 	if err != nil {
 		if errors.Is(err, tenantctx.ErrTenantKeyConflict) {
