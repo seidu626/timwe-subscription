@@ -50,113 +50,6 @@ func NewCampaignRepository(db *sql.DB, logger *zap.Logger) *CampaignRepository {
 	}
 }
 
-// GetBySlug retrieves a campaign by slug
-func (r *CampaignRepository) GetBySlug(slug string) (*domain.Campaign, error) {
-	query := `
-			SELECT id, slug, language, country, operator, offer_product_id, pricepoint_id,
-			       partner_role_id, flow_type, short_code, sms_keyword, price, billing_cycle,
-			       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
-			       attribution_mapping, postback_rules, throttles, allowed_referrers,
-			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
-			       enabled, created_at, updated_at, created_by, updated_by
-			FROM campaigns
-			WHERE slug = $1 AND enabled = true AND tenant_id IS NULL
-		`
-
-	var campaign domain.Campaign
-	var operator, shortCode, smsKeyword, termsURL,
-		inlineTermsText, consentVersion, createdBy, updatedBy sql.NullString
-	var pricepointID, partnerRoleID sql.NullInt64 // Fixed: use NullInt64 for integer columns
-	var price sql.NullFloat64
-	var billingCycle sql.NullString
-	var trialFlags, attributionMapping, postbackRules, throttles, trackingConfig, lpCopy sql.NullString
-	var allowedReferrers, allowedSources, landingPageURLs pq.StringArray
-
-	err := r.db.QueryRow(query, slug).Scan(
-		&campaign.ID, &campaign.Slug, &campaign.Language, &campaign.Country, &operator,
-		&campaign.OfferProductID, &pricepointID, &partnerRoleID, &campaign.FlowType,
-		&shortCode, &smsKeyword, &price, &billingCycle, &trialFlags, &termsURL,
-		&inlineTermsText, &campaign.ConsentRequired, &consentVersion,
-		&attributionMapping, &postbackRules, &throttles, &allowedReferrers,
-		&allowedSources, &landingPageURLs, &trackingConfig, &lpCopy,
-		&campaign.Enabled, &campaign.CreatedAt, &campaign.UpdatedAt,
-		&createdBy, &updatedBy,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("campaign not found: %s", slug)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get campaign: %w", err)
-	}
-
-	// Map nullable fields
-	if operator.Valid {
-		campaign.Operator = &operator.String
-	}
-	if pricepointID.Valid {
-		id := int(pricepointID.Int64)
-		campaign.PricepointID = &id
-	}
-	if partnerRoleID.Valid {
-		id := int(partnerRoleID.Int64)
-		campaign.PartnerRoleID = &id
-	}
-	if shortCode.Valid {
-		campaign.ShortCode = &shortCode.String
-	}
-	if smsKeyword.Valid {
-		campaign.SMSKeyword = &smsKeyword.String
-	}
-	if price.Valid {
-		campaign.Price = &price.Float64
-	}
-	if billingCycle.Valid {
-		campaign.BillingCycle = &billingCycle.String
-	}
-	if termsURL.Valid {
-		campaign.TermsURL = &termsURL.String
-	}
-	if inlineTermsText.Valid {
-		campaign.InlineTermsText = &inlineTermsText.String
-	}
-	if consentVersion.Valid {
-		campaign.ConsentVersion = &consentVersion.String
-	}
-	if createdBy.Valid {
-		campaign.CreatedBy = &createdBy.String
-	}
-	if updatedBy.Valid {
-		campaign.UpdatedBy = &updatedBy.String
-	}
-
-	// Map JSON fields
-	if trialFlags.Valid {
-		campaign.TrialFlags = json.RawMessage(trialFlags.String)
-	}
-	if attributionMapping.Valid {
-		campaign.AttributionMapping = json.RawMessage(attributionMapping.String)
-	}
-	if postbackRules.Valid {
-		campaign.PostbackRules = json.RawMessage(postbackRules.String)
-	}
-	if throttles.Valid {
-		campaign.Throttles = json.RawMessage(throttles.String)
-	}
-	if trackingConfig.Valid {
-		campaign.TrackingConfig = json.RawMessage(trackingConfig.String)
-	}
-	if lpCopy.Valid {
-		campaign.LPCopy = json.RawMessage(lpCopy.String)
-	}
-
-	campaign.AllowedReferrers = allowedReferrers
-	campaign.AllowedSources = allowedSources
-	campaign.LandingPageURLs = landingPageURLs
-
-	return &campaign, nil
-}
-
 // GetAdminBySlug retrieves a campaign by slug (admin view; enabled + disabled).
 func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, error) {
 	query := `
@@ -267,39 +160,6 @@ func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, erro
 	campaign.LandingPageURLs = landingPageURLs
 
 	return &campaign, nil
-}
-
-// ListEnabled retrieves all enabled campaigns
-func (r *CampaignRepository) ListEnabled() ([]*domain.Campaign, error) {
-	query := `
-			SELECT id, tenant_id, channel_id, slug, language, country, operator, offer_product_id, pricepoint_id,
-			       partner_role_id, flow_type, short_code, sms_keyword, price, billing_cycle,
-			       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
-			       attribution_mapping, postback_rules, throttles, allowed_referrers,
-			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
-			       enabled, created_at, updated_at, created_by, updated_by
-			FROM campaigns
-			WHERE enabled = true AND tenant_id IS NULL
-			ORDER BY created_at DESC
-	`
-
-	rows, err := r.db.Query(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list campaigns: %w", err)
-	}
-	defer rows.Close()
-
-	var campaigns []*domain.Campaign
-	for rows.Next() {
-		campaign, err := r.scanCampaign(rows)
-		if err != nil {
-			r.logger.Error("Failed to scan campaign", zap.Error(err))
-			continue
-		}
-		campaigns = append(campaigns, campaign)
-	}
-
-	return campaigns, nil
 }
 
 // ListAll retrieves campaigns (enabled + disabled) with optional filters.
@@ -982,7 +842,7 @@ func (r *CampaignRepository) scanCampaign(rows *sql.Rows) (*domain.Campaign, err
 		campaign.ChannelID = &channelID.String
 	}
 
-	// Map nullable fields (same as GetBySlug)
+	// Map nullable fields.
 	if operator.Valid {
 		campaign.Operator = &operator.String
 	}

@@ -243,6 +243,38 @@ func TestExtractTenantAndCampaignSlugFromPath(t *testing.T) {
 	}
 }
 
+func TestPublicCampaignSlugRouteRequiresTenantContext(t *testing.T) {
+	h := NewCampaignHandler(nil, nil, zap.NewNop())
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/campaigns/daily")
+	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+
+	h.GetBySlug(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if !strings.Contains(string(ctx.Response.Body()), "Tenant context required") {
+		t.Fatalf("expected tenant context error, got %q", ctx.Response.Body())
+	}
+}
+
+func TestPublicCampaignListRequiresTenantContext(t *testing.T) {
+	h := NewCampaignHandler(nil, nil, zap.NewNop())
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/campaigns")
+	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+
+	h.ListEnabled(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if !strings.Contains(string(ctx.Response.Body()), "Tenant context required") {
+		t.Fatalf("expected tenant context error, got %q", ctx.Response.Body())
+	}
+}
+
 func TestTrustedPublicTenantIdentityRequiresSignature(t *testing.T) {
 	t.Setenv("TENANT_TRUSTED_HEADER_SECRET", "secret")
 	var ctx fasthttp.RequestCtx

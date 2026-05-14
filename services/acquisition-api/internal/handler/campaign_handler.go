@@ -128,14 +128,7 @@ func (h *CampaignHandler) GetBySlug(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	campaign, err := h.service.GetBySlug(slug)
-	if err != nil {
-		h.logger.Error("Failed to get campaign", zap.String("slug", slug), zap.Error(err))
-		ctx.Error("Campaign not found", fasthttp.StatusNotFound)
-		return
-	}
-
-	writeJSON(ctx, fasthttp.StatusOK, campaign)
+	ctx.Error("Tenant context required", fasthttp.StatusForbidden)
 }
 
 type fastHTTPHeaderGetter struct {
@@ -192,16 +185,7 @@ func (h *CampaignHandler) GetByTenantAndSlug(ctx *fasthttp.RequestCtx) {
 
 // ListEnabled handles GET /v1/campaigns
 func (h *CampaignHandler) ListEnabled(ctx *fasthttp.RequestCtx) {
-	campaigns, err := h.service.ListEnabled()
-	if err != nil {
-		h.logger.Error("Failed to list campaigns", zap.Error(err))
-		ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
-		return
-	}
-
-	writeJSON(ctx, fasthttp.StatusOK, map[string]interface{}{
-		"campaigns": campaigns,
-	})
+	ctx.Error("Tenant context required", fasthttp.StatusForbidden)
 }
 
 type adminCampaignUpsertRequest struct {

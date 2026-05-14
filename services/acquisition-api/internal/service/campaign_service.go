@@ -13,9 +13,7 @@ import (
 // CampaignRepo defines the repository contract used by CampaignService.
 // This enables unit testing without a real database.
 type CampaignRepo interface {
-	GetBySlug(slug string) (*domain.Campaign, error)
 	GetByTenantKeyAndSlug(tenantKey, slug string) (*domain.Campaign, error)
-	ListEnabled() ([]*domain.Campaign, error)
 	GetAdminBySlug(slug string) (*domain.Campaign, error)
 	GetAdminByTenantAndSlug(tenantID, slug string) (*domain.Campaign, error)
 	ListAll(enabled *bool, country *string) ([]*domain.Campaign, error)
@@ -58,16 +56,6 @@ func NewCampaignService(repo CampaignRepo, logger *zap.Logger) *CampaignService 
 	}
 }
 
-// GetBySlug retrieves a campaign by slug and returns public-safe data
-func (s *CampaignService) GetBySlug(slug string) (*domain.PublicCampaign, error) {
-	campaign, err := s.repo.GetBySlug(slug)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get campaign: %w", err)
-	}
-
-	return campaign.ToPublic(), nil
-}
-
 func (s *CampaignService) GetByTenantKeyAndSlug(tenantKey, slug string) (*domain.PublicCampaign, error) {
 	campaign, err := s.repo.GetByTenantKeyAndSlug(tenantKey, slug)
 	if err != nil {
@@ -75,21 +63,6 @@ func (s *CampaignService) GetByTenantKeyAndSlug(tenantKey, slug string) (*domain
 	}
 
 	return campaign.ToPublic(), nil
-}
-
-// ListEnabled retrieves all enabled campaigns (public-safe)
-func (s *CampaignService) ListEnabled() ([]*domain.PublicCampaign, error) {
-	campaigns, err := s.repo.ListEnabled()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list campaigns: %w", err)
-	}
-
-	public := make([]*domain.PublicCampaign, len(campaigns))
-	for i, c := range campaigns {
-		public[i] = c.ToPublic()
-	}
-
-	return public, nil
 }
 
 // AdminGetBySlug retrieves a campaign by slug (admin/full view).

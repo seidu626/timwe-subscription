@@ -12,9 +12,7 @@ import (
 )
 
 type fakeCampaignRepo struct {
-	getBySlugFn               func(string) (*domain.Campaign, error)
 	getByTenantKeyAndSlugFn   func(string, string) (*domain.Campaign, error)
-	listEnabledFn             func() ([]*domain.Campaign, error)
 	getAdminBySlugFn          func(string) (*domain.Campaign, error)
 	getAdminByTenantAndSlugFn func(string, string) (*domain.Campaign, error)
 	listAllFn                 func(*bool, *string) ([]*domain.Campaign, error)
@@ -31,14 +29,8 @@ type fakeCampaignRepo struct {
 	updatePostbackRulesFn     func(string, json.RawMessage) error
 }
 
-func (f *fakeCampaignRepo) GetBySlug(slug string) (*domain.Campaign, error) {
-	return f.getBySlugFn(slug)
-}
 func (f *fakeCampaignRepo) GetByTenantKeyAndSlug(tenantKey, slug string) (*domain.Campaign, error) {
 	return f.getByTenantKeyAndSlugFn(tenantKey, slug)
-}
-func (f *fakeCampaignRepo) ListEnabled() ([]*domain.Campaign, error) {
-	return f.listEnabledFn()
 }
 func (f *fakeCampaignRepo) GetAdminBySlug(slug string) (*domain.Campaign, error) {
 	return f.getAdminBySlugFn(slug)
@@ -124,8 +116,6 @@ func TestCampaignService_AdminCRUD_HappyPath(t *testing.T) {
 			return &domain.Campaign{Slug: slug, Enabled: enabled, UpdatedBy: updatedBy}, nil
 		},
 		// not used by this test:
-		getBySlugFn:   func(string) (*domain.Campaign, error) { return nil, errors.New("unused") },
-		listEnabledFn: func() ([]*domain.Campaign, error) { return nil, errors.New("unused") },
 	}
 
 	svc := NewCampaignService(repo, logger)
@@ -253,11 +243,9 @@ func TestCampaignService_AdminClone_CopiesConfigurationAndResetsState(t *testing
 			return c, nil
 		},
 		// not used by this test
-		getBySlugFn:   func(string) (*domain.Campaign, error) { return nil, errors.New("unused") },
-		listEnabledFn: func() ([]*domain.Campaign, error) { return nil, errors.New("unused") },
-		listAllFn:     func(*bool, *string) ([]*domain.Campaign, error) { return nil, errors.New("unused") },
-		updateFn:      func(string, *domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },
-		setEnabledFn:  func(string, bool, *string) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		listAllFn:    func(*bool, *string) ([]*domain.Campaign, error) { return nil, errors.New("unused") },
+		updateFn:     func(string, *domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		setEnabledFn: func(string, bool, *string) (*domain.Campaign, error) { return nil, errors.New("unused") },
 	}
 
 	svc := NewCampaignService(repo, logger)
@@ -281,12 +269,10 @@ func TestCampaignService_AdminClone_SourceNotFound(t *testing.T) {
 			return nil, errors.New("campaign not found: " + slug)
 		},
 		// not used by this test
-		getBySlugFn:   func(string) (*domain.Campaign, error) { return nil, errors.New("unused") },
-		listEnabledFn: func() ([]*domain.Campaign, error) { return nil, errors.New("unused") },
-		listAllFn:     func(*bool, *string) ([]*domain.Campaign, error) { return nil, errors.New("unused") },
-		createFn:      func(*domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },
-		updateFn:      func(string, *domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },
-		setEnabledFn:  func(string, bool, *string) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		listAllFn:    func(*bool, *string) ([]*domain.Campaign, error) { return nil, errors.New("unused") },
+		createFn:     func(*domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		updateFn:     func(string, *domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },
+		setEnabledFn: func(string, bool, *string) (*domain.Campaign, error) { return nil, errors.New("unused") },
 	}
 
 	svc := NewCampaignService(repo, logger)
@@ -309,8 +295,6 @@ func TestCampaignService_AdminCreate_RejectsInvalidOfferMapping(t *testing.T) {
 			return nil, errors.New("should not be called")
 		},
 		// not used by this test
-		getBySlugFn:      func(string) (*domain.Campaign, error) { return nil, errors.New("unused") },
-		listEnabledFn:    func() ([]*domain.Campaign, error) { return nil, errors.New("unused") },
 		getAdminBySlugFn: func(string) (*domain.Campaign, error) { return nil, errors.New("unused") },
 		listAllFn:        func(*bool, *string) ([]*domain.Campaign, error) { return nil, errors.New("unused") },
 		updateFn:         func(string, *domain.Campaign) (*domain.Campaign, error) { return nil, errors.New("unused") },

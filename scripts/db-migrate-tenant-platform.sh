@@ -219,6 +219,29 @@ count_canonical_rows() {
   query_scalar "SELECT COUNT(*) FROM ${table} WHERE tenant_id = '${CANONICAL_TENANT_ID}'::uuid"
 }
 
+tenant_assignment_for_table() {
+  local table="$1"
+  case "$table" in
+    admin_activity_logs)
+      cat <<SQL
+COALESCE(
+  (
+    SELECT t.id
+    FROM tenants t
+    WHERE target.entity_type = 'tenant'
+      AND target.entity_id = t.id::text
+    LIMIT 1
+  ),
+  '${CANONICAL_TENANT_ID}'::uuid
+)
+SQL
+      ;;
+    *)
+      echo "'${CANONICAL_TENANT_ID}'::uuid"
+      ;;
+  esac
+}
+
 report_table_state() {
   local table="$1"
   local eligible_predicate eligible_rows canonical_rows conflict_groups batches status
@@ -297,6 +320,8 @@ run_dry_run() {
 backfill_table() {
   local table="$1"
   local predicate="$2"
+  local assignment
+  assignment="$(tenant_assignment_for_table "$table")"
   local total=0
   while true; do
     local batch_sql batch_rows
@@ -309,7 +334,7 @@ WITH batch AS (
   LIMIT ${BATCH_SIZE}
 )
 UPDATE ${table} AS target
-SET tenant_id = '${CANONICAL_TENANT_ID}'::uuid
+SET tenant_id = ${assignment}
 FROM batch
 WHERE target.ctid = batch.ctid
 RETURNING 1;

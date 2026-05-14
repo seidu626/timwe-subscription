@@ -6216,6 +6216,110 @@
       ],
       "updated_at": "2026-05-14T02:21:35Z",
       "worktree": null
+    },
+    {
+      "acceptance_criteria": [
+        {
+          "blocker": null,
+          "evidence": [
+            "Live SQL after cleanup: admin_activity_logs=0, notifications=0, campaigns=0, product_message_series=0 tenantless rows.",
+            "Live SQL after cleanup: admin_activity_logs.tenant_id and notifications.tenant_id are NOT NULL."
+          ],
+          "id": "AC-1",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "admin_activity_logs and notifications have zero tenantless live rows."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "campaign_handler.go returns HTTP 403 Tenant context required for GetBySlug without signed tenant headers and for ListEnabled.",
+            "campaign_repository.go no longer exposes tenant_id IS NULL GetBySlug/ListEnabled methods."
+          ],
+          "id": "AC-2",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Public campaign slug-only and list routes fail closed without tenant context."
+        },
+        {
+          "blocker": null,
+          "evidence": [
+            "enforce_admin_activity_log_tenant.sql repairs tenant-create activity ownership and sets admin_activity_logs.tenant_id NOT NULL.",
+            "020_tenant_notification_nullable_cleanup.sql drops notification legacy idempotency compatibility and sets notifications.tenant_id NOT NULL."
+          ],
+          "id": "AC-3",
+          "next_task_id": null,
+          "reason": null,
+          "status": "passed",
+          "text": "Forward migrations enforce tenant ownership for proven residual nullable lanes."
+        }
+      ],
+      "attempts": 0,
+      "blockers": [],
+      "branch": null,
+      "children": [],
+      "completed": [
+        "Backfilled the live residual rows and repaired the tenant-create admin activity row to careerify instead of nrg.",
+        "Applied live schema cleanup: dropped legacy campaign and product_message_series partial indexes; set admin_activity_logs.tenant_id and notifications.tenant_id NOT NULL.",
+        "Removed public slug-only campaign repository/service compatibility and made the exposed legacy routes fail closed.",
+        "Added forward migrations and regression tests for the new behavior."
+      ],
+      "created_at": "2026-05-14T04:08:46Z",
+      "details": "Resolve residual tenantless admin activity and notification rows, remove exposed public slug-only campaign compatibility, and record forward tenant nullable cleanup migrations.",
+      "evidence": {
+        "commands": [
+          {
+            "command": "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler",
+            "exit_code": 0,
+            "output_excerpt": "ok github.com/seidu626/subscription-manager/acquisition-api/internal/repository; ok internal/service; ok internal/handler",
+            "status": "passed",
+            "timestamp": "2026-05-14T04:07:41Z"
+          },
+          {
+            "command": "cd services/subscription-external && go test ./internal/repository ./internal/service",
+            "exit_code": 0,
+            "output_excerpt": "ok github.com/seidu626/subscription-manager/subscription-external/internal/repository; ok internal/service",
+            "status": "passed",
+            "timestamp": "2026-05-14T04:07:41Z"
+          },
+          {
+            "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+            "exit_code": 0,
+            "output_excerpt": "TMP-074 assignment_decision allow; no blocking_reasons",
+            "status": "passed",
+            "timestamp": "2026-05-14T04:07:41Z"
+          }
+        ],
+        "commits": [],
+        "files": [
+          "scripts/db-migrate-tenant-platform.sh",
+          "services/acquisition-api/internal/handler/campaign_handler.go",
+          "services/acquisition-api/internal/handler/campaign_handler_test.go",
+          "services/acquisition-api/internal/repository/admin_management_repository.go",
+          "services/acquisition-api/internal/repository/campaign_repository.go",
+          "services/acquisition-api/internal/service/campaign_service.go",
+          "services/acquisition-api/internal/service/campaign_service_test.go",
+          "services/acquisition-api/migrations/enforce_admin_activity_log_tenant.sql",
+          "services/subscription-external/migrations/020_tenant_notification_nullable_cleanup.sql",
+          "agent/backlog/issues/TMP-074-tenant-null-residual-cleanup.md",
+          "agent/state/TMP-074.work-order.json",
+          "slices/manifest.json",
+          "slices/TMP-074-tenant-null-residual-cleanup/value-gate-report.md"
+        ]
+      },
+      "goal": "",
+      "id": "TMP-074",
+      "owner": null,
+      "parent_id": null,
+      "priority": 0,
+      "review_findings": [],
+      "status": "done",
+      "title": "Tenant nullable residual cleanup",
+      "unresolved": [],
+      "updated_at": "2026-05-14T04:08:46Z",
+      "worktree": null
     }
   ],
   "version": 1

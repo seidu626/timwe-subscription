@@ -1,0 +1,80 @@
+{
+  "work_order_id": "WO-TMP-074-001",
+  "issue_id": "TMP-074",
+  "class": "vertical_defect_slice",
+  "assignment_allowed": true,
+  "assignment_decision": "allow",
+  "vertical_outcome": "documented residual tenant-null gaps are converted into tenant-owned rows and fail-closed runtime behavior.",
+  "actor": "platform-operator",
+  "entrypoint": "tenant residual cleanup and public campaign route enforcement",
+  "trigger": "TMP-055 shipped with documented non-blocking residual gaps after canonical tenant runtime enforcement.",
+  "allowed_files": [
+    "scripts/db-migrate-tenant-platform.sh",
+    "services/acquisition-api/internal/handler/campaign_handler.go",
+    "services/acquisition-api/internal/handler/campaign_handler_test.go",
+    "services/acquisition-api/internal/service/campaign_service.go",
+    "services/acquisition-api/internal/service/campaign_service_test.go",
+    "services/acquisition-api/internal/repository/campaign_repository.go",
+    "services/acquisition-api/internal/repository/admin_management_repository.go",
+    "services/acquisition-api/internal/repository/admin_management_repository_test.go",
+    "services/acquisition-api/migrations/**",
+    "services/subscription-external/migrations/**",
+    "docs/**",
+    "agent/backlog/issues/TMP-074-tenant-null-residual-cleanup.md",
+    "agent/state/TMP-074.work-order.json",
+    "agent/state/TMP-074.handoff.json",
+    "slices/manifest.json",
+    "slices/TMP-074-tenant-null-residual-cleanup/**",
+    ".agent/**",
+    ".harness/**"
+  ],
+  "forbidden_files": [
+    "services/**/go.mod",
+    "services/**/go.sum",
+    "docker-compose*.yml"
+  ],
+  "acceptance_tests": [
+    "admin_activity_logs has zero tenantless live rows and tenant-create audit rows bind to the created tenant, not blanket nrg.",
+    "notifications has zero tenantless live rows and notification tenant nullable cleanup is represented by a forward migration.",
+    "Public campaign GET /v1/campaigns/{slug} and GET /v1/campaigns no longer expose tenant_id IS NULL compatibility.",
+    "Existing tenant-aware public campaign GET /v1/campaigns/{tenant_key}/{slug} remains supported."
+  ],
+  "required_evidence": [
+    "Live SQL proof for admin_activity_logs, notifications, campaigns, and legacy partial indexes.",
+    "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler",
+    "cd services/subscription-external && go test ./internal/repository ./internal/service",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "non_goals": [
+    "Do not rewrite historical migrations.",
+    "Do not change unrelated tenant onboarding or admin UI behavior."
+  ],
+  "blocking_dependencies": [],
+  "reclassification_triggers": [],
+  "classification_result": {
+    "issue_id": "TMP-074",
+    "title": "Tenant nullable residual cleanup",
+    "path": "agent/backlog/issues/TMP-074-tenant-null-residual-cleanup.md",
+    "declared_class": "vertical_defect_slice",
+    "detected_class": "vertical_defect_slice",
+    "confidence": 0.86,
+    "verticality_score": 92,
+    "score_breakdown": {
+      "actor_or_system_outcome": 20,
+      "end_to_end_path_defined": 20,
+      "independently_testable": 12,
+      "acceptance_criteria_are_observable": 15,
+      "scope_is_thin_and_bounded": 10,
+      "dependencies_are_explicit": 10,
+      "merge_and_evidence_policy_defined": 5
+    },
+    "assignment_decision": "allow",
+    "reason_codes": [
+      "declared_class_valid"
+    ],
+    "blocking_reasons": [],
+    "review_reasons": [],
+    "schema_errors": [],
+    "recommended_action": {}
+  }
+}

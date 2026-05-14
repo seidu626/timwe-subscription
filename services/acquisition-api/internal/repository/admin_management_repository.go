@@ -68,6 +68,7 @@ func (r *AdminManagementRepository) CreateTenantWithActivityLog(input *domain.Te
 	}
 
 	if entry != nil {
+		entry.TenantID = tenant.ID
 		entry.EntityType = "tenant"
 		entry.EntityID = tenant.ID
 		if err := createActivityLog(tx, entry); err != nil {
