@@ -2103,7 +2103,108 @@
         "dod_path": "slices/TMP-070-careerify-tenant-e2e-smoke/value-gate-report.md"
       },
       "notes": "Closing slice. Produces the artifact set required to declare careerify onboarding shippable. Failure here bounces back to whichever upstream slice owns the gap."
+    },
+    {
+      "id": "TMP-071",
+      "external_id": "TMP-071",
+      "name": "notification-tenant-enforcement",
+      "class": "vertical_defect_slice",
+      "hvc_issue": null,
+      "parent_slice": "TMP-067",
+      "capability_ids": [],
+      "user_story": "As a security reviewer, an MNO callback to /api/v1/notification/{type}/{partnerRole} is rejected with HTTP 4xx when tenant_key resolves to an unknown row or channel_key is missing, so unknown tenants cannot quietly persist notifications under NULL tenant context.",
+      "demo": "POST /api/v1/notification/mo/2117?tenant_key=evil-tenant returns 4xx; POST /api/v1/notification/mo/2117?tenant_key=careerify (no channel_key) returns 4xx; happy path /...?tenant_key=careerify&channel_key=web-gh-airteltigo still returns 200; refusal smoke Cases B and C now pass.",
+      "depends_on": [
+        "TMP-066",
+        "TMP-069"
+      ],
+      "layers": [
+        "handler",
+        "tests",
+        "evidence"
+      ],
+      "state": "planned",
+      "branch": null,
+      "created_at": "2026-05-14T00:00:00Z",
+      "verification": {
+        "automated": [
+          "go test ./services/notification/internal/handler/... -run TenantEnforcement",
+          "bash scripts/smoke/careerify-tenant-cross-tenant-refusal.sh"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-071-notification-tenant-enforcement/value-gate-report.md"
+      },
+      "notes": "Follow-up from TMP-070 smoke: Cases B and C currently HTTP 200. Split tenantIDForAdminRead into present-but-unknown vs absent. See spec.md for details."
+    },
+    {
+      "id": "TMP-072",
+      "external_id": "TMP-072",
+      "name": "subscription-gateway-trusted-auth",
+      "class": "vertical_defect_slice",
+      "hvc_issue": null,
+      "parent_slice": "TMP-068",
+      "capability_ids": [],
+      "user_story": "As an external subscription partner, POST to /api/external/v1/{tenant_key}/{channel_key}/subscriptions/{op} reaches subscription-external and is processed under the correct tenant, instead of HTTP 400 trusted service secret is not configured.",
+      "demo": "Through-gateway curl to 4 subscription endpoints for careerify returns 2xx; cross-tenant refusal Case A returns 409 (not 400); subscription-external audit log shows tenant_id and channel_id.",
+      "depends_on": [
+        "TMP-066",
+        "TMP-068",
+        "TMP-069"
+      ],
+      "layers": [
+        "gateway-config",
+        "handler",
+        "auth",
+        "tests",
+        "evidence"
+      ],
+      "state": "planned",
+      "branch": null,
+      "created_at": "2026-05-14T00:00:00Z",
+      "verification": {
+        "automated": [
+          "bash scripts/smoke/careerify-tenant-e2e.sh",
+          "bash scripts/smoke/careerify-tenant-cross-tenant-refusal.sh",
+          "go test ./services/subscription-external/..."
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/TMP-072-subscription-gateway-trusted-auth/value-gate-report.md"
+      },
+      "notes": "Follow-up from TMP-070 smoke: admin handlers reject for missing trusted-service identity. Spec defines two options (A) KrakenD mints HMAC identity, (B) route to non-trusted external handlers. Pick one in spec phase."
+    },
+    {
+      "id": "TMP-073",
+      "external_id": "TMP-073",
+      "name": "krakend-fc-template-parity",
+      "class": "vertical_defect_slice",
+      "hvc_issue": null,
+      "parent_slice": "TMP-068",
+      "capability_ids": [],
+      "user_story": "As a release engineer, the KrakenD container built from docker-compose serves the same endpoints as krakend/krakend.json so TMP-067/068 tenant routing works in production, not only when KrakenD is run directly against the static config.",
+      "demo": "Render FC template via krakend check -dc; diff against krakend/krakend.json shows the 10 new endpoints rendered; docker-compose up krakend serves them; smoke matrix runs green against compose-rendered config.",
+      "depends_on": [
+        "TMP-067",
+        "TMP-068"
+      ],
+      "layers": [
+        "gateway-config",
+        "templates",
+        "evidence"
+      ],
+      "state": "planned",
+      "branch": null,
+      "created_at": "2026-05-14T00:00:00Z",
+      "verification": {
+        "automated": [
+          "docker run --rm -v $(pwd)/krakend:/etc/krakend:ro,Z docker.io/library/krakend:latest check -dc /etc/krakend/config/krakend.tmpl"
+        ],
+        "manual_smoke": [
+          "docker-compose up -d krakend; HOST=http://127.0.0.1:8090 bash scripts/smoke/careerify-tenant-e2e.sh"
+        ],
+        "dod_path": "slices/TMP-073-krakend-fc-template-parity/value-gate-report.md"
+      },
+      "notes": "Follow-up from TMP-070 smoke: krakend.json edits are not in krakend/config/templates/. Production runtime path uses FC; static-config edits do not reach it."
     }
   ],
-  "updated_at": "2026-05-13T20:37:57Z"
+  "updated_at": "2026-05-14T02:10:00Z"
 }
