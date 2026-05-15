@@ -20,7 +20,8 @@ describe('tenantWorkspaceGuard', () => {
               tenant_id: 'tenant-a',
               tenant_key: 'tenant-a',
               name: 'Tenant Admin'
-            })
+            }),
+            getAccessTokenSilently: jasmine.createSpy('getAccessTokenSilently').and.returnValue(of('token'))
           }
         },
         {
@@ -63,5 +64,25 @@ describe('tenantWorkspaceGuard', () => {
 
     expect(result).toBeTrue();
     expect(TestBed.inject(TenantWorkspaceService).getCurrentWorkspace().status).toBe('ready');
+  });
+
+  it('routes tenant-scoped users away from platform-only admin views', async () => {
+    const router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+    router.createUrlTree.and.returnValue({} as UrlTree);
+
+    const route = {
+      queryParamMap: convertToParamMap({}),
+      data: { platformRequired: true }
+    } as unknown as ActivatedRouteSnapshot;
+    const state = {
+      url: '/tenants'
+    } as RouterStateSnapshot;
+
+    const result$ = TestBed.runInInjectionContext(() => tenantWorkspaceGuard(route, state));
+    await firstValueFrom(result$ as any);
+
+    expect(router.createUrlTree).toHaveBeenCalledWith(['/403'], {
+      queryParams: { reason: 'platform-required' }
+    });
   });
 });

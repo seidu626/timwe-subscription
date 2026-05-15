@@ -2,7 +2,16 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '@auth0/auth0-angular';
-import { ButtonDirective } from '@coreui/angular';
+import { IconDirective } from '@coreui/icons-angular';
+import {
+  ButtonDirective,
+  CardBodyComponent,
+  CardComponent,
+  CardGroupComponent,
+  ColComponent,
+  ContainerComponent,
+  RowComponent
+} from '@coreui/angular';
 import { combineLatest, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import {
@@ -17,6 +26,7 @@ type DenialReason =
   | 'invalid-selection'
   | 'forbidden'
   | 'tenant-not-found'
+  | 'platform-required'
   | 'permission-error';
 
 export interface Page403View {
@@ -86,6 +96,18 @@ export class Page403Component {
     });
   }
 
+  monogramFor(tenant: TenantWorkspaceOption): string {
+    const source = (tenant.label || tenant.tenantKey || tenant.identifier || '').trim();
+    const letters = source
+      .split(/[\s_-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('');
+
+    return letters || 'T';
+  }
+
   // Reconcile the URL ?reason hint with the actual workspace state so the
   // page can't say "no tenant assignment" while a tenant is clearly assigned.
   // The URL hint is preferred when explicit; otherwise reason is inferred from
@@ -147,6 +169,16 @@ export class Page403Component {
           canRetry: true,
           workspace
         };
+      case 'platform-required':
+        return {
+          reason,
+          title: 'Platform admin access required',
+          description: 'This page manages the platform tenant catalog and is only available to platform-scoped administrators.',
+          hint: 'Use the tenant workspace pages for tenant-scoped subscriptions, products, notifications, campaigns, and reports.',
+          showTenantPanel: hasTenants,
+          canRetry: false,
+          workspace
+        };
       case 'missing-tenant':
       default:
         return {
@@ -195,6 +227,7 @@ export class Page403Component {
       case 'invalid-selection':
       case 'forbidden':
       case 'tenant-not-found':
+      case 'platform-required':
       case 'permission-error':
         return value;
       default:

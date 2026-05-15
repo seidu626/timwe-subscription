@@ -12,6 +12,19 @@ function tenantIdentifierFromRoute(route: ActivatedRouteSnapshot): string | null
     ?? route.queryParamMap.get('tenantId');
 }
 
+function routeRequiresPlatformScope(route: ActivatedRouteSnapshot): boolean {
+  let current: ActivatedRouteSnapshot | null = route;
+
+  while (current) {
+    if (current.data?.['platformRequired'] === true) {
+      return true;
+    }
+    current = current.parent;
+  }
+
+  return false;
+}
+
 function denialTree(router: Router, reason: string): UrlTree {
   return router.createUrlTree(['/403'], {
     queryParams: { reason }
@@ -23,6 +36,7 @@ export const tenantWorkspaceGuard: CanActivateChildFn = (route: ActivatedRouteSn
   const router = inject(Router);
   const tenantWorkspace = inject(TenantWorkspaceService);
   const requestedTenant = tenantIdentifierFromRoute(route);
+  const platformRequired = routeRequiresPlatformScope(route);
 
   return combineLatest([
     auth.isLoading$,
@@ -47,6 +61,9 @@ export const tenantWorkspaceGuard: CanActivateChildFn = (route: ActivatedRouteSn
       }
 
       if (workspace.status === 'ready') {
+        if (platformRequired && !workspace.platformScoped) {
+          return denialTree(router, 'platform-required');
+        }
         return true;
       }
 

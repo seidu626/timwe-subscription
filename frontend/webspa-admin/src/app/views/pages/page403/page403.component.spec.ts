@@ -73,6 +73,15 @@ describe('Page403Component', () => {
     expect(component).toBeTruthy();
   });
 
+  it('derives a stable monogram for tenant cards', () => {
+    expect(component.monogramFor({
+      identifier: 'nrg',
+      label: 'Nouveau Riche',
+      tenantKey: 'nrg',
+      tenantId: 'id-1'
+    })).toBe('NR');
+  });
+
   it('does not describe backend forbidden responses as a missing tenant assignment', () => {
     let title = '';
     let description = '';
@@ -100,6 +109,29 @@ describe('Page403Component', () => {
 
     expect(title).toBe('Tenant workspace not found');
     expect(description).toContain('backend could not resolve');
+    subscription.unsubscribe();
+  });
+
+  it('explains platform-only pages without retrying the same forbidden backend call', () => {
+    workspace$.next({
+      ...emptyWorkspace,
+      platformScoped: false,
+      status: 'ready',
+      currentTenant: { identifier: 'nrg', label: 'NRG', tenantKey: 'nrg', tenantId: 'id-1' },
+      availableTenants: [
+        { identifier: 'nrg', label: 'NRG', tenantKey: 'nrg', tenantId: 'id-1' }
+      ]
+    });
+    queryParamMap$.next(convertToParamMap({ reason: 'platform-required' }));
+
+    let snapshot: { title: string; description: string; canRetry: boolean } | null = null;
+    const subscription = component.view$.subscribe((view) => {
+      snapshot = { title: view.title, description: view.description, canRetry: view.canRetry };
+    });
+
+    expect(snapshot!.title).toBe('Platform admin access required');
+    expect(snapshot!.description).toContain('platform tenant catalog');
+    expect(snapshot!.canRetry).toBeFalse();
     subscription.unsubscribe();
   });
 

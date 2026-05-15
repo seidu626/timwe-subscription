@@ -1,6 +1,8 @@
-import { Component } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { NgScrollbar } from 'ngx-scrollbar';
+import { map } from 'rxjs/operators';
 
 import { IconDirective } from '@coreui/icons-angular';
 import {
@@ -17,6 +19,7 @@ import {
 
 import { DefaultFooterComponent, DefaultHeaderComponent } from './';
 import { navItems } from './_nav';
+import { TenantWorkspaceService } from '../../core/services/tenant-workspace.service';
 
 function isOverflown(element: HTMLElement) {
   return (
@@ -45,15 +48,30 @@ function isOverflown(element: HTMLElement) {
     ShadowOnScrollDirective,
     ContainerComponent,
     RouterOutlet,
-    DefaultFooterComponent
+    DefaultFooterComponent,
+    AsyncPipe
   ]
 })
 export class DefaultLayoutComponent {
+  private readonly tenantWorkspace = inject(TenantWorkspaceService);
+
   public navItems = navItems;
+  public readonly navItems$ = this.tenantWorkspace.workspace$.pipe(
+    map((workspace) => this.filterNavItems(navItems, workspace.platformScoped))
+  );
 
   onScrollbarUpdate($event: any) {
     // if ($event.verticalUsed) {
     // console.log('verticalUsed', $event.verticalUsed);
     // }
+  }
+
+  private filterNavItems(items: any[], platformScoped: boolean): any[] {
+    return items
+      .filter((item) => platformScoped || !item.platformOnly)
+      .map((item) => item.children
+        ? { ...item, children: this.filterNavItems(item.children, platformScoped) }
+        : item
+      );
   }
 }
