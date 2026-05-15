@@ -105,18 +105,6 @@ export class Page403Component {
     });
   }
 
-  monogramFor(tenant: TenantWorkspaceOption): string {
-    const source = (tenant.label || tenant.tenantKey || tenant.identifier || '').trim();
-    const letters = source
-      .split(/[\s_-]+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part.charAt(0).toUpperCase())
-      .join('');
-
-    return letters || 'T';
-  }
-
   // Reconcile the URL ?reason hint with the actual workspace state so the
   // page can't say "no tenant assignment" while a tenant is clearly assigned.
   // The URL hint is preferred when explicit; otherwise reason is inferred from
