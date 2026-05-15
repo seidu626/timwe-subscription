@@ -854,8 +854,47 @@ type TransactionListFilter struct {
 	Provider     string
 	StartDate    *time.Time
 	EndDate      *time.Time
+	SortBy       string
+	SortDir      string
 	Limit        int
 	Offset       int
+}
+
+// transactionSortableColumns maps frontend identifiers to SQL columns.
+// Any value outside this whitelist falls back to the default created_at DESC.
+var transactionSortableColumns = map[string]string{
+	"id":             "id",
+	"correlationId":  "correlation_id",
+	"correlation_id": "correlation_id",
+	"campaignSlug":   "campaign_slug",
+	"campaign_slug":  "campaign_slug",
+	"msisdn":         "msisdn",
+	"status":         "status",
+	"adProvider":     "ad_provider",
+	"ad_provider":    "ad_provider",
+	"provider":       "ad_provider",
+	"partnerRoleId":  "partner_role_id",
+	"partner_role_id": "partner_role_id",
+	"createdAt":      "created_at",
+	"created_at":     "created_at",
+	"updatedAt":      "updated_at",
+	"updated_at":     "updated_at",
+	"chargedAt":      "charged_at",
+	"charged_at":     "charged_at",
+}
+
+// resolveTransactionSortClause builds a SQL-injection-safe ORDER BY clause
+// using the whitelist of permitted columns and ASC/DESC directions.
+func resolveTransactionSortClause(sortBy, sortDir, fallback string) string {
+	col, ok := transactionSortableColumns[strings.TrimSpace(sortBy)]
+	if !ok {
+		return fallback
+	}
+	dir := strings.ToUpper(strings.TrimSpace(sortDir))
+	if dir != "ASC" && dir != "DESC" {
+		dir = "DESC"
+	}
+	return col + " " + dir
 }
 
 // TransactionListResult represents a paginated list of transactions
@@ -929,6 +968,8 @@ func (r *TransactionRepository) ListTransactions(filter *TransactionListFilter) 
 		offset = 0
 	}
 
+	orderClause := resolveTransactionSortClause(filter.SortBy, filter.SortDir, "created_at DESC")
+
 	// Data query with pagination
 	dataQuery := fmt.Sprintf(`
 		SELECT id, correlation_id, campaign_slug, msisdn, status, next_action,
@@ -942,9 +983,9 @@ func (r *TransactionRepository) ListTransactions(filter *TransactionListFilter) 
 		       created_at, updated_at
 		FROM acquisition_transactions
 		%s
-		ORDER BY created_at DESC
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, whereClause, argIndex, argIndex+1)
+	`, whereClause, orderClause, argIndex, argIndex+1)
 
 	args = append(args, limit, offset)
 

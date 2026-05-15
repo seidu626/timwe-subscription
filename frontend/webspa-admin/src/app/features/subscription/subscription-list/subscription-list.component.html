@@ -194,6 +194,20 @@
 
     <div class="filters-row">
       <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Start Date</mat-label>
+        <input matInput [matDatepicker]="historyStartDatePicker" [(ngModel)]="historyFilters.startDate">
+        <mat-datepicker-toggle matSuffix [for]="historyStartDatePicker"></mat-datepicker-toggle>
+        <mat-datepicker #historyStartDatePicker></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>End Date</mat-label>
+        <input matInput [matDatepicker]="historyEndDatePicker" [(ngModel)]="historyFilters.endDate">
+        <mat-datepicker-toggle matSuffix [for]="historyEndDatePicker"></mat-datepicker-toggle>
+        <mat-datepicker #historyEndDatePicker></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Operation</mat-label>
         <mat-select [(ngModel)]="historyFilters.operation">
           <mat-option value="">All</mat-option>
@@ -204,6 +218,18 @@
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>MSISDN</mat-label>
         <input matInput [(ngModel)]="historyFilters.msisdn">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Product ID</mat-label>
+        <input matInput type="number" [(ngModel)]="historyFilters.productId">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Result</mat-label>
+        <mat-select [(ngModel)]="historyFilters.result">
+          <mat-option *ngFor="let option of historyResultOptions" [value]="option.value">{{ option.label }}</mat-option>
+        </mat-select>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field">
@@ -227,39 +253,42 @@
     </div>
 
     <div class="table-container" *ngIf="!historyLoading">
-      <table mat-table [dataSource]="historyDataSource" class="mat-elevation-z8">
+      <table mat-table [dataSource]="historyDataSource" [trackBy]="trackById"
+             matSort [matSortActive]="historySortBy" [matSortDirection]="historySortDir"
+             (matSortChange)="onHistorySortChange($event)"
+             class="mat-elevation-z8">
         <ng-container matColumnDef="createdAt">
-          <th mat-header-cell *matHeaderCellDef>Created</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Created</th>
           <td mat-cell *matCellDef="let element">{{ element.createdAt | date:'medium' }}</td>
         </ng-container>
 
         <ng-container matColumnDef="operation">
-          <th mat-header-cell *matHeaderCellDef>Operation</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Operation</th>
           <td mat-cell *matCellDef="let element">{{ element.operation | uppercase }}</td>
         </ng-container>
 
         <ng-container matColumnDef="msisdn">
-          <th mat-header-cell *matHeaderCellDef>MSISDN</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>MSISDN</th>
           <td mat-cell *matCellDef="let element">{{ element.msisdn }}</td>
         </ng-container>
 
         <ng-container matColumnDef="productId">
-          <th mat-header-cell *matHeaderCellDef>Product</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Product</th>
           <td mat-cell *matCellDef="let element">{{ element.productId }}</td>
         </ng-container>
 
         <ng-container matColumnDef="responseStatusCode">
-          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
           <td mat-cell *matCellDef="let element">{{ element.responseStatusCode }}</td>
         </ng-container>
 
         <ng-container matColumnDef="durationMs">
-          <th mat-header-cell *matHeaderCellDef>Duration</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Duration</th>
           <td mat-cell *matCellDef="let element">{{ element.durationMs }}ms</td>
         </ng-container>
 
         <ng-container matColumnDef="hasError">
-          <th mat-header-cell *matHeaderCellDef>Result</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Result</th>
           <td mat-cell *matCellDef="let element">
             <span [class.error-pill]="element.hasError" [class.success-pill]="!element.hasError">
               {{ element.hasError ? 'Error' : 'OK' }}
@@ -275,15 +304,17 @@
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="historyDisplayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: historyDisplayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: historyDisplayedColumns;"></tr>
       </table>
 
       <mat-paginator
         #historyPaginator
         [length]="historyTotalCount"
-        [pageSize]="10"
+        [pageIndex]="historyPageIndex"
+        [pageSize]="historyPageSize"
         [pageSizeOptions]="historyPageSizes"
-        (page)="onHistoryPageChange($event)">
+        (page)="onHistoryPageChange($event)"
+        showFirstLastButtons>
       </mat-paginator>
     </div>
 
@@ -318,7 +349,10 @@
   </div>
 
   <div class="table-container" *ngIf="!loading">
-    <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z8">
+    <table mat-table [dataSource]="dataSource" [trackBy]="trackById"
+           matSort [matSortActive]="sortBy" [matSortDirection]="sortDir"
+           (matSortChange)="onSortChange($event)"
+           class="mat-elevation-z8">
       <ng-container matColumnDef="id">
         <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
         <td mat-cell *matCellDef="let element">{{ element.id }}</td>
@@ -350,15 +384,17 @@
       </ng-container>
 
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
     </table>
 
     <mat-paginator
       #subscriptionPaginator
       [length]="totalSubscriptions"
-      [pageSize]="10"
+      [pageIndex]="subscriptionPageIndex"
+      [pageSize]="subscriptionPageSize"
       [pageSizeOptions]="pageSizes"
-      (page)="onPageChange($event)">
+      (page)="onPageChange($event)"
+      showFirstLastButtons>
     </mat-paginator>
   </div>
 

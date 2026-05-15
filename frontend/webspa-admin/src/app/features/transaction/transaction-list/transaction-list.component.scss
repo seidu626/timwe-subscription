@@ -3,6 +3,12 @@
   max-width: 1400px;
   margin: 0 auto;
 
+  .sort-hint {
+    margin: 0 0 8px;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
   h2 {
     margin-bottom: 8px;
     color: var(--admin-text);

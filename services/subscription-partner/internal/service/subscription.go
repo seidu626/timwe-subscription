@@ -17,7 +17,7 @@ type SubscriptionService struct {
 }
 
 type subscriptionRepository interface {
-	FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error)
+	FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error)
 	ConfirmSubscription(request *domain.SubscriptionConfirmationRequest) error
 	CreateSubscription(request *domain.SubscriptionRequest) error
 	CreateNotification(notification *domain.NotificationRequest) error
@@ -39,6 +39,14 @@ func (s *SubscriptionService) GetSubscriptions(filters map[string]string) (*doma
 	shortcode := filters["shortcode"]
 	userIdentifier := filters["userIdentifier"]
 	entryChannel := filters["entryChannel"]
+	sortBy := filters["sort_by"]
+	if sortBy == "" {
+		sortBy = filters["sortBy"]
+	}
+	sortDir := filters["sort_dir"]
+	if sortDir == "" {
+		sortDir = filters["sortDir"]
+	}
 	page, _ := strconv.Atoi(filters["page"])
 	if page < 1 {
 		page = 1
@@ -50,7 +58,7 @@ func (s *SubscriptionService) GetSubscriptions(filters map[string]string) (*doma
 	}
 
 	// Pass filters to the repository layer
-	listResponse, err := s.repo.FetchSubscriptions(tenantID, tenantKey, startDate, endDate, productId, shortcode, userIdentifier, entryChannel, page, pageSize)
+	listResponse, err := s.repo.FetchSubscriptions(tenantID, tenantKey, startDate, endDate, productId, shortcode, userIdentifier, entryChannel, sortBy, sortDir, page, pageSize)
 	if err != nil {
 		return nil, fmt.Errorf("get subscriptions failed (page=%d pageSize=%d): %w", page, pageSize, err)
 	}

@@ -1122,6 +1122,39 @@ func (r *SubscriptionRepository) CreateAdminActionLog(logEntry *domain.AdminSubs
 	return nil
 }
 
+// adminActionSortableColumns maps frontend identifiers to SQL columns.
+// Any value outside this whitelist falls back to the default created_at DESC.
+var adminActionSortableColumns = map[string]string{
+	"createdAt":          "created_at",
+	"created_at":         "created_at",
+	"operation":          "operation",
+	"msisdn":             "msisdn",
+	"productId":          "product_id",
+	"product_id":         "product_id",
+	"partnerRoleId":      "partner_role_id",
+	"partner_role_id":    "partner_role_id",
+	"responseStatusCode": "response_status_code",
+	"response_status_code": "response_status_code",
+	"durationMs":         "duration_ms",
+	"duration_ms":        "duration_ms",
+	"hasError":           "error_payload",
+	"has_error":          "error_payload",
+}
+
+// resolveAdminActionSortClause is a SQL-injection-safe ORDER BY builder using
+// a whitelist of permitted columns and ASC/DESC directions.
+func resolveAdminActionSortClause(sortBy, sortDir, fallback string) string {
+	col, ok := adminActionSortableColumns[strings.TrimSpace(sortBy)]
+	if !ok {
+		return fallback
+	}
+	dir := strings.ToUpper(strings.TrimSpace(sortDir))
+	if dir != "ASC" && dir != "DESC" {
+		dir = "DESC"
+	}
+	return col + " " + dir
+}
+
 // ListAdminActionLogs returns paginated audit summaries for admin-triggered TIMWE calls.
 func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLogFilter) ([]domain.AdminActionLogSummary, int64, error) {
 	if err := r.ensureAdminActionAuditSchema(); err != nil {
@@ -1162,6 +1195,24 @@ func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLo
 		args = append(args, filter.TenantID)
 		conditions = append(conditions, fmt.Sprintf("tenant_id::text = $%d", len(args)))
 	}
+	if filter.ProductID > 0 {
+		args = append(args, filter.ProductID)
+		conditions = append(conditions, fmt.Sprintf("product_id = $%d", len(args)))
+	}
+	if !filter.StartDate.IsZero() {
+		args = append(args, filter.StartDate)
+		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", len(args)))
+	}
+	if !filter.EndDate.IsZero() {
+		args = append(args, filter.EndDate)
+		conditions = append(conditions, fmt.Sprintf("created_at <= $%d", len(args)))
+	}
+	switch filter.Result {
+	case "ok":
+		conditions = append(conditions, "error_payload IS NULL")
+	case "error":
+		conditions = append(conditions, "error_payload IS NOT NULL")
+	}
 
 	whereClause := ""
 	if len(conditions) > 0 {
@@ -1173,6 +1224,8 @@ func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLo
 	if err := r.db.QueryRowContext(r.ctx, countQuery, args...).Scan(&totalCount); err != nil {
 		return nil, 0, fmt.Errorf("failed to count admin action logs: %w", err)
 	}
+
+	orderClause := resolveAdminActionSortClause(filter.SortBy, filter.SortDir, "created_at DESC")
 
 	offset := (filter.Page - 1) * filter.PageSize
 	args = append(args, filter.PageSize, offset)
@@ -1196,9 +1249,9 @@ func (r *SubscriptionRepository) ListAdminActionLogs(filter domain.AdminActionLo
 			error_payload
 		FROM admin_subscription_action_logs
 	` + whereClause + fmt.Sprintf(`
-		ORDER BY created_at DESC
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, limitPos, offsetPos)
+	`, orderClause, limitPos, offsetPos)
 
 	rows, err := r.db.QueryContext(r.ctx, query, args...)
 	if err != nil {

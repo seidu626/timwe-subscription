@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
 import { PageEvent } from '@angular/material/paginator';
+import { Sort } from '@angular/material/sort';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { TransactionService } from '../../+state/services/transaction.service';
@@ -59,6 +60,8 @@ export class TransactionListComponent implements OnInit {
   dataSource = new MatTableDataSource<TransactionSummary>([]);
   totalCount: number = 0;
   pageSizes: number[] = [10, 20, 50, 100];
+
+  trackById = (_: number, row: TransactionSummary) => row?.id ?? _;
 
   constructor(
     private transactionService: TransactionService,
@@ -170,6 +173,13 @@ export class TransactionListComponent implements OnInit {
   onPageChange(event: PageEvent): void {
     this.filters.page = event.pageIndex + 1;
     this.filters.page_size = event.pageSize;
+    this.loadTransactions();
+  }
+
+  onSortChange(event: Sort): void {
+    this.filters.sort_by = event.active || 'created_at';
+    this.filters.sort_dir = (event.direction || 'desc') as 'asc' | 'desc';
+    this.filters.page = 1;
     this.loadTransactions();
   }
 
@@ -371,6 +381,8 @@ export class TransactionListComponent implements OnInit {
     return {
       start_date: this.getDefaultStartDate(),
       end_date: this.getDefaultEndDate(),
+      sort_by: 'created_at',
+      sort_dir: 'desc',
       page: 1,
       page_size: pageSize
     };

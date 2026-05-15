@@ -31,8 +31,41 @@ func NewSubscriptionRepository(db *sql.DB, client cached.RedisClient) *Subscript
 }
 
 // GenerateCacheKey generates a unique cache key for query filters
-func (r *SubscriptionRepository) GenerateCacheKey(tenantID string, startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) string {
-	return fmt.Sprintf("subscriptions:%s:%s:%s:%d:%s:%s:%s:%d:%d", tenantID, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), productId, shortcode, userIdentifier, entryChannel, page, pageSize)
+func (r *SubscriptionRepository) GenerateCacheKey(tenantID string, startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel, sortBy, sortDir string, page, pageSize int) string {
+	return fmt.Sprintf("subscriptions:%s:%s:%s:%d:%s:%s:%s:%s:%s:%d:%d", tenantID, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), productId, shortcode, userIdentifier, entryChannel, sortBy, sortDir, page, pageSize)
+}
+
+// subscriptionSortableColumns maps frontend column identifiers to SQL columns.
+// Any value outside this whitelist falls back to the default start_date DESC.
+var subscriptionSortableColumns = map[string]string{
+	"id":              "id",
+	"userIdentifier":  "user_identifier",
+	"user_identifier": "user_identifier",
+	"productId":       "product_id",
+	"product_id":      "product_id",
+	"entryChannel":    "entry_channel",
+	"entry_channel":   "entry_channel",
+	"startDate":       "start_date",
+	"start_date":      "start_date",
+	"endDate":         "end_date",
+	"end_date":        "end_date",
+	"createdAt":       "created_at",
+	"created_at":      "created_at",
+	"status":          "status",
+}
+
+// resolveSubscriptionSortClause is a SQL-injection-safe ORDER BY builder using
+// a whitelist of permitted columns and ASC/DESC directions.
+func resolveSubscriptionSortClause(sortBy, sortDir, fallback string) string {
+	col, ok := subscriptionSortableColumns[strings.TrimSpace(sortBy)]
+	if !ok {
+		return fallback
+	}
+	dir := strings.ToUpper(strings.TrimSpace(sortDir))
+	if dir != "ASC" && dir != "DESC" {
+		dir = "DESC"
+	}
+	return col + " " + dir
 }
 
 func (r *SubscriptionRepository) TenantIDByKey(tenantKey string) (string, error) {
@@ -58,7 +91,7 @@ func (r *SubscriptionRepository) TenantIDByKey(tenantKey string) (string, error)
 	return tenantID, nil
 }
 
-func (r *SubscriptionRepository) FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
+func (r *SubscriptionRepository) FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
 		resolvedTenantID, err := r.TenantIDByKey(tenantKey)
@@ -75,7 +108,7 @@ func (r *SubscriptionRepository) FetchSubscriptions(tenantID, tenantKey string, 
 	userIdentifier = strings.TrimSpace(userIdentifier)
 	entryChannel = strings.TrimSpace(entryChannel)
 
-	cacheKey := r.GenerateCacheKey(tenantID, startDate, endDate, productId, shortcode, userIdentifier, entryChannel, page, pageSize)
+	cacheKey := r.GenerateCacheKey(tenantID, startDate, endDate, productId, shortcode, userIdentifier, entryChannel, sortBy, sortDir, page, pageSize)
 
 	log.Printf("Fetching notifications from cache: %s", cacheKey)
 	// Check if cached data exists
@@ -157,7 +190,8 @@ func (r *SubscriptionRepository) FetchSubscriptions(tenantID, tenantKey string, 
 
 	// Add pagination support
 	offset := (page - 1) * pageSize
-	query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	orderClause := resolveSubscriptionSortClause(sortBy, sortDir, "created_at DESC")
+	query += fmt.Sprintf(" ORDER BY %s LIMIT $%d OFFSET $%d", orderClause, argIndex, argIndex+1)
 	args = append(args, pageSize, offset)
 
 	rows, err := r.db.Query(query, args...)

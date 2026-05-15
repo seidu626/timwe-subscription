@@ -48,7 +48,7 @@
   </div>
 
   <mat-card *ngIf="!loading" class="table-card">
-    <table mat-table [dataSource]="dataSource" matSort class="campaign-table">
+    <table mat-table [dataSource]="dataSource" [trackBy]="trackBySlug" matSort class="campaign-table">
 
       <!-- Slug Column -->
       <ng-container matColumnDef="slug">

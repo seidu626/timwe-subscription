@@ -18,7 +18,7 @@ type handlerRepoStub struct {
 	fetchErr  error
 }
 
-func (h *handlerRepoStub) FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
+func (h *handlerRepoStub) FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 	if h.fetchErr != nil {
 		return nil, h.fetchErr
 	}

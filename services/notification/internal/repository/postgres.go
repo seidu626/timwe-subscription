@@ -139,12 +139,41 @@ func (r *NotificationRepository) ChannelIDByKeys(ctx context.Context, tenantID, 
 }
 
 // GenerateCacheKey generates a unique cache key for query filters.
-func (r *NotificationRepository) GenerateCacheKey(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, channel, notificationType string, page, pageSize int) string {
-	return fmt.Sprintf("notifications:%s:%s:%s:%s:%s:%s:%s:%s:%d:%d", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), tenantID, channelID, partnerRole, msisdn, channel, notificationType, page, pageSize)
+func (r *NotificationRepository) GenerateCacheKey(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, channel, notificationType, sortBy, sortDir string, page, pageSize int) string {
+	return fmt.Sprintf("notifications:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%d:%d", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), tenantID, channelID, partnerRole, msisdn, channel, notificationType, sortBy, sortDir, page, pageSize)
+}
+
+// notificationSortableColumns maps frontend column identifiers (camelCase or
+// snake_case) to the actual SQL column. Any value not in this map is rejected
+// and the default created_at DESC ordering is used.
+var notificationSortableColumns = map[string]string{
+	"createdAt":     "created_at",
+	"created_at":    "created_at",
+	"id":            "id",
+	"partnerRole":   "partner_role",
+	"partner_role":  "partner_role",
+	"msisdn":        "msisdn",
+	"entryChannel":  "entry_channel",
+	"entry_channel": "entry_channel",
+	"type":          "type",
+}
+
+// resolveSortClause returns a safe `column DIR` fragment from a whitelist.
+// Falls back to the default if either input is invalid or unknown.
+func resolveSortClause(allowed map[string]string, sortBy, sortDir, defaultClause string) string {
+	col, ok := allowed[strings.TrimSpace(sortBy)]
+	if !ok {
+		return defaultClause
+	}
+	dir := strings.ToUpper(strings.TrimSpace(sortDir))
+	if dir != "ASC" && dir != "DESC" {
+		dir = "DESC"
+	}
+	return col + " " + dir
 }
 
 // FetchNotifications retrieves notifications with filtering, pagination, and caching support.
-func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	channelID = strings.TrimSpace(channelID)
 	partnerRole = strings.TrimSpace(partnerRole)
@@ -152,7 +181,7 @@ func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time
 	entryChannel = strings.TrimSpace(entryChannel)
 	notificationType = strings.TrimSpace(notificationType)
 
-	cacheKey := r.GenerateCacheKey(startDate, endDate, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, page, pageSize)
+	cacheKey := r.GenerateCacheKey(startDate, endDate, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir, page, pageSize)
 
 	// Try fetching cached response
 	log.Printf("Fetching notifications from cache: %s", cacheKey)
@@ -233,7 +262,8 @@ func (r *NotificationRepository) FetchNotifications(startDate, endDate time.Time
 
 	// Add pagination support
 	offset := (page - 1) * pageSize
-	query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	orderClause := resolveSortClause(notificationSortableColumns, sortBy, sortDir, "created_at DESC")
+	query += fmt.Sprintf(" ORDER BY %s LIMIT $%d OFFSET $%d", orderClause, argIndex, argIndex+1)
 	args = append(args, pageSize, offset)
 
 	rows, err := r.db.Query(query, args...)

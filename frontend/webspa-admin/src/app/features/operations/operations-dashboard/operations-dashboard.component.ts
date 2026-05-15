@@ -15,6 +15,8 @@ import {
   styleUrls: ['./operations-dashboard.component.scss']
 })
 export class OperationsDashboardComponent implements OnInit {
+  trackById = (_: number, row: any) => row?.id ?? _;
+  trackByRowNumber = (_: number, row: any) => row?.row_number ?? _;
   logs: AdminActivityLog[] = [];
   logsLoading = false;
   logFilters = {

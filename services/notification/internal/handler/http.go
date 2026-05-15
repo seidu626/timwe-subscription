@@ -49,6 +49,8 @@ func (h *NotificationHandler) ListNotifications(ctx *fasthttp.RequestCtx) {
 		"type":          string(ctx.QueryArgs().Peek("type")),
 		"entry_channel": entryChannel,
 		"entryChannel":  entryChannel,
+		"sort_by":       firstQuery(ctx, "sort_by", "sortBy"),
+		"sort_dir":      firstQuery(ctx, "sort_dir", "sortDir"),
 		"page":          string(ctx.QueryArgs().Peek("page")),
 		"pageSize":      string(ctx.QueryArgs().Peek("pageSize")),
 	}

@@ -50,6 +50,8 @@ export interface TransactionListFilter {
   provider?: string;
   start_date?: string;
   end_date?: string;
+  sort_by?: string;
+  sort_dir?: 'asc' | 'desc';
   page?: number;
   page_size?: number;
 }

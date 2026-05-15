@@ -10,13 +10,13 @@ import (
 )
 
 type serviceRepoStub struct {
-	fetchFn              func(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error)
+	fetchFn              func(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error)
 	createNotificationFn func(notification *domain.NotificationRequest) error
 }
 
-func (s *serviceRepoStub) FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
+func (s *serviceRepoStub) FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 	if s.fetchFn != nil {
-		return s.fetchFn(tenantID, tenantKey, startDate, endDate, productID, shortcode, userIdentifier, entryChannel, page, pageSize)
+		return s.fetchFn(tenantID, tenantKey, startDate, endDate, productID, shortcode, userIdentifier, entryChannel, sortBy, sortDir, page, pageSize)
 	}
 	return &domain.ListResponse{}, nil
 }
@@ -47,7 +47,7 @@ func (s *serviceRepoStub) GetSubscriptionStatus(request *domain.GetStatusRequest
 func TestGetSubscriptions_DefaultPaginationAndErrorContext(t *testing.T) {
 	rootErr := errors.New("db offline")
 	stub := &serviceRepoStub{
-		fetchFn: func(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
+		fetchFn: func(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 			if page != 1 || pageSize != 10 {
 				t.Fatalf("expected default pagination page=1 pageSize=10, got page=%d pageSize=%d", page, pageSize)
 			}
@@ -78,7 +78,7 @@ func TestGetSubscriptions_DefaultPaginationAndErrorContext(t *testing.T) {
 
 func TestGetSubscriptions_ParsesDateFilters(t *testing.T) {
 	stub := &serviceRepoStub{
-		fetchFn: func(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
+		fetchFn: func(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 			if startDate.IsZero() {
 				t.Fatalf("expected parsed startDate")
 			}

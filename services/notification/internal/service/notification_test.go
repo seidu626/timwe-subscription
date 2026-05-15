@@ -11,12 +11,12 @@ import (
 )
 
 type serviceRepoStub struct {
-	fetchFn func(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error)
+	fetchFn func(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error)
 }
 
-func (s *serviceRepoStub) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+func (s *serviceRepoStub) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 	if s.fetchFn != nil {
-		return s.fetchFn(startDate, endDate, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, page, pageSize)
+		return s.fetchFn(startDate, endDate, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir, page, pageSize)
 	}
 	return &domain.ListResponse{}, nil
 }
@@ -36,7 +36,7 @@ func (s *serviceRepoStub) ChannelIDByKeys(_ context.Context, tenantID, channelKe
 func TestGetNotifications_DefaultPaginationAndErrorContext(t *testing.T) {
 	rootErr := errors.New("db offline")
 	stub := &serviceRepoStub{
-		fetchFn: func(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+		fetchFn: func(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 			if page != 1 || pageSize != 10 {
 				t.Fatalf("expected default page=1 pageSize=10, got page=%d pageSize=%d", page, pageSize)
 			}
@@ -62,7 +62,7 @@ func TestGetNotifications_DefaultPaginationAndErrorContext(t *testing.T) {
 
 func TestGetNotifications_ParsesDateAndTypeFilters(t *testing.T) {
 	stub := &serviceRepoStub{
-		fetchFn: func(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+		fetchFn: func(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 			if startDate.IsZero() {
 				t.Fatalf("expected parsed startDate")
 			}

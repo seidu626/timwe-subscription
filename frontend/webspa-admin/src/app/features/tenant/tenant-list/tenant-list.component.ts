@@ -30,6 +30,8 @@ export class TenantListComponent implements OnInit {
   readonly memberRoles: TenantMemberRole[] = ['TENANT_ADMIN', 'TENANT_VIEWER'];
   displayedColumns: string[] = ['tenant_key', 'name', 'status', 'default_country', 'updated_at', 'actions'];
   memberDisplayedColumns: string[] = ['auth0_subject', 'email', 'role', 'status', 'updated_at', 'actions'];
+  trackByTenantKey = (_: number, row: any) => row?.tenant_key ?? row?.id ?? _;
+  trackByMember = (_: number, row: any) => row?.auth0_subject ?? row?.id ?? _;
   dataSource = new MatTableDataSource<AdminTenant>([]);
   memberDataSource = new MatTableDataSource<AdminTenantMember>([]);
 

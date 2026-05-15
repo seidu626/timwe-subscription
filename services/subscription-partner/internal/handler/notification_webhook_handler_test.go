@@ -15,7 +15,7 @@ type webhookRepoStub struct {
 	notification *domain.NotificationRequest
 }
 
-func (w *webhookRepoStub) FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel string, page, pageSize int) (*domain.ListResponse, error) {
+func (w *webhookRepoStub) FetchSubscriptions(tenantID, tenantKey string, startDate, endDate time.Time, productID int, shortcode, userIdentifier, entryChannel, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 	return &domain.ListResponse{}, nil
 }
 

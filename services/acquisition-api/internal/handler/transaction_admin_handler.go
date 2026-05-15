@@ -106,6 +106,16 @@ func (h *TransactionAdminHandler) ListTransactions(ctx *fasthttp.RequestCtx) {
 			filter.EndDate = &t
 		}
 	}
+	if sortBy := string(args.Peek("sort_by")); sortBy != "" {
+		filter.SortBy = sortBy
+	} else if sortBy := string(args.Peek("sortBy")); sortBy != "" {
+		filter.SortBy = sortBy
+	}
+	if sortDir := string(args.Peek("sort_dir")); sortDir != "" {
+		filter.SortDir = sortDir
+	} else if sortDir := string(args.Peek("sortDir")); sortDir != "" {
+		filter.SortDir = sortDir
+	}
 
 	// Query transactions
 	result, err := h.txRepo.ListTransactions(filter)

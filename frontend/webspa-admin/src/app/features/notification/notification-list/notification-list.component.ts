@@ -1,9 +1,9 @@
 // notification-list.component.ts
-import { Component, OnInit, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
-import { MatSort } from '@angular/material/sort';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Sort } from '@angular/material/sort';
 import { NotificationService } from '../../+state/services/notification.service';
 
 @Component({
@@ -11,11 +11,13 @@ import { NotificationService } from '../../+state/services/notification.service'
     templateUrl: './notification-list.component.html',
     styleUrls: ['./notification-list.component.scss']
 })
-export class NotificationListComponent implements OnInit, AfterViewInit {
+export class NotificationListComponent implements OnInit {
     loading: boolean = false;
     displayedColumns: string[] = ['id', 'partnerRole', 'msisdn', 'entryChannel', 'type', 'createdAt'];
     dataSource = new MatTableDataSource<any>([]);
     totalRecords = 0;
+    pageIndex = 0;
+    pageSize = 10;
     pageSizes = [5, 10, 20, 30];
 
     filters = {
@@ -27,8 +29,10 @@ export class NotificationListComponent implements OnInit, AfterViewInit {
         entryChannel: ''
     };
 
+    sortBy = 'createdAt';
+    sortDir: 'asc' | 'desc' = 'desc';
+
     @ViewChild(MatPaginator) paginator!: MatPaginator;
-    @ViewChild(MatSort) sort!: MatSort;
 
     constructor(
         private notificationService: NotificationService,
@@ -36,13 +40,10 @@ export class NotificationListComponent implements OnInit, AfterViewInit {
     ) { }
 
     ngOnInit() {
-        this.loadNotifications(1, 10, this.filters);
+        this.loadNotifications(this.pageIndex + 1, this.pageSize, this.filters);
     }
 
-    ngAfterViewInit(): void {
-        this.dataSource.paginator = this.paginator;
-        this.dataSource.sort = this.sort;
-    }
+    trackById = (_: number, row: any) => row?.id ?? _;
 
     loadNotifications(page: number, pageSize: number, filters: any) {
         this.loading = true;
@@ -50,6 +51,8 @@ export class NotificationListComponent implements OnInit, AfterViewInit {
             ...filters,
             page: page,
             pageSize: pageSize,
+            sort_by: this.sortBy,
+            sort_dir: this.sortDir,
             startDate: this.toDateQuery(filters.startDate),
             endDate: this.toDateQuery(filters.endDate)
         };
@@ -57,6 +60,8 @@ export class NotificationListComponent implements OnInit, AfterViewInit {
             next: (response) => {
                 this.dataSource.data = response.data;
                 this.totalRecords = response.totalCount;
+                this.pageIndex = (response.page || page) - 1;
+                this.pageSize = response.pageSize || pageSize;
                 this.loading = false;
             },
             error: (err) => {
@@ -70,11 +75,21 @@ export class NotificationListComponent implements OnInit, AfterViewInit {
     }
 
     applyFilters() {
-        this.loadNotifications(1, this.paginator?.pageSize || 10, this.filters);
+        this.pageIndex = 0;
+        this.loadNotifications(1, this.pageSize, this.filters);
     }
 
     onPageChange(event: any) {
+        this.pageIndex = event.pageIndex;
+        this.pageSize = event.pageSize;
         this.loadNotifications(event.pageIndex + 1, event.pageSize, this.filters);
+    }
+
+    onSortChange(event: Sort) {
+        this.sortBy = event.active || 'createdAt';
+        this.sortDir = (event.direction || 'desc') as 'asc' | 'desc';
+        this.pageIndex = 0;
+        this.loadNotifications(1, this.pageSize, this.filters);
     }
 
     private toDateQuery(value: any): string {

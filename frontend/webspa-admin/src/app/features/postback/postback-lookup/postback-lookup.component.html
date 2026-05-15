@@ -88,7 +88,7 @@
     <!-- Postbacks Table -->
     <h3>Postback Queue (Outbox)</h3>
     <div class="table-container" *ngIf="postbackDataSource.data.length > 0">
-      <table mat-table [dataSource]="postbackDataSource" matSort class="mat-elevation-z4">
+      <table mat-table [dataSource]="postbackDataSource" [trackBy]="trackById" matSort class="mat-elevation-z4">
         
         <!-- Event Column -->
         <ng-container matColumnDef="event">
@@ -179,7 +179,7 @@
     <!-- Attempts Table -->
     <h3>Delivery Attempts</h3>
     <div class="table-container" *ngIf="attemptDataSource.data.length > 0">
-      <table mat-table [dataSource]="attemptDataSource" class="mat-elevation-z4">
+      <table mat-table [dataSource]="attemptDataSource" [trackBy]="trackByAttempt" class="mat-elevation-z4">
         
         <!-- Attempt Number Column -->
         <ng-container matColumnDef="attempt_number">
@@ -288,7 +288,7 @@
     </div>
 
     <div class="table-container" *ngIf="!loadingStatus && statusDataSource.data.length > 0">
-      <table mat-table [dataSource]="statusDataSource" class="mat-elevation-z4">
+      <table mat-table [dataSource]="statusDataSource" [trackBy]="trackById" class="mat-elevation-z4">
 
         <!-- Event Column -->
         <ng-container matColumnDef="event">

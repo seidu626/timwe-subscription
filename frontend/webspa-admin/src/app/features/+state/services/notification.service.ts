@@ -31,18 +31,13 @@ export class NotificationService {
                     throw new Error("Missing headers in the response");
                 }
 
-                // Safely parse the pagination headers
-                const paginationHeaders = JSON.parse(response.headers.get('x-pagination') || '{}');
                 const result: NotificationPagedResponse = {
-                    pageSize: +response.body.pageSize || 10, // default to 10 if missing
+                    pageSize: +response.body.pageSize || 10,
                     page: +response.body.page || 1,
                     totalCount: +response.body.totalCount || 0,
-                    data: response.body.data || [], // assuming data in the response body
+                    data: response.body.data || [],
                     totalPages: response.body.totalPages || 1,
                 };
-                console.log(paginationHeaders);
-                console.log(response.body);
-                console.log(result);
 
                 return result;
             }),

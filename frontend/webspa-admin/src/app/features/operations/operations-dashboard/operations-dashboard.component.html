@@ -37,7 +37,7 @@
             <mat-spinner diameter="36"></mat-spinner>
           </div>
 
-          <table *ngIf="!logsLoading" mat-table [dataSource]="logs" class="mat-elevation-z2">
+          <table *ngIf="!logsLoading" mat-table [dataSource]="logs" [trackBy]="trackById" class="mat-elevation-z2">
             <ng-container matColumnDef="created_at">
               <th mat-header-cell *matHeaderCellDef>Created</th>
               <td mat-cell *matCellDef="let item">{{ item.created_at | date:'short' }}</td>
@@ -60,7 +60,7 @@
             </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="['created_at','entity_type','entity_id','action','actor']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['created_at','entity_type','entity_id','action','actor']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['created_at','entity_type','entity_id','action','actor'];"></tr>
           </table>
 
           <mat-paginator
@@ -82,7 +82,7 @@
             <mat-spinner diameter="36"></mat-spinner>
           </div>
 
-          <table *ngIf="!importsLoading" mat-table [dataSource]="imports" class="mat-elevation-z2">
+          <table *ngIf="!importsLoading" mat-table [dataSource]="imports" [trackBy]="trackById" class="mat-elevation-z2">
             <ng-container matColumnDef="started_at">
               <th mat-header-cell *matHeaderCellDef>Started</th>
               <td mat-cell *matCellDef="let item">{{ item.started_at | date:'short' }}</td>
@@ -111,7 +111,7 @@
             </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="['started_at','filename','status','summary','actions']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['started_at','filename','status','summary','actions']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['started_at','filename','status','summary','actions'];"></tr>
           </table>
 
           <mat-paginator
@@ -136,7 +136,7 @@
           </div>
 
           <h4>Errors (first {{ selectedImport.errors.length }})</h4>
-          <table mat-table [dataSource]="selectedImport.errors" class="mat-elevation-z1">
+          <table mat-table [dataSource]="selectedImport.errors" [trackBy]="trackByRowNumber" class="mat-elevation-z1">
             <ng-container matColumnDef="row_number">
               <th mat-header-cell *matHeaderCellDef>Row</th>
               <td mat-cell *matCellDef="let item">{{ item.row_number }}</td>
@@ -150,7 +150,7 @@
               <td mat-cell *matCellDef="let item">{{ item.raw_row }}</td>
             </ng-container>
             <tr mat-header-row *matHeaderRowDef="['row_number','error_message','raw_row']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['row_number','error_message','raw_row']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['row_number','error_message','raw_row'];"></tr>
           </table>
         </mat-card-content>
       </mat-card>

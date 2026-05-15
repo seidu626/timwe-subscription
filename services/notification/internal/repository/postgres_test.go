@@ -102,9 +102,9 @@ func TestGenerateCacheKeySeparatesTenantChannel(t *testing.T) {
 	start := time.Date(2026, time.May, 8, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
 
-	first := repo.GenerateCacheKey(start, end, "tenant-1", "channel-1", "2117", "", "", "MO", 1, 10)
-	second := repo.GenerateCacheKey(start, end, "tenant-2", "channel-1", "2117", "", "", "MO", 1, 10)
-	third := repo.GenerateCacheKey(start, end, "tenant-1", "channel-2", "2117", "", "", "MO", 1, 10)
+	first := repo.GenerateCacheKey(start, end, "tenant-1", "channel-1", "2117", "", "", "MO", "", "", 1, 10)
+	second := repo.GenerateCacheKey(start, end, "tenant-2", "channel-1", "2117", "", "", "MO", "", "", 1, 10)
+	third := repo.GenerateCacheKey(start, end, "tenant-1", "channel-2", "2117", "", "", "MO", "", "", 1, 10)
 
 	if first == second || first == third || second == third {
 		t.Fatalf("expected tenant/channel-specific cache keys, got %q %q %q", first, second, third)

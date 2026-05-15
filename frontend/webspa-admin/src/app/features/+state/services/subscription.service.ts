@@ -67,6 +67,12 @@ export class SubscriptionService {
     msisdn?: string;
     externalTxId?: string;
     adminRequestId?: string;
+    productId?: number;
+    startDate?: string;
+    endDate?: string;
+    result?: 'ok' | 'error' | '';
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
     page?: number;
     pageSize?: number;
   }): Observable<AdminActionHistoryResponse> {
@@ -83,6 +89,24 @@ export class SubscriptionService {
     }
     if (filters.adminRequestId) {
       params = params.set('adminRequestId', filters.adminRequestId);
+    }
+    if (filters.productId) {
+      params = params.set('productId', filters.productId.toString());
+    }
+    if (filters.startDate) {
+      params = params.set('startDate', filters.startDate);
+    }
+    if (filters.endDate) {
+      params = params.set('endDate', filters.endDate);
+    }
+    if (filters.result) {
+      params = params.set('result', filters.result);
+    }
+    if (filters.sortBy) {
+      params = params.set('sort_by', filters.sortBy);
+    }
+    if (filters.sortDir) {
+      params = params.set('sort_dir', filters.sortDir);
     }
     if (filters.page) {
       params = params.set('page', filters.page.toString());

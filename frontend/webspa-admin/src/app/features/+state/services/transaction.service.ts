@@ -41,6 +41,12 @@ export class TransactionService {
       if (filter.end_date) {
         params = params.set('end_date', filter.end_date);
       }
+      if (filter.sort_by) {
+        params = params.set('sort_by', filter.sort_by);
+      }
+      if (filter.sort_dir) {
+        params = params.set('sort_dir', filter.sort_dir);
+      }
       if (filter.page) {
         params = params.set('page', filter.page.toString());
       }

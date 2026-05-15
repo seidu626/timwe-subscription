@@ -34,6 +34,8 @@ export class PostbackLookupComponent implements OnInit {
   statusOptions: PostbackStatus[] = ['DLQ', 'FAILED', 'PENDING', 'PROCESSING', 'SUCCESS'];
   statusLimit: number = 100;
   statusLimitOptions: number[] = [25, 50, 100, 250];
+  trackById = (_: number, row: any) => row?.id ?? _;
+  trackByAttempt = (_: number, row: any) => row?.id ?? row?.attempt_number ?? _;
   statusColumns: string[] = ['event', 'provider', 'transaction_id', 'next_retry_at', 'url', 'attempt_count', 'created_at', 'actions'];
   statusDataSource = new MatTableDataSource<PostbackOutbox>([]);
   statusCount: number = 0;

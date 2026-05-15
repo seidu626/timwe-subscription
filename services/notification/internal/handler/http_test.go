@@ -24,7 +24,7 @@ type handlerRepoStub struct {
 	saved           *domain.NotificationRequest
 }
 
-func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error) {
+func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
 	h.fetchTenantID = tenantID
 	h.fetchChannelID = channelID
 	if h.fetchErr != nil {

@@ -46,6 +46,8 @@ func (h *SubscriptionHandler) ListSubscriptions(ctx *fasthttp.RequestCtx) {
 		"shortcode":      string(ctx.QueryArgs().Peek("shortcode")),
 		"userIdentifier": string(ctx.QueryArgs().Peek("userIdentifier")),
 		"entryChannel":   string(ctx.QueryArgs().Peek("entryChannel")),
+		"sort_by":        firstRequestValue(ctx, "sort_by", "sortBy"),
+		"sort_dir":       firstRequestValue(ctx, "sort_dir", "sortDir"),
 		"page":           string(ctx.QueryArgs().Peek("page")),
 		"pageSize":       string(ctx.QueryArgs().Peek("pageSize")),
 	}

@@ -157,6 +157,12 @@ type AdminActionLogFilter struct {
 	MSISDN         string
 	ExternalTxID   string
 	AdminRequestID string
+	ProductID      int
+	StartDate      time.Time
+	EndDate        time.Time
+	Result         string
+	SortBy         string
+	SortDir        string
 	Page           int
 	PageSize       int
 }

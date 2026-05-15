@@ -19,6 +19,8 @@ export class CampaignListComponent implements OnInit {
   loading = false;
   error: string | null = null;
 
+  trackBySlug = (_: number, row: Campaign) => row?.slug ?? _;
+
   displayedColumns: string[] = [
     'slug',
     'country',

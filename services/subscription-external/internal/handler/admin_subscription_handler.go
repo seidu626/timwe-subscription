@@ -5,6 +5,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
@@ -12,6 +13,36 @@ import (
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
+
+func parseAdminHistoryDate(raw string, endOfDay bool) time.Time {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}
+	}
+	if len(raw) == len("2006-01-02") {
+		if t, err := time.Parse("2006-01-02", raw); err == nil {
+			if endOfDay {
+				return t.Add(24*time.Hour - time.Nanosecond)
+			}
+			return t
+		}
+	}
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339} {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+func firstQueryArg(queryArgs *fasthttp.Args, names ...string) string {
+	for _, name := range names {
+		if v := strings.TrimSpace(string(queryArgs.Peek(name))); v != "" {
+			return v
+		}
+	}
+	return ""
+}
 
 type adminActionAuditRepository interface {
 	CreateAdminActionLog(log *domain.AdminSubscriptionActionLog) error
@@ -186,12 +217,35 @@ func (h *SubscriptionHandler) AdminActionHistoryHandler(ctx *fasthttp.RequestCtx
 		return
 	}
 
+	productID := 0
+	if raw := firstQueryArg(queryArgs, "productId", "product_id"); raw != "" {
+		if pid, convErr := strconv.Atoi(raw); convErr == nil {
+			productID = pid
+		}
+	}
+
+	result := strings.ToLower(firstQueryArg(queryArgs, "result", "hasError", "has_error"))
+	switch result {
+	case "ok", "success", "false":
+		result = "ok"
+	case "error", "failed", "true":
+		result = "error"
+	default:
+		result = ""
+	}
+
 	filter := domain.AdminActionLogFilter{
 		TenantID:       tenantID,
 		Operation:      operationValue,
 		MSISDN:         strings.TrimSpace(string(queryArgs.Peek("msisdn"))),
 		ExternalTxID:   strings.TrimSpace(string(queryArgs.Peek("externalTxId"))),
 		AdminRequestID: strings.TrimSpace(string(queryArgs.Peek("adminRequestId"))),
+		ProductID:      productID,
+		StartDate:      parseAdminHistoryDate(firstQueryArg(queryArgs, "startDate", "start_date"), false),
+		EndDate:        parseAdminHistoryDate(firstQueryArg(queryArgs, "endDate", "end_date"), true),
+		Result:         result,
+		SortBy:         firstQueryArg(queryArgs, "sort_by", "sortBy"),
+		SortDir:        firstQueryArg(queryArgs, "sort_dir", "sortDir"),
 		Page:           page,
 		PageSize:       pageSize,
 	}

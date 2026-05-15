@@ -17,6 +17,7 @@ import { ProductService } from '../../+state/services/product.service';
 export class ProductListComponent implements OnInit {
   loading = false;
   saving = false;
+  trackById = (_: number, row: any) => row?.id ?? _;
 
   displayedColumns: string[] = [
     'id',

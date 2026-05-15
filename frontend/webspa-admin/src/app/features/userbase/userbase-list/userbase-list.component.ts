@@ -19,6 +19,7 @@ export class UserbaseListComponent implements OnInit {
   saving = false;
 
   displayedColumns: string[] = ['id', 'msisdn', 'type', 'actions'];
+  trackById = (_: number, row: any) => row?.id ?? _;
   dataSource = new MatTableDataSource<UserbaseRecord>([]);
 
   totalCount = 0;

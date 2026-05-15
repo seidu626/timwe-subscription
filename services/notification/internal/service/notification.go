@@ -14,7 +14,7 @@ type NotificationService struct {
 }
 
 type notificationRepository interface {
-	FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType string, page, pageSize int) (*domain.ListResponse, error)
+	FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error)
 	TenantIDByKey(ctx context.Context, tenantKey string) (string, error)
 	ChannelIDByKeys(ctx context.Context, tenantID, channelKey string) (string, error)
 	Save(notification *domain.NotificationRequest) error
@@ -38,6 +38,14 @@ func (s *NotificationService) GetNotifications(filters map[string]string) (*doma
 		entryChannel = filters["entryChannel"]
 	}
 	notificationType := filters["type"]
+	sortBy := filters["sort_by"]
+	if sortBy == "" {
+		sortBy = filters["sortBy"]
+	}
+	sortDir := filters["sort_dir"]
+	if sortDir == "" {
+		sortDir = filters["sortDir"]
+	}
 	page, _ := strconv.Atoi(filters["page"])
 	if page < 1 {
 		page = 1
@@ -49,7 +57,7 @@ func (s *NotificationService) GetNotifications(filters map[string]string) (*doma
 	}
 
 	// Pass filters to the repository layer
-	listResponse, err := s.repo.FetchNotifications(startDate, endDate, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, page, pageSize)
+	listResponse, err := s.repo.FetchNotifications(startDate, endDate, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir, page, pageSize)
 	if err != nil {
 		return nil, fmt.Errorf("get notifications failed (page=%d pageSize=%d): %w", page, pageSize, err)
 	}

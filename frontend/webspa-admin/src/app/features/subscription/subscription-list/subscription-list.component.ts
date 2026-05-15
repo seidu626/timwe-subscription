@@ -1,7 +1,7 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatSort } from '@angular/material/sort';
+import { Sort } from '@angular/material/sort';
 import { MatTableDataSource } from '@angular/material/table';
 import {
   AdminActionDetail,
@@ -17,7 +17,7 @@ import { SubscriptionService } from '../../+state/services/subscription.service'
   templateUrl: './subscription-list.component.html',
   styleUrls: ['./subscription-list.component.scss']
 })
-export class SubscriptionListComponent implements OnInit, AfterViewInit {
+export class SubscriptionListComponent implements OnInit {
   loading = false;
 
   displayedColumns: string[] = [
@@ -32,7 +32,12 @@ export class SubscriptionListComponent implements OnInit, AfterViewInit {
 
   dataSource = new MatTableDataSource<Subscription>([]);
   totalSubscriptions = 0;
+  subscriptionPageIndex = 0;
+  subscriptionPageSize = 10;
   pageSizes = [5, 10, 20, 30];
+
+  sortBy = 'startDate';
+  sortDir: 'asc' | 'desc' = 'desc';
 
   adminOperations: AdminSubscriptionOperation[] = ['optin', 'optout', 'confirm', 'status'];
   selectedOperation: AdminSubscriptionOperation = 'optin';
@@ -90,12 +95,26 @@ export class SubscriptionListComponent implements OnInit, AfterViewInit {
     msisdn: string;
     externalTxId: string;
     adminRequestId: string;
+    productId: number | null;
+    startDate: string;
+    endDate: string;
+    result: '' | 'ok' | 'error';
   } = {
     operation: '',
     msisdn: '',
     externalTxId: '',
     adminRequestId: '',
+    productId: null,
+    startDate: '',
+    endDate: '',
+    result: '',
   };
+
+  historyResultOptions: Array<{ label: string; value: '' | 'ok' | 'error' }> = [
+    { label: 'All', value: '' },
+    { label: 'OK', value: 'ok' },
+    { label: 'Error', value: 'error' },
+  ];
 
   historyDisplayedColumns: string[] = [
     'createdAt',
@@ -109,11 +128,14 @@ export class SubscriptionListComponent implements OnInit, AfterViewInit {
   ];
   historyDataSource = new MatTableDataSource<AdminActionSummary>([]);
   historyTotalCount = 0;
+  historyPageIndex = 0;
+  historyPageSize = 10;
   historyPageSizes = [5, 10, 20, 50];
+  historySortBy = 'createdAt';
+  historySortDir: 'asc' | 'desc' = 'desc';
   selectedHistoryAction: AdminActionDetail | null = null;
 
   @ViewChild('subscriptionPaginator') subscriptionPaginator!: MatPaginator;
-  @ViewChild(MatSort) sort!: MatSort;
   @ViewChild('historyPaginator') historyPaginator!: MatPaginator;
 
   constructor(
@@ -122,22 +144,28 @@ export class SubscriptionListComponent implements OnInit, AfterViewInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadSubscriptions(1, 10, this.filters);
-    this.loadActionHistory(1, 10);
+    this.loadSubscriptions(1, this.subscriptionPageSize, this.filters);
+    this.loadActionHistory(1, this.historyPageSize);
   }
 
-  ngAfterViewInit(): void {
-    this.dataSource.paginator = this.subscriptionPaginator;
-    this.dataSource.sort = this.sort;
-    this.historyDataSource.paginator = this.historyPaginator;
-  }
+  trackById = (_: number, row: any) => row?.id ?? _;
 
   applyFilters() {
-    this.loadSubscriptions(1, this.subscriptionPaginator?.pageSize || 10, this.filters);
+    this.subscriptionPageIndex = 0;
+    this.loadSubscriptions(1, this.subscriptionPageSize, this.filters);
   }
 
   onPageChange(event: any) {
+    this.subscriptionPageIndex = event.pageIndex;
+    this.subscriptionPageSize = event.pageSize;
     this.loadSubscriptions(event.pageIndex + 1, event.pageSize, this.filters);
+  }
+
+  onSortChange(event: Sort) {
+    this.sortBy = event.active || 'startDate';
+    this.sortDir = (event.direction || 'desc') as 'asc' | 'desc';
+    this.subscriptionPageIndex = 0;
+    this.loadSubscriptions(1, this.subscriptionPageSize, this.filters);
   }
 
   loadSubscriptions(page: number, pageSize: number, filters: any) {
@@ -146,6 +174,8 @@ export class SubscriptionListComponent implements OnInit, AfterViewInit {
       ...filters,
       page,
       pageSize,
+      sort_by: this.sortBy,
+      sort_dir: this.sortDir,
       startDate: this.toDateQuery(filters.startDate),
       endDate: this.toDateQuery(filters.endDate)
     };
@@ -154,6 +184,8 @@ export class SubscriptionListComponent implements OnInit, AfterViewInit {
       next: (response) => {
         this.dataSource.data = response.data;
         this.totalSubscriptions = response.totalCount;
+        this.subscriptionPageIndex = (response.page || page) - 1;
+        this.subscriptionPageSize = response.pageSize || pageSize;
         this.loading = false;
       },
       error: () => {
@@ -219,7 +251,8 @@ export class SubscriptionListComponent implements OnInit, AfterViewInit {
         this.adminActionLoading = false;
         this.lastActionResult = result;
         this.selectedHistoryAction = result;
-        this.loadActionHistory(1, this.historyPaginator?.pageSize || 10);
+        this.historyPageIndex = 0;
+        this.loadActionHistory(1, this.historyPageSize);
 
         const hasError = !!result.error;
         this.snackBar.open(
@@ -246,6 +279,12 @@ export class SubscriptionListComponent implements OnInit, AfterViewInit {
       msisdn: this.historyFilters.msisdn || undefined,
       externalTxId: this.historyFilters.externalTxId || undefined,
       adminRequestId: this.historyFilters.adminRequestId || undefined,
+      productId: this.historyFilters.productId || undefined,
+      startDate: this.toDateQuery(this.historyFilters.startDate) || undefined,
+      endDate: this.toDateQuery(this.historyFilters.endDate) || undefined,
+      result: this.historyFilters.result || undefined,
+      sortBy: this.historySortBy,
+      sortDir: this.historySortDir,
       page,
       pageSize,
     }).subscribe({
@@ -253,6 +292,8 @@ export class SubscriptionListComponent implements OnInit, AfterViewInit {
         this.historyLoading = false;
         this.historyDataSource.data = response.data || [];
         this.historyTotalCount = response.totalCount || 0;
+        this.historyPageIndex = (response.page || page) - 1;
+        this.historyPageSize = response.pageSize || pageSize;
       },
       error: () => {
         this.historyLoading = false;
@@ -265,11 +306,21 @@ export class SubscriptionListComponent implements OnInit, AfterViewInit {
   }
 
   applyHistoryFilters() {
-    this.loadActionHistory(1, this.historyPaginator?.pageSize || 10);
+    this.historyPageIndex = 0;
+    this.loadActionHistory(1, this.historyPageSize);
   }
 
   onHistoryPageChange(event: any) {
+    this.historyPageIndex = event.pageIndex;
+    this.historyPageSize = event.pageSize;
     this.loadActionHistory(event.pageIndex + 1, event.pageSize);
+  }
+
+  onHistorySortChange(event: Sort) {
+    this.historySortBy = event.active || 'createdAt';
+    this.historySortDir = (event.direction || 'desc') as 'asc' | 'desc';
+    this.historyPageIndex = 0;
+    this.loadActionHistory(1, this.historyPageSize);
   }
 
   viewActionDetails(actionId: string) {
