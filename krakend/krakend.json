@@ -9,19 +9,7 @@
   "max_header_bytes": 10485760,
   "extra_config": {
     "security/cors": {
-      "allow_headers": [
-        "Origin",
-        "Authorization",
-        "Content-Type",
-        "External-Tx-Id",
-        "Accept",
-        "X-He-Source",
-        "X-He-Msisdn",
-        "X-He-Operator",
-        "X-He-Mcc",
-        "X-He-Mnc",
-        "X-HE-Bootstrap-Token"
-      ],
+      "allow_headers": ["*"],
       "allow_methods": [
         "POST",
         "GET",

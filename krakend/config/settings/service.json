@@ -43,15 +43,7 @@
         "DELETE",
         "OPTIONS"
       ],
-      "allow_headers": [
-        "Origin",
-        "Authorization",
-        "Content-Type",
-        "External-Tx-Id",
-        "Accept",
-        "X-Requested-With",
-        "X-Requestid"
-      ],
+      "allow_headers": ["*"],
       "expose_headers": [
         "Content-Length",
         "x-pagination"
