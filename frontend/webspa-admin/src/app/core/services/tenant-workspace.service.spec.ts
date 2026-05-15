@@ -238,6 +238,8 @@ describe('TenantWorkspaceService', () => {
     const http = TestBed.inject(HttpTestingController);
     const req = http.expectOne(`${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`);
 
+    expect(service.getCurrentWorkspace().loading).toBeTrue();
+
     expect(req.request.headers.get('Authorization')).toBe('Bearer workspace-token');
     req.flush({
       platform_scoped: false,
@@ -254,5 +256,48 @@ describe('TenantWorkspaceService', () => {
     const workspace = service.getCurrentWorkspace();
     expect(workspace.status).toBe('ready');
     expect(workspace.currentTenant?.tenantKey).toBe('tenant-a');
+  });
+
+  it('waits for the backend workspace response before marking users without claim tenants as missing tenant', () => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              email: 'runtime.tenant@example.com',
+              email_verified: true,
+              name: 'Runtime Tenant Admin'
+            }),
+            getAccessTokenSilently: jasmine.createSpy('getAccessTokenSilently').and.returnValue(of('workspace-token'))
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const http = TestBed.inject(HttpTestingController);
+    const req = http.expectOne(`${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`);
+
+    expect(service.getCurrentWorkspace().status).toBe('loading');
+
+    req.flush({
+      platform_scoped: false,
+      tenants: [
+        {
+          id: '66d39a9a-f1ef-4721-a31c-5bb966d25c3d',
+          tenant_key: 'nrg',
+          name: 'NRG'
+        }
+      ]
+    });
+    http.verify();
+
+    const workspace = service.getCurrentWorkspace();
+    expect(workspace.status).toBe('ready');
+    expect(workspace.currentTenant?.tenantKey).toBe('nrg');
   });
 });

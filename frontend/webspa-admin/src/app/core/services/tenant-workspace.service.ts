@@ -54,7 +54,7 @@ interface AdminTenantWorkspaceResponse {
 export class TenantWorkspaceService {
   private readonly selectionSubject = new BehaviorSubject<string | null>(this.readStoredSelection());
   private readonly workspaceSubject = new BehaviorSubject<TenantWorkspaceState>(this.createLoadingState());
-  private readonly backendWorkspaceSubject = new BehaviorSubject<BackendWorkspaceSnapshot | null>(null);
+  private readonly backendWorkspaceSubject = new BehaviorSubject<BackendWorkspaceSnapshot | null | undefined>(undefined);
   private readonly workspaceEndpoint = `${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`;
   private backendHttp: HttpClient | null = null;
 
@@ -146,7 +146,7 @@ export class TenantWorkspaceService {
     authenticated: boolean,
     user: User | null | undefined,
     selection: string | null,
-    backend: BackendWorkspaceSnapshot | null
+    backend: BackendWorkspaceSnapshot | null | undefined
   ): TenantWorkspaceState {
     if (loading) {
       return this.createLoadingState();
@@ -165,7 +165,12 @@ export class TenantWorkspaceService {
       };
     }
 
-    const claimSnapshot = this.extractClaims(user, backend);
+    const claimSnapshot = this.extractClaims(user, backend ?? null);
+
+    if (backend === undefined && !claimSnapshot.tenantOptions.length) {
+      return this.createLoadingState();
+    }
+
     const currentTenant = this.resolveCurrentTenant(claimSnapshot, selection);
     const canSwitchTenant = claimSnapshot.platformScoped && claimSnapshot.tenantOptions.length > 1;
     const invalidSelection = claimSnapshot.platformScoped && Boolean(selection) && !currentTenant;
@@ -279,6 +284,7 @@ export class TenantWorkspaceService {
     const http = this.getBackendHttp();
 
     if (!http) {
+      this.backendWorkspaceSubject.next(null);
       return;
     }
     this.auth.getAccessTokenSilently().pipe(
