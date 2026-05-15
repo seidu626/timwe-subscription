@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
-import { of } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 import { AuthService } from '@auth0/auth0-angular';
 import { IconSetService } from '@coreui/icons-angular';
 
@@ -12,10 +12,10 @@ import { iconSubset } from '../../../icons/icon-subset';
 describe('Page403Component', () => {
   let component: Page403Component;
   let fixture: ComponentFixture<Page403Component>;
-  let queryParams: Record<string, string>;
+  let queryParamMap$: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
   beforeEach(async () => {
-    queryParams = {};
+    queryParamMap$ = new BehaviorSubject(convertToParamMap({}));
 
     await TestBed.configureTestingModule({
       imports: [RouterTestingModule, Page403Component],
@@ -48,11 +48,7 @@ describe('Page403Component', () => {
         {
           provide: ActivatedRoute,
           useValue: {
-            snapshot: {
-              get queryParams() {
-                return queryParams;
-              }
-            }
+            queryParamMap: queryParamMap$.asObservable()
           }
         }
       ]
@@ -71,16 +67,32 @@ describe('Page403Component', () => {
   });
 
   it('does not describe backend forbidden responses as a missing tenant assignment', () => {
-    queryParams = { reason: 'forbidden' };
+    let title = '';
+    let description = '';
+    const subscription = component.view$.subscribe((view) => {
+      title = view.title;
+      description = view.description;
+    });
 
-    expect(component.title).toBe('Tenant workspace denied');
-    expect(component.description).toContain('backend rejected access');
+    queryParamMap$.next(convertToParamMap({ reason: 'forbidden' }));
+
+    expect(title).toBe('Tenant workspace permission denied');
+    expect(description).toContain('backend rejected access');
+    subscription.unsubscribe();
   });
 
   it('does not describe backend tenant lookup failures as a missing account assignment', () => {
-    queryParams = { reason: 'tenant-not-found' };
+    let title = '';
+    let description = '';
+    const subscription = component.view$.subscribe((view) => {
+      title = view.title;
+      description = view.description;
+    });
 
-    expect(component.title).toBe('Tenant workspace not found');
-    expect(component.description).toContain('backend could not resolve');
+    queryParamMap$.next(convertToParamMap({ reason: 'tenant-not-found' }));
+
+    expect(title).toBe('Tenant workspace not found');
+    expect(description).toContain('backend could not resolve');
+    subscription.unsubscribe();
   });
 });

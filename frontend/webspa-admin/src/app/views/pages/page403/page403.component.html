@@ -5,25 +5,29 @@
         <c-card-group class="tenant-denied-card-group">
           <c-card class="tenant-denied-card p-4">
             <c-card-body>
+              <ng-container *ngIf="(view$ | async) as view">
               <div class="tenant-denied-eyebrow">Tenant workspace</div>
-              <h1 class="tenant-denied-title">{{ title }}</h1>
-              <p class="tenant-denied-copy">{{ description }}</p>
+              <h1 class="tenant-denied-title">{{ view.title }}</h1>
+              <p class="tenant-denied-copy">{{ view.description }}</p>
+              <p class="tenant-denied-copy" *ngIf="view.hint">{{ view.hint }}</p>
 
               <div class="tenant-denied-actions">
-                <button cButton color="primary" type="button" routerLink="/dashboard">Go to dashboard</button>
+                <button cButton color="primary" type="button" *ngIf="view.canRetry; else dashboardLink" (click)="retry()">Retry</button>
+                <ng-template #dashboardLink>
+                  <button cButton color="primary" type="button" routerLink="/dashboard">Go to dashboard</button>
+                </ng-template>
                 <button cButton color="secondary" type="button" *ngIf="(isAuthenticated$ | async)" (click)="logout()">Logout</button>
                 <button cButton color="secondary" type="button" *ngIf="!(isAuthenticated$ | async)" (click)="login()">Login</button>
               </div>
 
-              <ng-container *ngIf="(workspace$ | async) as workspace">
-                <div class="tenant-denied-panel" *ngIf="workspace.availableTenants.length > 0">
+                <div class="tenant-denied-panel" *ngIf="view.showTenantPanel">
                   <h2 class="tenant-denied-panel-title">
-                    {{ workspace.canSwitchTenant ? 'Choose tenant workspace' : 'Assigned tenant' }}
+                    {{ view.workspace.canSwitchTenant ? 'Choose tenant workspace' : 'Assigned tenant' }}
                   </h2>
 
-                  <div class="tenant-denied-options" *ngIf="workspace.canSwitchTenant; else singleTenant">
+                  <div class="tenant-denied-options" *ngIf="view.workspace.canSwitchTenant; else singleTenant">
                     <button
-                      *ngFor="let tenant of workspace.availableTenants"
+                      *ngFor="let tenant of view.workspace.availableTenants"
                       cButton
                       color="light"
                       type="button"
@@ -35,7 +39,7 @@
                   </div>
 
                   <ng-template #singleTenant>
-                    <div class="tenant-denied-current" *ngIf="workspace.currentTenant as currentTenant">
+                    <div class="tenant-denied-current" *ngIf="view.workspace.currentTenant as currentTenant">
                       <div class="tenant-denied-current-label">{{ currentTenant.label }}</div>
                       <div class="tenant-denied-current-meta">
                         <span>{{ currentTenant.tenantKey }}</span>
