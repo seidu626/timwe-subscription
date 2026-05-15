@@ -2,16 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '@auth0/auth0-angular';
-import { IconDirective } from '@coreui/icons-angular';
-import {
-  ButtonDirective,
-  CardBodyComponent,
-  CardComponent,
-  CardGroupComponent,
-  ColComponent,
-  ContainerComponent,
-  RowComponent
-} from '@coreui/angular';
+import { ButtonDirective } from '@coreui/angular';
 import { combineLatest, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import {
