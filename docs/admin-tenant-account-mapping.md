@@ -1,5 +1,9 @@
 # Admin Tenant Account Mapping
 
+## Canonical Tenancy RFC Relationship
+
+This document is a source input for the proposed canonical tenancy model in `docs/architecture/canonical-tenancy-model.md`. Until that RFC is approved, this document remains operational guidance. If the RFC is approved, it supersedes any wording here that treats Auth0/JWT tenant claims as the durable tenant membership source of truth; Auth0 remains identity proof, and repo-owned `tenant_admin_memberships` remains the tenant assignment source of truth.
+
 This admin stack maps users to tenant access through Auth0 identity plus the repo-owned `tenant_admin_memberships` table. Auth0 proves who the user is; the membership table is the application source of truth for tenant workspace access when the user is not platform-scoped.
 
 ## Tenant Admin Mapping

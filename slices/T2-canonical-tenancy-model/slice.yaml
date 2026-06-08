@@ -1,0 +1,60 @@
+story:
+  id: "T2-canonical-tenancy-model"
+  title: "Canonical tenancy model RFC is ready for review"
+  actor: "platform-operator"
+  action: "review the proposed canonical tenancy model RFC"
+  outcome: "downstream tenant-management workers have one draft model to consume before implementation"
+  as_a: "platform-operator"
+  i_want_to: "review one canonical tenancy model draft"
+  so_that: "tenant identity, membership, channel, credential, resolver, migration, and enforcement work does not diverge"
+
+entrypoints:
+  - "docs/architecture/canonical-tenancy-model.md"
+  - "agent/backlog/issues/TMP-canonical-tenancy-model.md"
+
+acceptance_criteria:
+  happy:
+    - scenario: "RFC covers canonical tenancy model"
+      given: ["the T2 docs-only WorkOrder is active"]
+      when: "the operator opens docs/architecture/canonical-tenancy-model.md"
+      then: "tenant identity, tenant/channel hierarchy, admin membership source of truth, platform-vs-tenant scope, onboarding lifecycle, credential-reference boundaries, resolver precedence, migration/enforcement gates, and downstream WorkOrders are defined"
+      evidence: "docs/architecture/canonical-tenancy-model.md"
+    - scenario: "Existing tenant docs are reconciled"
+      given: ["tenant docs already describe admin mapping, channel onboarding, migration, and nullability enforcement"]
+      when: "the RFC is drafted"
+      then: "the RFC names each document as a source input or superseded fragment"
+      evidence: "Source Reconciliation section"
+  failures:
+    - scenario: "RFC accidentally approves implementation"
+      given: ["downstream WorkOrders are waiting for tenancy decisions"]
+      when: "the RFC draft is read"
+      then: "it explicitly states that the RFC is proposed and not approved"
+      evidence: "RFC status block"
+    - scenario: "Peer review gate is missing"
+      given: ["architecture-rfc guidance requires cross-runtime peer review before implementation"]
+      when: "no repo-enabled non-Codex reviewer is available"
+      then: "the RFC and result capsule record the peer-review gate as unavailable, not satisfied"
+      evidence: "RFC status block and .harness/runs/parallel-T2-rfc-20260608-0742/members/t2-rfc/result.json"
+  invariants:
+    - rule: "No protected path may fall back to a global tenant"
+      preserved_by: "RFC migration/enforcement gates and resolver precedence"
+      violated_when: "an implementation WorkOrder treats nrg or tenantless state as an active runtime fallback"
+      test: "downstream static nullable-path audits and cross-tenant refusal smokes"
+    - rule: "Secrets must be references, not durable business data"
+      preserved_by: "credential-reference boundary section"
+      violated_when: "raw provider/callback/postback secrets appear in tenant/channel config or docs"
+      test: "downstream credential tests and secret review"
+
+out_of_scope:
+  - "RFC approval"
+  - "backend, frontend, migration, dependency, deployment, env, or secret changes"
+  - "live database mutation"
+
+size_check:
+  files_touched: 8
+  migrations: 0
+  endpoints: 0
+
+value_gate:
+  required_verdict: "DRAFT_READY before parent review"
+  report_path: "slices/T2-canonical-tenancy-model/value-gate-report.md"
