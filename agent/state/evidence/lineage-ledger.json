@@ -395,6 +395,60 @@
       "record_id": "lineage-0044-b253d36c",
       "rel": "reviews",
       "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "docs/tenant-channel-onboarding.md",
+      "created_at": "2026-06-08T06:19:29Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-worker/result.json",
+      "record_id": "lineage-0045-13dd33c8",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "examples/tenant-channel-onboarding/contract-fixtures.json",
+      "created_at": "2026-06-08T06:19:29Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-worker/result.json",
+      "record_id": "lineage-0046-3700b02b",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "examples/tenant-channel-onboarding/validate-fixtures.sh",
+      "created_at": "2026-06-08T06:19:29Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-worker/result.json",
+      "record_id": "lineage-0047-73389270",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md",
+      "created_at": "2026-06-08T06:19:30Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-worker/result.json",
+      "record_id": "lineage-0048-be6d1df3",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp016-partner-contracts-20260608-0614/progress.log",
+      "created_at": "2026-06-08T06:19:30Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-worker/result.json",
+      "record_id": "lineage-0049-a310ae45",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-worker/result.json",
+      "created_at": "2026-06-08T06:19:30Z",
+      "kind": "result_capsule",
+      "parent_id": "agent/state/work-orders/active/WO-TMP-016-001.json",
+      "record_id": "lineage-0050-8882cb77",
+      "rel": "reports",
+      "skill": "repository-codebase-governance"
     }
   ],
   "schema_version": "1.0"

@@ -1,6 +1,6 @@
 # TMP-016 Value Gate Report
 
-- Timestamp: 2026-05-08T18:20:00Z
+- Timestamp: 2026-06-08T06:16:27Z
 - Agent: Codex
 - Outcome code: outcome:verified
 
@@ -58,23 +58,30 @@ Command:
 ```bash
 examples/tenant-channel-onboarding/validate-fixtures.sh
 jq empty slices/manifest.json
-slice-harness status
-hvc check agent/backlog/issues/*.md --fail-on block
+test -f docs/tenant-channel-onboarding.md
+test -f slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md
+agent-hub schema validate-all --root . --json
+agent-hub reconcile --root . --check --json
 git diff --check
 ```
 
 Results:
 
 - Contract fixtures validator: PASS.
+- Manifest JSON validation: PASS.
+- Onboarding doc and value-gate report existence checks: PASS.
+- vNext schema validation: PASS (`status: pass`, 126 schemas checked).
+- vNext reconcile check: PASS (`errors: 0`, `warnings: 0`).
+- Git diff whitespace check: PASS.
 - Fixtures include both supported and negative examples, so the contract pack is not happy-path-only.
 - Runtime changes: none, so code test assertions are not applicable to this bounded contract-enabler slice.
 
 ## Verification Commands
 
 - `jq empty slices/manifest.json`
-- `slice-harness status`
-- `hvc check agent/backlog/issues/*.md --fail-on block`
-- `examples/tenant-channel-onboarding/validate-fixtures.sh`
 - `test -f docs/tenant-channel-onboarding.md`
-- `test -f slices/TMP-016-partner-channel-onboarding-contracts/contract-review-checklist.md`
+- `examples/tenant-channel-onboarding/validate-fixtures.sh`
+- `test -f slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md`
+- `agent-hub schema validate-all --root . --json`
+- `agent-hub reconcile --root . --check --json`
 - `git diff --check`
