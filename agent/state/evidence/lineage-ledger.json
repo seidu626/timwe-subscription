@@ -818,6 +818,60 @@
       "record_id": "lineage-0091-d67394aa",
       "rel": "satisfies",
       "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": "agent/state/goals/GOAL-HANDOFF-20260608-091452.json",
+      "created_at": "2026-06-08T09:22:13Z",
+      "kind": "goal_spec",
+      "parent_id": null,
+      "record_id": "lineage-0092-69dadf7c",
+      "rel": null,
+      "skill": "release-handoff"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/archive/WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L.json",
+      "created_at": "2026-06-08T09:22:13Z",
+      "kind": "work_order",
+      "parent_id": "goal-20260608T091729Z-create-a-next-session-ha",
+      "record_id": "lineage-0093-d1a5405f",
+      "rel": "derives_from",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/evidence/WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L.evidence.json",
+      "created_at": "2026-06-08T09:22:13Z",
+      "kind": "evidence_record",
+      "parent_id": "WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L",
+      "record_id": "lineage-0094-9336f1df",
+      "rel": "satisfies",
+      "skill": "release-handoff"
+    },
+    {
+      "artifact_ref": "agent/state/capsules/WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L.result.json",
+      "created_at": "2026-06-08T09:22:13Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L",
+      "record_id": "lineage-0095-c899c082",
+      "rel": "summarizes",
+      "skill": "release-handoff"
+    },
+    {
+      "artifact_ref": "docs/agent/next-session-handoff-2026-06-08.md",
+      "created_at": "2026-06-08T09:22:54Z",
+      "kind": "evidence_record",
+      "parent_id": "WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L",
+      "record_id": "lineage-0096-2f394ef7",
+      "rel": "handoff",
+      "skill": "release-handoff"
+    },
+    {
+      "artifact_ref": "agent/state/hvc/GOAL-HANDOFF-20260608-091452.hvc.json",
+      "created_at": "2026-06-08T09:22:55Z",
+      "kind": "evidence_record",
+      "parent_id": "goal-20260608T091729Z-create-a-next-session-ha",
+      "record_id": "lineage-0097-baaa837f",
+      "rel": "classifies",
+      "skill": "hvc"
     }
   ],
   "schema_version": "1.0"

@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "work_order_id": "WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L",
+  "status": "done",
+  "changed_files": [
+    "docs/agent/next-session-handoff-2026-06-08.md",
+    "agent/state/goals/GOAL-HANDOFF-20260608-091452.json",
+    "agent/state/hvc/GOAL-HANDOFF-20260608-091452.hvc.json",
+    "agent/state/work-orders/archive/WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L.json",
+    "agent/state/capsules/WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L.result.json",
+    "agent/state/evidence/lineage-ledger.json"
+  ],
+  "tests_run": [
+    {
+      "command": "agent-hub schema validate-all --root . --json",
+      "result": "pass",
+      "evidence": "126 schemas checked before handoff WorkOrder creation"
+    },
+    {
+      "command": "agent-hub reconcile --root . --check --json",
+      "result": "pass",
+      "evidence": "0 errors and 0 warnings before handoff WorkOrder creation"
+    },
+    {
+      "command": "agent-hub dispatch ready --root . --out /tmp/timwe-ready-before-handoff.json --json",
+      "result": "pass",
+      "evidence": "claimable 0, errors 0, warnings 52"
+    },
+    {
+      "command": "agent-hub schema validate --root . --schema work_order_v2 --file agent/state/work-orders/active/WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L.json --json",
+      "result": "pass",
+      "evidence": "handoff WorkOrder schema valid while active"
+    }
+  ],
+  "evidence_refs": [
+    "docs/agent/next-session-handoff-2026-06-08.md",
+    "agent/state/goals/GOAL-HANDOFF-20260608-091452.json",
+    "agent/state/hvc/GOAL-HANDOFF-20260608-091452.hvc.json",
+    "agent/state/work-orders/archive/WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L.json"
+  ],
+  "risks": [
+    "main is locally ahead of origin/main; push was not requested",
+    "full live-stack browser/API proof was not rerun after the implementation merge",
+    "dispatch ready reports warn with 52 warnings despite claimable 0 and errors 0"
+  ],
+  "followups": [],
+  "runtime": "codex",
+  "role": "supervisor-full",
+  "summary": "Created a durable next-session handoff for the merged multitenant onboarding WorkOrder wave."
+}
