@@ -18,7 +18,8 @@ import (
 )
 
 const (
-	tenantCredentialPurposeProviderAPI = "provider_api"
+	tenantCredentialPurposeProviderAPI     = "provider_api"
+	tenantProviderCredentialDevFallbackEnv = "SUBSCRIPTION_EXTERNAL_DEV_ALLOW_TENANT_PROVIDER_SHARED_CREDENTIAL_FALLBACK"
 )
 
 var (
@@ -249,15 +250,16 @@ func (r *TenantProviderRouter) Resolve(ctx context.Context, operation ChannelOpe
 	if strings.ToLower(strings.TrimSpace(provider)) != "timwe" {
 		return nil, fmt.Errorf("%w: provider %s", ErrUnsupportedChannelOperation, provider)
 	}
+	allowSharedCredentialFallback := tenantProviderSharedCredentialFallbackEnabled(r.cfg)
 	cfg := &TenantProviderConfig{
 		TenantID:         tenantID,
 		ChannelID:        channelID,
 		Provider:         provider,
 		BaseURL:          strings.TrimRight(firstNonEmpty(secret.BaseURL, r.cfg.Application.TIMWE.BaseURL), "/"),
-		APIKey:           firstNonEmpty(secret.APIKey, r.cfg.Application.TIMWE.APIKey),
-		Authentication:   firstNonEmpty(secret.AuthenticationKey, r.cfg.Application.TIMWE.AuthenticationKey),
-		PartnerServiceID: firstNonEmpty(secret.PartnerServiceID, r.cfg.Application.TIMWE.PartnerServiceID),
-		PSK:              firstNonEmpty(secret.PSK, r.cfg.Application.TIMWE.Psk),
+		APIKey:           tenantProviderCredentialValue(secret.APIKey, r.cfg.Application.TIMWE.APIKey, allowSharedCredentialFallback),
+		Authentication:   tenantProviderCredentialValue(secret.AuthenticationKey, r.cfg.Application.TIMWE.AuthenticationKey, allowSharedCredentialFallback),
+		PartnerServiceID: tenantProviderCredentialValue(secret.PartnerServiceID, r.cfg.Application.TIMWE.PartnerServiceID, allowSharedCredentialFallback),
+		PSK:              tenantProviderCredentialValue(secret.PSK, r.cfg.Application.TIMWE.Psk, allowSharedCredentialFallback),
 		PartnerRoleID:    firstNonEmpty(secret.PartnerRoleID, r.cfg.Application.TIMWE.PartnerRoleID),
 		Realm:            firstNonEmpty(secret.Realm, r.cfg.Application.TIMWE.Realm),
 	}
@@ -267,7 +269,46 @@ func (r *TenantProviderRouter) Resolve(ctx context.Context, operation ChannelOpe
 	if cfg.BaseURL == "" || cfg.APIKey == "" || cfg.PartnerRoleID == "" {
 		return nil, fmt.Errorf("%w: provider config incomplete", ErrTenantCredentialInvalid)
 	}
+	if !tenantProviderAuthMaterialPresent(cfg) {
+		return nil, fmt.Errorf("%w: provider authentication material incomplete", ErrTenantCredentialInvalid)
+	}
 	return cfg, nil
+}
+
+func tenantProviderCredentialValue(secretValue, sharedValue string, allowSharedFallback bool) string {
+	if strings.TrimSpace(secretValue) != "" {
+		return strings.TrimSpace(secretValue)
+	}
+	if allowSharedFallback {
+		return strings.TrimSpace(sharedValue)
+	}
+	return ""
+}
+
+func tenantProviderSharedCredentialFallbackEnabled(cfg *config.Config) bool {
+	if cfg == nil || cfg.Application.Environment != config.DEVELOPMENT {
+		return false
+	}
+	raw, ok := os.LookupEnv(tenantProviderCredentialDevFallbackEnv)
+	if !ok {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "t", "yes", "y", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func tenantProviderAuthMaterialPresent(cfg *TenantProviderConfig) bool {
+	if cfg == nil {
+		return false
+	}
+	if strings.TrimSpace(cfg.Authentication) != "" {
+		return true
+	}
+	return strings.TrimSpace(cfg.PartnerServiceID) != "" && strings.TrimSpace(cfg.PSK) != ""
 }
 
 func operationAllowed(operation ChannelOperation, capabilities []string, policy map[ChannelOperation][]string) bool {

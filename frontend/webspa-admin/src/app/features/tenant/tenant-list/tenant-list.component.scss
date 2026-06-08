@@ -135,10 +135,33 @@
   margin-top: 0.35rem;
 }
 
-.tenant-members {
+.tenant-members,
+.tenant-onboarding {
   margin-top: 1.25rem;
   padding-top: 1.25rem;
   border-top: 1px solid var(--admin-border, #dbe1ea);
+}
+
+.toggle-field {
+  display: flex;
+  align-items: center;
+  min-height: 3.5rem;
+}
+
+.capability-grid {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  margin: 0 0 0.85rem;
+
+  mat-checkbox {
+    min-height: 2.35rem;
+  }
+}
+
+.selected-channel {
+  color: var(--admin-primary);
+  font-weight: 850;
 }
 
 .section-title {

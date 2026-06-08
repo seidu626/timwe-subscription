@@ -1,6 +1,8 @@
 export type TenantStatus = 'ACTIVE' | 'INACTIVE';
 export type TenantMemberStatus = 'ACTIVE' | 'INACTIVE';
 export type TenantMemberRole = 'TENANT_ADMIN' | 'TENANT_VIEWER';
+export type ChannelStatus = 'ACTIVE' | 'INACTIVE';
+export type ChannelCredentialStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface AdminTenant {
   id: string;
@@ -75,4 +77,71 @@ export interface TenantMemberPayload {
 
 export interface TenantMemberMutationResponse extends AdminTenantMember {
   audit_log_id: string;
+}
+
+export interface AdminChannel {
+  channel_id: string;
+  tenant_id: string;
+  channel_key: string;
+  provider: string;
+  country: string;
+  operator?: string;
+  capabilities: string[];
+  status: ChannelStatus;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChannelListResponse {
+  channels: AdminChannel[];
+  total_count: number;
+  page: number;
+  page_size: number;
+}
+
+export interface ChannelFilters {
+  page?: number;
+  page_size?: number;
+  provider?: string;
+  country?: string;
+  enabled?: boolean;
+}
+
+export interface ChannelCreatePayload {
+  provider: string;
+  country: string;
+  operator?: string;
+  capabilities: string[];
+  enabled?: boolean;
+  performed_by?: string;
+}
+
+export interface AdminChannelCredential {
+  credential_id: string;
+  tenant_id: string;
+  channel_id: string;
+  purpose: string;
+  version: number;
+  status: ChannelCredentialStatus;
+  redacted_display: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  activated_at?: string;
+  deactivated_at?: string;
+}
+
+export interface ChannelCredentialListResponse {
+  credentials: AdminChannelCredential[];
+  total_count: number;
+  page: number;
+  page_size: number;
+}
+
+export interface ChannelCredentialPayload {
+  purpose?: string;
+  secret_ref?: string;
+  redacted_display?: string;
+  performed_by?: string;
 }

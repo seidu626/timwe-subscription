@@ -3,6 +3,11 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import {
+  ChannelCredentialListResponse,
+  ChannelCredentialPayload,
+  ChannelCreatePayload,
+  ChannelFilters,
+  ChannelListResponse,
   TenantMemberListResponse,
   TenantMemberMutationResponse,
   TenantMemberPayload,
@@ -18,6 +23,7 @@ import {
 })
 export class TenantService {
   private baseUrl = `${environment.acquisitionApiEndpoint}/v1/admin/tenants`;
+  private channelsUrl = `${environment.acquisitionApiEndpoint}/v1/admin/channels`;
 
   constructor(private http: HttpClient) {}
 
@@ -74,6 +80,54 @@ export class TenantService {
   deactivateMember(tenantId: string, auth0Subject: string): Observable<{ audit_log_id: string }> {
     return this.http.delete<{ audit_log_id: string }>(
       `${this.baseUrl}/${encodeURIComponent(tenantId)}/members/${encodeURIComponent(auth0Subject)}`
+    );
+  }
+
+  listChannels(filters?: ChannelFilters): Observable<ChannelListResponse> {
+    let params = new HttpParams();
+    if (filters) {
+      if (filters.page) {
+        params = params.set('page', filters.page.toString());
+      }
+      if (filters.page_size) {
+        params = params.set('page_size', filters.page_size.toString());
+      }
+      if (filters.provider) {
+        params = params.set('provider', filters.provider);
+      }
+      if (filters.country) {
+        params = params.set('country', filters.country);
+      }
+      if (filters.enabled !== undefined) {
+        params = params.set('enabled', String(filters.enabled));
+      }
+    }
+    return this.http.get<ChannelListResponse>(this.channelsUrl, { params });
+  }
+
+  createChannel(payload: ChannelCreatePayload): Observable<ChannelListResponse['channels'][number]> {
+    return this.http.post<ChannelListResponse['channels'][number]>(this.channelsUrl, payload);
+  }
+
+  setChannelEnabled(channelId: string, enabled: boolean): Observable<ChannelListResponse['channels'][number]> {
+    return this.http.patch<ChannelListResponse['channels'][number]>(
+      `${this.channelsUrl}/${encodeURIComponent(channelId)}/enabled`,
+      { enabled }
+    );
+  }
+
+  listChannelCredentials(channelId: string, purpose = 'provider_api'): Observable<ChannelCredentialListResponse> {
+    const params = new HttpParams().set('purpose', purpose);
+    return this.http.get<ChannelCredentialListResponse>(
+      `${this.channelsUrl}/${encodeURIComponent(channelId)}/credentials`,
+      { params }
+    );
+  }
+
+  bindChannelCredential(channelId: string, payload: ChannelCredentialPayload): Observable<ChannelCredentialListResponse['credentials'][number]> {
+    return this.http.post<ChannelCredentialListResponse['credentials'][number]>(
+      `${this.channelsUrl}/${encodeURIComponent(channelId)}/credentials`,
+      payload
     );
   }
 }

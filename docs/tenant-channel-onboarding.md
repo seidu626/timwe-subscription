@@ -51,11 +51,50 @@ The onboarding record must include:
 - `partner_key`
 - enabled capabilities
 - sandbox base URL
+- provider credential secret reference
 - callback shared secret reference
+- postback signing secret reference when postbacks are enabled
 - postback target URL template
 - credential rotation owner
+- credential rotation cadence
+- activation state
 
 Credential values in documentation must be placeholders such as `<partner-access-token>` or `<callback-shared-secret-ref>`.
+
+`TIMWE_API_KEY`, `TIMWE_PSK`, callback shared secrets, postback signing secrets, and equivalent provider auth material are tenant/channel credential secrets for production onboarding. They must be stored behind a tenant/channel credential reference such as `<tenant-channel-credential-secret-ref>`, not as one global environment value shared by every tenant.
+
+Global environment variables may still provide local-development or sandbox fallback values. A production tenant/channel is not activated from those fallback values. Tenant-routed provider calls in `subscription-external` only allow shared TimWe auth fallback when the service is running in `DEVELOPMENT` and `SUBSCRIPTION_EXTERNAL_DEV_ALLOW_TENANT_PROVIDER_SHARED_CREDENTIAL_FALLBACK=true`.
+
+## Onboarding Configuration Taxonomy
+
+| Category | What belongs here | Production handling |
+| --- | --- | --- |
+| Tenant/channel-specific | Tenant profile, channel key, provider realm, partner role, enabled capabilities, callback/postback URLs, product defaults, userbase defaults, cadence defaults | Stored in the admin onboarding record for one tenant/channel. |
+| Platform-wide shared secrets | JWT signing secret, database credentials, Redis credentials, Auth0 validation settings, monitoring credentials | Stored in deployment/platform secret management and rotated with platform releases. |
+| Dev-only fallback | Local `.env` values for `TIMWE_API_KEY`, `TIMWE_PSK`, local MinIO defaults, sandbox-only test credentials | Allowed only for developer machines and sandbox smoke. Never use for production onboarding. |
+| Deployment-only credentials | Object storage access keys, deployment tokens, droplet/Portainer access, Kubernetes secret names | Owned by deployment operations and not used as tenant/channel routing identity. |
+
+## Admin Portal Onboarding Flow
+
+1. Create the tenant profile with stable `tenant_key`, display name, status, owner, and default country/currency.
+2. Add admin membership by Auth0 subject/email or approved bootstrap mechanism so the operator can manage only the intended tenant workspace unless platform scope is explicitly granted.
+3. Create the channel with `channel_key`, partner/provider mapping, gateway path, callback/postback URLs, and enabled capabilities.
+4. Attach the provider credential reference for `TIMWE_API_KEY`, `TIMWE_PSK`, callback signing material, postback signing material, and equivalent provider auth fields through the admin portal channel credential form.
+5. Set product defaults, userbase defaults, and cadence defaults for the tenant/channel before traffic is enabled.
+6. Run validation and smoke checks against sandbox or staging: tenant/channel resolution, capability refusal, signed callback handling, postback delivery, and cross-tenant rejection.
+7. Activate the tenant/channel only after the smoke evidence is recorded and any exposed credential-like values have been rotated.
+
+## Credential Rotation Guidance
+
+Raw credential-like values were exposed to an agent during this workstream. Treat any exposed provider credentials as compromised even if they were meant for testing. The operator must rotate those values, update the tenant/channel credential secret reference, and rerun validation before production activation.
+
+Rotation evidence should record:
+
+- tenant/channel affected
+- provider and credential reference updated
+- rotation owner and timestamp
+- smoke command or validation result
+- activation or reactivation decision
 
 ## Callback Signing
 
@@ -282,3 +321,20 @@ HOST=https://staging-gw.example.com ./scripts/smoke/careerify-tenant-cross-tenan
 
 PASS means the server **rejected** the request. A 2xx is a FAIL (tenant-scoping gap).  
 Targets commits: TMP-066=77f9359, TMP-067=7e10692, TMP-068=3027c86, TMP-069=3897e89.
+
+## Implementation Thread Order and Acceptance Proof
+
+Recommended implementation order:
+
+1. Tenant profile and `tenant_admin_memberships` assignment.
+2. Channel record and provider field mapping through `/v1/admin/channels`.
+3. Tenant/channel credential-reference storage and resolver through `/v1/admin/channels/{channel_id}/credentials`.
+4. Product, userbase, and cadence defaults in tenant workspace admin screens.
+5. Validation/smoke workflow and activation gate.
+
+Acceptance proof should stay concise:
+
+- docs classify tenant/channel config, platform-wide secrets, dev-only fallback, and deployment-only credentials
+- production `TIMWE_API_KEY`, `TIMWE_PSK`, and equivalent provider auth material are documented as tenant/channel credential secret refs
+- admin onboarding flow covers tenant profile, admin membership, channel, credential reference, defaults, validation/smoke, and activation
+- rotation guidance states exposed credential-like values must be rotated before production activation

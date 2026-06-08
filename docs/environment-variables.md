@@ -36,12 +36,31 @@ For services using `APP_` prefix (subscription-partner, notification, cadence-en
 |----------|-------------|----------|
 | `JWT_SECRET` | Secret key for JWT token signing | Yes |
 
-## TimWe API Integration
+## Multi-Tenant Configuration Taxonomy
+
+Production onboarding separates tenant/channel configuration from platform deployment configuration. Do not promote a tenant to production by adding provider credentials as global environment variables.
+
+| Category | Examples | Production Storage | Notes |
+|----------|----------|--------------------|-------|
+| Tenant/channel-specific configuration | `tenant_key`, `channel_key`, partner/provider realm, callback URL, postback URL, enabled capabilities, product defaults, userbase defaults, cadence defaults | Admin onboarding record plus tenant/channel credential secret references | Scoped to one tenant/channel. Changes must not affect other tenants. |
+| Tenant/channel credential secrets | `TIMWE_API_KEY`, `TIMWE_PSK`, callback shared secret, postback signing secret, equivalent provider auth material | Secret manager entry referenced by the tenant/channel credential record | Store references such as `<tenant-channel-credential-secret-ref>`, never raw values in docs, tickets, screenshots, or shared global env. |
+| Platform-wide shared secrets | `JWT_SECRET`, `INTERNAL_API_SECRET`, `CADENCE_ADMIN_TOKEN`, database credentials, Redis credentials, Auth0 admin validation settings, monitoring admin credentials | Deployment secret store or environment for the whole platform | Shared infrastructure secrets. Rotate with platform release coordination. These are not tenant identity or provider routing keys. |
+| Dev-only or legacy fallback | Local `.env` placeholders for `TIMWE_API_KEY`, `TIMWE_PSK`, `ACQUISITION_ADMIN_TOKEN`, MinIO defaults, local Auth0/demo values | Developer-local `.env` or local compose overrides only | Allowed only for sandbox/local smoke or deprecated static-token compatibility. Must not be used to onboard production tenants. |
+| Deployment-only credentials | `PASS_KEY` or registry personal access tokens, object storage access keys, Kubernetes secret names, droplet/Portainer access | Deployment platform secret store | Used by infrastructure and release automation, not tenant routing decisions. Do not inject these into application config unless the deployment tool explicitly needs them. |
+
+## TimWe / Provider Credential Fallback
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `TIMWE_API_KEY` | TimWe partner API key | Yes |
-| `TIMWE_PSK` | TimWe pre-shared key | Yes |
+| `TIMWE_API_KEY` | TimWe partner API key fallback for local development or sandbox-only smoke | No for production tenant onboarding |
+| `TIMWE_PSK` | TimWe pre-shared key fallback for local development or sandbox-only smoke | No for production tenant onboarding |
+| `SUBSCRIPTION_EXTERNAL_DEV_ALLOW_TENANT_PROVIDER_SHARED_CREDENTIAL_FALLBACK` | Explicit development-only gate that lets tenant-routed provider calls reuse shared TimWe auth material when a tenant credential secret is incomplete | No; leave unset outside local development |
+
+For production, `TIMWE_API_KEY`, `TIMWE_PSK`, callback shared secrets, postback signing secrets, and equivalent provider auth material must be stored as tenant/channel credential secret references. They must not be treated as a single global env pair that applies to all tenants. The onboarding record should hold only the credential reference, owner, rotation cadence, and activation state.
+
+Tenant-routed provider calls in `subscription-external` are strict by default. When tenant/channel context is present, `tenant_channel_credentials` purpose `provider_api` is authoritative for provider API key and authentication material. The shared TimWe environment values are only usable for tenant routes when the application runs in `DEVELOPMENT` and `SUBSCRIPTION_EXTERNAL_DEV_ALLOW_TENANT_PROVIDER_SHARED_CREDENTIAL_FALLBACK=true`.
+
+If a raw credential-shaped value has been exposed to an agent, ticket, chat, log, screenshot, or documentation draft, assume it is compromised. Rotate the provider credential, replace the tenant/channel credential secret reference, run the tenant/channel smoke validation, and record the rotation in the onboarding evidence before activation or reactivation.
 
 ## Acquisition API
 
@@ -121,13 +140,22 @@ kubectl create secret generic db-credentials \
   --from-literal=database=subscription_manager
 ```
 
-### timwe-credentials
+### tenant-channel provider credentials
 
-```bash
-kubectl create secret generic timwe-credentials \
-  --from-literal=api-key=your_api_key \
-  --from-literal=psk=your_psk
+Production provider credentials are provisioned per tenant/channel. The deployment should expose a credential reference to the application or credential resolver; it should not create one shared `timwe-credentials` secret for every tenant.
+
+Example secret-reference shape:
+
+```text
+tenant_key: <tenant-key>
+channel_key: <channel-key>
+provider: timwe
+credential_ref: <tenant-channel-credential-secret-ref>
+rotation_owner: <operations-owner>
+rotation_required: true when raw credential-like values were exposed
 ```
+
+The referenced secret can contain provider-specific entries such as `TIMWE_API_KEY`, `TIMWE_PSK`, callback signing material, and equivalent provider auth fields. Keep those raw values out of documentation and command examples.
 
 ### admin-auth0
 
@@ -187,6 +215,6 @@ ssh -L 9000:127.0.0.1:9000 user@your-droplet-ip
 1. **Use secret references, not literal secrets** - Keep credential-shaped values in environment variables or secret managers; do not hardcode them in compose files or documentation examples.
 2. **Never commit secrets to version control** - Use `.env` files locally and Kubernetes secrets in production.
 3. **Use strong passwords** - Generate secure random passwords for all database and API credentials.
-4. **Rotate secrets regularly** - Implement a secret rotation policy.
+4. **Rotate exposed secrets immediately** - If raw credential-like values were exposed to an agent or shared channel, rotate them before production activation and update the tenant/channel credential reference.
 5. **Use SSL in production** - Set `APP_DATABASE_POSTGRESQL_SSL_MODE=require` for production deployments.
 6. **Restrict CORS origins** - Don't use `*` for `ACQUISITION_ADMIN_CORS_ORIGINS` in production.

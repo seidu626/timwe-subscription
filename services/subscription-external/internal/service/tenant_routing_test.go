@@ -198,6 +198,157 @@ func TestEnvProviderCredentialResolver(t *testing.T) {
 	if !errors.Is(err, ErrTenantCredentialMissing) {
 		t.Fatalf("expected missing credential error, got %v", err)
 	}
+
+	_, err = (EnvProviderCredentialResolver{}).ResolveProviderCredential(context.Background(), "vault://TMP007_TIMWE_CREDENTIAL")
+	if !errors.Is(err, ErrTenantCredentialInvalid) {
+		t.Fatalf("expected unsupported reference error, got %v", err)
+	}
+
+	t.Setenv("TMP007_BAD_JSON", `{`)
+	_, err = (EnvProviderCredentialResolver{}).ResolveProviderCredential(context.Background(), "env://TMP007_BAD_JSON")
+	if !errors.Is(err, ErrTenantCredentialInvalid) {
+		t.Fatalf("expected invalid json credential error, got %v", err)
+	}
+}
+
+func TestTenantProviderSecretValuesWinOverGlobalConfig(t *testing.T) {
+	const (
+		tenantID         = "tenant-secret-wins"
+		channelID        = "channel-secret-wins"
+		secretRef        = "env://TENANT_PROVIDER_SECRET_WINS"
+		secretRefDisplay = "tenant-provider-secret-wins"
+	)
+	t.Setenv("TENANT_PROVIDER_SECRET_WINS", `{
+		"base_url": "https://tenant-provider.test",
+		"api_key": "tenant-api-key",
+		"authentication_key": "tenant-auth-key",
+		"partner_service_id": "tenant-service-id",
+		"psk": "tenant-psk",
+		"partner_role_id": "tenant-role",
+		"realm": "tenant-realm"
+	}`)
+	row := []driver.Value{
+		channelID,
+		tenantID,
+		"timwe",
+		"{optin,mt}",
+		secretRef,
+		secretRefDisplay,
+	}
+	db := openFakeDB(t, row)
+	defer db.Close()
+
+	cfg := tenantRoutingTestConfig("https://shared-provider.invalid")
+	cfg.Application.TIMWE.APIKey = "shared-api-key"
+	cfg.Application.TIMWE.AuthenticationKey = "shared-auth-key"
+	cfg.Application.TIMWE.PartnerServiceID = "shared-service-id"
+	cfg.Application.TIMWE.Psk = "shared-psk"
+
+	resolved, err := NewTenantProviderRouter(db, cfg, EnvProviderCredentialResolver{}).Resolve(context.Background(), ChannelOperationMT, domain.TenantRouteContext{
+		TenantID:  tenantID,
+		ChannelID: channelID,
+	})
+	if err != nil {
+		t.Fatalf("expected tenant credential to resolve: %v", err)
+	}
+	if resolved.APIKey != "tenant-api-key" || resolved.Authentication != "tenant-auth-key" {
+		t.Fatalf("expected tenant API/auth values to win, got api=%q auth=%q", resolved.APIKey, resolved.Authentication)
+	}
+	if resolved.PartnerServiceID != "tenant-service-id" || resolved.PSK != "tenant-psk" {
+		t.Fatalf("expected tenant derived-auth values to win, got service=%q psk=%q", resolved.PartnerServiceID, resolved.PSK)
+	}
+	if resolved.BaseURL != "https://tenant-provider.test" || resolved.PartnerRoleID != "tenant-role" || resolved.Realm != "tenant-realm" {
+		t.Fatalf("expected tenant endpoint values to win, got %+v", resolved)
+	}
+}
+
+func TestTenantProviderStrictModeRejectsMissingTenantCredentialMaterial(t *testing.T) {
+	cases := []struct {
+		name    string
+		envName string
+		secret  string
+	}{
+		{
+			name:    "missing api key",
+			envName: "TENANT_PROVIDER_MISSING_API_KEY",
+			secret: `{"base_url":"https://tenant-provider.test","authentication_key":"tenant-auth-key","partner_role_id":"tenant-role"}`,
+		},
+		{
+			name:    "missing auth material",
+			envName: "TENANT_PROVIDER_MISSING_AUTH_MATERIAL",
+			secret: `{"base_url":"https://tenant-provider.test","api_key":"tenant-api-key","partner_role_id":"tenant-role"}`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(tc.envName, tc.secret)
+			row := []driver.Value{
+				"channel-strict",
+				"tenant-strict",
+				"timwe",
+				"{optin,mt}",
+				"env://" + tc.envName,
+				"tenant-provider-strict",
+			}
+			db := openFakeDB(t, row)
+			defer db.Close()
+
+			cfg := tenantRoutingTestConfig("https://shared-provider.invalid")
+			cfg.Application.TIMWE.APIKey = "shared-api-key"
+			cfg.Application.TIMWE.AuthenticationKey = "shared-auth-key"
+			cfg.Application.TIMWE.PartnerServiceID = "shared-service-id"
+			cfg.Application.TIMWE.Psk = "shared-psk"
+
+			_, err := NewTenantProviderRouter(db, cfg, EnvProviderCredentialResolver{}).Resolve(context.Background(), ChannelOperationMT, domain.TenantRouteContext{
+				TenantID:  "tenant-strict",
+				ChannelID: "channel-strict",
+			})
+			if !errors.Is(err, ErrTenantCredentialInvalid) {
+				t.Fatalf("expected strict credential error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestTenantProviderDevFallbackGateAllowsSharedCredentialMaterial(t *testing.T) {
+	const (
+		tenantID  = "tenant-dev-fallback"
+		channelID = "channel-dev-fallback"
+		envName   = "TENANT_PROVIDER_DEV_FALLBACK"
+	)
+	t.Setenv(tenantProviderCredentialDevFallbackEnv, "true")
+	t.Setenv(envName, `{"base_url":"https://tenant-provider.test","partner_role_id":"tenant-role","realm":"tenant-realm"}`)
+	row := []driver.Value{
+		channelID,
+		tenantID,
+		"timwe",
+		"{optin,mt}",
+		"env://" + envName,
+		"tenant-provider-dev-fallback",
+	}
+	db := openFakeDB(t, row)
+	defer db.Close()
+
+	cfg := tenantRoutingTestConfig("https://shared-provider.invalid")
+	cfg.Application.Environment = config.DEVELOPMENT
+	cfg.Application.TIMWE.APIKey = "shared-api-key"
+	cfg.Application.TIMWE.AuthenticationKey = ""
+	cfg.Application.TIMWE.PartnerServiceID = "shared-service-id"
+	cfg.Application.TIMWE.Psk = "shared-psk"
+
+	resolved, err := NewTenantProviderRouter(db, cfg, EnvProviderCredentialResolver{}).Resolve(context.Background(), ChannelOperationMT, domain.TenantRouteContext{
+		TenantID:  tenantID,
+		ChannelID: channelID,
+	})
+	if err != nil {
+		t.Fatalf("expected dev fallback gate to allow shared auth material: %v", err)
+	}
+	if resolved.APIKey != "shared-api-key" {
+		t.Fatalf("expected shared API key under dev fallback, got %q", resolved.APIKey)
+	}
+	if resolved.PartnerServiceID != "shared-service-id" || resolved.PSK != "shared-psk" {
+		t.Fatalf("expected shared derived-auth material under dev fallback, got service=%q psk=%q", resolved.PartnerServiceID, resolved.PSK)
+	}
 }
 
 func TestRedactProviderHeaders(t *testing.T) {
