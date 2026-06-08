@@ -719,6 +719,15 @@
       "record_id": "lineage-0080-963b00d1",
       "rel": "satisfies",
       "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp063-cadence-cors-20260608-0713/progress.log",
+      "created_at": "2026-06-08T07:18:40Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/work-orders/active/WO-TMP-063-001.json",
+      "record_id": "lineage-0081-91851cf1",
+      "rel": "traces",
+      "skill": "repository-codebase-governance"
     }
   ],
   "schema_version": "1.0"

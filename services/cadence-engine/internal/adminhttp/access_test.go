@@ -40,6 +40,7 @@ func TestHandlePreflightAllowsAdminTenantHeaders(t *testing.T) {
 	adminAccess := &access{allowedOrigins: []string{"http://localhost:4200"}}
 	req := httptest.NewRequest(http.MethodOptions, "/v1/admin/cadence/series?limit=500", nil)
 	req.Header.Set("Origin", "http://localhost:4200")
+	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
 	req.Header.Set("Access-Control-Request-Headers", "x-admin-token,x-tenant-key")
 	rr := httptest.NewRecorder()
 
@@ -63,9 +64,7 @@ func TestHandlePreflightAllowsAdminTenantHeaders(t *testing.T) {
 		"X-Tenant-Channel-Id",
 		"X-Channel-Id",
 	} {
-		if !strings.Contains(allowedHeaders, header) {
-			t.Fatalf("expected allowed headers %q to include %q", allowedHeaders, header)
-		}
+		requireAllowedCORSHeader(t, allowedHeaders, header)
 	}
 }
 
@@ -173,4 +172,14 @@ func mustAdminToken(t *testing.T, privateKey *rsa.PrivateKey, claims jwt.MapClai
 		t.Fatalf("sign token: %v", err)
 	}
 	return token
+}
+
+func requireAllowedCORSHeader(t *testing.T, allowedHeaders string, want string) {
+	t.Helper()
+	for _, header := range strings.Split(allowedHeaders, ",") {
+		if strings.EqualFold(strings.TrimSpace(header), want) {
+			return
+		}
+	}
+	t.Fatalf("expected allowed headers %q to include %q", allowedHeaders, want)
 }
