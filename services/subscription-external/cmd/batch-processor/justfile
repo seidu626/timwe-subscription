@@ -1,0 +1,71 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+BINARY_NAME := "batch-processor"
+BUILD_DIR := "."
+GO_BIN := env_var_or_default("GO", "go")
+GOFLAGS := env_var_or_default("GOFLAGS", "-v")
+
+default: help
+
+[group("build")]
+build:
+    echo "Building {{ BINARY_NAME }}..."
+    "{{ GO_BIN }}" build {{ GOFLAGS }} -o "{{ BUILD_DIR }}/{{ BINARY_NAME }}" main.go
+    echo "Build complete: {{ BUILD_DIR }}/{{ BINARY_NAME }}"
+
+[group("run")]
+run: build
+    "./{{ BINARY_NAME }}" -config config.json
+
+[group("run")]
+dry-run: build
+    "./{{ BINARY_NAME }}" -config config.json -dry-run
+
+[group("run")]
+run-once: build
+    "./{{ BINARY_NAME }}" -config config.json -once
+
+[group("run")]
+debug: build
+    "./{{ BINARY_NAME }}" -config config.json -debug
+
+[group("ops")]
+clean:
+    rm -f "{{ BINARY_NAME }}" batch_processor.log batch_results_*.json
+    echo "Clean complete"
+
+[confirm]
+[group("ops")]
+install-service:
+    sudo cp batch-processor.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable batch-processor.service
+    echo "Service installed. Use 'sudo systemctl start batch-processor' to start."
+
+[confirm]
+[group("ops")]
+uninstall-service:
+    sudo systemctl stop batch-processor || true
+    sudo systemctl disable batch-processor || true
+    sudo rm -f /etc/systemd/system/batch-processor.service
+    sudo systemctl daemon-reload
+    echo "Service uninstalled."
+
+[group("ops")]
+setup-cron:
+    chmod +x run_batch_processor.sh
+    echo "Add the following to your crontab with 'crontab -e':"
+    echo "0 2 * * * $PWD/run_batch_processor.sh"
+
+[group("ops")]
+logs:
+    tail -f batch_processor.log
+
+[group("test")]
+test:
+    "{{ GO_BIN }}" build {{ GOFLAGS }} -o "{{ BUILD_DIR }}/{{ BINARY_NAME }}" main.go
+    "./{{ BINARY_NAME }}" -start 1000 -max 3000 -increment 1000 -wait 5s -debug
+
+[group("meta")]
+help:
+    just --list

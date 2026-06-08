@@ -1,0 +1,115 @@
+{
+  "schema_version": "1.0",
+  "work_order_id": "WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR",
+  "status": "done",
+  "changed_files": [
+    "Makefile",
+    "justfile",
+    "scripts/just/timwe.sh",
+    "README.md",
+    "docs/just-readme.md",
+    "docs/make-readme.md",
+    "docs/WEB_ACQUISITION_POSTBACK_GUIDE.md",
+    "docs/agent/remaining-threads-handoff-2026-06-08.md",
+    "docs/claude-cursor-integration-guide.md",
+    "docs/tenant-platform-migration-runbook.md",
+    "tools/review_bundle.py",
+    "services/acquisition-api/migrations/configure_level23_campaign.sql",
+    "services/acquisition-api/migrations/create_mobplus_campaign.sql",
+    "services/acquisition-api/migrations/generate_level23_share_info.sql",
+    "services/acquisition-api/migrations/generate_mobplus_share_info.sql",
+    "services/acquisition-api/migrations/update_ghana_lp_copy_msisdn_format.sql",
+    "services/subscription-external/cmd/batch-processor/Makefile",
+    "services/subscription-external/cmd/batch-processor/justfile",
+    "services/subscription-external/cmd/resubscribe-processor/Makefile",
+    "services/subscription-external/cmd/resubscribe-processor/justfile",
+    "services/subscription-external/cmd/resubscribe-processor/run_resubscribe_processor.sh",
+    "services/subscription-external/docs/README.md",
+    "agent/state/goals/GOAL-MIGRATE-MAKE-TO-JUST-20260608.json",
+    "agent/state/hvc/GOAL-MIGRATE-MAKE-TO-JUST-20260608.hvc.json",
+    "agent/state/work-orders/archive/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.json",
+    "agent/state/evidence/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.evidence.json",
+    "agent/state/capsules/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.result.json",
+    ".harness/runs/migrate-make-to-just-20260608/dispatch-ready-final.json"
+  ],
+  "tests_run": [
+    {
+      "command": "just --fmt --check && just --list",
+      "result": "pass",
+      "evidence": "root justfile formatted, parsed, and listed command groups"
+    },
+    {
+      "command": "cd services/subscription-external/cmd/resubscribe-processor && just --fmt --check && just --list",
+      "result": "pass",
+      "evidence": "resubscribe processor justfile formatted, parsed, and listed recipes"
+    },
+    {
+      "command": "cd services/subscription-external/cmd/batch-processor && just --fmt --check && just --list",
+      "result": "pass",
+      "evidence": "batch processor justfile formatted, parsed, and listed recipes"
+    },
+    {
+      "command": "representative just --dry-run recipes for dev, stop, db-exec-sql, processor run/build-prod, and guarded install-service",
+      "result": "pass",
+      "evidence": "recipes expanded without syntax errors; guarded install-service required --yes as expected"
+    },
+    {
+      "command": "find . -path './.git' -prune -o -path './**/vendor/**' -prune -o -type f \\( -name 'Makefile' -o -name 'makefile' -o -name 'MakeFile' -o -name 'GNUmakefile' -o -name '*.mk' \\) -print",
+      "result": "pass",
+      "evidence": "no project-owned Makefile or .mk files remain outside vendor paths"
+    },
+    {
+      "command": "bash -n scripts/just/timwe.sh services/subscription-external/cmd/resubscribe-processor/run_resubscribe_processor.sh",
+      "result": "pass",
+      "evidence": "helper and resubscribe launcher shell syntax passed"
+    },
+    {
+      "command": "just status",
+      "result": "pass",
+      "evidence": "all tracked local services reported Stopped"
+    },
+    {
+      "command": "just krakend-query-forwarding-check",
+      "result": "pass",
+      "evidence": "KrakenD query forwarding check passed against krakend/krakend.json"
+    },
+    {
+      "command": "agent-hub schema validate-all --root . --json",
+      "result": "pass",
+      "evidence": "126 schemas checked"
+    },
+    {
+      "command": "agent-hub schema validate --root . --schema work_order_v2 --file agent/state/work-orders/active/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.json --json",
+      "result": "pass",
+      "evidence": "active WorkOrder schema valid after exact README/tools scope addition"
+    },
+    {
+      "command": "agent-hub reconcile --root . --check --json",
+      "result": "pass",
+      "evidence": "0 errors and 0 warnings"
+    },
+    {
+      "command": "agent-hub dispatch ready --root . --out .harness/runs/migrate-make-to-just-20260608/dispatch-ready-final.json --json",
+      "result": "warn",
+      "evidence": "claimable 0, errors 0, warnings 55 after archive; warnings are non-claimable archive/review WorkOrders"
+    }
+  ],
+  "evidence_refs": [
+    "justfile",
+    "scripts/just/timwe.sh",
+    "docs/just-readme.md",
+    "services/subscription-external/cmd/resubscribe-processor/justfile",
+    "services/subscription-external/cmd/batch-processor/justfile",
+    "agent/state/evidence/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.evidence.json",
+    ".harness/runs/migrate-make-to-just-20260608/dispatch-ready-final.json"
+  ],
+  "risks": [
+    "Docker build, push, deploy, database mutation, and long-running service recipes were not executed; they were validated by parse/list/dry-run only.",
+    "just vendor-check is wired but currently fails on pre-existing vendor drift in services/cadence-engine and services/notification; this migration did not refresh vendor trees.",
+    "Dispatch ready reports 55 non-claimable archive/review warnings despite claimable 0 and errors 0."
+  ],
+  "followups": [],
+  "runtime": "codex",
+  "role": "supervisor-full",
+  "summary": "Migrated project-owned Makefile command automation to justfiles and updated current command references to just."
+}

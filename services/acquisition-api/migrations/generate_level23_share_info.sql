@@ -2,7 +2,7 @@
 -- Generate Level23 Campaign Share Information
 -- =============================================================================
 -- Run:
---   make db-exec-sql FILE=services/acquisition-api/migrations/generate_level23_share_info.sql
+--   just db-exec-sql services/acquisition-api/migrations/generate_level23_share_info.sql
 -- =============================================================================
 
 \echo ''

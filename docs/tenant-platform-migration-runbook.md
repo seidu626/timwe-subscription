@@ -8,10 +8,10 @@ This runbook covers TMP-050, the canonical `nrg` tenant backfill used to move ex
 
 ## Entry Points
 
-- `make db-migrate-tenant-platform-dry-run`
-- `make db-migrate-tenant-platform`
-- `make db-migrate-nrg-subscriptions-transactions-dry-run`
-- `make db-migrate-nrg-subscriptions-transactions`
+- `just db-migrate-tenant-platform-dry-run`
+- `just db-migrate-tenant-platform`
+- `just db-migrate-nrg-subscriptions-transactions-dry-run`
+- `just db-migrate-nrg-subscriptions-transactions`
 
 ## Dry Run
 
@@ -26,7 +26,7 @@ Dry run is read-only. It reports:
 Recommended command:
 
 ```bash
-make db-migrate-tenant-platform-dry-run
+just db-migrate-tenant-platform-dry-run
 ```
 
 The dry-run script does not update tenant ownership on any table rows and does not create the canonical tenant record.
@@ -34,7 +34,7 @@ The dry-run script does not update tenant ownership on any table rows and does n
 For a focused subscription and transaction migration window, use:
 
 ```bash
-make db-migrate-nrg-subscriptions-transactions-dry-run
+just db-migrate-nrg-subscriptions-transactions-dry-run
 ```
 
 This is equivalent to:
@@ -51,13 +51,13 @@ Apply runs a batched, idempotent backfill for tenantless rows.
 Recommended command:
 
 ```bash
-make db-migrate-tenant-platform
+just db-migrate-tenant-platform
 ```
 
 For a focused subscription and transaction migration window, use:
 
 ```bash
-make db-migrate-nrg-subscriptions-transactions
+just db-migrate-nrg-subscriptions-transactions
 ```
 
 Implementation details:

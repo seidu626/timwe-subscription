@@ -31,14 +31,13 @@ Claude Code automatically loads `CLAUDE.md` from the repo root. This file define
 - If behavior changes, add/adjust tests (fail-before/pass-after).
 
 ## Commands (use these)
-- Lint: `make lint`
-- Tests: `make test`
-- Typecheck: `make typecheck`
-- Full check: `make check`
+- Tests: `just test`
+- Gateway config: `just krakend-query-forwarding-check`
+- Command catalog: `just --list`
 
 ## Review bundle
 - When a change is non-trivial, generate a review bundle:
-  - `python tools/review_bundle.py --base origin/main --cmd "make test" --cmd "make lint"`
+  - `python tools/review_bundle.py --base origin/main --cmd "just test" --cmd "just krakend-query-forwarding-check"`
 
 ## Codex handoff format
 - Preferred handoff artifact is a git diff + test logs (use review bundle output).
@@ -100,7 +99,7 @@ Generate a review bundle for the current branch vs origin/main.
 
 Steps:
 1) Run:
-   `python tools/review_bundle.py --base origin/main --out review_bundle.md --cmd "make test" --cmd "make lint"`
+   `python tools/review_bundle.py --base origin/main --out review_bundle.md --cmd "just test" --cmd "just krakend-query-forwarding-check"`
 2) Summarize:
    - What changed (top 5 bullets)
    - Any test failures and likely root cause
@@ -148,10 +147,9 @@ Configure which commands Claude Code can run without asking permission.
       "Bash(git diff*)",
       "Bash(git status*)",
       "Bash(git log*)",
-      "Bash(make lint)",
-      "Bash(make test)",
-      "Bash(make typecheck)",
-      "Bash(make check)"
+      "Bash(just --list)",
+      "Bash(just test)",
+      "Bash(just krakend-query-forwarding-check)"
     ],
     "deny": []
   }
@@ -238,10 +236,9 @@ A shared rubric file that can be imported into `CLAUDE.md` and used across tools
 # AGENTS.md
 
 ## Setup & verification commands (use these exact commands)
-- Install: `make setup`
-- Lint: `make lint`
-- Test: `make test`
-- Typecheck: `make typecheck`
+- Test: `just test`
+- Gateway config: `just krakend-query-forwarding-check`
+- Command catalog: `just --list`
 
 ## Review rubric (P0/P1 only)
 ### P0 (must fix)
@@ -277,7 +274,7 @@ A Python script to generate consistent handoff artifacts.
 python tools/review_bundle.py --base origin/main --out review_bundle.md
 
 # With test and lint output
-python tools/review_bundle.py --base origin/main --cmd "make test" --cmd "make lint"
+python tools/review_bundle.py --base origin/main --cmd "just test" --cmd "just krakend-query-forwarding-check"
 
 # Custom diff line limit
 python tools/review_bundle.py --base origin/main --max-diff-lines 2500
@@ -337,7 +334,7 @@ your-repo/
 ### Recommended Loop
 
 1. **Implement** in Cursor (Agent/Composer mode)
-2. **Generate bundle**: `python tools/review_bundle.py --base origin/main --cmd "make test" --cmd "make lint"`
+2. **Generate bundle**: `python tools/review_bundle.py --base origin/main --cmd "just test" --cmd "just krakend-query-forwarding-check"`
 3. **Review** by pasting `review_bundle.md` into Claude Code (`/project:codex-task`)
 4. **Apply fixes** in Cursor
 5. **Push PR**
@@ -355,7 +352,7 @@ Constraints:
 - Add/adjust tests (fail-before/pass-after).
 
 After coding:
-- Run: make test && make lint
+- Run: just test && just krakend-query-forwarding-check
 - Summarize changes + verification results.
 ```
 

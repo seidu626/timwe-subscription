@@ -1,0 +1,116 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "operator_approved_bounded_command_runner_migration_in_prompt_20260608",
+    "runtime_tier": "MED"
+  },
+  "class": "bounded_enabler",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-08T10:27:28Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260608T102727Z-migrate-timwe-subscripti",
+  "hashes": {
+    "classification_hash": "sha256:e3f6af19e2a79c00d3bfbb18b6f2cb767b1730d3f07656c4915d92c3e57365f5",
+    "contract_hash": "sha256:f056bd55a62b9ec8ed5919dc44d44ab9bf63474cf2d9d43239dd70ef18dd71f8",
+    "issue_hash": "sha256:4fc541e499ce995da2bcfaac2d4c4a38e06f9a1805e82fe70f6fa8ffb7bd6afe"
+  },
+  "issue_id": "ISSUE-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOM",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Migrate timwe-subscription command automation from Makefiles to justfiles. Actor: developer/operator. Outcome: project command entrypoints use just, not make, for dev workflows, tests, docker helpers, processor commands, and script catalogs. Entrypoints: root Makefile, services/subscription-external/cmd/resubscribe-processor/Makefile, services/subscription-external/cmd/batch-processor/Makefile, and command references in docs/scripts where needed. Allowed scope: remove migrated Makefiles, add roo",
+    "trigger": "Migrate timwe-subscription command automation from Makefiles to justfiles. Actor: developer/operator. Outcome: project command entrypoints use just, not make, for dev workflows, tests, docker helpers, processor commands, and script catalogs. Entrypoints: root Makefile, services/subscription-external"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "api-contract-design",
+    "data-governance",
+    "devex-cicd-governance",
+    "ai-change-control"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "Makefile",
+      "justfile",
+      "Justfile",
+      "README.md",
+      "services/subscription-external/cmd/resubscribe-processor/Makefile",
+      "services/subscription-external/cmd/resubscribe-processor/justfile",
+      "services/subscription-external/cmd/batch-processor/Makefile",
+      "services/subscription-external/cmd/batch-processor/justfile",
+      "docs/**",
+      "scripts/**",
+      "tools/review_bundle.py",
+      "agent/state/goals/**",
+      "agent/state/hvc/**",
+      "agent/state/work-orders/**",
+      "agent/state/evidence/**",
+      "agent/state/capsules/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**",
+      "go.mod",
+      "go.sum",
+      "services/**/go.mod",
+      "services/**/go.sum",
+      "package.json",
+      "package-lock.json",
+      "pnpm-lock.yaml",
+      "docker-compose*.yml",
+      "**/.env"
+    ],
+    "read_scopes": [
+      "**"
+    ],
+    "write_locks": [
+      "Makefile",
+      "justfile",
+      "README.md",
+      "services/subscription-external/cmd/resubscribe-processor/Makefile",
+      "services/subscription-external/cmd/resubscribe-processor/justfile",
+      "services/subscription-external/cmd/batch-processor/Makefile",
+      "services/subscription-external/cmd/batch-processor/justfile",
+      "docs/**",
+      "scripts/**",
+      "tools/review_bundle.py",
+      "agent/state/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR"
+}

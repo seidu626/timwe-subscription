@@ -177,8 +177,8 @@ Configure the Level23 conversion postback under `conversion.generic`:
 ```
 
 Operational scripts:
-- `make db-configure-level23-campaign`
-- `make db-generate-level23-share-info`
+- `just db-configure-level23-campaign`
+- `just db-generate-level23-share-info`
 
 ## Database Setup
 
