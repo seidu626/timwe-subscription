@@ -137,7 +137,7 @@ func (a *adminAccess) applyMembershipTenantContext(ctx *fasthttp.RequestCtx, ide
 	}
 	subject := strings.TrimSpace(identity.Subject)
 	email := strings.TrimSpace(strings.ToLower(identity.Email))
-	if identity.EmailVerifiedSet && !identity.EmailVerified {
+	if identity.HasExplicitlyUnverifiedEmail() {
 		email = ""
 	}
 	if subject == "" && email == "" {
@@ -183,7 +183,7 @@ func (a *adminAccess) applyBootstrapPlatformScope(identity tenantctx.Identity) t
 	}
 
 	if len(a.bootstrapPlatformEmails) > 0 {
-		if identity.EmailVerifiedSet && !identity.EmailVerified {
+		if identity.HasExplicitlyUnverifiedEmail() {
 			return identity
 		}
 		email := strings.TrimSpace(strings.ToLower(identity.Email))
