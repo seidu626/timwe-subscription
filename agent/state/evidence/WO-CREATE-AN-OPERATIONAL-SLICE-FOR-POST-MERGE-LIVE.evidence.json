@@ -1,0 +1,57 @@
+{
+  "schema_version": "2.0",
+  "evidence_id": "evidence-WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE-20260608T095309Z",
+  "goal_id": "goal-20260608T095007Z-create-an-operational-sl",
+  "work_order_id": "WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE",
+  "run_id": "resume-pending-20260608-094307",
+  "claims": [
+    {
+      "claim_id": "schema_validation",
+      "claim": "schema_validation verified for the review-gated WorkOrder state",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub schema validate-all --root . --json",
+      "artifact_ref": ".harness/runs/resume-pending-20260608-094307/schema-after-review.json",
+      "result_summary": "Schema validation passed with 126 schemas checked.",
+      "created_at": "2026-06-08T09:53:09Z"
+    },
+    {
+      "claim_id": "reconcile_gate",
+      "claim": "reconcile_gate verified for the review-gated WorkOrder state",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub reconcile --root . --check --json",
+      "artifact_ref": ".harness/runs/resume-pending-20260608-094307/reconcile-after-review.json",
+      "result_summary": "Reconcile passed with 0 errors and 0 warnings after moving the generated WorkOrder to review.",
+      "created_at": "2026-06-08T09:53:09Z"
+    },
+    {
+      "claim_id": "dispatch_ready_report",
+      "claim": "dispatch_ready_report proves no claimable WorkOrder exists for the generated scope",
+      "status": "partial",
+      "evidence_type": "command",
+      "command": "agent-hub dispatch ready --root . --out .harness/runs/resume-pending-20260608-094307/dispatch-ready-after-review.json --json",
+      "artifact_ref": ".harness/runs/resume-pending-20260608-094307/dispatch-ready-after-review.json",
+      "result_summary": "Dispatch-ready reported claimable 0, errors 0, warnings 54; the generated WorkOrder is in review and not claimable.",
+      "created_at": "2026-06-08T09:53:09Z"
+    },
+    {
+      "claim_id": "review_gate_result",
+      "claim": "review_gate_result is pending before live-stack proof execution",
+      "status": "unsupported",
+      "evidence_type": "manual_review",
+      "command": null,
+      "artifact_ref": "agent/state/work-orders/review/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.json",
+      "result_summary": "HVC assignment decision is review, so this WorkOrder cannot be claimed or executed until reviewed.",
+      "created_at": "2026-06-08T09:53:09Z"
+    }
+  ],
+  "unsupported_claims": [
+    "post-merge live-stack browser/API proof"
+  ],
+  "review": {
+    "status": "pending",
+    "reviewer": "operator",
+    "reviewed_at": "2026-06-08T09:53:09Z"
+  }
+}

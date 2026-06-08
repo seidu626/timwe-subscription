@@ -1,0 +1,100 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "Generated WorkOrders validate against WorkOrder v2 schema.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-08T09:50:07Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260608T095007Z-create-an-operational-sl",
+  "hashes": {
+    "classification_hash": "sha256:ffda450c77fe32eabcf65d14a0b25f9f2f75be5c641905d30246a8b3b823623a",
+    "contract_hash": "sha256:3907feb81577d837496f78cca876995cd1d928f783528799912587c44e54d3d3",
+    "issue_hash": "sha256:e4d85722a0a277c42c58c36e2f604d2990c7a053b6bed78462c60f5325599b1a"
+  },
+  "issue_id": "ISSUE-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MER",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Create an operational_slice for post-merge live-stack verification of the merged multitenant onboarding work on main. Actor: operator/maintainer. Outcome: durable evidence proves the merged tenant-scoped onboarding/admin/subscription paths run against the local live stack, or records exact runtime blockers. Entrypoints: frontend/webspa-admin admin tenant workspace flow, services/acquisition-api admin tenant/account surface, services/subscription-external tenant routing/subscription request surfa",
+    "trigger": "Create an operational_slice for post-merge live-stack verification of the merged multitenant onboarding work on main. Actor: operator/maintainer. Outcome: durable evidence proves the merged tenant-scoped onboarding/admin/subscription paths run against the local live stack, or records exact runtime b"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "api-contract-design",
+    "data-governance",
+    "ai-change-control"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "tools/agent_hub/**",
+      "workflows/**",
+      "schemas/**",
+      "agent/state/work-orders/**",
+      "agent/backlog/**",
+      "agent/state/context-packs/**",
+      "skills/context-kernel/**",
+      "policies/security/**",
+      "tools/**",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "tools/agent_hub/**",
+      "workflows/**",
+      "schemas/**",
+      "agent/state/work-orders/**",
+      "agent/backlog/**",
+      "agent/state/context-packs/**",
+      "skills/context-kernel/**",
+      "policies/security/**"
+    ]
+  },
+  "work_order_id": "WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE"
+}

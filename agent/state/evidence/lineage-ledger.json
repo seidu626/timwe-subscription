@@ -872,6 +872,51 @@
       "record_id": "lineage-0097-baaa837f",
       "rel": "classifies",
       "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/goals/GOAL-POST-MERGE-LIVE-STACK-PROOF-20260608.json",
+      "created_at": "2026-06-08T09:54:06Z",
+      "kind": "goal_spec",
+      "parent_id": null,
+      "record_id": "lineage-0098-b3057c3e",
+      "rel": null,
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/hvc/GOAL-POST-MERGE-LIVE-STACK-PROOF-20260608.hvc.json",
+      "created_at": "2026-06-08T09:54:07Z",
+      "kind": "evidence_record",
+      "parent_id": "goal-20260608T095007Z-create-an-operational-sl",
+      "record_id": "lineage-0099-70cbea76",
+      "rel": "classifies",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/review/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.json",
+      "created_at": "2026-06-08T09:54:08Z",
+      "kind": "work_order",
+      "parent_id": "goal-20260608T095007Z-create-an-operational-sl",
+      "record_id": "lineage-0100-cb30e2e2",
+      "rel": "derives_from",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/evidence/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.evidence.json",
+      "created_at": "2026-06-08T09:54:08Z",
+      "kind": "evidence_record",
+      "parent_id": "WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE",
+      "record_id": "lineage-0101-3504035d",
+      "rel": "explains_blocker",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": "agent/state/capsules/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.result.json",
+      "created_at": "2026-06-08T09:54:09Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE",
+      "record_id": "lineage-0102-f019bbd5",
+      "rel": "summarizes",
+      "skill": "implement-verify"
     }
   ],
   "schema_version": "1.0"
