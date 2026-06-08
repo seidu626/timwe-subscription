@@ -4,20 +4,18 @@
   "class": "operational_slice",
   "assignment_allowed": true,
   "assignment_decision": "review",
-  "vertical_outcome": "The remaining full-system verification blockers are reduced to explicit decision records with choices, affected slices, and verification proof required after approval.",
+  "vertical_outcome": "The release decision packet is refreshed against the 2026-05-10 local full-system verification evidence, separating superseded local blockers from production/live-provider release decisions outside TMP-042 authority.",
   "actor": "platform-operator",
-  "entrypoint": "Full-system verification blocked queue",
-  "trigger": "Supervisor reports no ready tasks while release verification remains blocked.",
+  "entrypoint": "Full-system verification matrix and release decision packet",
+  "trigger": "Parent batch requests a TMP-042 refresh after newer local full-system verification evidence exists.",
   "allowed_files": [
     "agent/backlog/issues/TMP-042-release-decision-packet.md",
     "agent/state/TMP-042.work-order.json",
     "agent/state/TMP-042.handoff.json",
     "docs/agent/release-decision-packet-2026-05-09.md",
     "docs/agent/full-system-verification-2026-05-09.md",
-    "slices/manifest.json",
     "slices/TMP-042-release-decision-packet/**",
-    ".agent/**",
-    ".harness/**"
+    ".harness/runs/parallel-TMP042-20260608-0742/**"
   ],
   "forbidden_files": [
     "services/**",
@@ -36,10 +34,10 @@
   "acceptance_tests": [
     "test -f docs/agent/release-decision-packet-2026-05-09.md",
     "test -f slices/TMP-042-release-decision-packet/value-gate-report.md",
-    "jq empty slices/manifest.json agent/state/TMP-042.work-order.json agent/state/TMP-042.handoff.json .agent/tasks.json",
-    "hvc check agent/backlog/issues/*.md --fail-on block",
-    "slice-harness status",
-    "slice-harness sync --dry-run"
+    "test -f agent/backlog/issues/TMP-042-release-decision-packet.md",
+    "git diff --check",
+    "agent-hub schema validate-all --root . --json",
+    "agent-hub reconcile --root . --check --json"
   ],
   "required_evidence": [
     "docs/agent/release-decision-packet-2026-05-09.md",
@@ -55,7 +53,10 @@
     "submodule changes",
     "branch integration"
   ],
-  "blocking_dependencies": [],
+  "blocking_dependencies": [
+    "Production deploy and live TIMWE/Auth0/provider credential proof require release-owner scope and are outside TMP-042.",
+    "No sibling worker result capsules were present under .harness/runs/parallel-TMP042-20260608-0742/ during this refresh."
+  ],
   "reclassification_triggers": [],
   "classification_result": {
     "issue_id": "TMP-042",

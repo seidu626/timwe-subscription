@@ -1,29 +1,24 @@
 id: TMP-042
-title: Release blocker decision packet
+title: Release decision packet refresh
 class: operational_slice
 actor: platform-operator
-action: consolidate blocked release-verification decisions
-outcome: remaining blockers have explicit operator decision options and post-approval proof
+action: refresh blocked release-verification decisions against current evidence
+outcome: prior local verification blockers are separated from production release decisions outside TMP-042 authority
 entrypoints:
   - docs/agent/full-system-verification-2026-05-09.md
-  - agent/state/TMP-026.handoff.json
-  - agent/state/TMP-034.handoff.json
-  - agent/state/TMP-035.handoff.json
-  - agent/state/TMP-036.handoff.json
-  - agent/state/TMP-037.handoff.json
-  - agent/state/TMP-038.handoff.json
+  - docs/agent/release-decision-packet-2026-05-09.md
+  - .harness/context-packs/WO-TMP-042-001.json
 invariants:
-  - blocked work remains blocked until a durable approval artifact exists
-  - decision packets do not mutate runtime code, schemas, dependencies, gitlinks, or branch history
+  - local verification evidence is not production release approval
+  - decision packets do not mutate runtime code, schemas, dependencies, gitlinks, branch history, env files, or deploy state
 acceptance:
-  - decision packet exists
-  - all seven blocked slices are covered
-  - each decision row has options and post-approval proof
+  - decision packet exists and is refreshed
+  - previous seven-blocker status is not presented as current
+  - production/live-provider release decisions are explicitly outside this worker authority
   - no forbidden runtime or source files change
 verification:
   - test -f docs/agent/release-decision-packet-2026-05-09.md
   - test -f slices/TMP-042-release-decision-packet/value-gate-report.md
-  - jq empty slices/manifest.json agent/state/TMP-042.work-order.json agent/state/TMP-042.handoff.json .agent/tasks.json
-  - hvc check agent/backlog/issues/*.md --fail-on block
-  - slice-harness status
-  - slice-harness sync --dry-run
+  - git diff --check
+  - agent-hub schema validate-all --root . --json
+  - agent-hub reconcile --root . --check --json

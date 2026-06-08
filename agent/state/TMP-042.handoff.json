@@ -1,17 +1,18 @@
 {
   "acceptance_results": [
     {
-      "criterion": "Decision packet exists and names the remaining blocked release-verification slices.",
+      "criterion": "Decision packet exists and is refreshed against the current full-system verification matrix.",
       "status": "passed",
       "evidence": [
-        "docs/agent/release-decision-packet-2026-05-09.md"
+        "docs/agent/release-decision-packet-2026-05-09.md",
+        "docs/agent/full-system-verification-2026-05-09.md"
       ],
       "blocker": null,
       "reason": null,
       "next_task_id": null
     },
     {
-      "criterion": "Each decision row names options and post-approval proof.",
+      "criterion": "Prior seven-blocker status is not presented as current.",
       "status": "passed",
       "evidence": [
         "docs/agent/release-decision-packet-2026-05-09.md",
@@ -22,10 +23,11 @@
       "next_task_id": null
     },
     {
-      "criterion": "No service, SQL, compose, dependency, package, credential, submodule, runtime, or branch-integration files changed.",
+      "criterion": "No production release, deploy, credential, provider, schema, dependency, compose, submodule, source, merge, reset, or branch-history decision is made by this worker.",
       "status": "passed",
       "evidence": [
-        "git diff --name-only file-scope review"
+        "docs/agent/release-decision-packet-2026-05-09.md",
+        "agent/backlog/issues/TMP-042-release-decision-packet.md"
       ],
       "blocker": null,
       "reason": null,
@@ -33,7 +35,8 @@
     }
   ],
   "blockers": [
-    "TMP-021, TMP-026, TMP-034, TMP-035, TMP-036, TMP-037, and TMP-038 remain blocked until operator approvals or maintainer decisions are recorded."
+    "Production release/deploy and live TIMWE/Auth0/provider credential proof remain outside TMP-042 and require release-owner approval.",
+    "If the primary checkout must be the release surface, a maintainer still owns the non-destructive integration decision recorded by TMP-038."
   ],
   "changed_files": [
     "agent/backlog/issues/TMP-042-release-decision-packet.md",
@@ -41,7 +44,6 @@
     "agent/state/TMP-042.work-order.json",
     "docs/agent/release-decision-packet-2026-05-09.md",
     "docs/agent/full-system-verification-2026-05-09.md",
-    "slices/manifest.json",
     "slices/TMP-042-release-decision-packet/domain-brief.md",
     "slices/TMP-042-release-decision-packet/notes.md",
     "slices/TMP-042-release-decision-packet/slice.yaml",
@@ -49,68 +51,67 @@
     "slices/TMP-042-release-decision-packet/value-gate-report.md"
   ],
   "cleanup_notes": [
-    "No long-running processes were started by the slice."
+    "No long-running processes were started by this docs/control-plane refresh.",
+    "Unowned `.harness/events.jsonl` workspace noise was observed and left out of the scoped material change."
   ],
   "commits": [],
   "completed_work": [
-    "Created a consolidated release decision packet for the seven blocked full-system verification slices.",
-    "Recorded explicit decision options and required post-approval proof for admin gitlink, schema provisioning, dependency remediation, and local main integration blockers.",
-    "Preserved existing approval gates and avoided runtime/source changes."
+    "Restored the scoped TMP-042 backlog issue path.",
+    "Refreshed the release decision packet against the 2026-05-10 full-system verification refresh.",
+    "Updated the verification matrix end-state sections so old local blockers are no longer presented as current blockers.",
+    "Updated TMP-042 slice metadata to preserve the no-production-release-decision boundary."
   ],
   "confidence": {
-    "completeness": "high",
+    "completeness": "medium",
     "implementation": "high",
     "verification": "high"
   },
   "known_gaps": [
-    "No operator approval has been recorded for any blocked implementation path."
+    "No sibling worker result capsules were present under `.harness/runs/parallel-TMP042-20260608-0742/`, so this refresh is bounded to the provided context pack and scoped current matrix.",
+    "This worker did not rerun code, compose, admin, browser, provider, credential, or deploy checks.",
+    "Production release readiness remains a release-owner decision."
   ],
   "next_tasks": [],
-  "operator_message": "TMP-042 packages the remaining blocked release-verification decisions but does not approve or implement them.",
-  "residual_work_policy": "blocked_until_approval",
+  "operator_message": "TMP-042 now reflects that prior local verification blockers are superseded by newer local evidence where the scoped matrix says so, while production release/deploy and live-provider proof remain outside this worker's authority.",
+  "residual_work_policy": "release_owner_decision_required",
   "risk_notes": [
-    "This slice is evidence-only.",
-    "The decision packet must not be interpreted as approval for schema, dependency, gitlink, or branch changes."
+    "Do not treat this packet as production release approval.",
+    "Do not treat local verification branch proof as proof for a different release candidate without rerunning the matrix.",
+    "Do not infer permission for schema, dependency, compose, gitlink, service, frontend, env, secret, merge, reset, or branch-history changes."
   ],
   "safe_to_continue": false,
   "schema_version": 1,
-  "session_id": "codex-20260509-062213",
+  "session_id": "codex-tmp042-release-decision-20260608-0742",
   "status": "done",
-  "summary": "Release blocker decision packet recorded.",
+  "summary": "Release decision packet refreshed against scoped current full-system verification evidence.",
   "supervisor_decision": "done",
-  "task_id": "T-TMP-042",
+  "task_id": "WO-TMP-042-001",
   "unfinished_work": [
-    "Seven release-verification blockers remain pending operator decisions."
+    "Release owner must decide production deploy/live-provider proof scope.",
+    "Maintainer must decide whether the primary checkout needs integration before release."
   ],
   "validation": [
     {
-      "command": "test -f docs/agent/release-decision-packet-2026-05-09.md && test -f slices/TMP-042-release-decision-packet/value-gate-report.md && jq empty slices/manifest.json agent/state/TMP-042.work-order.json agent/state/TMP-042.handoff.json .agent/tasks.json && git diff --check",
+      "command": "git diff --check",
       "exit_code": 0,
-      "output_excerpt": "packet files exist, JSON valid, diff check passed",
+      "output_excerpt": "passed",
       "status": "passed",
-      "timestamp": "2026-05-09T06:25:00Z"
+      "timestamp": "2026-06-08T08:10:50Z"
     },
     {
-      "command": "hvc check agent/backlog/issues/*.md --fail-on block",
+      "command": "agent-hub schema validate-all --root . --json",
       "exit_code": 0,
-      "output_excerpt": "TMP-042 assignment_decision review due broadness signals; no blocking reasons",
+      "output_excerpt": "status=pass; schemas_checked=126",
       "status": "passed",
-      "timestamp": "2026-05-09T06:25:00Z"
+      "timestamp": "2026-06-08T08:10:50Z"
     },
     {
-      "command": "slice-harness status && slice-harness sync --dry-run",
+      "command": "agent-hub reconcile --root . --check --json",
       "exit_code": 0,
-      "output_excerpt": "seven blocked slices remain; no drift detected",
+      "output_excerpt": "status=pass; findings=0",
       "status": "passed",
-      "timestamp": "2026-05-09T06:25:00Z"
-    },
-    {
-      "command": "agent-supervisor preflight --repair then preflight/list-tasks/auto-loop with worktree-local temp config",
-      "exit_code": 0,
-      "output_excerpt": "T-TMP-042 done; preflight ok; auto-loop stopped with No ready tasks",
-      "status": "passed",
-      "timestamp": "2026-05-09T06:25:00Z"
+      "timestamp": "2026-06-08T08:10:50Z"
     }
   ],
-  "updated_at": "2026-05-09T06:25:00Z"
+  "updated_at": "2026-06-08T08:10:50Z"
 }
