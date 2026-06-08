@@ -701,6 +701,24 @@
       "record_id": "lineage-0078-6a4894a6",
       "rel": "traces",
       "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/dev-loop-scout-20260608-0709/members/dev-loop-scout/result.json",
+      "created_at": "2026-06-08T07:11:58Z",
+      "kind": "result_capsule",
+      "parent_id": "agent/state/work-orders/ready/WO-TMP-059-001.json",
+      "record_id": "lineage-0079-963b00d1",
+      "rel": "satisfies",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/dev-loop-scout-20260608-0709/members/dev-loop-scout/result.json",
+      "created_at": "2026-06-08T07:11:58Z",
+      "kind": "result_capsule",
+      "parent_id": "agent/state/work-orders/ready/WO-TMP-062-001.json",
+      "record_id": "lineage-0080-963b00d1",
+      "rel": "satisfies",
+      "skill": "repository-codebase-governance"
     }
   ],
   "schema_version": "1.0"
