@@ -4,7 +4,7 @@
 
 | requested_runtime | actual_executor | executor_evidence |
 |---|---|---|
-| codex | codex | codex session; `.harness/runs/t2-tenancy-model-20260608-0636/members/t2-scout/result.json` |
+| codex | codex | codex session; `./docs/agent/remaining-threads-handoff-2026-06-08.md` |
 
 `.harness/config.json` has Codex enabled; Claude and Gemini are disabled. T2 classifier produced `assignment.decision: review`, so the WorkOrder is parked in `agent/state/work-orders/review/`.
 
