@@ -368,6 +368,33 @@
       "record_id": "lineage-0041-aaba2183",
       "rel": "reports",
       "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "commit:a4908040705904a2612dc4106fe3f9f0dca0b0a1",
+      "created_at": "2026-06-08T06:13:20Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-review/result.json",
+      "record_id": "lineage-0042-153dd9ca",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/review/WO-TMP-028-001.json",
+      "created_at": "2026-06-08T06:13:20Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-review/result.json",
+      "record_id": "lineage-0043-c0a9db18",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-review/result.json",
+      "created_at": "2026-06-08T06:13:21Z",
+      "kind": "result_capsule",
+      "parent_id": "agent/state/work-orders/archive/WO-TMP-028-001.json",
+      "record_id": "lineage-0044-b253d36c",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
     }
   ],
   "schema_version": "1.0"
