@@ -1,5 +1,9 @@
 # Tenant Nullability Enforcement Plan
 
+## Canonical Tenancy RFC Relationship
+
+This enforcement plan is a source input for the proposed canonical tenancy model in `docs/architecture/canonical-tenancy-model.md`. Until that RFC is approved, this document remains the nullable-path proof plan. If the RFC is approved, it supersedes any interpretation that nullable tenant ownership is a permanent runtime capability; residual nullable paths must stay explicitly documented, proven, and assigned to follow-up WorkOrders before forward-only enforcement.
+
 TMP-052 audited remaining `tenant_id IS NULL` paths after the canonical `nrg` migration. The enforcement plan is forward-only:
 
 1. Keep TMP-050 migration script and runbook predicates as the operator proof surface.

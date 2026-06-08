@@ -2,6 +2,10 @@
 
 Contract version: `tenant-channel-v1.0.0`
 
+## Canonical Tenancy RFC Relationship
+
+This contract pack is a source input for the proposed canonical tenancy model in `docs/architecture/canonical-tenancy-model.md`. Until that RFC is approved, this document remains the partner-facing onboarding contract. If the RFC is approved, it supersedes any fragment that would allow successful production tenant/channel traffic without both tenant and channel identity, an enabled capability, and tenant/channel-scoped credential references.
+
 This pack gives API-integrated partners the stable tenant/channel contract for opt-in, confirmation, mobile-terminated messaging, charging, callbacks, and conversion postbacks. It is documentation-only and does not provision live credentials.
 
 ## Identity Model
