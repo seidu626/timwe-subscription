@@ -735,7 +735,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 	release := s.acquireBulkhead()
 	defer release()
 
-	providerCfg, err := s.providerConfigOrLegacy(context.Background(), ChannelOperationMT, reqData.TenantRoute)
+	providerCfg, err := s.providerConfigForRoute(context.Background(), ChannelOperationMT, reqData.TenantRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -1158,7 +1158,7 @@ func (s *SubscriptionService) validateMTResponse(response *domain.MTResponse, mt
 }
 
 func (s *SubscriptionService) RequestCharge(reqData domain.ChargeRequest) (*domain.ChargeResponse, error) {
-	providerCfg, err := s.providerConfigOrLegacy(context.Background(), ChannelOperationCharge, reqData.TenantRoute)
+	providerCfg, err := s.providerConfigForRoute(context.Background(), ChannelOperationCharge, reqData.TenantRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -2314,7 +2314,7 @@ func (s *SubscriptionService) SendStatusCheck(reqData domain.GetStatusRequest, r
 
 // sendStatusCheckWithRetry handles the actual status check request with retry logic for INTERNAL_ERROR
 func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusRequest, realm string) (*domain.MTResponse, error) {
-	providerCfg, err := s.providerConfigOrLegacy(context.Background(), ChannelOperationStatus, reqData.TenantRoute)
+	providerCfg, err := s.providerConfigForRoute(context.Background(), ChannelOperationStatus, reqData.TenantRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -2527,7 +2527,7 @@ func (s *SubscriptionService) SendOptout(reqData domain.UnsubscriptionRequest, r
 
 // sendOptoutWithRetry handles the actual opt-out request with retry logic similar to status/MT flows
 func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionRequest, realm string) (*domain.MTResponse, error) {
-	providerCfg, err := s.providerConfigOrLegacy(context.Background(), ChannelOperationOptout, reqData.TenantRoute)
+	providerCfg, err := s.providerConfigForRoute(context.Background(), ChannelOperationOptout, reqData.TenantRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -2721,7 +2721,7 @@ func (s *SubscriptionService) SendOptinConfirm(reqData domain.SubscriptionConfir
 }
 
 func (s *SubscriptionService) sendOptinConfirmWithRetry(reqData domain.SubscriptionConfirmationRequest, realm string) (*domain.MTResponse, error) {
-	providerCfg, err := s.providerConfigOrLegacy(context.Background(), ChannelOperationConfirm, reqData.TenantRoute)
+	providerCfg, err := s.providerConfigForRoute(context.Background(), ChannelOperationConfirm, reqData.TenantRoute)
 	if err != nil {
 		return nil, err
 	}

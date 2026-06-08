@@ -94,10 +94,12 @@ func TestSendOptoutWithRetry_UsesUniqueExternalTxIDPerAttempt(t *testing.T) {
 	defer server.Close()
 
 	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
+	configureContractTenantProvider(service, server.URL)
 	reqData := domain.UnsubscriptionRequest{
 		UserIdentifier:     "233572503330",
 		UserIdentifierType: "MSISDN",
 		ProductId:          14397,
+		TenantRoute:        contractTenantRoute(),
 	}
 
 	resp, err := service.sendOptoutWithRetry(reqData, "WEB")
@@ -139,11 +141,13 @@ func TestSendOptinConfirmWithRetry_UsesUniqueExternalTxIDPerAttempt(t *testing.T
 	defer server.Close()
 
 	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
+	configureContractTenantProvider(service, server.URL)
 	reqData := domain.SubscriptionConfirmationRequest{
 		UserIdentifier:      "233572503330",
 		UserIdentifierType:  "MSISDN",
 		ProductId:           14397,
 		TransactionAuthCode: "000",
+		TenantRoute:         contractTenantRoute(),
 	}
 
 	resp, err := service.sendOptinConfirmWithRetry(reqData, "WEB")
@@ -182,10 +186,12 @@ func TestSendStatusCheckWithRetry_UsesUniqueExternalTxIDPerAttempt(t *testing.T)
 	defer server.Close()
 
 	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
+	configureContractTenantProvider(service, server.URL)
 	reqData := domain.GetStatusRequest{
 		UserIdentifier:     "233572503330",
 		UserIdentifierType: "MSISDN",
 		ProductId:          14397,
+		TenantRoute:        contractTenantRoute(),
 	}
 
 	resp, err := service.sendStatusCheckWithRetry(reqData, "WEB")
