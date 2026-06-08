@@ -130,9 +130,9 @@ func (s *SubscriptionService) SetTenantProviderRouter(router TenantProviderResol
 	s.tenantRouter = router
 }
 
-func (s *SubscriptionService) providerConfigOrLegacy(ctx context.Context, operation ChannelOperation, route domain.TenantRouteContext) (*TenantProviderConfig, error) {
-	if isEmptyTenantRoute(route) {
-		return s.legacyProviderConfig(), nil
+func (s *SubscriptionService) providerConfigForRoute(ctx context.Context, operation ChannelOperation, route domain.TenantRouteContext) (*TenantProviderConfig, error) {
+	if routeMissingTenant(route) || routeMissingChannel(route) {
+		return nil, ErrTenantRoutingRequired
 	}
 	if s.tenantRouter == nil {
 		return nil, ErrTenantRoutingNotConfigured
@@ -140,24 +140,12 @@ func (s *SubscriptionService) providerConfigOrLegacy(ctx context.Context, operat
 	return s.tenantRouter.Resolve(ctx, operation, route)
 }
 
-func (s *SubscriptionService) legacyProviderConfig() *TenantProviderConfig {
-	return &TenantProviderConfig{
-		BaseURL:          strings.TrimRight(s.config.Application.TIMWE.BaseURL, "/"),
-		APIKey:           s.config.Application.TIMWE.APIKey,
-		Authentication:   s.config.Application.TIMWE.AuthenticationKey,
-		PartnerServiceID: s.config.Application.TIMWE.PartnerServiceID,
-		PSK:              s.config.Application.TIMWE.Psk,
-		PartnerRoleID:    s.config.Application.TIMWE.PartnerRoleID,
-		Realm:            s.config.Application.TIMWE.Realm,
-		Provider:         "timwe",
-	}
+func routeMissingTenant(route domain.TenantRouteContext) bool {
+	return strings.TrimSpace(route.TenantID) == "" && strings.TrimSpace(route.TenantKey) == ""
 }
 
-func isEmptyTenantRoute(route domain.TenantRouteContext) bool {
-	return strings.TrimSpace(route.TenantID) == "" &&
-		strings.TrimSpace(route.TenantKey) == "" &&
-		strings.TrimSpace(route.ChannelID) == "" &&
-		strings.TrimSpace(route.ChannelKey) == ""
+func routeMissingChannel(route domain.TenantRouteContext) bool {
+	return strings.TrimSpace(route.ChannelID) == "" && strings.TrimSpace(route.ChannelKey) == ""
 }
 
 func canonicalTenantRoute(route domain.TenantRouteContext, cfg *TenantProviderConfig) domain.TenantRouteContext {

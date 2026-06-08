@@ -82,3 +82,28 @@ func TestClaimsUnmarshalTracksMissingEmailVerified(t *testing.T) {
 		t.Fatalf("identity email_verified should be absent, identity = %#v", identity)
 	}
 }
+
+func TestClaimsUnmarshalTracksExplicitFalseEmailVerified(t *testing.T) {
+	raw := []byte(`{
+		"iss":"https://example.auth0.com/",
+		"sub":"auth0|123",
+		"email":"admin@example.com",
+		"email_verified":false,
+		"aud":["api"]
+	}`)
+
+	var claims Claims
+	if err := json.Unmarshal(raw, &claims); err != nil {
+		t.Fatalf("unmarshal claims: %v", err)
+	}
+
+	if claims.Email != "admin@example.com" {
+		t.Fatalf("email = %q", claims.Email)
+	}
+	if claims.EmailVerified || !claims.EmailVerifiedSet {
+		t.Fatalf("email_verified=false should be explicit, claims = %#v", claims)
+	}
+	if identity := claims.Identity(); !identity.HasExplicitlyUnverifiedEmail() {
+		t.Fatalf("identity should preserve explicit email_verified=false, identity = %#v", identity)
+	}
+}

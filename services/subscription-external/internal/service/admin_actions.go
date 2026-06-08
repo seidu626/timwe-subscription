@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"time"
 
@@ -90,17 +89,6 @@ func (s *SubscriptionService) resolveTIMWEAuthKey() (string, error) {
 		return "", fmt.Errorf("failed to generate auth key: %w", err)
 	}
 	return authKey, nil
-}
-
-func (s *SubscriptionService) resolveAdminPartnerRoleID(requestPartnerRoleID int) (int, error) {
-	if requestPartnerRoleID > 0 {
-		return requestPartnerRoleID, nil
-	}
-	partnerRoleID, err := strconv.Atoi(s.config.Application.TIMWE.PartnerRoleID)
-	if err != nil {
-		return 0, fmt.Errorf("invalid PartnerRoleID: %w", err)
-	}
-	return partnerRoleID, nil
 }
 
 func (s *SubscriptionService) executeAdminTIMWERequest(url string, payload interface{}, apiKey, authKey, providedExternalTxID string, customHeaders map[string]string, maxRetries int) (*adminExecutionResult, error) {
@@ -284,18 +272,13 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 		ChannelID:  strings.TrimSpace(req.ChannelID),
 		ChannelKey: strings.TrimSpace(req.ChannelKey),
 	}
-	providerCfg, err := s.providerConfigOrLegacy(context.Background(), channelOperationForAdminAction(operation), route)
+	providerCfg, err := s.providerConfigForRoute(context.Background(), channelOperationForAdminAction(operation), route)
 	if err != nil {
 		return nil, err
 	}
 	partnerRoleID, err := providerCfg.PartnerRoleInt()
 	if err != nil {
-		if isEmptyTenantRoute(route) {
-			partnerRoleID, err = s.resolveAdminPartnerRoleID(req.PartnerRoleID)
-		}
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	authKey, err := providerCfg.AuthKey()
 	if err != nil {

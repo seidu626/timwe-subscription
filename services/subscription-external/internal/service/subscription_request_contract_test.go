@@ -43,6 +43,7 @@ func TestSendMT_UsesPostmanOptinContract(t *testing.T) {
 	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
 	service.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
 	service.bulkhead = make(chan struct{}, 1)
+	configureContractTenantProvider(service, server.URL)
 
 	reqData := domain.MTRequest{
 		ProductID:          14397,
@@ -58,6 +59,7 @@ func TestSendMT_UsesPostmanOptinContract(t *testing.T) {
 		Timezone:           "UTC",
 		Context:            "Subscription",
 		MoTransactionUUID:  "track-123",
+		TenantRoute:        contractTenantRoute(),
 	}
 
 	_, err := service.SendMT(reqData, "realm", "WEB")
@@ -120,10 +122,12 @@ func TestSendOptoutWithRetry_UsesPostmanOptoutContract(t *testing.T) {
 	defer server.Close()
 
 	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
+	configureContractTenantProvider(service, server.URL)
 
 	reqData := domain.UnsubscriptionRequest{
 		UserIdentifier: "233572503330",
 		ProductId:      14397,
+		TenantRoute:    contractTenantRoute(),
 	}
 
 	_, err := service.sendOptoutWithRetry(reqData, "realm")
@@ -187,10 +191,12 @@ func TestSendStatusCheckWithRetry_UsesPostmanStatusContract(t *testing.T) {
 	defer server.Close()
 
 	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
+	configureContractTenantProvider(service, server.URL)
 
 	reqData := domain.GetStatusRequest{
 		UserIdentifier: "233572503330",
 		ProductId:      14397,
+		TenantRoute:    contractTenantRoute(),
 	}
 
 	_, err := service.sendStatusCheckWithRetry(reqData, "realm")
@@ -249,11 +255,13 @@ func TestSendOptinConfirmWithRetry_UsesPostmanConfirmContract(t *testing.T) {
 	defer server.Close()
 
 	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
+	configureContractTenantProvider(service, server.URL)
 
 	reqData := domain.SubscriptionConfirmationRequest{
 		UserIdentifier:      "233572503330",
 		ProductId:           14397,
 		TransactionAuthCode: "0000",
+		TenantRoute:         contractTenantRoute(),
 	}
 
 	_, err := service.sendOptinConfirmWithRetry(reqData, "realm")
@@ -280,6 +288,30 @@ func TestSendOptinConfirmWithRetry_UsesPostmanConfirmContract(t *testing.T) {
 	assertStringField(t, capturedBody, "entryChannel", "INTERNAL")
 	assertStringField(t, capturedBody, "clientIp", "INTERNAL")
 	assertStringField(t, capturedBody, "transactionAuthCode", "0000")
+}
+
+func contractTenantRoute() domain.TenantRouteContext {
+	return domain.TenantRouteContext{
+		TenantID:   "tenant-contract",
+		TenantKey:  "nrg",
+		ChannelID:  "channel-contract",
+		ChannelKey: "web-gh-airteltigo",
+	}
+}
+
+func configureContractTenantProvider(service *SubscriptionService, baseURL string) {
+	service.SetTenantProviderRouter(&fakeTenantProviderResolver{
+		cfg: &TenantProviderConfig{
+			TenantID:       "tenant-contract",
+			ChannelID:      "channel-contract",
+			Provider:       "timwe",
+			BaseURL:        baseURL,
+			APIKey:         "tenant-api-key",
+			Authentication: "tenant-auth-key",
+			PartnerRoleID:  "2117",
+			Realm:          "realm",
+		},
+	})
 }
 
 func assertRequestBasics(t *testing.T, method string, path string, expectedMethod string, expectedPath string) {

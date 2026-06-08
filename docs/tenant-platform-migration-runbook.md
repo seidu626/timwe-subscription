@@ -1,5 +1,9 @@
 # Tenant Platform Migration Runbook
 
+## Canonical Tenancy RFC Relationship
+
+This runbook is a source input for the proposed canonical tenancy model in `docs/architecture/canonical-tenancy-model.md`. Until that RFC is approved, this runbook remains the operational proof surface for canonical `nrg` backfill. If the RFC is approved, it supersedes any rollback-to-null or permanent tenantless ownership interpretation; live-data rollback remains database backup restore, not an active codepath that restores tenantless production data.
+
 This runbook covers TMP-050, the canonical `nrg` tenant backfill used to move existing tenantless rows into tenant-isolated ownership.
 
 ## Entry Points

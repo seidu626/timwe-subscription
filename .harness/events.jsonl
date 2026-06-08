@@ -104,3 +104,4 @@
 {"created_at": "2026-05-11T22:52:51.932453+00:00", "id": "1cff791c-1e9d-41a6-bd69-dd7fa51ee047", "payload": {"reason": "No ready tasks", "task_id": "TMP-055"}, "type": "ROUND_SKIPPED"}
 {"ts":"2026-05-13T20:36:50Z","kind":"dispatch_monitor_alert","run_id":"slice-TMP-069-build-2026-05-13T2025Z","signal":"stall","last_event":"phase=write-tests ts=2026-05-13T20:31:11Z","stale_seconds":339}
 {"ts":"2026-05-13T20:36:50Z","kind":"dispatch_monitor_alert","run_id":"slice-TMP-067-build-2026-05-13T2025Z","signal":"stall","last_event":"2026-05-13T20:30:52Z phase=done","stale_seconds":358}
+{"duplicate_of": null, "item_id": "SI-20260608T074638Z-zsh-local-variable-named-1f8d65", "kind": "self_improvement_ingested", "schema_version": 1, "severity": "low", "source": "operator", "status": "queued", "summary": "zsh local variable named path can shadow PATH during worktree creation", "ts": "2026-06-08T07:46:38Z"}

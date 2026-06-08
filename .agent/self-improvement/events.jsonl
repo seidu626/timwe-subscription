@@ -1,0 +1,1 @@
+{"duplicate_of": null, "item_id": "SI-20260608T074638Z-zsh-local-variable-named-1f8d65", "kind": "self_improvement_ingested", "schema_version": 1, "severity": "low", "source": "operator", "status": "queued", "summary": "zsh local variable named path can shadow PATH during worktree creation", "ts": "2026-06-08T07:46:38Z"}
