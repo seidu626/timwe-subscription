@@ -728,6 +728,15 @@
       "record_id": "lineage-0081-91851cf1",
       "rel": "traces",
       "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp064-sentry-peer-scout-20260608-0720/members/tmp064-scout/result.json",
+      "created_at": "2026-06-08T07:23:05Z",
+      "kind": "result_capsule",
+      "parent_id": "agent/state/work-orders/ready/WO-TMP-064-001.json",
+      "record_id": "lineage-0082-9be8afe0",
+      "rel": "satisfies",
+      "skill": "repository-codebase-governance"
     }
   ],
   "schema_version": "1.0"
