@@ -1,0 +1,10 @@
+{
+  "$id": "https://agent-hub/schemas/runtime-mailbox-message.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "required": [
+    "schema_version"
+  ],
+  "title": "Runtime Mailbox Message",
+  "type": "object"
+}

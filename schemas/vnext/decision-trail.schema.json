@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Decision Trail",
+  "description": "An append-only log of decisions linked to principles for a given WorkOrder.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "decision_trail_id": {
+      "type": "string"
+    },
+    "work_order_id": {
+      "type": "string"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "description": "The text of the decision made."
+          },
+          "principle": {
+            "type": "string",
+            "description": "The ID of the principle guiding the decision."
+          },
+          "evidence_ref": {
+            "type": "string",
+            "description": "A reference to evidence supporting the decision (e.g., a file path, URL, or artifact ID)."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "decision",
+          "principle",
+          "created_at"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "decision_trail_id",
+    "work_order_id",
+    "entries"
+  ]
+}

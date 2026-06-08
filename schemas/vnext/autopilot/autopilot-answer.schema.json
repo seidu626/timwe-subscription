@@ -1,0 +1,27 @@
+{
+  "$id": "https://agent-hub/schemas/autopilot/autopilot-answer.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Autopilot Answer",
+  "description": "The broker's typed answer to an agent question, with authority level, constraints, and required evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "answer_id", "question_id", "decision", "authority_level", "reason", "created_at"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "answer_id": {"type": "string", "minLength": 1},
+    "question_id": {"type": "string", "minLength": 1},
+    "session_id": {"type": ["string", "null"]},
+    "runtime": {"type": ["string", "null"]},
+    "decision": {
+      "type": "string",
+      "enum": ["allow", "allow_with_constraints", "deny", "delegate_to_runtime", "ask_for_evidence", "escalate_to_review", "hard_stop"]
+    },
+    "authority_level": {"type": "string", "enum": ["A0", "A1", "A2", "A3", "A4", "A5", "A6"]},
+    "reason": {"type": "string", "minLength": 1},
+    "constraints": {"type": "array", "items": {"type": "string"}},
+    "required_evidence": {"type": "array", "items": {"type": "string"}},
+    "delegate_to": {"type": ["string", "null"]},
+    "expires_at": {"type": ["string", "null"]},
+    "created_at": {"type": "string"}
+  }
+}

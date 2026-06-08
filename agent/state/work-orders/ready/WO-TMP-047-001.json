@@ -1,0 +1,122 @@
+{
+  "acceptance_tests": [
+    "cd services/landing-web && npm audit --audit-level=moderate",
+    "cd services/landing-web && npm run build",
+    "bounded landing-web runtime smoke returns HTTP 200 for /",
+    "jq empty slices/manifest.json agent/state/TMP-047.work-order.json agent/state/TMP-047.handoff.json .agent/tasks.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "approved_dependency_remediation; release_blocker_vertical_defect",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-047-landing-web-dependency-remediation.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-047",
+  "hashes": {
+    "classification_hash": "sha256:3182a89dcef8d02b73321d7d3cfa9fac06e1e629fc63e631a0ee0aeae5b339b7",
+    "contract_hash": "sha256:4cac97c66822d672b884f3bfebd13310643106308d735ab4bc8d8d6a73bbe92a",
+    "issue_hash": "sha256:d7f165dd0180872b3072d867bc91de836522466a39525d11ed010c951f863146"
+  },
+  "issue_id": "TMP-047",
+  "non_goals": [
+    "landing page redesign",
+    "HE simulation behavior changes",
+    "admin frontend dependency remediation",
+    "compose or schema changes"
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "services/landing-web/package.json",
+    "outcome": "Landing-web no longer ships with the Next/PostCSS vulnerability blocker and still builds and serves its landing entrypoint.",
+    "trigger": "Verifier reruns npm audit after TMP-037 approval."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "cd services/landing-web && npm audit --audit-level=moderate",
+    "cd services/landing-web && npm run build",
+    "bounded landing-web runtime smoke returns HTTP 200 for /",
+    "slices/TMP-047-landing-web-dependency-remediation/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "services/landing-web/package.json",
+      "services/landing-web/package-lock.json",
+      "services/landing-web/next.config.js",
+      "services/landing-web/middleware.ts",
+      "services/landing-web/next-env.d.ts",
+      "services/landing-web/tsconfig.json",
+      "services/landing-web/app/api/campaigns/[tenant]/route.ts",
+      "services/landing-web/app/api/campaigns/[tenant]/[slug]/route.ts",
+      "services/landing-web/app/api/transactions/[id]/confirm/route.ts",
+      "services/landing-web/app/c/[slug]/page.tsx",
+      "services/landing-web/app/lp/[tenant]/page.tsx",
+      "services/landing-web/app/lp/[tenant]/[slug]/page.tsx",
+      "agent/backlog/issues/TMP-047-landing-web-dependency-remediation.md",
+      "agent/state/TMP-047.work-order.json",
+      "agent/state/TMP-047.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-047-landing-web-dependency-remediation/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/landing-web/app/components/**",
+      "services/landing-web/app/lib/**",
+      "services/landing-web/lib/**",
+      "services/**/migrations/**",
+      "common/**",
+      "frontend/**",
+      "ops/**",
+      "docker-compose*.yml",
+      "Makefile",
+      "go.mod",
+      "go.sum"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "services/landing-web/package.json",
+      "services/landing-web/package-lock.json",
+      "services/landing-web/next.config.js",
+      "services/landing-web/middleware.ts",
+      "services/landing-web/next-env.d.ts",
+      "services/landing-web/tsconfig.json",
+      "services/landing-web/app/api/campaigns/[tenant]/route.ts",
+      "services/landing-web/app/api/campaigns/[tenant]/[slug]/route.ts",
+      "services/landing-web/app/api/transactions/[id]/confirm/route.ts",
+      "services/landing-web/app/c/[slug]/page.tsx",
+      "services/landing-web/app/lp/[tenant]/page.tsx",
+      "services/landing-web/app/lp/[tenant]/[slug]/page.tsx",
+      "agent/backlog/issues/TMP-047-landing-web-dependency-remediation.md",
+      "agent/state/TMP-047.work-order.json",
+      "agent/state/TMP-047.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-047-landing-web-dependency-remediation/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-047-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

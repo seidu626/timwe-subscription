@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub/schemas/workflow-kernel/state.schema.json",
+  "title": "Agent Hub Workflow Kernel State",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "kernel",
+    "verb",
+    "status",
+    "dry_run",
+    "updated_at",
+    "profile_validation",
+    "dispatch",
+    "next_action"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "kernel": {
+      "const": "workflow-kernel"
+    },
+    "verb": {
+      "type": "string",
+      "enum": [
+        "start",
+        "step",
+        "status",
+        "dispatch",
+        "gate",
+        "repair",
+        "close"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "dry_run",
+        "started",
+        "stepped",
+        "closed",
+        "not_started",
+        "blocked"
+      ]
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "issue_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "work_order_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workflow_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "phase": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state_path": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "errors"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dispatch": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "attempted",
+        "mode",
+        "reason"
+      ],
+      "properties": {
+        "attempted": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "context_pack_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runtime": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "repair": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "closed": {
+      "type": "boolean"
+    },
+    "transition_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "selected",
+        "from_state",
+        "to_state",
+        "event",
+        "guard",
+        "guard_status",
+        "retry_count",
+        "retry_limit",
+        "context_pack",
+        "capsule_required",
+        "capsule_path",
+        "token_budget",
+        "next_action_verb"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "state_machine",
+            "phase_order"
+          ]
+        },
+        "selected": {
+          "type": "boolean"
+        },
+        "from_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "event": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "guard": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "guard_status": {
+          "type": "string",
+          "enum": [
+            "not_evaluated",
+            "symbolic_not_evaluated",
+            "not_applicable",
+            "passed",
+            "failed"
+          ]
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retry_limit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "context_pack": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "capsule_required": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "capsule_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "token_budget": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true
+        },
+        "next_action_verb": {
+          "type": "string",
+          "enum": [
+            "start",
+            "step",
+            "status",
+            "dispatch",
+            "gate",
+            "repair",
+            "close"
+          ]
+        }
+      }
+    },
+    "next_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verb",
+        "reason",
+        "dry_run",
+        "required_inputs"
+      ],
+      "properties": {
+        "verb": {
+          "type": "string",
+          "enum": [
+            "start",
+            "step",
+            "status",
+            "dispatch",
+            "gate",
+            "repair",
+            "close"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "required_inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

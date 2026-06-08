@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/goal-spec.schema.json",
+  "title": "Agent-Hub GoalSpec",
+  "description": "Canonical prompt-to-goal contract emitted before HVC classification or WorkOrder generation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "goal_id",
+    "source",
+    "title",
+    "goals",
+    "non_goals",
+    "constraints",
+    "success_criteria",
+    "risk_level",
+    "context_policy",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "goal_id": {
+      "type": "string",
+      "pattern": "^goal-[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9._-]+$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompt_hash",
+        "prompt_excerpt"
+      ],
+      "properties": {
+        "prompt_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "prompt_excerpt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conversation_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "repo_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "statement",
+          "priority",
+          "success_criteria"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^G[0-9]+$"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "must",
+              "should",
+              "could"
+            ]
+          },
+          "success_criteria": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "success_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "context_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "max_initial_tokens",
+        "hydrate_on_demand"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "capsule_first",
+            "full_context_allowed",
+            "manual"
+          ]
+        },
+        "max_initial_tokens": {
+          "type": "integer",
+          "minimum": 200
+        },
+        "hydrate_on_demand": {
+          "type": "boolean"
+        }
+      }
+    },
+    "classification_hints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "likely_hvc_class": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "vertical_slice",
+            "vertical_defect_slice",
+            "bounded_enabler",
+            "operational_slice",
+            "spike",
+            null
+          ]
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requires_parallelism": {
+          "type": "boolean"
+        },
+        "requires_human_review": {
+          "type": "boolean"
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

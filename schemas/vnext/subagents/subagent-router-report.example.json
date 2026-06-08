@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "route_id": "route-WO-123",
+  "work_order_id": "WO-123",
+  "recommended_subagents": [
+    {
+      "name": "explorer",
+      "reason": "Need read-only architecture survey.",
+      "mode": "background",
+      "risk": "low"
+    }
+  ],
+  "requires_worktree": false,
+  "use_coop": false,
+  "use_dynamic_workflow": false
+}

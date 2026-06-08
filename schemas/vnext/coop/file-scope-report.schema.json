@@ -1,0 +1,13 @@
+{
+  "$id": "https://agent-hub/schemas/file-scope-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "status",
+    "checked_files",
+    "violations"
+  ],
+  "title": "File Scope Report",
+  "type": "object"
+}

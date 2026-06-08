@@ -1,0 +1,63 @@
+{
+  "$id": "https://agent-hub/schemas/agent-teacher/goal-state.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "active_phase": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "goal_id": {
+      "type": "string"
+    },
+    "goal_spec_ref": {
+      "type": "string"
+    },
+    "goal_state_id": {
+      "type": "string"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "source_refs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "blocked",
+        "complete",
+        "superseded"
+      ]
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "goal_state_id",
+    "goal_id",
+    "status",
+    "source_refs",
+    "goal_spec_ref",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "Agent Teacher Goal State",
+  "type": "object"
+}

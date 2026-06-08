@@ -1,0 +1,94 @@
+{
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "test -f slices/TMP-035-notification-message-outbox-schema/value-gate-report.md",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-035-notification-message-outbox-schema.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-035",
+  "hashes": {
+    "classification_hash": "sha256:01c588c59b29d82ceab10bd7db719e81cc01220c6487ec5cff7afe472f36fc6c",
+    "contract_hash": "sha256:a86ba854cfa05cd87067fab42d321100513677d3515512349d83628dbf206a3e",
+    "issue_hash": "sha256:8951cb938df5bb93237a9f8c1dfe78caf197798ba18f1767a62e3ca46940dfc7"
+  },
+  "issue_id": "TMP-035",
+  "non_goals": [],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "docker compose notification-worker runtime startup",
+    "outcome": "Notification worker dispatch loop runs in compose without missing message_outbox relation errors.",
+    "trigger": "Verifier runs targeted notification-worker smoke after TMP-031 DB env fix."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "targeted notification-worker compose smoke",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-031-notification-worker-compose-db-env/value-gate-report.md",
+    "slices/TMP-035-notification-message-outbox-schema/value-gate-report.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/backlog/issues/TMP-035-notification-message-outbox-schema.md",
+      "agent/state/TMP-035.work-order.json",
+      "agent/state/TMP-035.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-035-notification-message-outbox-schema/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**",
+      "common/**",
+      "frontend/**",
+      "ops/**",
+      "docker-compose*.yml",
+      "Makefile",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json",
+      "*.sql"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "agent/backlog/issues/TMP-035-notification-message-outbox-schema.md",
+      "agent/state/TMP-035.work-order.json",
+      "agent/state/TMP-035.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-035-notification-message-outbox-schema/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-035-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

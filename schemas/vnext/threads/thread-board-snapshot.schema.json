@@ -1,0 +1,90 @@
+{
+  "$id": "thread-board-snapshot.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "active_task_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "concurrency": {
+      "type": "object"
+    },
+    "director_thread_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "goal_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "oracle": {
+      "type": "object"
+    },
+    "parallel_plan": {
+      "type": "object"
+    },
+    "runtime_lanes": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "prepared",
+        "active",
+        "blocked",
+        "needs_review",
+        "verified",
+        "done",
+        "archived",
+        "failed"
+      ]
+    },
+    "summary": {
+      "type": "object"
+    },
+    "tasks": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "thread_goal_id": {
+      "type": "string"
+    },
+    "thread_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "thread_id",
+    "thread_goal_id",
+    "status",
+    "concurrency",
+    "active_task_ids",
+    "tasks",
+    "summary",
+    "created_at",
+    "updated_at"
+  ],
+  "type": "object"
+}

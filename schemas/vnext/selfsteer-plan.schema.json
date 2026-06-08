@@ -1,0 +1,49 @@
+{
+  "$id": "https://agent-hub/schemas/selfsteer-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "type": "string"
+    },
+    "guardrails": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "learning_events": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "mode": {
+      "const": "proposal_only"
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "proposed_goals": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    }
+  },
+  "required": [
+    "schema_version",
+    "plan_id",
+    "mode",
+    "learning_events",
+    "proposed_goals",
+    "guardrails",
+    "created_at"
+  ],
+  "title": "SelfSteer Plan",
+  "type": "object"
+}

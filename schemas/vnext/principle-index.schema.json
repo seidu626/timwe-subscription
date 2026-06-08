@@ -1,0 +1,75 @@
+{
+  "$id": "https://agent-hub/schemas/principle-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "count": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "ids": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "index_id": {
+      "const": "agent-hub-principles"
+    },
+    "principles": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "order": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "path": {
+            "pattern": "^policies/principles/[a-z][a-z0-9_]*\\.md$",
+            "type": "string"
+          },
+          "summary": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "order",
+          "path"
+        ],
+        "type": "object"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "source": {
+      "const": "policies/principles"
+    }
+  },
+  "required": [
+    "schema_version",
+    "index_id",
+    "source",
+    "count",
+    "ids",
+    "principles"
+  ],
+  "title": "Agent Hub Principle Index",
+  "type": "object"
+}

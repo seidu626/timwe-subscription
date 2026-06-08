@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "name": "test-runner",
+  "description": "Runs tests and summarizes only failing cases and evidence.",
+  "runtime": "claude",
+  "model": "sonnet",
+  "tools": ["Read", "Bash"],
+  "disallowed_tools": ["Write", "Edit"],
+  "permission_mode": "default",
+  "background": true,
+  "isolation": "none",
+  "max_turns": 8,
+  "skills": [],
+  "mcp_servers": [],
+  "agent_hub_role": "test_runner",
+  "output_contract": "worker_result_capsule"
+}

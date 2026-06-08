@@ -1,0 +1,30 @@
+{
+  "$id": "https://agent-hub/schemas/autopilot/autopilot-escalation.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Autopilot Escalation",
+  "description": "Raised when an action exceeds the autopilot's authority ceiling or risk requires human/multi-runtime approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "escalation_id", "session_id", "reason", "risk_level", "required_approver", "created_at"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "escalation_id": {"type": "string", "minLength": 1},
+    "session_id": {"type": "string", "minLength": 1},
+    "work_order_id": {"type": ["string", "null"]},
+    "reason": {"type": "string", "minLength": 1},
+    "risk_level": {"type": "string", "enum": ["A0", "A1", "A2", "A3", "A4", "A5", "A6"]},
+    "risk_score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "blocked_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"type": "string"},
+        "paths": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "required_approver": {"type": "string", "enum": ["human", "multi_runtime"]},
+    "recommended_next_action": {"type": "string"},
+    "hard_stop": {"type": "boolean"},
+    "created_at": {"type": "string"}
+  }
+}

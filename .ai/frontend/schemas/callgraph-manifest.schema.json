@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Frontend Callgraph Manifest",
+  "type": "object",
+  "required": [
+    "taskId",
+    "routes",
+    "artifacts"
+  ],
+  "properties": {
+    "taskId": {
+      "type": "string"
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "workflow",
+          "components"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "workflow": {
+            "type": "string"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "file",
+          "type",
+          "consumer"
+        ],
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "consumer": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

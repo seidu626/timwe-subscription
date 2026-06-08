@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agent-hub/governance/evidence-ledger.v1",
+  "title": "Evidence Ledger",
+  "description": "Canonical lineage ledger. Every artifact produced by an agent is recorded here before reconcile.",
+  "type": "object",
+  "required": ["schema_version", "records"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["record_id", "kind", "artifact_path", "produced_by", "created_at"],
+        "additionalProperties": false,
+        "properties": {
+          "record_id": { "type": "string", "description": "Unique ID for this evidence record." },
+          "kind": {
+            "type": "string",
+            "description": "Evidence type.",
+            "enum": [
+              "work_order", "test_result", "coverage_report", "contract_design_artifact",
+              "data_governance_review", "observability_design_artifact", "devex_cicd_governance_review",
+              "security_review", "migration_plan", "ois_scorecard", "evidence_record",
+              "review_report", "deployment_artifact", "other"
+            ]
+          },
+          "artifact_path": { "type": "string", "description": "Relative path to the artifact file." },
+          "parent_id": { "type": "string", "description": "WorkOrder ID this evidence belongs to." },
+          "rel": { "type": "string", "description": "Relationship to parent, e.g. 'produced_by', 'verifies', 'closes'." },
+          "produced_by": { "type": "string", "description": "Agent name or human actor that produced this artifact." },
+          "skill": { "type": "string", "description": "Skill that produced this artifact, if applicable." },
+          "created_at": { "type": "string", "format": "date-time" },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

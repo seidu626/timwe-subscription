@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/evidence-ledger.v2.schema.json",
+  "title": "Agent-Hub EvidenceLedger v2",
+  "description": "Machine-checkable claim-to-evidence ledger for WorkOrder closeout.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_id",
+    "goal_id",
+    "work_order_id",
+    "run_id",
+    "claims",
+    "unsupported_claims",
+    "review"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0"
+    },
+    "evidence_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "work_order_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "claim",
+          "status",
+          "evidence_type",
+          "artifact_ref",
+          "created_at"
+        ],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proved",
+              "disproved",
+              "partial",
+              "unsupported"
+            ]
+          },
+          "evidence_type": {
+            "type": "string",
+            "enum": [
+              "command",
+              "test_output",
+              "file_diff",
+              "static_search",
+              "manual_review",
+              "trace",
+              "artifact"
+            ]
+          },
+          "command": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artifact_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "result_summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "unsupported_claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reviewer",
+        "reviewed_at"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "accepted",
+            "rejected",
+            "needs_rework"
+          ]
+        },
+        "reviewer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

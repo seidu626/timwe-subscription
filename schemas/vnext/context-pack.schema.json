@@ -1,0 +1,121 @@
+{
+  "$id": "https://agent-hub/schemas/context-pack.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "context_pack_id": {
+      "type": "string"
+    },
+    "excluded": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "goal_id": {
+      "type": "string"
+    },
+    "hydration_rules": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "load": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trigger",
+          "load"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "included": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "load_mode": {
+            "enum": [
+              "full",
+              "excerpt",
+              "metadata",
+              "handle"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "reason",
+          "load_mode"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "mode": {
+      "enum": [
+        "capsule_first",
+        "full_context_allowed",
+        "manual"
+      ]
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "token_budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_hydrated_tokens": {
+          "type": "integer"
+        },
+        "max_initial_tokens": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_initial_tokens",
+        "max_hydrated_tokens"
+      ],
+      "type": "object"
+    },
+    "work_order_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "context_pack_id",
+    "goal_id",
+    "work_order_id",
+    "mode",
+    "token_budget",
+    "included",
+    "excluded",
+    "hydration_rules"
+  ],
+  "title": "Agent Hub Context Pack",
+  "type": "object"
+}

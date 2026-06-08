@@ -1,0 +1,95 @@
+{
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "test -f docs/tenant-channel-onboarding.md"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "bounded_enabler",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-016-partner-channel-onboarding-contracts.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": [
+      "TMP-003",
+      "TMP-004",
+      "TMP-007",
+      "TMP-012",
+      "TMP-013"
+    ]
+  },
+  "goal_id": "goal-legacy-TMP-016",
+  "hashes": {
+    "classification_hash": "sha256:126c43ed43bd84ca5a77ceb86ef9ccf5b409e7ea1450da1c45bce7b1c76ee5c7",
+    "contract_hash": "sha256:c607336352f9f1be15e7b04ef32c7340f04f14f8d7a1d33b27d70b666d776b0d",
+    "issue_hash": "sha256:37e0412adb4afcf3f76043f823dec0f1593242c49a74391c12aeb81dc660f174"
+  },
+  "issue_id": "TMP-016",
+  "non_goals": [
+    "No live partner credential provisioning.",
+    "No backend route rewrites."
+  ],
+  "objective": {
+    "actor": "api-integrated-partner",
+    "entrypoint": "docs/tenant-channel-onboarding.md and sandbox fixtures",
+    "outcome": "New tenant channels can be onboarded without bespoke engineering discovery.",
+    "trigger": "Partner begins tenant channel onboarding"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "agent-supervisor --config .harness/config.json preflight",
+    "contract fixture evidence"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "docs/**",
+      "examples/**",
+      "slices/TMP-016-partner-channel-onboarding-contracts/**",
+      "services/**/docs/**",
+      "services/**/README.md",
+      "agent/backlog/issues/TMP-016-partner-channel-onboarding-contracts.md",
+      "agent/state/TMP-016.work-order.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "frontend/webspa-admin/**",
+      "services/**/internal/**",
+      "Makefile"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "docs/**",
+      "examples/**",
+      "slices/TMP-016-partner-channel-onboarding-contracts/**",
+      "services/**/docs/**",
+      "services/**/README.md",
+      "agent/backlog/issues/TMP-016-partner-channel-onboarding-contracts.md",
+      "agent/state/TMP-016.work-order.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-016-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

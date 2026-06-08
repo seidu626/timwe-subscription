@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/subagent-spawn-plan.schema.json",
+  "title": "Agent-Hub Subagent Spawn Plan",
+  "description": "Every WorkOrder execution requires a spawn plan. The policy object folds in the subagent-policy runtime block.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "spawn_plan_id",
+    "work_order_id",
+    "policy",
+    "spawns",
+    "constraints"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "spawn_plan_id": { "type": "string", "minLength": 1 },
+    "goal_id": { "type": "string", "minLength": 1 },
+    "work_order_id": { "type": "string", "minLength": 1 },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default_spawn_required",
+        "main_agent_control_plane_only",
+        "result_only_return",
+        "write_requires_isolation",
+        "no_self_review"
+      ],
+      "properties": {
+        "default_spawn_required": { "type": "boolean" },
+        "main_agent_control_plane_only": { "type": "boolean" },
+        "result_only_return": { "type": "boolean" },
+        "write_requires_isolation": { "type": "boolean" },
+        "no_self_review": { "type": "boolean" }
+      }
+    },
+    "spawns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subagent_id",
+          "role",
+          "runtime",
+          "model_tier",
+          "mode",
+          "tools",
+          "write_capable",
+          "capsule_ref",
+          "expected_result_ref"
+        ],
+        "properties": {
+          "subagent_id": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "minLength": 1 },
+          "runtime": { "type": "string", "minLength": 1 },
+          "model_tier": { "type": "string", "enum": ["low", "medium", "high"] },
+          "mode": { "type": "string", "enum": ["background", "foreground", "inline"] },
+          "tools": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "write_capable": { "type": "boolean" },
+          "subagent_profile": {
+            "type": "string",
+            "enum": ["supervisor-full", "worker-minimal", "worker-governed", "reviewer-readonly"]
+          },
+          "may_delegate": { "type": "boolean" },
+          "capsule_ref": { "type": "string", "minLength": 1 },
+          "expected_result_ref": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_parallel_subagents",
+        "same_file_edit_conflicts_blocked",
+        "requires_worktree_for_write"
+      ],
+      "properties": {
+        "max_parallel_subagents": { "type": "integer", "minimum": 1 },
+        "same_file_edit_conflicts_blocked": { "type": "boolean" },
+        "requires_worktree_for_write": { "type": "boolean" }
+      }
+    }
+  }
+}

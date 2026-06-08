@@ -1,0 +1,38 @@
+{
+  "$id": "https://agent-hub/schemas/skill-consolidation-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "type": "string"
+    },
+    "kernels": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "preserve": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    }
+  },
+  "required": [
+    "schema_version",
+    "plan_id",
+    "kernels",
+    "preserve",
+    "created_at"
+  ],
+  "title": "Skill Consolidation Plan",
+  "type": "object"
+}

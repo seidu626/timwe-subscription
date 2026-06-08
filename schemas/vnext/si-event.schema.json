@@ -1,0 +1,71 @@
+{
+  "$id": "https://agent-hub.local/schemas/si-event.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actor_runtime": {
+      "type": "string"
+    },
+    "content_sha256": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "idempotency_key": {
+      "type": "string"
+    },
+    "redacted_payload": {
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical",
+        "info"
+      ]
+    },
+    "source": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "accepted",
+        "rejected",
+        "duplicate",
+        "planned",
+        "claimed",
+        "completed",
+        "blocked",
+        "resolved",
+        "info"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "idempotency_key",
+    "event_type",
+    "source",
+    "actor_runtime",
+    "severity",
+    "status",
+    "redacted_payload",
+    "content_sha256",
+    "created_at"
+  ],
+  "title": "SIEvent",
+  "type": "object"
+}

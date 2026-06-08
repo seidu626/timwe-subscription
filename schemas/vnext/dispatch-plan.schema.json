@@ -1,0 +1,96 @@
+{
+  "$id": "https://agent-hub/schemas/dispatch-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "dispatch_plan_id": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "goal_id": {
+      "type": "string"
+    },
+    "locks": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "work_order_id": {
+            "type": "string"
+          },
+          "write_locks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "work_order_id",
+          "write_locks"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "summary": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "waves": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "max_parallelism": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "mode": {
+            "enum": [
+              "parallel",
+              "serial"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "wave_id": {
+            "type": "string"
+          },
+          "work_order_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "wave_id",
+          "mode",
+          "work_order_ids",
+          "max_parallelism",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "dispatch_plan_id",
+    "goal_id",
+    "generated_at",
+    "waves",
+    "locks",
+    "summary"
+  ],
+  "title": "Agent Hub Dispatch Plan",
+  "type": "object"
+}

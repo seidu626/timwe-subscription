@@ -1,0 +1,78 @@
+{
+  "$id": "https://agent-hub/schemas/runtime-capability.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "title": "Agent Hub Runtime Capability",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "runtime": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "runner": {
+      "type": "string"
+    },
+    "capability_summary": {
+      "type": "object"
+    },
+    "hook_enforcement": {
+      "type": "object"
+    },
+    "result_propagation": {
+      "type": "object"
+    },
+    "sandbox_inheritance": {
+      "type": "object"
+    },
+    "subagent_hook_coverage": {
+      "type": "object"
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "integration_tier": {
+      "type": "string",
+      "enum": [
+        "dispatch",
+        "manual-handoff"
+      ],
+      "description": "Whether runtime is dispatch-tier (programmatic CLI) or manual-handoff-tier (IDE-only)"
+    },
+    "binary": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "CLI binary name for dispatch-tier runtimes"
+    },
+    "binary_available": {
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "description": "Whether the runtime binary was found on PATH at smoke time (null for manual-handoff)"
+    }
+  },
+  "required": [
+    "schema_version",
+    "runtime",
+    "display_name",
+    "capability_summary",
+    "hook_enforcement",
+    "result_propagation",
+    "sandbox_inheritance",
+    "subagent_hook_coverage",
+    "observations"
+  ]
+}

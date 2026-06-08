@@ -1,0 +1,49 @@
+{
+  "$id": "https://agent-hub.local/schemas/worktree-event.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "base_sha": {
+      "type": "string"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "command": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "event": {
+      "type": "string"
+    },
+    "failures": {
+      "type": "array"
+    },
+    "path": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "repo": {
+      "type": "string"
+    },
+    "returncode": {
+      "type": "integer"
+    },
+    "ts": {
+      "type": "string"
+    },
+    "worktree_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "ts",
+    "event"
+  ],
+  "title": "Agent Hub Worktree Event",
+  "type": "object"
+}

@@ -1,0 +1,72 @@
+{
+  "$id": "thread-automation.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "automation_plan_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "director_thread_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "report_only",
+        "create_threads",
+        "execute_with_approval"
+      ]
+    },
+    "planned_threads": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "safety": {
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "source": {
+      "enum": [
+        "github_issues",
+        "pull_request",
+        "ci_failure",
+        "sentry",
+        "email",
+        "schedule",
+        "usage_analytics"
+      ]
+    },
+    "status": {
+      "enum": [
+        "planned",
+        "running",
+        "done",
+        "failed"
+      ]
+    },
+    "summary": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "automation_plan_id",
+    "generated_at",
+    "director_thread_id",
+    "source",
+    "mode",
+    "status",
+    "planned_threads",
+    "safety",
+    "summary"
+  ],
+  "type": "object"
+}

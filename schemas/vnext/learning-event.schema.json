@@ -1,0 +1,61 @@
+{
+  "$id": "https://agent-hub/schemas/learning-event.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "type": "string"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "learning_event_id": {
+      "type": "string"
+    },
+    "recommendation": {
+      "type": "string"
+    },
+    "risk_level": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "source": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "accepted",
+        "rejected",
+        "promoted"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "learning_event_id",
+    "source",
+    "summary",
+    "recommendation",
+    "risk_level",
+    "evidence_refs",
+    "status",
+    "created_at"
+  ],
+  "title": "SelfSteer Learning Event",
+  "type": "object"
+}

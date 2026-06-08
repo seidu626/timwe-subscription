@@ -1,0 +1,91 @@
+{
+  "acceptance_tests": [
+    "Tenant-scoped report requests with only tenant_key resolve to the canonical tenant_id before report queries run.",
+    "all_tenants=true remains forbidden for non-platform identities.",
+    "Unknown tenant keys remain forbidden and do not fall back to global reports."
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-057-report-tenant-key-scope.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-057",
+  "hashes": {
+    "classification_hash": "sha256:3e35a08f0487136aa24cd42da4a229676523c6a63974dfdeabd22d57c28da134",
+    "contract_hash": "sha256:2bb16a5963e0735b7b1d5daf1a77d738dcef576016402563245b267b90fbd1da",
+    "issue_hash": "sha256:f0e1e89ee2894877b533423380bdb34c12f7774c8077b70d43977b6e9c87da53"
+  },
+  "issue_id": "TMP-057",
+  "non_goals": [
+    "Do not loosen all_tenants authorization for tenant users.",
+    "Do not add frontend token or tenant claim workarounds.",
+    "Do not introduce global fallback reporting when tenant lookup fails."
+  ],
+  "objective": {
+    "actor": "tenant-admin",
+    "entrypoint": "GET /v1/admin/reports/kpis",
+    "outcome": "tenant admin dashboard KPIs load for the selected tenant workspace instead of failing with report-scope 403.",
+    "trigger": "Web admin loads dashboard KPIs with Authorization and X-Tenant-Key."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "Browser or HTTP evidence shows GET /v1/admin/reports/kpis returns 403 Forbidden for a tenant workspace request.",
+    "go test ./internal/handler -run TestParseFilters",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/backlog/issues/TMP-057-report-tenant-key-scope.md",
+      "agent/state/TMP-057.work-order.json",
+      "agent/state/TMP-057.handoff.json",
+      "services/acquisition-api/internal/handler/reports_handler.go",
+      "services/acquisition-api/internal/handler/reports_handler_test.go",
+      "slices/manifest.json",
+      "slices/TMP-057-report-tenant-key-scope/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**/go.mod",
+      "services/**/go.sum",
+      "frontend/**",
+      "docker-compose*.yml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "agent/backlog/issues/TMP-057-report-tenant-key-scope.md",
+      "agent/state/TMP-057.work-order.json",
+      "agent/state/TMP-057.handoff.json",
+      "services/acquisition-api/internal/handler/reports_handler.go",
+      "services/acquisition-api/internal/handler/reports_handler_test.go",
+      "slices/manifest.json",
+      "slices/TMP-057-report-tenant-key-scope/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-057-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

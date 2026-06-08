@@ -1,0 +1,77 @@
+{
+  "$id": "https://agent-hub.local/schemas/si-rca.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "type": "string"
+    },
+    "created_by_runtime": {
+      "type": "string"
+    },
+    "evidence_strength": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "id": {
+      "type": "string"
+    },
+    "issue_id": {
+      "type": "string"
+    },
+    "ranked_hypotheses": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "hypothesis": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "hypothesis",
+          "confidence",
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "recommended_actions": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "subagent_model": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "issue_id",
+    "ranked_hypotheses",
+    "evidence_strength",
+    "created_by_runtime",
+    "subagent_model",
+    "created_at",
+    "recommended_actions"
+  ],
+  "title": "SIRCA",
+  "type": "object"
+}

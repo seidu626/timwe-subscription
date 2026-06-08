@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub/schemas/vnext/workflow-mining-report.schema.json",
+  "title": "WorkflowMiningReport",
+  "description": "Report produced by the workflow preference miner from a set of transcripts.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "window",
+    "source_count",
+    "atoms"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "window": {
+      "type": "string",
+      "description": "Time window used for filtering transcripts (e.g. '7d', '30d', or an ISO range).",
+      "minLength": 1
+    },
+    "source_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of transcript files processed."
+    },
+    "atoms": {
+      "type": "array",
+      "items": {
+        "$ref": "preference-atom.schema.json"
+      },
+      "description": "Extracted preference atoms. Raw transcript content is never stored here."
+    },
+    "proposed_selfsteer_ref": {
+      "type": "string",
+      "description": "Path to the SelfSteer proposal artifact if one was emitted."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "redacted_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of atoms that were discarded by the secret scan."
+    }
+  }
+}

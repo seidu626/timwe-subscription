@@ -1,0 +1,67 @@
+{
+  "$id": "https://agent-hub.local/schemas/worktree-lease.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "created_at": {
+      "type": "string"
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "holder": {
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^lease-",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "path-write",
+        "repo-integration",
+        "deletion-intent",
+        "shared-branch",
+        "danger-zone"
+      ],
+      "type": "string"
+    },
+    "paths": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "released_at": {
+      "type": "string"
+    },
+    "repo_git_common_dir": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "ACTIVE",
+        "RELEASED",
+        "EXPIRED",
+        "ABANDONED"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "holder",
+    "paths",
+    "created_at",
+    "state"
+  ],
+  "title": "Agent Hub Worktree Lease",
+  "type": "object"
+}

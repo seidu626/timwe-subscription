@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/ecosystem-definition.schema.json",
+  "title": "Agent-Hub Ecosystem Definition",
+  "description": "Domain-neutral ecosystem definition: actors (human and system), objects, and journeys with stable node IDs. Each journey step is addressable as <journey-id>.<step-slug> for bidirectional linkage from unit contracts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ecosystem_id",
+    "actors",
+    "objects",
+    "journeys"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "ecosystem_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for this ecosystem definition."
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "actors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "human",
+              "system"
+            ]
+          },
+          "system_role": {
+            "type": "string",
+            "enum": [
+              "api_consumer",
+              "scheduler",
+              "queue_worker",
+              "cli_operator",
+              "peer_service"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "journeys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "actor",
+          "goal",
+          "steps"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable journey identifier; used as prefix of step node IDs."
+          },
+          "actor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "goal": {
+            "type": "string",
+            "minLength": 1
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "actor",
+                "action",
+                "surface",
+                "expects"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$",
+                  "description": "Node ID in the format <journey-id>.<step-slug>. Must be unique across all steps in the ecosystem \u2014 duplicate ids violate the identity contract and are rejected by the generator and intent-linkage tool."
+                },
+                "actor": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "action": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "surface": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "value"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "route",
+                        "endpoint",
+                        "cli_command",
+                        "job",
+                        "event_topic",
+                        "file_format"
+                      ]
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "expects": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "description": "Ordered list of steps for this journey. Step ids must be unique across the entire ecosystem definition."
+          }
+        }
+      }
+    }
+  }
+}

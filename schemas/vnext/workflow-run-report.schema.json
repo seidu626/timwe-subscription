@@ -1,0 +1,81 @@
+{
+  "$id": "https://agent-hub/schemas/workflow-run-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "completed_at": {
+      "type": "string"
+    },
+    "phases": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "warn",
+              "fail",
+              "blocked"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "status"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "warn",
+        "fail",
+        "blocked"
+      ]
+    },
+    "thread_id": {
+      "type": "string"
+    },
+    "workflow_run_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "workflow_run_id",
+    "thread_id",
+    "status",
+    "started_at",
+    "completed_at",
+    "artifacts",
+    "phases"
+  ],
+  "title": "Agent Hub Workflow Run Report",
+  "type": "object"
+}

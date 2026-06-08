@@ -1,0 +1,65 @@
+{
+  "$id": "https://agent-hub/schemas/review-aggregate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "title": "Agent Hub Review Aggregate",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "work_order_id": {
+      "type": "string"
+    },
+    "reviewer_count": {
+      "type": "integer"
+    },
+    "reviewers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "per_reviewer": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "overall_verdict": {
+      "enum": ["pass", "concerns", "fail"]
+    },
+    "blocking": {
+      "type": "boolean"
+    },
+    "agreements": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "contradictions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "per_axis_findings": {
+      "type": "object"
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "work_order_id",
+    "reviewer_count",
+    "reviewers",
+    "overall_verdict",
+    "blocking",
+    "agreements",
+    "contradictions",
+    "summary"
+  ]
+}

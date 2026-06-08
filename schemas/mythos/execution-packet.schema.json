@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mythos Execution Packet",
+  "type": "object",
+  "required": ["request", "mode", "targets", "objective", "status_taxonomy", "skill_chain", "phases", "verification_gates", "failure_policy", "final_report_contract", "created_at"],
+  "properties": {
+    "request": {"type": "string", "minLength": 1},
+    "mode": {"type": "string"},
+    "targets": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "objective": {"type": "string"},
+    "non_goals": {"type": "array", "items": {"type": "string"}},
+    "status_taxonomy": {"type": "array", "items": {"type": "string"}},
+    "skill_chain": {"type": "array", "items": {"type": "string"}},
+    "phases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "input_evidence", "action", "output_artifact", "gate", "fallback"],
+        "properties": {
+          "name": {"type": "string"},
+          "input_evidence": {"type": "string"},
+          "action": {"type": "string"},
+          "output_artifact": {"type": "string"},
+          "gate": {"type": "string"},
+          "fallback": {"type": "string"}
+        }
+      }
+    },
+    "verification_gates": {"type": "array", "items": {"type": "string"}},
+    "failure_policy": {"type": "array", "items": {"type": "string"}},
+    "final_report_contract": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": "string"},
+    "repo_scan": {"type": ["object", "null"]}
+  }
+}

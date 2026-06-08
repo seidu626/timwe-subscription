@@ -1,0 +1,36 @@
+{
+  "$id": "https://agent-hub/schemas/autopilot/autopilot-audit-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Autopilot Audit Report",
+  "description": "Read-only (A0) audit of an autopilot session: enumerates decisions, approvals, escalations, questions, delegations, and findings.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "audit_id", "session_id", "generated_at", "status"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "audit_id": {"type": "string", "minLength": 1},
+    "session_id": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string"},
+    "status": {"type": "string", "enum": ["pass", "warn", "fail"]},
+    "summary": {"type": "object"},
+    "decisions": {"type": "array", "items": {"type": "object"}},
+    "approvals": {"type": "array", "items": {"type": "object"}},
+    "escalations": {"type": "array", "items": {"type": "object"}},
+    "questions": {"type": "array", "items": {"type": "object"}},
+    "delegations": {"type": "array", "items": {"type": "object"}},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity", "message"],
+        "properties": {
+          "id": {"type": "string"},
+          "severity": {"type": "string", "enum": ["error", "warning", "info"]},
+          "message": {"type": "string"}
+        }
+      }
+    }
+  }
+}

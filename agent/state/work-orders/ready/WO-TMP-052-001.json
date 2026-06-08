@@ -1,0 +1,86 @@
+{
+  "acceptance_tests": [
+    "Remaining tenant nullable codepaths are inventoried and classified as delete_now, collapse_into_canonical, keep_as_permanent_capability, or needs_human_decision.",
+    "No enforcement migration is added unless the audit proves it is safe for the touched table set.",
+    "Follow-up implementation slices are emitted for any table group that still needs runtime proof."
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "bounded_enabler",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-052-tenant-nullable-path-enforcement.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-052",
+  "hashes": {
+    "classification_hash": "sha256:20ffdd665aaa552c890727e3aabaa2bf385d6374a17d62c038d3adf78117fea8",
+    "contract_hash": "sha256:a865b467074aefdd3126b7ea8e4699b45c00d5235b7f6d8e353d3b2863222f57",
+    "issue_hash": "sha256:b15d6c1e24aa1ed138fa8238b7ea5d7d847369d0367ac4bea66a4b946a6e914a"
+  },
+  "issue_id": "TMP-052",
+  "non_goals": [
+    "Do not force NOT NULL constraints across every table without live data proof.",
+    "Do not mutate a remote database in this agent session."
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "tenant_id nullable-path audit",
+    "outcome": "tenant nullable ownership paths are classified for canonical nrg enforcement without speculative schema rewrites.",
+    "trigger": "operator requested no legacy/compatibility codepaths after canonical nrg migration."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "rg -n \"tenant_id IS NULL|tenant_id = NULL|WHERE .*tenant_id IS NULL|tenant_id UUID\" services scripts docs frontend -g '!**/node_modules/**'",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/backlog/issues/TMP-052-tenant-nullable-path-enforcement.md",
+      "agent/state/TMP-052.work-order.json",
+      "agent/state/TMP-052.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-052-tenant-nullable-path-enforcement/**",
+      "docs/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**/go.mod",
+      "services/**/go.sum",
+      "docker-compose*.yml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "agent/backlog/issues/TMP-052-tenant-nullable-path-enforcement.md",
+      "agent/state/TMP-052.work-order.json",
+      "agent/state/TMP-052.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-052-tenant-nullable-path-enforcement/**",
+      "docs/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-052-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "id": "MAIN-DIRECT-WORK-001",
+  "severity": "error",
+  "decision": "block",
+  "message": "Main agent attempted execution work directly. Create SubagentSpawnPlan and delegate.",
+  "required_action": "agent-hub subagents spawn-plan --work-order agent/state/work-orders/ready/WO-123.json",
+  "event": {
+    "action": "Edit",
+    "paths": ["tools/agent_hub/subagent_kernel.py"],
+    "file_count": 1,
+    "command": "Edit"
+  }
+}

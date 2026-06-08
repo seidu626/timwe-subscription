@@ -1,0 +1,62 @@
+{
+  "$id": "thread-parallel-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "generated_at": {
+      "type": "string"
+    },
+    "max_parallelism": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "parallel_plan_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "runtime_pool": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "warn",
+        "fail"
+      ]
+    },
+    "summary": {
+      "type": "object"
+    },
+    "waves": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "parallel_plan_id",
+    "generated_at",
+    "status",
+    "max_parallelism",
+    "runtime_pool",
+    "waves",
+    "summary",
+    "notes"
+  ],
+  "type": "object"
+}

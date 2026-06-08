@@ -1,0 +1,216 @@
+{
+  "$id": "https://agent-hub/schemas/orchestrate-dag.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "dag_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "edges": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_type": {
+            "const": "handoff"
+          },
+          "from_node": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "handoff_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "to_node": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_node",
+          "to_node",
+          "handoff_id",
+          "artifact_type"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "goal_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "nodes": {
+      "items": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "verifier"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "verifier_type"
+              ]
+            },
+            "else": {
+              "not": {
+                "required": [
+                  "verifier_type"
+                ]
+              }
+            }
+          }
+        ],
+        "properties": {
+          "depends_on": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "kind": {
+            "enum": [
+              "subplanner",
+              "worker",
+              "verifier"
+            ],
+            "type": "string"
+          },
+          "node_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "paths_allowed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "paths_forbidden": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "verifier_type": {
+            "enum": [
+              "live-ui-verified",
+              "unit-test-verified",
+              "type-check-only",
+              "verifier-blocked",
+              "verifier-failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "kind",
+          "depends_on",
+          "paths_allowed",
+          "paths_forbidden"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "dispatch_plan_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dispatch_plan_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "goal_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "goal_ref",
+        "dispatch_plan_ref",
+        "dispatch_plan_id"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "enum": [
+        "planned",
+        "active",
+        "complete",
+        "blocked",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "summary": {
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "subplanners": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "verifiers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "workers": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "subplanners",
+        "workers",
+        "verifiers",
+        "edges"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "dag_id",
+    "goal_id",
+    "generated_at",
+    "status",
+    "source",
+    "nodes",
+    "edges",
+    "summary"
+  ],
+  "title": "Agent Hub OrchestrateDAG",
+  "type": "object"
+}

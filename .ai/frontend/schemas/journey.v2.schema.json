@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/frontend/journey.v2.schema.json",
+  "title": "Frontend Persona Journey v2",
+  "description": "v2 extends journey.schema.json with a stable id field and step objects aligned to the neutral ecosystem-definition step shape (id, actor, action, surface, expects). v1 files remain valid against journey.schema.json; new tasks use v2.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "persona",
+    "goal",
+    "entryPoint",
+    "happyPath",
+    "states",
+    "acceptanceTests",
+    "steps"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "2.0" },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable journey identifier; used as prefix of step node IDs."
+    },
+    "name": { "type": "string" },
+    "persona": { "type": "string" },
+    "goal": { "type": "string" },
+    "entryPoint": { "type": "string" },
+    "happyPath": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "alternatePaths": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "states": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "acceptanceTests": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Typed steps with stable node IDs aligned to ecosystem-definition step shape.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "actor", "action", "surface", "expects"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$",
+            "description": "Node ID in the format <journey-id>.<step-slug>."
+          },
+          "actor": { "type": "string", "minLength": 1 },
+          "action": { "type": "string", "minLength": 1 },
+          "surface": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "value"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["route", "endpoint", "cli_command", "job", "event_topic", "file_format"]
+              },
+              "value": { "type": "string", "minLength": 1 }
+            }
+          },
+          "expects": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

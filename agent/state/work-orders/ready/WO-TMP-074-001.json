@@ -1,0 +1,109 @@
+{
+  "acceptance_tests": [
+    "admin_activity_logs has zero tenantless live rows and tenant-create audit rows bind to the created tenant, not blanket nrg.",
+    "notifications has zero tenantless live rows and notification tenant nullable cleanup is represented by a forward migration.",
+    "Public campaign GET /v1/campaigns/{slug} and GET /v1/campaigns no longer expose tenant_id IS NULL compatibility.",
+    "Existing tenant-aware public campaign GET /v1/campaigns/{tenant_key}/{slug} remains supported."
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-074-tenant-null-residual-cleanup.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-074",
+  "hashes": {
+    "classification_hash": "sha256:a87a7964b4564ad55a845bac9cb77dbefb3b2eb6ed1b64ab6af88e7ea67ac206",
+    "contract_hash": "sha256:7fe287205076c88f865bfc7fc58f1145f134d1d113ea6346c5a4500326e3d301",
+    "issue_hash": "sha256:6d626820b1c80e0c13ce7cebd24fb2daf66c5621564f2b1c791c05e59b9d62d0"
+  },
+  "issue_id": "TMP-074",
+  "non_goals": [
+    "Do not rewrite historical migrations.",
+    "Do not change unrelated tenant onboarding or admin UI behavior."
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "tenant residual cleanup and public campaign route enforcement",
+    "outcome": "documented residual tenant-null gaps are converted into tenant-owned rows and fail-closed runtime behavior.",
+    "trigger": "TMP-055 shipped with documented non-blocking residual gaps after canonical tenant runtime enforcement."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "Live SQL proof for admin_activity_logs, notifications, campaigns, and legacy partial indexes.",
+    "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler",
+    "cd services/subscription-external && go test ./internal/repository ./internal/service",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "scripts/db-migrate-tenant-platform.sh",
+      "services/acquisition-api/internal/handler/campaign_handler.go",
+      "services/acquisition-api/internal/handler/campaign_handler_test.go",
+      "services/acquisition-api/internal/service/campaign_service.go",
+      "services/acquisition-api/internal/service/campaign_service_test.go",
+      "services/acquisition-api/internal/repository/campaign_repository.go",
+      "services/acquisition-api/internal/repository/admin_management_repository.go",
+      "services/acquisition-api/internal/repository/admin_management_repository_test.go",
+      "services/acquisition-api/migrations/**",
+      "services/subscription-external/migrations/**",
+      "docs/**",
+      "agent/backlog/issues/TMP-074-tenant-null-residual-cleanup.md",
+      "agent/state/TMP-074.work-order.json",
+      "agent/state/TMP-074.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-074-tenant-null-residual-cleanup/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**/go.mod",
+      "services/**/go.sum",
+      "docker-compose*.yml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "scripts/db-migrate-tenant-platform.sh",
+      "services/acquisition-api/internal/handler/campaign_handler.go",
+      "services/acquisition-api/internal/handler/campaign_handler_test.go",
+      "services/acquisition-api/internal/service/campaign_service.go",
+      "services/acquisition-api/internal/service/campaign_service_test.go",
+      "services/acquisition-api/internal/repository/campaign_repository.go",
+      "services/acquisition-api/internal/repository/admin_management_repository.go",
+      "services/acquisition-api/internal/repository/admin_management_repository_test.go",
+      "services/acquisition-api/migrations/**",
+      "services/subscription-external/migrations/**",
+      "docs/**",
+      "agent/backlog/issues/TMP-074-tenant-null-residual-cleanup.md",
+      "agent/state/TMP-074.work-order.json",
+      "agent/state/TMP-074.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-074-tenant-null-residual-cleanup/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-074-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

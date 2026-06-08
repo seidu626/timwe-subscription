@@ -1,0 +1,56 @@
+{
+  "$id": "https://agent-hub/schemas/learning-retrospective.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "evidence_refs": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "lessons": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "next_capability_refs": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "retrospective_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "runtime": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "window": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "retrospective_id",
+    "runtime",
+    "window",
+    "evidence_refs",
+    "lessons",
+    "next_capability_refs"
+  ],
+  "title": "Learning Retrospective",
+  "type": "object"
+}

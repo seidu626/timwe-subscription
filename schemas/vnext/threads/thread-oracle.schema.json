@@ -1,0 +1,51 @@
+{
+  "$id": "thread-oracle.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "final_proof_required": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "proof_type": {
+      "enum": [
+        "test",
+        "demo",
+        "artifact",
+        "benchmark",
+        "source_backed_answer",
+        "release_check",
+        "human_decision",
+        "mixed"
+      ]
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "signal": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "verification_commands": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "weak_proof_allowed": {
+      "const": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "signal",
+    "proof_type",
+    "verification_commands",
+    "final_proof_required",
+    "weak_proof_allowed"
+  ],
+  "type": "object"
+}

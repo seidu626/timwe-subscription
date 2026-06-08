@@ -1,0 +1,27 @@
+{
+  "$id": "https://agent-hub.local/schemas/coop-audit.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "counts": {
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "warn",
+        "fail"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "status",
+    "counts"
+  ],
+  "title": "Coop Audit",
+  "type": "object"
+}

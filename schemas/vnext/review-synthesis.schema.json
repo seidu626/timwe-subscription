@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReviewSynthesis",
+  "description": "Schema for the synthesis of multiple review lanes.",
+  "type": "object",
+  "properties": {
+    "overall_status": {
+      "description": "The final, synthesized status of the review.",
+      "type": "string",
+      "enum": ["pass", "warn", "fail", "block"]
+    },
+    "deduplicated_findings": {
+      "description": "A list of deduplicated findings from all lanes.",
+      "type": "array",
+      "items": {
+        "$ref": "review-lane.schema.json#/properties/findings/items"
+      }
+    },
+    "contradictions": {
+      "description": "A list of contradictions found between review lanes.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "finding": {
+            "description": "The finding that has contradictory reports.",
+            "type": "string"
+          },
+          "lanes": {
+            "description": "The lanes that have contradictory reports on this finding.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["finding", "lanes"]
+      }
+    }
+  },
+  "required": ["overall_status", "deduplicated_findings", "contradictions"]
+}

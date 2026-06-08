@@ -1,0 +1,114 @@
+{
+  "$id": "https://agent-hub/schemas/agent-teacher/teacher-hint.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "applies_when": {
+      "additionalProperties": false,
+      "properties": {
+        "action_type": {
+          "type": "string"
+        },
+        "target_pattern": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_type",
+        "target_pattern"
+      ],
+      "type": "object"
+    },
+    "approvals": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "model_family": {
+            "type": "string"
+          },
+          "reviewer": {
+            "type": "string"
+          },
+          "runtime": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "accepted",
+              "rejected"
+            ]
+          }
+        },
+        "required": [
+          "runtime",
+          "model_family",
+          "reviewer",
+          "status"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "failure_kind": {
+      "type": "string"
+    },
+    "hint_id": {
+      "type": "string"
+    },
+    "instruction": {
+      "maxLength": 1000,
+      "type": "string"
+    },
+    "origin": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "type": "string"
+        },
+        "model_family": {
+          "type": "string"
+        },
+        "runtime": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runtime",
+        "model_family",
+        "agent_id"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "source_event_id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "accepted",
+        "rejected",
+        "retired"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "hint_id",
+    "status",
+    "failure_kind",
+    "applies_when",
+    "instruction",
+    "source_event_id",
+    "origin",
+    "approvals",
+    "created_at"
+  ],
+  "title": "Agent Teacher Hint",
+  "type": "object"
+}

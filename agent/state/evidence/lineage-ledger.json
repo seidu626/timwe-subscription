@@ -1,0 +1,293 @@
+{
+  "records": [
+    {
+      "artifact_ref": "/home/xper626/workspace/agent-hub/tools/agent_hub/schemas.py:14-156 defines SCHEMA_REGISTRY entries as repo-relative paths including schemas/vnext/goal-spec.schema.json, schemas/vnext/work-order.v2.schema.json, schemas/subagent-policy.schema.json, and eight .ai/frontend/schemas files.",
+      "created_at": "2026-06-08T05:41:59Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/schema-provenance/result.json",
+      "record_id": "lineage-0001-88f7dcf5",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "/home/xper626/workspace/agent-hub/tools/agent_hub/schemas.py:207-227 shows validate_all_known_schemas(root) checks each registered path under the caller-provided root and reports missing files.",
+      "created_at": "2026-06-08T05:42:00Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/schema-provenance/result.json",
+      "record_id": "lineage-0002-4d198a03",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "/home/xper626/workspace/agent-hub/tools/agent_hub/cli.py:134-143 and 1371-1374 show agent-hub schema has validate/validate-all only and passes --root to validate_all_known_schemas.",
+      "created_at": "2026-06-08T05:42:00Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/schema-provenance/result.json",
+      "record_id": "lineage-0003-293788ae",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "/home/xper626/workspace/agent-hub/tools/agent_hub/graph_kernel.py:87-92 states dispatch-ready validation needs schemas under the synthetic root and copies root/schemas when available.",
+      "created_at": "2026-06-08T05:42:00Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/schema-provenance/result.json",
+      "record_id": "lineage-0004-d0bde2fc",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "/home/xper626/workspace/agent-hub/tools/agent_hub/state_scaffold.py:1 and 47-64 identify state scaffold as only creating canonical agent/state subdirectories.",
+      "created_at": "2026-06-08T05:42:00Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/schema-provenance/result.json",
+      "record_id": "lineage-0005-bea1c78a",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "/home/xper626/.agents/agent-policies/policy-src/shared-core.md:190-194 and global-mandate.md:14-17 require schema validate-all for agent/state repos but do not provide a schema install command.",
+      "created_at": "2026-06-08T05:42:01Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/schema-provenance/result.json",
+      "record_id": "lineage-0006-49340da1",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "Live target summary: agent-hub schema validate-all --root . --json reported status=fail, schemas_checked=126, missing=126, invalid=0.",
+      "created_at": "2026-06-08T05:42:01Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/schema-provenance/result.json",
+      "record_id": "lineage-0007-5467726f",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "Live canonical summary: agent-hub schema validate-all --root /home/xper626/workspace/agent-hub --json reported status=pass, schemas_checked=126, missing=0, invalid=0.",
+      "created_at": "2026-06-08T05:42:01Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/schema-provenance/result.json",
+      "record_id": "lineage-0008-500b3af5",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "Inventory: /home/xper626/workspace/agent-hub/schemas has 147 files, schemas/vnext has 126 files, and /home/xper626/workspace/agent-hub/.ai/frontend/schemas has 8 files; target worktree had no files under schemas or .ai/frontend/schemas.",
+      "created_at": "2026-06-08T05:42:02Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/schema-provenance/result.json",
+      "record_id": "lineage-0009-e75e37f1",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/reconcile-summary.json",
+      "created_at": "2026-06-08T05:42:02Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/result.json",
+      "record_id": "lineage-0010-5b9c4085",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/migration-plan-summary.json",
+      "created_at": "2026-06-08T05:42:02Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/result.json",
+      "record_id": "lineage-0011-77f1afb2",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/workorder-migration-mapping.tsv",
+      "created_at": "2026-06-08T05:42:03Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/result.json",
+      "record_id": "lineage-0012-0b22b224",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/sample-status-lines.txt",
+      "created_at": "2026-06-08T05:42:03Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/result.json",
+      "record_id": "lineage-0013-21ec5650",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/sample-manifest-status.tsv",
+      "created_at": "2026-06-08T05:42:03Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/result.json",
+      "record_id": "lineage-0014-c251eebc",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/tmp074-handoff-summary.json",
+      "created_at": "2026-06-08T05:42:03Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/result.json",
+      "record_id": "lineage-0015-a9d7a6ed",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/legacy-work-order-tmp011-dry-run.json",
+      "created_at": "2026-06-08T05:42:04Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/result.json",
+      "record_id": "lineage-0016-aee460d7",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/apply-safe-dry-run.stderr",
+      "created_at": "2026-06-08T05:42:04Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/result.json",
+      "record_id": "lineage-0017-feebb004",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/apply-review-dry-run.stderr",
+      "created_at": "2026-06-08T05:42:04Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/result.json",
+      "record_id": "lineage-0018-72bdfa65",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/reconcile-baseline-dry-run.json",
+      "created_at": "2026-06-08T05:42:04Z",
+      "kind": "evidence_record",
+      "parent_id": "/home/xper626/workspace/worktrees/codex-multitenant-onboarding-20260608-043933/.harness/runs/t0-control-plane-20260608-0528/members/workorder-migration/result.json",
+      "record_id": "lineage-0019-3206bd38",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "agent/state/goals/T0-control-plane-evidence-reconciliation.json",
+      "created_at": "2026-06-08T05:43:09Z",
+      "kind": "goal_spec",
+      "parent_id": "T0-control-plane-20260608-0528",
+      "record_id": "lineage-0020-3b85f60d",
+      "rel": "defines",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/review/WO-T0-CONTROL-PLANE-AND-EVIDENCE-RECONCILIATION-REC.json",
+      "created_at": "2026-06-08T05:43:09Z",
+      "kind": "work_order",
+      "parent_id": "agent/state/goals/T0-control-plane-evidence-reconciliation.json",
+      "record_id": "lineage-0021-82a495f6",
+      "rel": "derives_from",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/schema-validate-final-clean.json",
+      "created_at": "2026-06-08T05:48:48Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "record_id": "lineage-0022-6e41d6f3",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/reconcile-final-clean.json",
+      "created_at": "2026-06-08T05:48:49Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "record_id": "lineage-0023-fc38c029",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/dispatch-ready-final-clean.json",
+      "created_at": "2026-06-08T05:48:49Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "record_id": "lineage-0024-e089081d",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/git-diff-check-final-clean.txt",
+      "created_at": "2026-06-08T05:48:49Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "record_id": "lineage-0025-42022b40",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/workorder-migration-mapping.tsv",
+      "created_at": "2026-06-08T05:48:49Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "record_id": "lineage-0026-1ac7e5ba",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/safe-transaction-log.json",
+      "created_at": "2026-06-08T05:48:50Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "record_id": "lineage-0027-8f4e95d8",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/safe-rollback-manifest.json",
+      "created_at": "2026-06-08T05:48:50Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "record_id": "lineage-0028-aa27b9d8",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/review-manual-transaction-log.json",
+      "created_at": "2026-06-08T05:48:50Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "record_id": "lineage-0029-0575e5d7",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/review-manual-rollback-manifest.json",
+      "created_at": "2026-06-08T05:48:51Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "record_id": "lineage-0030-0a6900fb",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "agent/state/evidence/lineage-ledger.json",
+      "created_at": "2026-06-08T05:48:51Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "record_id": "lineage-0031-1979a0d9",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-control-plane-20260608-0528/members/t0-implementation/result.json",
+      "created_at": "2026-06-08T05:48:51Z",
+      "kind": "result_capsule",
+      "parent_id": "agent/state/work-orders/review/WO-T0-CONTROL-PLANE-AND-EVIDENCE-RECONCILIATION-REC.json",
+      "record_id": "lineage-0032-abc14f6b",
+      "rel": "reports",
+      "skill": "repository-codebase-governance"
+    }
+  ],
+  "schema_version": "1.0"
+}

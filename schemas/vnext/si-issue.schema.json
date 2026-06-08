@@ -1,0 +1,91 @@
+{
+  "$id": "https://agent-hub.local/schemas/si-issue.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cluster_signature": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "id": {
+      "type": "string"
+    },
+    "issue_type": {
+      "enum": [
+        "recurring_failure",
+        "tooling_gap",
+        "workflow_gap",
+        "verification_gap",
+        "policy_gap",
+        "environment_fact",
+        "bug",
+        "missing_feature",
+        "unknown"
+      ]
+    },
+    "owner_runtime": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "signal_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "open",
+        "investigating",
+        "rca_ready",
+        "promoted",
+        "blocked",
+        "resolved",
+        "archived"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "issue_type",
+    "cluster_signature",
+    "signal_ids",
+    "status",
+    "severity",
+    "summary",
+    "evidence_refs",
+    "owner_runtime",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "SIIssue",
+  "type": "object"
+}

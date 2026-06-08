@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/work-order.v2.schema.json",
+  "title": "Agent-Hub WorkOrder v2",
+  "description": "Immutable execution contract derived from a GoalSpec and HVC classification. Runtime state belongs in RunState.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_order_id",
+    "goal_id",
+    "issue_id",
+    "class",
+    "assignment",
+    "objective",
+    "scope",
+    "dependencies",
+    "parallelism",
+    "context",
+    "acceptance_tests",
+    "required_evidence",
+    "non_goals",
+    "hashes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0"
+    },
+    "work_order_id": {
+      "type": "string",
+      "pattern": "^WO-[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "issue_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "class": {
+      "type": "string",
+      "enum": [
+        "vertical_slice",
+        "vertical_defect_slice",
+        "bounded_enabler",
+        "operational_slice",
+        "spike"
+      ]
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "reason",
+        "runtime_tier"
+      ],
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "review",
+            "block"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_tier": {
+          "type": "string",
+          "enum": [
+            "LOW",
+            "MED",
+            "HIGH"
+          ]
+        }
+      }
+    },
+    "objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "actor",
+        "entrypoint",
+        "trigger"
+      ],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entrypoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trigger": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_files",
+        "forbidden_files",
+        "write_locks"
+      ],
+      "properties": {
+        "allowed_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "write_locks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "read_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "depends_on",
+        "blocks"
+      ],
+      "properties": {
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "parallelism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parallel_safe",
+        "requires_isolated_worktree",
+        "max_parallel_group_size"
+      ],
+      "properties": {
+        "parallel_safe": {
+          "type": "boolean"
+        },
+        "parallel_group": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requires_isolated_worktree": {
+          "type": "boolean"
+        },
+        "max_parallel_group_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "max_initial_tokens",
+        "hydrate_on_demand"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "capsule_first",
+            "full_context_allowed",
+            "manual"
+          ]
+        },
+        "max_initial_tokens": {
+          "type": "integer",
+          "minimum": 200
+        },
+        "hydrate_on_demand": {
+          "type": "boolean"
+        },
+        "required_context_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "acceptance_tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required_skills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issue_hash",
+        "classification_hash",
+        "contract_hash"
+      ],
+      "properties": {
+        "issue_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "classification_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "contract_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

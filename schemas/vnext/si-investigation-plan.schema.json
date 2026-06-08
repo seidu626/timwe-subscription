@@ -1,0 +1,131 @@
+{
+  "$defs": {
+    "task": {
+      "additionalProperties": false,
+      "properties": {
+        "capsule_ref": {
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "lease": {
+          "type": "object"
+        },
+        "role": {
+          "type": "string"
+        },
+        "runtime": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "claimed",
+            "done",
+            "blocked",
+            "failed"
+          ]
+        },
+        "task_id": {
+          "type": "string"
+        },
+        "write_locks": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "role",
+        "runtime",
+        "status",
+        "depends_on",
+        "write_locks",
+        "capsule_ref",
+        "lease"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://agent-hub.local/schemas/si-investigation-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "type": "string"
+    },
+    "issue_id": {
+      "type": "string"
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "planned",
+        "running",
+        "blocked",
+        "completed"
+      ]
+    },
+    "summary": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "tasks": {
+      "items": {
+        "$ref": "#/$defs/task"
+      },
+      "type": "array"
+    },
+    "waves": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "parallel": {
+            "type": "boolean"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "wave_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wave_id",
+          "task_ids",
+          "parallel"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "plan_id",
+    "issue_id",
+    "status",
+    "created_at",
+    "tasks",
+    "waves",
+    "summary"
+  ],
+  "title": "SIInvestigationPlan",
+  "type": "object"
+}

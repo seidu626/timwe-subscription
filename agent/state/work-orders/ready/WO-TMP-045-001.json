@@ -1,0 +1,108 @@
+{
+  "acceptance_tests": [
+    "bash -n scripts/compose-db-bootstrap.sh",
+    "docker compose --env-file .env.example -f docker-compose.yml config --quiet",
+    "disposable PostgreSQL bootstrap applies ops/db/bootstrap/001_runtime_base.sql plus canonical service migrations",
+    "notification-worker, cadence-engine, and postback-dispatcher empty-poll query shapes run against the bootstrapped database",
+    "cd services/acquisition-api && go test ./internal/repository",
+    "cd services/notification && go test ./...",
+    "cd services/postback-dispatcher && go test ./..."
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid; observable_runtime_defect; bounded_compose_schema_bootstrap",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-045-compose-runtime-schema-bootstrap.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-045",
+  "hashes": {
+    "classification_hash": "sha256:4df1f7d41601dc68e5b44438eb2d5e1d7e347d7e2e8835933604c835a4c74f0b",
+    "contract_hash": "sha256:d078ddc8712f3e815bc426c446a4738c0591583515f6b6075e2efa5ba82d46e4",
+    "issue_hash": "sha256:a0f5a1ca7c291c4e0ff6692dd63aa7d6effbd06cb921b796e2340f5b329ebd57"
+  },
+  "issue_id": "TMP-045",
+  "non_goals": [
+    "Adding duplicate postback or message outbox table definitions.",
+    "Changing runtime Go repository code.",
+    "Resolving local main divergence or webspa-admin submodule reproducibility."
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "docker compose up db-bootstrap acquisition-api notification-worker cadence-engine postback-dispatcher",
+    "outcome": "Clean compose database startup creates the base products/userbase, message_outbox, and postback_outbox prerequisites before runtime services begin polling or bootstrapping admin schema.",
+    "trigger": "Verifier starts the compose stack from an empty database after TMP-034/TMP-035/TMP-036 approvals are auto-granted."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "ops/db/bootstrap/001_runtime_base.sql",
+    "scripts/compose-db-bootstrap.sh",
+    "docker-compose.yml",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/backlog/issues/TMP-045-compose-runtime-schema-bootstrap.md",
+      "agent/state/TMP-045.work-order.json",
+      "agent/state/TMP-045.handoff.json",
+      "docker-compose.yml",
+      "ops/db/bootstrap/**",
+      "scripts/compose-db-bootstrap.sh",
+      "slices/manifest.json",
+      "slices/TMP-045-compose-runtime-schema-bootstrap/**",
+      "slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+      "slices/decisions/TMP-035-notification-message-outbox-schema.md",
+      "slices/decisions/TMP-036-postback-outbox-schema.md",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**/internal/**",
+      "services/**/cmd/**",
+      "frontend/**",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json",
+      ".git/**"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "agent/backlog/issues/TMP-045-compose-runtime-schema-bootstrap.md",
+      "agent/state/TMP-045.work-order.json",
+      "agent/state/TMP-045.handoff.json",
+      "docker-compose.yml",
+      "ops/db/bootstrap/**",
+      "scripts/compose-db-bootstrap.sh",
+      "slices/manifest.json",
+      "slices/TMP-045-compose-runtime-schema-bootstrap/**",
+      "slices/decisions/TMP-034-acquisition-runtime-schema-provisioning.md",
+      "slices/decisions/TMP-035-notification-message-outbox-schema.md",
+      "slices/decisions/TMP-036-postback-outbox-schema.md",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-045-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "$id": "https://agent-hub.local/schemas/si-pattern.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "observed_in": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "signature": {
+      "type": "string"
+    },
+    "suggested_action": {
+      "type": "string"
+    },
+    "support": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "signature",
+    "support",
+    "confidence",
+    "suggested_action",
+    "observed_in",
+    "created_at"
+  ],
+  "title": "SIPattern",
+  "type": "object"
+}

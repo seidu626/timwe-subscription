@@ -1,0 +1,42 @@
+{
+  "$id": "https://agent-hub.local/schemas/si-audit-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "warn",
+        "fail"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "status",
+    "created_at",
+    "counts",
+    "findings"
+  ],
+  "title": "SIAuditReport",
+  "type": "object"
+}

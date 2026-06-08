@@ -1,0 +1,48 @@
+{
+  "$id": "https://agent-hub.local/schemas/worktree-deletion-intent.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "approved_by": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "paths": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "policy": {
+      "enum": [
+        "block-resurrection",
+        "warn-resurrection"
+      ],
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "source_ref": {
+      "type": "string"
+    },
+    "source_sha": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "source_ref",
+    "source_sha",
+    "paths",
+    "policy"
+  ],
+  "title": "Agent Hub Worktree Deletion Intent",
+  "type": "object"
+}

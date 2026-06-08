@@ -1,0 +1,86 @@
+{
+  "acceptance_tests": [
+    "Acquisition/admin tenant-owned tables have row-count proof for tenant_id IS NULL.",
+    "If credentials are unavailable, blocker evidence names the exact missing env/tool.",
+    "No remote database mutation is performed."
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "bounded_enabler",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-053-acquisition-tenant-null-proof.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-053",
+  "hashes": {
+    "classification_hash": "sha256:fa482b1322a980efdf9feb8d0b5e1e753d2a69c8139360a7cdda5fea7111848c",
+    "contract_hash": "sha256:ad96aefe4304566956e92bb2cc8bc70777d6c2c64f3f42bf89f04ad44932bbf0",
+    "issue_hash": "sha256:1048f525a4849ae06e2303c17f9d2dc3b195706f6cc998c26d8cd187452733e2"
+  },
+  "issue_id": "TMP-053",
+  "non_goals": [
+    "Do not add NOT NULL constraints in this proof slice.",
+    "Do not change acquisition runtime code in this proof slice."
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "read-only acquisition tenantless row-count audit",
+    "outcome": "acquisition/admin tenant-owned tables are proven ready or blocked for canonical tenant enforcement.",
+    "trigger": "TMP-052 found acquisition runtime and migration nullable tenant paths."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "read-only tenantless row-count SQL for campaigns, acquisition_transactions, postback_outbox, products, userbase, userbase_import_jobs, userbase_import_errors, and admin_activity_logs",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/backlog/issues/TMP-053-acquisition-tenant-null-proof.md",
+      "agent/state/TMP-053.work-order.json",
+      "agent/state/TMP-053.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-053-acquisition-tenant-null-proof/**",
+      "docs/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**/go.mod",
+      "services/**/go.sum",
+      "docker-compose*.yml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "agent/backlog/issues/TMP-053-acquisition-tenant-null-proof.md",
+      "agent/state/TMP-053.work-order.json",
+      "agent/state/TMP-053.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-053-acquisition-tenant-null-proof/**",
+      "docs/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-053-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

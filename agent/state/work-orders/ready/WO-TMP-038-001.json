@@ -1,0 +1,93 @@
+{
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "test -f slices/TMP-038-local-main-integration-strategy/value-gate-report.md",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-038-local-main-integration-strategy.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-038",
+  "hashes": {
+    "classification_hash": "sha256:96d5241889837239db487856e6a6e3ea17cc6abfc82187a45e4752a080c2b769",
+    "contract_hash": "sha256:751de142c89eeea734c972d8f0daa5799049336af753b7675d2e6b1d3d6b5082",
+    "issue_hash": "sha256:3252982fa4a87596c13440a72af56c7a7f7357e70e541ac674aa7aba68794cce"
+  },
+  "issue_id": "TMP-038",
+  "non_goals": [],
+  "objective": {
+    "actor": "repo-maintainer",
+    "entrypoint": "/home/xper626/workspace/apps/timwe-subscription main branch",
+    "outcome": "The divergent primary local main branch is reconciled with origin/main through an explicit integration strategy instead of accidental merge conflict resolution.",
+    "trigger": "Verifier compares primary checkout main against origin/main during full-system verification."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "git status --short --branch in primary checkout",
+    "failed git merge --no-edit origin/main probe",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-038-local-main-integration-strategy/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/backlog/issues/TMP-038-local-main-integration-strategy.md",
+      "agent/state/TMP-038.work-order.json",
+      "agent/state/TMP-038.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-038-local-main-integration-strategy/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**",
+      "common/**",
+      "frontend/**",
+      "ops/**",
+      "docker-compose*.yml",
+      "Makefile",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json",
+      ".git/**"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "agent/backlog/issues/TMP-038-local-main-integration-strategy.md",
+      "agent/state/TMP-038.work-order.json",
+      "agent/state/TMP-038.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-038-local-main-integration-strategy/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-038-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

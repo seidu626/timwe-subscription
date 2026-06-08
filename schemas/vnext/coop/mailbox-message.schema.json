@@ -1,0 +1,35 @@
+{
+  "$id": "https://agent-hub/schemas/mailbox-message.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "created_at": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "message_id": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "to_runtime": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "message_id",
+    "session_id",
+    "to_runtime",
+    "kind",
+    "created_at"
+  ],
+  "title": "Runtime Mailbox Message",
+  "type": "object"
+}

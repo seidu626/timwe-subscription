@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "runtime": "claude",
+  "inherits": ["subagent-default"],
+  "native_subagents": true,
+  "default_roles": ["supervisor", "explorer", "reviewer", "doc-writer"],
+  "can_spawn_native_subagents": true,
+  "must_use_capsule": true,
+  "result_contract": "worker_result_capsule",
+  "dispatch_profile_ref": "runtime-dispatch-profile.json#/runtimes/claude"
+}

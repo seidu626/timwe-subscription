@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UI State Contract",
+  "type": "object",
+  "required": [
+    "name",
+    "trigger",
+    "userMessage",
+    "availableActions"
+  ],
+  "properties": {
+    "name": {
+      "enum": [
+        "loading",
+        "empty",
+        "filtered_empty",
+        "ready",
+        "validation_error",
+        "network_error",
+        "permission_denied",
+        "success",
+        "destructive_confirm"
+      ]
+    },
+    "trigger": {
+      "type": "string"
+    },
+    "userMessage": {
+      "type": "string"
+    },
+    "availableActions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "telemetry": {
+      "type": "string"
+    }
+  }
+}

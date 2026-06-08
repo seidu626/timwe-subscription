@@ -1,0 +1,85 @@
+{
+  "acceptance_tests": [
+    "jq '.slices[] | select(.id==\"TMP-021\")' slices/manifest.json",
+    "test -f slices/TMP-021-full-system-verification/value-gate-report.md",
+    "jq empty slices/manifest.json",
+    "slice-harness status"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-025-tmp021-metadata-reconciliation.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-025",
+  "hashes": {
+    "classification_hash": "sha256:15a2100dac004ecb13674be3bb5c8d6efa740f488375e2c01fed38e33a7022d2",
+    "contract_hash": "sha256:db33eb6bb7d236d28b35c0f68e364d9b0ad628ac3182a778838c2cd45d1a039b",
+    "issue_hash": "sha256:359f9e44a8e5b38747720236f44cc06368c39c4e2f02f4a857a394f62e838e66"
+  },
+  "issue_id": "TMP-025",
+  "non_goals": [],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "slices/manifest.json and TMP-021 value-gate report",
+    "outcome": "Release verification status shows TMP-021 blocked with its own evidence instead of another slice's landing-web evidence.",
+    "trigger": "Operator inspects release-readiness status after full-system verification."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "slice-harness sync --dry-run",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-025-tmp021-metadata-reconciliation/**",
+      "agent/backlog/issues/TMP-025-tmp021-metadata-reconciliation.md",
+      "agent/state/TMP-025.work-order.json",
+      ".agent/**"
+    ],
+    "forbidden_files": [
+      "common/**",
+      "services/**",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-025-tmp021-metadata-reconciliation/**",
+      "agent/backlog/issues/TMP-025-tmp021-metadata-reconciliation.md",
+      "agent/state/TMP-025.work-order.json",
+      ".agent/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-025-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

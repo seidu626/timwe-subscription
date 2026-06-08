@@ -1,0 +1,83 @@
+{
+  "acceptance_tests": [
+    "jq '.slices[] | select(.id==\"TMP-022\" or .id==\"TMP-023\")' slices/manifest.json",
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-024-slice-registry-evidence-reconciliation.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-024",
+  "hashes": {
+    "classification_hash": "sha256:4be3813a3b0d2582935282e5e3a5cca42f981b1d8e029928b4f3c1c9a2ecbc96",
+    "contract_hash": "sha256:301f3df106bea5bc202790e813b47eeefb3d0229375c392875e764db9525557e",
+    "issue_hash": "sha256:244bc19aa07815234ddbaf83e3abf57a487612692934e22662ad7f8a90da1975"
+  },
+  "issue_id": "TMP-024",
+  "non_goals": [],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "slices/manifest.json",
+    "outcome": "Release-readiness reports and control-plane dashboards show truthful slice states and evidence paths.",
+    "trigger": "Operator inspects shipped full-system verification state."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "slice-harness sync --dry-run",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "slices/manifest.json",
+      "slices/TMP-024-slice-registry-evidence-reconciliation/**",
+      "agent/backlog/issues/TMP-024-slice-registry-evidence-reconciliation.md",
+      "agent/state/TMP-024.work-order.json",
+      ".agent/**"
+    ],
+    "forbidden_files": [
+      "common/**",
+      "services/**",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "slices/manifest.json",
+      "slices/TMP-024-slice-registry-evidence-reconciliation/**",
+      "agent/backlog/issues/TMP-024-slice-registry-evidence-reconciliation.md",
+      "agent/state/TMP-024.work-order.json",
+      ".agent/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-024-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

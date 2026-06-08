@@ -1,0 +1,112 @@
+{
+  "$id": "https://agent-hub/schemas/mode-route.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "dispatch_style": {
+      "enum": [
+        "direct",
+        "single_agent",
+        "parallel_agents",
+        "supervisor_loop"
+      ]
+    },
+    "evidence_contract": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "goal_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "author",
+        "build",
+        "diagnose",
+        "evaluate",
+        "explore",
+        "forensics",
+        "optimize",
+        "orchestrate",
+        "plan",
+        "repair",
+        "reshape",
+        "restore",
+        "verify"
+      ]
+    },
+    "mode_route_id": {
+      "pattern": "^mode-route-[a-f0-9]{16}$",
+      "type": "string"
+    },
+    "playbook": {
+      "enum": [
+        "investigation",
+        "bug_fix",
+        "performance",
+        "runtime_forensics",
+        "trace_forensics",
+        "feature",
+        "refactoring",
+        "prototype",
+        "visual_parity",
+        "skill_authoring",
+        "eval",
+        "autonomous_run",
+        "session_pickup",
+        "multi_phase_plan"
+      ]
+    },
+    "principles": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "required_gates": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "review_style": {
+      "enum": [
+        "adversarial_review",
+        "eval_review",
+        "evidence_review",
+        "lint_review",
+        "operator_review",
+        "peer_review",
+        "visual_review"
+      ]
+    },
+    "schema_version": {
+      "const": "1.0"
+    }
+  },
+  "required": [
+    "schema_version",
+    "mode_route_id",
+    "mode",
+    "playbook",
+    "principles",
+    "required_gates",
+    "dispatch_style",
+    "review_style",
+    "evidence_contract"
+  ],
+  "title": "Agent Hub Mode Route",
+  "type": "object"
+}

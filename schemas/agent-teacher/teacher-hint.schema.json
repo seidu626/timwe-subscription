@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/agent-teacher/teacher-hint.schema.json",
+  "title": "Trajectory Teacher Hint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "hint_id",
+    "goal_id",
+    "goal_revision",
+    "criterion_refs",
+    "status",
+    "applies_when",
+    "instruction",
+    "source_event_id",
+    "origin"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "kind": { "type": "string", "const": "teacher_hint" },
+    "hint_id": { "type": "string", "minLength": 1 },
+    "goal_id": { "type": "string", "minLength": 1 },
+    "goal_revision": { "type": "integer", "minimum": 1 },
+    "criterion_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "criterion"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "criterion": { "type": "string", "minLength": 1 },
+          "matched_terms": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "accepted", "rejected"]
+    },
+    "applies_when": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_type"],
+      "properties": {
+        "action_type": { "type": "string", "minLength": 1 },
+        "target_pattern": { "type": "string", "minLength": 1 },
+        "failure_kind": { "type": "string", "minLength": 1 },
+        "runtime": { "type": "string", "enum": ["claude", "codex", "gemini", "copilot", "unknown"] },
+        "phase": { "type": "string", "minLength": 1 }
+      }
+    },
+    "instruction": { "type": "string", "minLength": 1 },
+    "source_event_id": { "type": "string", "minLength": 1 },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime", "model_family", "session_id"],
+      "properties": {
+        "runtime": { "type": "string", "enum": ["claude", "codex", "gemini", "copilot", "unknown"] },
+        "model_family": { "type": "string", "enum": ["claude", "gpt", "gemini", "copilot", "unknown"] },
+        "session_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime", "model_family", "reviewed_at", "verdict"],
+      "properties": {
+        "runtime": { "type": "string", "enum": ["claude", "codex", "gemini", "copilot"] },
+        "model_family": { "type": "string", "enum": ["claude", "gpt", "gemini", "copilot"] },
+        "reviewed_at": { "type": "string", "minLength": 1 },
+        "verdict": { "type": "string", "enum": ["accepted", "rejected"] }
+      }
+    },
+    "raw_log_payload": {
+      "description": "Optional bounded diagnostic payload. Validator rejects >=10KB or objects with more than 10 keys.",
+      "type": ["object", "array", "string", "number", "boolean", "null"]
+    }
+  }
+}

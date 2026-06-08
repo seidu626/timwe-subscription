@@ -1,0 +1,52 @@
+{
+  "classification_hints": {
+    "domains": [
+      "workflow",
+      "schemas",
+      "hvc"
+    ],
+    "likely_hvc_class": "bounded_enabler",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-08T05:38:07Z",
+  "goal_id": "goal-20260608T053807Z-t0-control-plane-and-evi",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "T0 Control Plane And Evidence Reconciliation: reconcile stale slice/task state before dispatching product work. Scope is harness/control-plane artifacts only: TMP-071 collision, stale .harness ready lists, v1 WorkOrders, schema validate-all failures, reconcile --check failures, and a manifest/backlog mapping table. Acceptance proof: agent-hub schema validate-all --root . --json passes; agent-hub reconcile --root . --check --json passes or reports only explicitly accepted external blockers; dispatch ready can run; evidence ledger records the reconciliation artifact; product code paths under services/**, frontend/webspa-admin/src/**, and common/** are forbidden.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "Generated WorkOrders validate against WorkOrder v2 schema.",
+        "Dispatch plan proves dependencies and write locks are safe."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "T0 Control Plane And Evidence Reconciliation: reconcile stale slice/task state before dispatching product work. Scope is harness/control-plane artifacts only: TMP-071 collision, stale .harness ready lists, v1 WorkOrders, schema validate-all failures, reconcile --check failures, and a manifest/backlog mapping table. Acceptance proof: agent-hub schema validate-all --root . --json passes; agent-hub reconcile --root . --check --json passes or reports only explicitly accepted external blockers; dispa",
+    "prompt_hash": "sha256:3d3850f6dfb6310a6a4830e424a1a7bd57b13e3445f5371c38cdd18e71a9d0c1",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "Generated WorkOrders validate against WorkOrder v2 schema.",
+    "Dispatch plan proves dependencies and write locks are safe."
+  ],
+  "title": "T0 Control Plane And Evidence Reconciliation: reconcile stale slice/task state before disp"
+}

@@ -1,0 +1,103 @@
+{
+  "acceptance_tests": [
+    "test -f docs/agent/release-decision-packet-2026-05-09.md",
+    "test -f slices/TMP-042-release-decision-packet/value-gate-report.md",
+    "jq empty slices/manifest.json agent/state/TMP-042.work-order.json agent/state/TMP-042.handoff.json .agent/tasks.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-042-release-decision-packet.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-042",
+  "hashes": {
+    "classification_hash": "sha256:fcb28de13851a160974359653871045f3c9cebb7b201eef83ddb691384030bf2",
+    "contract_hash": "sha256:8cd494b400054d2c3843641a5920b4c6619b979918a3022fe75a13f79a50a360",
+    "issue_hash": "sha256:90417f66f0b0a3e8019c143e0bd5f34f3cabdf2178cf88c46d37cd8028dfb13c"
+  },
+  "issue_id": "TMP-042",
+  "non_goals": [
+    "schema changes",
+    "migration changes",
+    "compose changes",
+    "dependency changes",
+    "package manifest or lockfile changes",
+    "submodule changes",
+    "branch integration"
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "Full-system verification blocked queue",
+    "outcome": "The remaining full-system verification blockers are reduced to explicit decision records with choices, affected slices, and verification proof required after approval.",
+    "trigger": "Supervisor reports no ready tasks while release verification remains blocked."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "docs/agent/release-decision-packet-2026-05-09.md",
+    "slices/TMP-042-release-decision-packet/value-gate-report.md",
+    "agent/state/TMP-042.handoff.json"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/backlog/issues/TMP-042-release-decision-packet.md",
+      "agent/state/TMP-042.work-order.json",
+      "agent/state/TMP-042.handoff.json",
+      "docs/agent/release-decision-packet-2026-05-09.md",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-042-release-decision-packet/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**",
+      "common/**",
+      "frontend/**",
+      "ops/**",
+      "docker-compose*.yml",
+      "Makefile",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json",
+      "*.sql",
+      ".git/**"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "agent/backlog/issues/TMP-042-release-decision-packet.md",
+      "agent/state/TMP-042.work-order.json",
+      "agent/state/TMP-042.handoff.json",
+      "docs/agent/release-decision-packet-2026-05-09.md",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-042-release-decision-packet/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-042-001"
+}

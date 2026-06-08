@@ -1,0 +1,97 @@
+{
+  "$id": "https://agent-hub/schemas/agent-capsule.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "acceptance_tests": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "allowed_files": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "capsule_id": {
+      "type": "string"
+    },
+    "context_pack_ref": {
+      "type": "string"
+    },
+    "forbidden_files": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "goal_id": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "required_evidence": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "return_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "required_fields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "required_fields"
+      ],
+      "type": "object"
+    },
+    "role": {
+      "type": "string"
+    },
+    "subagent_profile": {
+      "enum": [
+        "supervisor-full",
+        "worker-minimal",
+        "worker-governed",
+        "reviewer-readonly"
+      ]
+    },
+    "may_delegate": {
+      "type": "boolean"
+    },
+    "compact_safety_capsule": {
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "work_order_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "capsule_id",
+    "goal_id",
+    "work_order_id",
+    "role",
+    "objective",
+    "allowed_files",
+    "forbidden_files",
+    "acceptance_tests",
+    "required_evidence",
+    "context_pack_ref",
+    "return_contract"
+  ],
+  "title": "Agent Hub Agent Capsule",
+  "type": "object"
+}

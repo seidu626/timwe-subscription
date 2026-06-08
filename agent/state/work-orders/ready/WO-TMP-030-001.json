@@ -1,0 +1,102 @@
+{
+  "acceptance_tests": [
+    "DOCKER_CONFIG=<tmp> REGISTRY_AUTH_FILE=<tmp> docker compose --env-file .env.example -f docker-compose.yml -f /tmp/timwe-compose-auth-probe-override.yml build acquisition-api",
+    "jq empty slices/manifest.json agent/state/TMP-030.work-order.json agent/state/TMP-030.handoff.json .agent/tasks.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status && slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-030-acquisition-compose-build-context.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-030",
+  "hashes": {
+    "classification_hash": "sha256:db7ad8cd2fb2378ef4188b0f17098c86ed91b295e8438a5afc9083213d9acf84",
+    "contract_hash": "sha256:a10f9b507509b2dc30a737177086fbff7bab3fc49f0e6491ecee4aa350056034",
+    "issue_hash": "sha256:4cbf8882bfbb55dd42e95542fb835a12c41f8a1b55da492d2dbc3974aa6528db"
+  },
+  "issue_id": "TMP-030",
+  "non_goals": [],
+  "objective": {
+    "actor": "verification-agent",
+    "entrypoint": "docker-compose.yml acquisition-api build",
+    "outcome": "Acquisition API image builds in the local compose runtime path without requiring a stale service-local vendor tree.",
+    "trigger": "Verifier runs bounded compose runtime smoke."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "DOCKER_CONFIG=<tmp> REGISTRY_AUTH_FILE=<tmp> docker compose --env-file .env.example -f docker-compose.yml -f /tmp/timwe-compose-auth-probe-override.yml build acquisition-api",
+    "slices/TMP-030-acquisition-compose-build-context/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "docker-compose.yml",
+      "services/acquisition-api/Dockerfile",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-030-acquisition-compose-build-context/**",
+      "agent/backlog/issues/TMP-030-acquisition-compose-build-context.md",
+      "agent/state/TMP-030.work-order.json",
+      "agent/state/TMP-030.handoff.json",
+      "agent/state/TMP-021.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "common/**",
+      "services/acquisition-api/go.mod",
+      "services/acquisition-api/go.sum",
+      "services/acquisition-api/vendor/**",
+      "services/acquisition-api/internal/**",
+      "services/acquisition-api/cmd/**",
+      "services/*/go.mod",
+      "services/*/go.sum",
+      "services/*/vendor/**",
+      "frontend/**",
+      "package.json",
+      "package-lock.json",
+      "vendor/**"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "docker-compose.yml",
+      "services/acquisition-api/Dockerfile",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-030-acquisition-compose-build-context/**",
+      "agent/backlog/issues/TMP-030-acquisition-compose-build-context.md",
+      "agent/state/TMP-030.work-order.json",
+      "agent/state/TMP-030.handoff.json",
+      "agent/state/TMP-021.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-030-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

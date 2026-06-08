@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/evidence-lineage-ledger.schema.json",
+  "title": "Agent-Hub Evidence Lineage Ledger",
+  "description": "Append-only artifact-lineage ledger. Records the provenance graph of vNext artifacts (goal_spec -> work_order -> dispatch_plan -> context_pack -> agent_capsule -> evidence_record -> review_record, etc.) so reconcile can prove that every artifact a result capsule references was recorded with its parent and relationship.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "records"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record_id",
+          "kind",
+          "artifact_ref",
+          "created_at"
+        ],
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "goal_spec",
+              "work_order",
+              "dispatch_plan",
+              "context_pack",
+              "agent_capsule",
+              "evidence_record",
+              "review_record",
+              "adversarial_capsule",
+              "peer_grill_capsule",
+              "slice_spec",
+              "result_capsule",
+              "ecosystem_definition",
+              "unit_contract",
+              "intent_linkage_report",
+              "rewrite_decision",
+              "journey_regression_suite"
+            ]
+          },
+          "artifact_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "skill": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

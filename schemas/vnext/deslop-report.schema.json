@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Deslop Report",
+  "description": "A report on code quality issues found in a diff, focusing on 'deslopping' or cleaning up code.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$",
+      "description": "The semantic version of the schema."
+    },
+    "deslop_report_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "A unique identifier for this report."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "warn", "fail"],
+      "description": "The overall status of the deslop check."
+    },
+    "behavior_changed": {
+      "type": "boolean",
+      "description": "Flag indicating if the changes are suspected to alter behavior. Defaults to false."
+    },
+    "removed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "The type of issue detected."
+          },
+          "file": {
+            "type": "string",
+            "description": "The file where the issue was found."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of occurrences of this issue in the file."
+          }
+        },
+        "required": ["kind", "file", "count"]
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "References to external evidence, like log files or full diffs."
+    }
+  },
+  "required": ["schema_version", "deslop_report_id", "status", "behavior_changed"]
+}

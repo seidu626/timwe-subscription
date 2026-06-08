@@ -1,0 +1,106 @@
+{
+  "$id": "https://agent-hub/schemas/external-task-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "title": "Agent Hub External Task Result",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "external_task_id": {
+      "type": "string"
+    },
+    "work_order_id": {
+      "type": "string"
+    },
+    "runtime": {
+      "type": "string",
+      "enum": ["copilot"]
+    },
+    "status": {
+      "enum": [
+        "planned",
+        "opened",
+        "assigned",
+        "in_progress",
+        "pr_opened",
+        "needs_review",
+        "completed",
+        "merged",
+        "closed",
+        "failed"
+      ]
+    },
+    "issue_url": {
+      "type": ["string", "null"]
+    },
+    "pr_url": {
+      "type": ["string", "null"]
+    },
+    "branch": {
+      "type": ["string", "null"]
+    },
+    "ci_status": {
+      "enum": ["unknown", "none", "pending", "passing", "failing"]
+    },
+    "review_status": {
+      "enum": ["none", "pending", "approved", "changes_requested"]
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "merged": {
+      "type": "boolean"
+    },
+    "scope_status": {
+      "enum": ["unknown", "pass", "fail"]
+    },
+    "scope_violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "decision": {
+            "enum": ["forbidden", "out_of_scope"]
+          },
+          "matched_pattern": {
+            "type": ["string", "null"]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": ["path", "decision", "matched_pattern", "reason"]
+      }
+    },
+    "synced_at": {
+      "type": "string"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "external_task_id",
+    "work_order_id",
+    "runtime",
+    "status",
+    "ci_status",
+    "review_status",
+    "changed_files",
+    "merged",
+    "evidence_refs"
+  ]
+}

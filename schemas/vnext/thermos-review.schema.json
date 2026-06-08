@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ThermosReview",
+  "description": "Schema for the output of the Thermos review gate.",
+  "type": "object",
+  "properties": {
+    "work_order_id": {
+      "description": "The ID of the work order being reviewed.",
+      "type": "string"
+    },
+    "base_branch": {
+      "description": "The base branch used for the review diff.",
+      "type": "string"
+    },
+    "lanes": {
+      "description": "The individual review lanes.",
+      "type": "array",
+      "items": {
+        "$ref": "review-lane.schema.json"
+      }
+    },
+    "synthesis": {
+      "description": "The synthesized result of the review lanes.",
+      "$ref": "review-synthesis.schema.json"
+    }
+  },
+  "required": ["work_order_id", "base_branch", "lanes", "synthesis"]
+}

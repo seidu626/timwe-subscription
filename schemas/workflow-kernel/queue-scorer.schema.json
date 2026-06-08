@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub/schemas/workflow-kernel/queue-scorer.schema.json",
+  "title": "Agent Hub Workflow Kernel Queue Scorer Decision",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "kind",
+    "goal_id",
+    "goal_status",
+    "dry_run",
+    "updated_at",
+    "inputs",
+    "signals",
+    "next_action"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "kind": { "const": "queue_scorer_decision" },
+    "goal_id": { "type": ["string", "null"] },
+    "goal_status": { "type": ["string", "null"] },
+    "dry_run": { "type": "boolean" },
+    "updated_at": { "type": "string", "minLength": 1 },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goal_state_path", "dependency_graph_path", "runtime_count", "verdict_present"],
+      "properties": {
+        "goal_state_path": { "type": "string", "minLength": 1 },
+        "dependency_graph_path": { "type": "string", "minLength": 1 },
+        "runtime_count": { "type": "integer", "minimum": 0 },
+        "verdict_present": { "type": "boolean" }
+      }
+    },
+    "signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available_runtimes",
+        "stale_leases",
+        "blocked_tasks",
+        "dependency_blocked",
+        "review_ready",
+        "goal_evidence_complete",
+        "goal_gate"
+      ],
+      "properties": {
+        "available_runtimes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "stale_leases": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "blocked_tasks": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "dependency_blocked": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["task_id", "blocked_by"],
+            "properties": {
+              "task_id": { "type": "string", "minLength": 1 },
+              "blocked_by": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "review_ready": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "goal_evidence_complete": { "type": "boolean" },
+        "goal_gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["blocked", "reason"],
+          "properties": {
+            "blocked": { "type": "boolean" },
+            "reason": { "type": "string" }
+          }
+        }
+      }
+    },
+    "next_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verb", "reason", "dry_run", "required_inputs"],
+      "properties": {
+        "verb": {
+          "type": "string",
+          "enum": ["dispatch", "repair", "review", "checkpoint", "close", "idle"]
+        },
+        "reason": { "type": "string", "minLength": 1 },
+        "dry_run": { "type": "boolean" },
+        "required_inputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "task_id": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "runtime": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

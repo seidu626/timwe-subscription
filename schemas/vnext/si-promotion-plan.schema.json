@@ -1,0 +1,50 @@
+{
+  "$id": "https://agent-hub.local/schemas/si-promotion-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "type": "string"
+    },
+    "goal_spec": {
+      "type": "object"
+    },
+    "issue_id": {
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "dry_run",
+        "execute"
+      ]
+    },
+    "promotion_id": {
+      "type": "string"
+    },
+    "requires_review": {
+      "type": "boolean"
+    },
+    "rollback_path": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "work_order": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "promotion_id",
+    "issue_id",
+    "mode",
+    "created_at",
+    "goal_spec",
+    "work_order",
+    "requires_review",
+    "rollback_path"
+  ],
+  "title": "SIPromotionPlan",
+  "type": "object"
+}

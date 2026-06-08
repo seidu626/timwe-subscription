@@ -1,0 +1,89 @@
+{
+  "acceptance_tests": [
+    "cd common && go test ./...",
+    "test -f slices/TMP-023-common-package-test-failures/value-gate-report.md"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-023-common-package-test-failures.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-023",
+  "hashes": {
+    "classification_hash": "sha256:396a67f7bfad746f6f03bc7928926823ce9a17611715f5f9688790d14980e211",
+    "contract_hash": "sha256:591bb13c38b4c4b1f8dd7e97e150cfc39c026544dee9630723d05a2f6fa45c95",
+    "issue_hash": "sha256:23fb9b4e3564378f422ac226454d9dac293d0d0e796871aadf04bfdfc4401a45"
+  },
+  "issue_id": "TMP-023",
+  "non_goals": [
+    "No dependency updates.",
+    "No vendor regeneration.",
+    "No service API changes."
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "common package test suite",
+    "outcome": "Shared common library tests pass so tenant auth and database helpers are reliable for dependent services.",
+    "trigger": "Operator runs `go test ./...` in `common`"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "cd common && go test ./...",
+    "slices/TMP-023-common-package-test-failures/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "common/openApiGenerator.go",
+      "common/postgres/database_test.go",
+      "common/auth/tenantctx/**",
+      "slices/TMP-023-common-package-test-failures/**",
+      "slices/manifest.json",
+      "agent/backlog/issues/TMP-023-common-package-test-failures.md",
+      "agent/state/TMP-023.work-order.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "common/go.mod",
+      "common/go.sum",
+      "common/vendor/**",
+      "services/**"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "common/openApiGenerator.go",
+      "common/postgres/database_test.go",
+      "common/auth/tenantctx/**",
+      "slices/TMP-023-common-package-test-failures/**",
+      "slices/manifest.json",
+      "agent/backlog/issues/TMP-023-common-package-test-failures.md",
+      "agent/state/TMP-023.work-order.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-023-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

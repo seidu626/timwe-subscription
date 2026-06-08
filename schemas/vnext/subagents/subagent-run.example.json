@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run-WO-123-explorer-001",
+  "work_order_id": "WO-123",
+  "subagent_id": "subagent-WO-123-explorer",
+  "role": "explorer",
+  "runtime": "claude",
+  "status": "done",
+  "started_at": "2026-05-30T00:00:00Z",
+  "finished_at": "2026-05-30T00:05:00Z",
+  "capsule_ref": "agent/state/capsules/WO-123.explorer.json",
+  "result_ref": "agent/state/results/WO-123.explorer.result.json"
+}

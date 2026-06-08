@@ -1,0 +1,110 @@
+{
+  "$id": "thread.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "archived": {
+      "type": "boolean"
+    },
+    "branch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "director_thread_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "goal_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "director",
+        "workstream",
+        "goal",
+        "task",
+        "verification",
+        "automation",
+        "audit"
+      ]
+    },
+    "parent_thread_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "pinned": {
+      "type": "boolean"
+    },
+    "risk_level": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "prepared",
+        "active",
+        "blocked",
+        "needs_review",
+        "verified",
+        "done",
+        "archived",
+        "failed"
+      ]
+    },
+    "thread_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "work_order_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "worktree_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "thread_id",
+    "kind",
+    "title",
+    "status",
+    "pinned",
+    "archived",
+    "risk_level",
+    "created_at",
+    "updated_at"
+  ],
+  "type": "object"
+}

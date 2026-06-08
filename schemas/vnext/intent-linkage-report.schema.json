@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/intent-linkage-report.schema.json",
+  "title": "Agent-Hub Intent Linkage Report",
+  "description": "Bidirectional linkage check output. Reports units referencing unknown journey nodes, journey nodes with zero implementing units, and units with zero verified consumers. Produced by tools/intent-linkage.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ecosystem_id",
+    "generated_at",
+    "findings",
+    "backend_status",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "ecosystem_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The ecosystem_id from the ecosystem-definition this report was generated from."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of report generation."
+    },
+    "findings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "units_with_unknown_nodes",
+        "orphan_journey_nodes",
+        "units_without_consumers"
+      ],
+      "properties": {
+        "units_with_unknown_nodes": {
+          "type": "array",
+          "description": "Units whose journey_nodes reference IDs not present in the ecosystem definition.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "unit_id",
+              "unknown_nodes"
+            ],
+            "properties": {
+              "unit_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "unknown_nodes": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "orphan_journey_nodes": {
+          "type": "array",
+          "description": "Journey step node IDs for which zero implementing unit contracts exist.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "node_id",
+              "journey_id"
+            ],
+            "properties": {
+              "node_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "journey_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "units_without_consumers": {
+          "type": "array",
+          "description": "Units whose consumers array is empty (no verified consumer evidence).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "unit_id",
+              "path"
+            ],
+            "properties": {
+              "unit_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "backend_status": {
+      "type": "object",
+      "description": "Per-backend status for consumer verification.",
+      "additionalProperties": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "index_missing",
+          "skipped",
+          "binary_missing",
+          "script_missing",
+          "error"
+        ]
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ],
+      "description": "Overall gate result. fail when any finding type is non-empty or a required backend is index_missing."
+    }
+  }
+}

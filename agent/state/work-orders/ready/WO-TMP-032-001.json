@@ -1,0 +1,98 @@
+{
+  "acceptance_tests": [
+    "docker compose --env-file .env.example -f docker-compose.yml config",
+    "targeted postback-dispatcher compose smoke",
+    "jq empty slices/manifest.json agent/state/TMP-032.work-order.json agent/state/TMP-032.handoff.json .agent/tasks.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status && slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-032-postback-dispatcher-compose-db-env.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-032",
+  "hashes": {
+    "classification_hash": "sha256:b701d84edc8a917bfe0f20e50c58c800abeab053c8b319068281ef2d0b2a09e7",
+    "contract_hash": "sha256:1258fea1b75913759593e84fda8d2738aae46e4560b963252b2d21b8d3e2db32",
+    "issue_hash": "sha256:80559889476c14fcdd973332c699b9423f294e582cc7547dbec4a984e8444872"
+  },
+  "issue_id": "TMP-032",
+  "non_goals": [],
+  "objective": {
+    "actor": "verification-agent",
+    "entrypoint": "docker-compose.yml postback-dispatcher service",
+    "outcome": "Postback dispatcher connects to local compose Postgres using env names read by common/config.",
+    "trigger": "Verifier runs bounded compose runtime smoke."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "docker compose --env-file .env.example -f docker-compose.yml config",
+    "targeted postback-dispatcher compose smoke",
+    "slices/TMP-032-postback-dispatcher-compose-db-env/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "docker-compose.yml",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-032-postback-dispatcher-compose-db-env/**",
+      "agent/backlog/issues/TMP-032-postback-dispatcher-compose-db-env.md",
+      "agent/state/TMP-032.work-order.json",
+      "agent/state/TMP-032.handoff.json",
+      "agent/state/TMP-021.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/postback-dispatcher/**",
+      "common/**",
+      "services/*/go.mod",
+      "services/*/go.sum",
+      "services/*/vendor/**",
+      "frontend/**",
+      "package.json",
+      "package-lock.json",
+      "vendor/**"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "docker-compose.yml",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-032-postback-dispatcher-compose-db-env/**",
+      "agent/backlog/issues/TMP-032-postback-dispatcher-compose-db-env.md",
+      "agent/state/TMP-032.work-order.json",
+      "agent/state/TMP-032.handoff.json",
+      "agent/state/TMP-021.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-032-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

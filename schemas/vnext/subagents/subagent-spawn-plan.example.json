@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "spawn_plan_id": "spawn-WO-123",
+  "goal_id": "goal-123",
+  "work_order_id": "WO-123",
+  "policy": {
+    "default_spawn_required": true,
+    "main_agent_control_plane_only": true,
+    "result_only_return": true,
+    "write_requires_isolation": true,
+    "no_self_review": true
+  },
+  "spawns": [
+    {
+      "subagent_id": "subagent-WO-123-explorer",
+      "role": "explorer",
+      "runtime": "claude",
+      "model_tier": "low",
+      "mode": "background",
+      "tools": ["Read", "Grep", "Glob"],
+      "write_capable": false,
+      "capsule_ref": "agent/state/capsules/WO-123.explorer.json",
+      "expected_result_ref": "agent/state/results/WO-123.explorer.result.json"
+    }
+  ],
+  "constraints": {
+    "max_parallel_subagents": 4,
+    "same_file_edit_conflicts_blocked": true,
+    "requires_worktree_for_write": true
+  }
+}

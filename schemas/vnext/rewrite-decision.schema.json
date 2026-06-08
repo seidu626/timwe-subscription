@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/rewrite-decision.schema.json",
+  "title": "Agent-Hub Rewrite Decision",
+  "description": "Scored rewrite-vs-maintain decision matrix for any code unit. Scores 0-5 across five dimensions yield a computed verdict: rewrite, restructure, or patch.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "unit_id",
+    "unit_path",
+    "scores",
+    "verdict",
+    "rationale"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "unit_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unit identifier matching a unit-contract unit_id."
+    },
+    "unit_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repo-relative path to the implementing file."
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blast_radius",
+        "shim_count",
+        "legacy_test_coverage",
+        "conflict_with_intent",
+        "idiom_drift"
+      ],
+      "properties": {
+        "blast_radius": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "0=isolated, 5=touches every subsystem."
+        },
+        "shim_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "0=no shims, 5=deeply shimmed / compatibility-heavy."
+        },
+        "legacy_test_coverage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "0=no tests, 5=comprehensive tests protecting behavior."
+        },
+        "conflict_with_intent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "0=fully aligned with journey intent, 5=fundamentally misaligned."
+        },
+        "idiom_drift": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "0=current idioms, 5=severely out-of-date patterns."
+        }
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["rewrite", "restructure", "patch"],
+      "description": "Computed verdict. rewrite: replace entirely; restructure: keep logic, remodel structure; patch: targeted fix only."
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Explanation of how scores led to the verdict."
+    },
+    "evaluated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

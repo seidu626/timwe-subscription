@@ -1,0 +1,98 @@
+{
+  "acceptance_tests": [
+    "docker compose --env-file .env.example -f docker-compose.yml config",
+    "targeted notification-worker compose smoke",
+    "jq empty slices/manifest.json agent/state/TMP-031.work-order.json agent/state/TMP-031.handoff.json .agent/tasks.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status && slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-031-notification-worker-compose-db-env.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-031",
+  "hashes": {
+    "classification_hash": "sha256:b6fce0baa240f9d9f3699ce6ad78be37687e11b09933e0e7076da71b2942a3e0",
+    "contract_hash": "sha256:1f51af8df0f0e82ec40f50f630f87b74f43dd3a85d699ab801b94bde7688f89a",
+    "issue_hash": "sha256:6f965fdf90a0072a4d53daf59649afa36f558198ec2fa99bb612f60f024db15d"
+  },
+  "issue_id": "TMP-031",
+  "non_goals": [],
+  "objective": {
+    "actor": "verification-agent",
+    "entrypoint": "docker-compose.yml notification-worker service",
+    "outcome": "Notification worker connects to the local compose Postgres with explicit user, password, database, and sslmode settings.",
+    "trigger": "Verifier runs bounded compose runtime smoke."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "docker compose --env-file .env.example -f docker-compose.yml config",
+    "targeted notification-worker compose smoke",
+    "slices/TMP-031-notification-worker-compose-db-env/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "docker-compose.yml",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-031-notification-worker-compose-db-env/**",
+      "agent/backlog/issues/TMP-031-notification-worker-compose-db-env.md",
+      "agent/state/TMP-031.work-order.json",
+      "agent/state/TMP-031.handoff.json",
+      "agent/state/TMP-021.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/notification/**",
+      "common/**",
+      "services/*/go.mod",
+      "services/*/go.sum",
+      "services/*/vendor/**",
+      "frontend/**",
+      "package.json",
+      "package-lock.json",
+      "vendor/**"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "docker-compose.yml",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-031-notification-worker-compose-db-env/**",
+      "agent/backlog/issues/TMP-031-notification-worker-compose-db-env.md",
+      "agent/state/TMP-031.work-order.json",
+      "agent/state/TMP-031.handoff.json",
+      "agent/state/TMP-021.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-031-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

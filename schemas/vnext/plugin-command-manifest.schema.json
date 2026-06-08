@@ -1,0 +1,68 @@
+{
+  "$id": "https://agent-hub/schemas/plugin-command-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "commands": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "legacy_skill_aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "policies": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "runtimes": {
+            "additionalProperties": {
+              "additionalProperties": false,
+              "properties": {
+                "output": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "output"
+              ],
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "skill": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "skill",
+          "description",
+          "runtimes",
+          "policies"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    }
+  },
+  "required": [
+    "schema_version",
+    "commands"
+  ],
+  "title": "Agent Hub Plugin Command Manifest",
+  "type": "object"
+}

@@ -1,0 +1,371 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub/schemas/workflows/profile.schema.json",
+  "title": "Agent Hub Workflow Profile",
+  "description": "Machine-readable workflow profile that references existing agent-hub control planes instead of replacing them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "mode",
+    "entrypoints",
+    "phases",
+    "required_artifacts",
+    "allowed_tools",
+    "forbidden_tools",
+    "context_pack_required",
+    "capsule_required",
+    "token_budget",
+    "gates",
+    "failure_policy",
+    "retry_limits"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "description": "Stable workflow profile identifier."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["audit", "planning", "implementation", "review", "release", "diagnosis", "research"]
+    },
+    "entrypoints": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/entrypoint" }
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/phase" }
+    },
+    "states": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/state" },
+      "description": "Optional finite context-state graph. When present, transitions must also be present and the workflow kernel prefers this graph over linear phase order."
+    },
+    "transitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/transition" },
+      "description": "Optional directed transitions between state IDs. Guards are symbolic and evaluated by the owning workflow layer."
+    },
+    "required_artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/artifact_ref" }
+    },
+    "allowed_tools": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "forbidden_tools": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "context_pack_required": {
+      "type": "boolean",
+      "description": "True when dispatch must externalize source context before worker execution."
+    },
+    "capsule_required": {
+      "type": "boolean",
+      "description": "True when non-trivial worker output must land in a durable result capsule."
+    },
+    "token_budget": {
+      "$ref": "#/$defs/token_budget"
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/gate" },
+      "description": "References to existing gates such as Mythos, harness, context-cycle, CTX-COMP, artifact-ledger, and peer-grill no-self-review."
+    },
+    "failure_policy": {
+      "$ref": "#/$defs/failure_policy"
+    },
+    "retry_limits": {
+      "$ref": "#/$defs/retry_limits"
+    }
+  },
+  "$defs": {
+    "entrypoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["command", "skill", "plugin", "harness_task", "document"]
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "entrypoint", "outputs", "gates"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entrypoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/artifact_ref" }
+        },
+        "gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "entrypoint",
+        "context_pack",
+        "context_pack_required",
+        "capsule_required",
+        "token_budget",
+        "retry_limit",
+        "initial",
+        "terminal",
+        "outputs",
+        "gates"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entrypoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_pack": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_pack_required": {
+          "type": "boolean"
+        },
+        "capsule_required": {
+          "type": "boolean"
+        },
+        "token_budget": {
+          "$ref": "#/$defs/state_token_budget"
+        },
+        "retry_limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Finite per-state retry limit. Use 0 for terminal or no-retry states."
+        },
+        "initial": {
+          "type": "boolean"
+        },
+        "terminal": {
+          "type": "boolean"
+        },
+        "allowed_tools": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "forbidden_tools": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/artifact_ref" }
+        },
+        "gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "state_token_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_input_tokens",
+        "inline_payload_bytes",
+        "hydration_policy"
+      ],
+      "properties": {
+        "max_input_tokens": { "type": "integer", "minimum": 1 },
+        "inline_payload_bytes": { "type": "integer", "minimum": 0 },
+        "hydration_policy": {
+          "type": "string",
+          "enum": ["inline-small", "capsule-first", "on-demand"]
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "event", "to", "guard", "next_action_verb"],
+      "properties": {
+        "from": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "event": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "guard": {
+          "type": "string",
+          "minLength": 1
+        },
+        "next_action_verb": {
+          "type": "string",
+          "enum": ["start", "step", "status", "dispatch", "gate", "repair", "close"]
+        },
+        "required_inputs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "prompt_packet",
+            "roadmap",
+            "work_order",
+            "context_pack",
+            "result_capsule",
+            "verification_matrix",
+            "peer_grill_capsule",
+            "decision_log",
+            "evidence"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "token_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tokens_before",
+        "tokens_after",
+        "compression_ratio",
+        "inline_payload_bytes",
+        "tool_result_externalization",
+        "capsule_path",
+        "hydration_policy"
+      ],
+      "properties": {
+        "tokens_before": { "type": ["integer", "null"], "minimum": 0 },
+        "tokens_after": { "type": ["integer", "null"], "minimum": 0 },
+        "compression_ratio": { "type": ["number", "null"], "minimum": 0 },
+        "inline_payload_bytes": { "type": ["integer", "null"], "minimum": 0 },
+        "tool_result_externalization": { "type": "boolean" },
+        "capsule_path": { "type": ["string", "null"] },
+        "hydration_policy": {
+          "type": "string",
+          "enum": ["inline-small", "capsule-first", "on-demand"]
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref", "required"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "mythos",
+            "harness",
+            "context_cycle",
+            "ctx_comp",
+            "artifact_ledger",
+            "peer_review",
+            "adversarial_review",
+            "hvc"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "no_self_review": {
+          "type": "boolean",
+          "description": "Required true for peer_review gates that protect risky implementation or roadmap decisions."
+        }
+      }
+    },
+    "failure_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["on_blocked", "on_validation_failure", "on_peer_unavailable"],
+      "properties": {
+        "on_blocked": { "type": "string", "minLength": 1 },
+        "on_validation_failure": { "type": "string", "minLength": 1 },
+        "on_peer_unavailable": { "type": "string", "minLength": 1 }
+      }
+    },
+    "retry_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_attempts", "repair_loop_limit"],
+      "properties": {
+        "max_attempts": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "repair_loop_limit": { "type": "integer", "minimum": 0, "maximum": 5 }
+      }
+    }
+  }
+}

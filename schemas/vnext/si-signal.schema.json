@@ -1,0 +1,127 @@
+{
+  "$id": "https://agent-hub.local/schemas/si-signal.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "branch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "duplicate_of": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "evidence": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "fingerprint": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "issue_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "bug",
+        "gotcha",
+        "missing_feature",
+        "discovery",
+        "surprise",
+        "environment_fact",
+        "workflow_gap",
+        "verification_gap",
+        "tooling_gap",
+        "policy_gap"
+      ]
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "prevention": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "source": {
+      "enum": [
+        "operator",
+        "agent",
+        "hook",
+        "retrospective",
+        "coop",
+        "test"
+      ]
+    },
+    "state": {
+      "enum": [
+        "queued",
+        "duplicate",
+        "investigating",
+        "rca",
+        "promoted",
+        "blocked",
+        "resolved",
+        "archived"
+      ]
+    },
+    "summary": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "targets": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "kind",
+    "severity",
+    "summary",
+    "evidence",
+    "prevention",
+    "targets",
+    "metadata",
+    "source",
+    "state",
+    "fingerprint",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "SISignal",
+  "type": "object"
+}

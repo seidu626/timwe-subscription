@@ -1,0 +1,52 @@
+{
+  "$id": "https://agent-hub/schemas/capability-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "capability": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "capability_plan_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "gaps": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "practice_checkpoints": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "runtime": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    }
+  },
+  "required": [
+    "schema_version",
+    "capability_plan_id",
+    "runtime",
+    "capability",
+    "gaps",
+    "practice_checkpoints",
+    "created_at"
+  ],
+  "title": "Capability Plan",
+  "type": "object"
+}

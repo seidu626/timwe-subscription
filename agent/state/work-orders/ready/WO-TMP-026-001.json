@@ -1,0 +1,97 @@
+{
+  "acceptance_tests": [
+    "test ! -f .gitmodules",
+    "test -f frontend/webspa-admin/package.json",
+    "git ls-files -s frontend/webspa-admin/package.json",
+    "cd frontend/webspa-admin && npm run build",
+    "cd frontend/webspa-admin && CHROME_BIN=/usr/bin/google-chrome-stable npm test -- --watch=false --browsers=ChromeHeadless --progress=false"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-026-webspa-submodule-verification.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-026",
+  "hashes": {
+    "classification_hash": "sha256:77d8e9001760d3bcca7d4586f646e71f96198eb9248218fec417ae711a3310d9",
+    "contract_hash": "sha256:cd55da51dc7480c00ab78e26b083f92c3b42914e30a557c82282f4518e67a337",
+    "issue_hash": "sha256:132ffdb426633c0a47628e3f526998bdeb8cf392247c194ed70f2fcb06b4820e"
+  },
+  "issue_id": "TMP-026",
+  "non_goals": [],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "frontend/webspa-admin gitlink",
+    "outcome": "Admin frontend verification has a precise submodule checkout decision instead of a stale missing-metadata blocker.",
+    "trigger": "Operator runs full-system verification and admin UI checks."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "git submodule status --recursive frontend/webspa-admin",
+    "test -f frontend/webspa-admin/package.json",
+    "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+    "slices/TMP-026-webspa-submodule-verification/value-gate-report.md",
+    "slices/TMP-046-webspa-admin-reproducible-source/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      ".gitmodules",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-026-webspa-submodule-verification/**",
+      "agent/backlog/issues/TMP-026-webspa-submodule-verification.md",
+      "agent/state/TMP-026.work-order.json",
+      ".agent/**",
+      "frontend/webspa-admin/**",
+      "slices/TMP-046-webspa-admin-reproducible-source/**",
+      "agent/state/TMP-046.work-order.json"
+    ],
+    "forbidden_files": [
+      "common/**",
+      "services/**",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      ".gitmodules",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-026-webspa-submodule-verification/**",
+      "agent/backlog/issues/TMP-026-webspa-submodule-verification.md",
+      "agent/state/TMP-026.work-order.json",
+      ".agent/**",
+      "frontend/webspa-admin/**",
+      "slices/TMP-046-webspa-admin-reproducible-source/**",
+      "agent/state/TMP-046.work-order.json"
+    ]
+  },
+  "work_order_id": "WO-TMP-026-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

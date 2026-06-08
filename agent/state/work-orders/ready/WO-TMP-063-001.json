@@ -1,0 +1,86 @@
+{
+  "acceptance_tests": [
+    "hvc check agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md --fail-on block",
+    "cd services/cadence-engine && go test ./internal/adminhttp"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-063",
+  "hashes": {
+    "classification_hash": "sha256:8f04a0b7572da4bc1525b4f656bb4a9b8dbe37f5c7de68129b8b982039d238d8",
+    "contract_hash": "sha256:56a0a4c6d776e0d7d42be1f60016b50491e40c81210f6d2b705a5458efb47a79",
+    "issue_hash": "sha256:aa25b5df670c677e44fcad19a7033405fcbbb3e665ea1eb37f2b0babf611be51"
+  },
+  "issue_id": "TMP-063",
+  "non_goals": [],
+  "objective": {
+    "actor": "admin user",
+    "entrypoint": "GET http://localhost:8091/v1/admin/cadence/series?limit=500 from http://localhost:4200",
+    "outcome": "The Angular admin cadence page can preflight tenant-scoped requests to the local cadence admin API without browser CORS rejection.",
+    "trigger": "Admin navigates to the cadence page in the local admin UI."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "go test ./internal/adminhttp",
+    "OPTIONS preflight includes X-Tenant-Key",
+    "hvc check agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "services/cadence-engine/internal/adminhttp/access.go",
+      "services/cadence-engine/internal/adminhttp/access_test.go",
+      "agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md",
+      "agent/state/TMP-063.work-order.json",
+      "agent/state/TMP-063.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "frontend/webspa-admin/**",
+      "services/cadence-engine/go.mod",
+      "services/cadence-engine/go.sum",
+      "services/cadence-engine/internal/repository/**",
+      "services/cadence-engine/internal/scheduler/**",
+      "services/cadence-engine/internal/planner/**",
+      "services/cadence-engine/migrations/**",
+      "docker-compose*.yml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "services/cadence-engine/internal/adminhttp/access.go",
+      "services/cadence-engine/internal/adminhttp/access_test.go",
+      "agent/backlog/issues/TMP-063-cadence-admin-cors-tenant-header.md",
+      "agent/state/TMP-063.work-order.json",
+      "agent/state/TMP-063.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-063-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

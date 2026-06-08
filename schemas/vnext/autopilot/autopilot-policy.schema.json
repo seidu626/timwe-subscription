@@ -1,0 +1,61 @@
+{
+  "$id": "https://agent-hub/schemas/autopilot/autopilot-policy.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Autopilot Policy",
+  "description": "Policy-as-code config that governs autopilot authority, risk-to-authority mapping, hard stops, and auto-approval. Replaces routine HITL.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_id", "default_authority_ceiling", "risk_bands", "hard_stop_triggers", "created_at"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "policy_id": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "default_authority_ceiling": {"type": "string", "enum": ["A0", "A1", "A2", "A3", "A4", "A5", "A6"]},
+    "risk_bands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["upper", "authority"],
+        "properties": {
+          "upper": {"type": "number", "minimum": 0, "maximum": 1},
+          "authority": {"type": "string", "enum": ["A0", "A1", "A2", "A3", "A4", "A5", "A6"]}
+        }
+      }
+    },
+    "hard_stop_triggers": {"type": "array", "items": {"type": "string"}},
+    "auto_approve": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_authority": {"type": "string", "enum": ["A0", "A1", "A2", "A3", "A4", "A5", "A6"]},
+        "actions": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "require_approval": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["match", "approval_type"],
+        "properties": {
+          "match": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "min_authority": {"type": "string", "enum": ["A0", "A1", "A2", "A3", "A4", "A5", "A6"]},
+              "actions": {"type": "array", "items": {"type": "string"}}
+            }
+          },
+          "approval_type": {"type": "string", "enum": ["auto_approved", "policy_denied", "multi_runtime_required", "human_required", "hard_stop"]}
+        }
+      }
+    },
+    "runtime_roles": {"type": "object", "additionalProperties": {"type": "string"}},
+    "evidence_requirements": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
+    "forbidden_actions": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"}
+  }
+}

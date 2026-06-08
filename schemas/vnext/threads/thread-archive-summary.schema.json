@@ -1,0 +1,84 @@
+{
+  "$id": "thread-archive-summary.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "archived_at": {
+      "type": "string"
+    },
+    "changed_files": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "final_status": {
+      "type": "string"
+    },
+    "followups": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "key_decisions": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "original_goal": {
+      "type": "string"
+    },
+    "receipts": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "retrieval_index_terms": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "thread_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "unresolved_risks": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "thread_id",
+    "title",
+    "original_goal",
+    "final_status",
+    "key_decisions",
+    "changed_files",
+    "receipts",
+    "evidence_refs",
+    "unresolved_risks",
+    "followups",
+    "retrieval_index_terms",
+    "archived_at"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/unit-contract.schema.json",
+  "title": "Agent-Hub Unit Contract",
+  "description": "Contract for any code unit (UI component, API endpoint, service module, CLI subcommand, worker job, migration, utility). Every unit must reference at least one journey node ID from the ecosystem definition.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "unit_id",
+    "unit_kind",
+    "path",
+    "purpose",
+    "journey_nodes",
+    "consumers",
+    "deletion_criteria"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "unit_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable unique identifier for this code unit."
+    },
+    "unit_kind": {
+      "type": "string",
+      "enum": [
+        "ui_component",
+        "api_endpoint",
+        "service_module",
+        "cli_subcommand",
+        "worker_job",
+        "migration",
+        "utility"
+      ],
+      "description": "Domain classification of the code unit."
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repo-relative path to the implementing file or directory."
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Intent-aligned description of what this unit does and why."
+    },
+    "journey_nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+      },
+      "description": "Journey step node IDs (format: <journey-id>.<step-slug>) this unit implements. Min 1 required."
+    },
+    "consumers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Free-text evidence refs for known consumers (import paths, call sites, docs links, etc.)."
+    },
+    "deletion_criteria": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Condition under which this unit may be deleted (e.g., 'when journey X is retired')."
+    }
+  }
+}

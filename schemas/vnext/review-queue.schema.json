@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/review-queue.schema.json",
+  "title": "Agent-Hub vNext ReviewQueue Snapshot",
+  "description": "Snapshot of the review queue: WorkOrders awaiting review-gated approval, paired with reviewer-runtime separation metadata. Closes AC-14 (no same-runtime review) and § 5.11 review-gate contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "generated_at",
+    "root",
+    "summary",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "report_id": {"type": "string", "pattern": "^review-queue-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "root": {"type": "string", "minLength": 1},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "awaiting_reviewer", "ready_for_decision", "blocked_same_runtime"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 0},
+        "awaiting_reviewer": {"type": "integer", "minimum": 0},
+        "ready_for_decision": {"type": "integer", "minimum": 0},
+        "blocked_same_runtime": {"type": "integer", "minimum": 0}
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/item"}
+    }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "work_order_id",
+        "goal_id",
+        "queue",
+        "work_order_path",
+        "requester_runtime",
+        "reviewer_runtime",
+        "review_state",
+        "risk_level"
+      ],
+      "properties": {
+        "work_order_id": {"type": "string", "minLength": 1},
+        "goal_id": {"type": "string", "minLength": 1},
+        "queue": {"type": "string", "enum": ["review", "blocked"]},
+        "work_order_path": {"type": "string", "minLength": 1},
+        "requester_runtime": {"type": ["string", "null"], "enum": ["claude", "codex", "gemini", "cursor", "human", "generic", null]},
+        "reviewer_runtime": {"type": ["string", "null"], "enum": ["claude", "codex", "gemini", "cursor", "human", "generic", null]},
+        "review_state": {"type": "string", "enum": ["awaiting_reviewer", "ready_for_decision", "blocked_same_runtime", "approved", "rejected"]},
+        "risk_level": {"type": ["string", "null"], "enum": ["low", "medium", "high", "critical", null]},
+        "evidence_ref": {"type": ["string", "null"]},
+        "approval_manifest_ref": {"type": ["string", "null"]},
+        "notes": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub/schemas/vnext/preference-atom.schema.json",
+  "title": "PreferenceAtom",
+  "description": "A single mined workflow preference extracted from session transcripts.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "preference_atom_id",
+    "trigger",
+    "workflow_step",
+    "decision_rule",
+    "quality_bar",
+    "stop_condition",
+    "evidence_refs",
+    "confidence",
+    "cluster",
+    "artifact_choice"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "preference_atom_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trigger": {
+      "type": "string",
+      "description": "Condition or context that activates this preference.",
+      "minLength": 1
+    },
+    "workflow_step": {
+      "type": "string",
+      "description": "Named phase or action in the workflow where preference applies.",
+      "minLength": 1
+    },
+    "decision_rule": {
+      "type": "string",
+      "description": "Concise actionable rule extracted from the transcript signal.",
+      "minLength": 1
+    },
+    "quality_bar": {
+      "type": "string",
+      "description": "Observable criterion that satisfies this preference.",
+      "minLength": 1
+    },
+    "stop_condition": {
+      "type": "string",
+      "description": "When this preference no longer applies or should be overridden.",
+      "minLength": 1
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Source references (file paths, IDs) — raw excerpts are NOT stored here."
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["strong", "medium", "weak", "contradicted"],
+      "description": "Signal strength for this preference atom."
+    },
+    "cluster": {
+      "type": "string",
+      "description": "Semantic cluster grouping related atoms (e.g. 'commit-discipline', 'review-workflow').",
+      "minLength": 1
+    },
+    "artifact_choice": {
+      "type": "string",
+      "enum": ["new_skill", "skill_edit", "rule", "workflow_doc", "no_artifact"],
+      "description": "Suggested artifact type if this atom is promoted to a SelfSteer proposal."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

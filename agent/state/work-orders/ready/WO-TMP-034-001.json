@@ -1,0 +1,94 @@
+{
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "test -f slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-034-acquisition-runtime-schema-provisioning.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-034",
+  "hashes": {
+    "classification_hash": "sha256:0b65f4fa871e5dc4ead9e245c26c2cbb67ced097b3cb409f469422762fd45bb3",
+    "contract_hash": "sha256:207296d8b6beb6f9582c5dfd3bc7acd44c5a85233a289c3f998ce9a3be435f74",
+    "issue_hash": "sha256:24116e036eefcfa02cc2a1b7dac7dbb8534cdd3ad5bdf93b0de357802ea46844"
+  },
+  "issue_id": "TMP-034",
+  "non_goals": [],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "docker compose acquisition-api runtime startup",
+    "outcome": "Acquisition API starts in the compose runtime with base products/userbase schema available before admin migrations run.",
+    "trigger": "Verifier runs bounded compose runtime smoke after TMP-030 image build fix."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "targeted acquisition-api runtime probe",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-030-acquisition-compose-build-context/value-gate-report.md",
+    "slices/TMP-034-acquisition-runtime-schema-provisioning/value-gate-report.md",
+    "slices/TMP-045-compose-runtime-schema-bootstrap/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/backlog/issues/TMP-034-acquisition-runtime-schema-provisioning.md",
+      "agent/state/TMP-034.work-order.json",
+      "agent/state/TMP-034.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-034-acquisition-runtime-schema-provisioning/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**",
+      "common/**",
+      "frontend/**",
+      "ops/**",
+      "docker-compose*.yml",
+      "Makefile",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json",
+      "*.sql"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "agent/backlog/issues/TMP-034-acquisition-runtime-schema-provisioning.md",
+      "agent/state/TMP-034.work-order.json",
+      "agent/state/TMP-034.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-034-acquisition-runtime-schema-provisioning/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-034-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "$id": "https://agent-hub/schemas/autopilot/autopilot-run-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Autopilot Run Report",
+  "description": "Closeout report for an autopilot session: outcome, phases, decisions, delegations, evidence/review summary, escalations, budget, learning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "report_id", "session_id", "outcome", "created_at"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "report_id": {"type": "string", "minLength": 1},
+    "session_id": {"type": "string", "minLength": 1},
+    "goal_id": {"type": ["string", "null"]},
+    "outcome": {"type": "string", "enum": ["pass", "warn", "blocked", "escalated", "idle", "fail"]},
+    "stopped_reason": {
+      "type": "string",
+      "enum": [
+        "approval_gate",
+        "missing_credentials_or_tools",
+        "policy_restriction",
+        "contradictory_evidence",
+        "exhausted_repair_loop"
+      ],
+      "description": "Required when ready WorkOrders/slices remain at run termination. Must be one of the five canonical blocker classes."
+    },
+    "blocker_evidence": {
+      "type": "string",
+      "description": "Human-readable evidence string describing why the stop reason applies."
+    },
+    "ready_work_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of ready WorkOrders/slices remaining when the run terminated."
+    },
+    "mode": {"type": ["string", "null"]},
+    "authority_ceiling": {"type": ["string", "null"]},
+    "iterations": {"type": "integer", "minimum": 0},
+    "started_at": {"type": ["string", "null"]},
+    "ended_at": {"type": ["string", "null"]},
+    "phases_executed": {"type": "array", "items": {"type": "string"}},
+    "decisions_count": {"type": "integer", "minimum": 0},
+    "questions_count": {"type": "integer", "minimum": 0},
+    "delegations": {"type": "array", "items": {"type": "object"}},
+    "evidence_summary": {"type": "object"},
+    "review_summary": {"type": "object"},
+    "escalations": {"type": "array", "items": {"type": "string"}},
+    "budget_usage": {"type": "object"},
+    "learning_events": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": "string"}
+  }
+}

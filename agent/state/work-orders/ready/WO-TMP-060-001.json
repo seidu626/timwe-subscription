@@ -1,0 +1,87 @@
+{
+  "acceptance_tests": [
+    "hvc check agent/backlog/issues/TMP-060-webspa-sentry-error-handler-provider.md --fail-on block",
+    "cd frontend/webspa-admin && npm run build",
+    "WEBSPA_ADMIN_PORT=<free port> make dev-admin"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-060-webspa-sentry-error-handler-provider.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-060",
+  "hashes": {
+    "classification_hash": "sha256:917dd07f1f0e5e14740d7eac8944a36847fda4b6be77ba24853942a8621ca516",
+    "contract_hash": "sha256:3c7a32c55bbdbda9af1b2bd0a15d2a4ed56d53d98d7ff685852477f5f097c0e1",
+    "issue_hash": "sha256:8b38d19bece505b73554e6159787a9e5c62ada7183758747e7921254cea83e17"
+  },
+  "issue_id": "TMP-060",
+  "non_goals": [],
+  "objective": {
+    "actor": "developer",
+    "entrypoint": "frontend/webspa-admin/src/main.ts",
+    "outcome": "The Angular admin app boots without Sentry's ErrorHandler provider throwing a missing errorHandlerOptions injector error.",
+    "trigger": "Developer opens the Angular admin app after `make dev-admin` starts the dev server."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "Browser/runtime error: NullInjectorError No provider for errorHandlerOptions",
+    "Sentry Angular package API evidence for createErrorHandler",
+    "cd frontend/webspa-admin && npm run build",
+    "WEBSPA_ADMIN_PORT=<free port> make dev-admin"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "frontend/webspa-admin/src/main.ts",
+      "frontend/webspa-admin/angular.json",
+      "agent/backlog/issues/TMP-060-webspa-sentry-error-handler-provider.md",
+      "agent/state/TMP-060.work-order.json",
+      "agent/state/TMP-060.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "frontend/webspa-admin/package.json",
+      "frontend/webspa-admin/package-lock.json",
+      "frontend/webspa-admin/src/app/features/**",
+      "services/**",
+      "common/**",
+      "go.mod",
+      "go.sum"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "frontend/webspa-admin/src/main.ts",
+      "frontend/webspa-admin/angular.json",
+      "agent/backlog/issues/TMP-060-webspa-sentry-error-handler-provider.md",
+      "agent/state/TMP-060.work-order.json",
+      "agent/state/TMP-060.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-060-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

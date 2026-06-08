@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agent-hub/governance/work-order.v1",
+  "title": "WorkOrder",
+  "description": "A WorkOrder scopes and governs a single agent-driven change. Required before any non-trivial edit.",
+  "type": "object",
+  "required": ["schema_version", "id", "title", "goal_statement", "objective_improvement", "packs", "allowed_files", "risk_level", "owner", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "id": {
+      "type": "string",
+      "description": "Unique WorkOrder ID. Format: WO-<DOMAIN>-<YYYYMMDD>-<slug>",
+      "pattern": "^WO-[A-Z]+-[0-9]{8}-[a-z0-9-]+$"
+    },
+    "title": { "type": "string", "minLength": 10, "maxLength": 120 },
+    "goal_statement": {
+      "type": "string",
+      "description": "One sentence: what user-visible or operational outcome does this change produce?",
+      "minLength": 20
+    },
+    "objective_improvement": {
+      "type": "string",
+      "description": "Which OIS credit dimension does this close? e.g. 'deleted dead code', 'added migration discipline'.",
+      "minLength": 10
+    },
+    "packs": {
+      "type": "array",
+      "description": "Applicable governance domains.",
+      "items": {
+        "type": "string",
+        "enum": ["repository", "backend", "data", "api", "security", "testing", "observability", "devex", "migration", "ai-change-control", "frontend", "veritas"]
+      },
+      "minItems": 1
+    },
+    "allowed_files": {
+      "type": "array",
+      "description": "File paths or glob patterns the agent is allowed to modify.",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "owner": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "review", "blocked", "archive"]
+    },
+    "non_goals": { "type": "array", "items": { "type": "string" } },
+    "evidence_required": { "type": "array", "items": { "type": "string" } },
+    "release_notes": { "type": "string" },
+    "rollback_plan": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

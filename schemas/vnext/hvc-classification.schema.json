@@ -1,0 +1,48 @@
+{
+  "$id": "https://agent-hub/schemas/hvc-classification.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "assignment": {
+      "type": "object"
+    },
+    "class": {
+      "enum": [
+        "vertical_slice",
+        "vertical_defect_slice",
+        "bounded_enabler",
+        "operational_slice",
+        "spike"
+      ]
+    },
+    "classification_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "domains": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "goal_id": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    }
+  },
+  "required": [
+    "schema_version",
+    "goal_id",
+    "classification_id",
+    "class",
+    "assignment",
+    "domains",
+    "created_at"
+  ],
+  "title": "HVC Classification",
+  "type": "object"
+}

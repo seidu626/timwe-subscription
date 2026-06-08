@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/subagents/runtime-profile.schema.json",
+  "title": "Agent-Hub Runtime Profile",
+  "description": "Role/contract inheritance profile for a runtime. DISTINCT from runtime-dispatch-profile (launch mechanics). Use dispatch_profile_ref to point at that schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "runtime",
+    "inherits",
+    "native_subagents",
+    "default_roles",
+    "result_contract"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "runtime": {
+      "type": "string",
+      "enum": ["claude", "codex", "gemini", "copilot", "cursor", "windsurf", "deepseek", "local-tools"]
+    },
+    "inherits": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "native_subagents": { "type": "boolean" },
+    "default_roles": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "result_contract": {
+      "type": "string",
+      "enum": ["worker_result_capsule", "external_task_result_capsule"]
+    },
+    "execution_backend": { "type": "string", "minLength": 1 },
+    "must_use_capsule": { "type": "boolean" },
+    "must_use_worktree_for_write": { "type": "boolean" },
+    "write_capable": { "type": "boolean" },
+    "can_spawn_native_subagents": { "type": "boolean" },
+    "local_state_mutation": { "type": "boolean" },
+    "dispatch_profile_ref": {
+      "type": "string",
+      "description": "Optional reference to the runtime-dispatch-profile entry for this runtime (launch mechanics)."
+    },
+    "default_subagent_profile": {
+      "type": "string",
+      "enum": ["supervisor-full", "worker-minimal", "worker-governed", "reviewer-readonly"]
+    },
+    "supported_subagent_profiles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["supervisor-full", "worker-minimal", "worker-governed", "reviewer-readonly"]
+      }
+    },
+    "dynamic_workflows": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supported", "config", "instruction_surfaces"],
+      "properties": {
+        "supported": { "type": "boolean" },
+        "config": { "type": "string", "minLength": 1 },
+        "instruction_surfaces": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "execution_notes": { "type": "string" }
+      }
+    }
+  }
+}

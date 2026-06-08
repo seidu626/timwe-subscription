@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/agent-teacher/discovery-manifest.schema.json",
+  "title": "Agent Teacher Discovery Manifest",
+  "description": "Machine-readable capability manifest emitted by agent-teacher discover.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "kind",
+    "generated_at",
+    "repo",
+    "manifest_env_var",
+    "verbs",
+    "schema_paths",
+    "active_goal"
+  ],
+  "properties": {
+    "manifest_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Pinned manifest schema version. Bump when shape changes."
+    },
+    "kind": {
+      "type": "string",
+      "const": "discovery_manifest"
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO-8601 UTC timestamp of manifest generation."
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absolute path to the repo root this manifest was generated from."
+    },
+    "manifest_env_var": {
+      "type": "string",
+      "const": "AGENT_TEACHER_MANIFEST",
+      "description": "Environment variable agents should check to locate the manifest without hardcoding."
+    },
+    "verbs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["verb", "description", "exit_codes"],
+        "properties": {
+          "verb": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "exit_codes": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "subverbs": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "schema_paths": {
+      "type": "object",
+      "description": "Map of schema names to relative paths from repo root.",
+      "additionalProperties": { "type": "string" }
+    },
+    "active_goal": {
+      "description": "Active goal-state ID or null if none.",
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "null" }
+      ]
+    },
+    "active_goal_pointer": {
+      "description": "Path to active goal-state file, or null.",
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "null" }
+      ]
+    }
+  }
+}

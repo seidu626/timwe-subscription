@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub/schemas/subagent-policy.schema.json",
+  "title": "subagent-policy config",
+  "description": "Per-repo or per-user override for the subagent-policy skill's defaults. Loaded by orchestrator skills (auto-pilot, parallel-orchestrator, conductor, etc.) before dispatching Agent(...) calls.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runtime_preference": {
+      "type": "string",
+      "enum": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "default": "claude",
+      "description": "Which runtime's model names should be used when this skill resolves a tier to a concrete model identifier."
+    },
+    "tier_models": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "LOW": {
+          "$ref": "#/$defs/tier_model"
+        },
+        "MED": {
+          "$ref": "#/$defs/tier_model"
+        },
+        "HIGH": {
+          "$ref": "#/$defs/tier_model"
+        }
+      },
+      "description": "Override the default model identifier for each tier per runtime. Partial maps are allowed \u2014 unspecified runtimes fall back to the skill default."
+    },
+    "tier_reasoning_effort": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "LOW": {
+          "$ref": "#/$defs/tier_reasoning"
+        },
+        "MED": {
+          "$ref": "#/$defs/tier_reasoning"
+        },
+        "HIGH": {
+          "$ref": "#/$defs/tier_reasoning"
+        }
+      },
+      "description": "Reasoning-effort modifier per tier per runtime. Used by Codex (gpt-5.4-mini, gpt-5.5) and Gemini (gemini-2.5-*) where the same model name appears across tiers and reasoning effort is the differentiator. Claude does not use this \u2014 model names are tier-specific."
+    },
+    "max_parallel_default": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 64,
+      "description": "Soft default for concurrent MED/HIGH subagents. No enforced ceiling \u2014 operator-tunable via this config."
+    },
+    "max_parallel_low_tier": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 64,
+      "description": "Soft default for concurrent LOW-tier (read-only) subagents. No enforced ceiling \u2014 operator-tunable via this config."
+    },
+    "force_tier": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "LOW",
+        "MED",
+        "HIGH",
+        null
+      ],
+      "default": null,
+      "description": "Escape hatch \u2014 pin every subagent to this tier regardless of classifier output. Use only for cost emergencies. Set to null to use the classifier normally."
+    },
+    "force_model": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null,
+      "description": "Escape hatch \u2014 pin every subagent to this exact model string. Bypasses tier classification entirely. Use with extreme care."
+    },
+    "tier_overrides": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": [
+          "LOW",
+          "MED",
+          "HIGH"
+        ]
+      },
+      "description": "Per-subagent-type or per-skill tier override. Keys are matchers like 'subagent_type:slice-reviewer' or 'skill:slice-build'. Highest priority after force_*.",
+      "examples": [
+        {
+          "subagent_type:slice-reviewer": "HIGH",
+          "subagent_type:Explore": "LOW",
+          "subagent_type:codebase-researcher": "LOW",
+          "skill:slice-build": "MED"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "tier_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "claude": {
+          "type": "string",
+          "description": "Claude model identifier (e.g., haiku-4-5, sonnet-4-6, opus-4-7)."
+        },
+        "codex": {
+          "type": "string",
+          "description": "Codex model identifier (e.g., gpt-5.4-mini, gpt-5.5, gpt-5.4)."
+        },
+        "gemini": {
+          "type": "string",
+          "description": "Gemini model identifier (e.g., gemini-2.5-flash, gemini-2.5-pro)."
+        }
+      }
+    },
+    "tier_reasoning": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codex": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "gemini": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      }
+    }
+  }
+}

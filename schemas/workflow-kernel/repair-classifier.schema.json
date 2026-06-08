@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub/schemas/workflow-kernel/repair-classifier.schema.json",
+  "title": "Agent Hub Workflow Kernel Repair Classifier Decision",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "decision",
+    "reason",
+    "profile_id",
+    "failure_kind",
+    "action_type",
+    "target",
+    "retry_budget",
+    "fingerprint",
+    "hint_candidates",
+    "sia"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "decision": {
+      "type": "string",
+      "enum": ["retry", "escalate", "abort", "sia_promote"]
+    },
+    "reason": { "type": "string", "minLength": 1 },
+    "profile_id": { "type": "string", "minLength": 1 },
+    "failure_kind": { "type": "string", "minLength": 1 },
+    "action_type": { "type": "string", "minLength": 1 },
+    "target": { "type": "string", "minLength": 1 },
+    "retry_budget": { "type": "integer", "minimum": 0 },
+    "fingerprint": { "type": "string", "minLength": 1 },
+    "dry_run": { "type": "boolean" },
+    "updated_at": { "type": "string", "minLength": 1 },
+    "attempts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["used", "budget", "remaining", "state_path"],
+      "properties": {
+        "used": { "type": "integer", "minimum": 0 },
+        "budget": { "type": "integer", "minimum": 0 },
+        "remaining": { "type": "integer", "minimum": 0 },
+        "state_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "hint_candidates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provided", "matched", "hint_ids"],
+      "properties": {
+        "provided": { "type": "integer", "minimum": 0 },
+        "matched": { "type": "integer", "minimum": 0 },
+        "hint_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "sia": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["recommended", "command", "result"],
+      "properties": {
+        "recommended": { "type": "boolean" },
+        "command": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "result": {
+          "type": ["object", "null"],
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

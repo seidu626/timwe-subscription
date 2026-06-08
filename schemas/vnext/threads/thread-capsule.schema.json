@@ -1,0 +1,65 @@
+{
+  "$id": "thread-capsule.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "capsule_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "instructions": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "objective": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "oracle": {
+      "type": "object"
+    },
+    "receipt_schema": {
+      "type": "object"
+    },
+    "role": {
+      "enum": [
+        "director",
+        "pm",
+        "scout",
+        "worker",
+        "verifier",
+        "judge"
+      ]
+    },
+    "runtime": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "task_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "thread_id": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "capsule_id",
+    "thread_id",
+    "task_id",
+    "runtime",
+    "role",
+    "objective",
+    "oracle",
+    "receipt_schema",
+    "instructions"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,102 @@
+{
+  "acceptance_tests": [
+    "A configured bootstrap email with no email_verified claim receives platform scope and selected tenant context.",
+    "A configured bootstrap email with email_verified=false remains unscoped.",
+    "The admin SPA maps configured bootstrap emails without email_verified to configured tenant workspaces."
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-058-bootstrap-email-without-email-verified.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-058",
+  "hashes": {
+    "classification_hash": "sha256:743fafb9bd718dca4cbd4f476c646cab568a2dcc9a96dd6b6e7fc763beba75df",
+    "contract_hash": "sha256:402354b94d8224a6208bace357ec34bc77259078b142b2a4ea556730c49fe330",
+    "issue_hash": "sha256:de5c1cbde17230750de3cee07ed9a34f2748bea69fa084526779b7bc482751c5"
+  },
+  "issue_id": "TMP-058",
+  "non_goals": [
+    "Do not grant bootstrap scope for emails outside the configured allowlist.",
+    "Do not ignore an explicit email_verified=false claim.",
+    "Do not change Auth0 tenant mappings or add dependencies."
+  ],
+  "objective": {
+    "actor": "platform-bootstrap-admin",
+    "entrypoint": "GET /v1/admin/* and admin SPA tenant workspace resolution",
+    "outcome": "bootstrap admins can access configured tenant workspaces when Auth0 omits email_verified from the token.",
+    "trigger": "Admin loads the local SPA with an Auth0 identity containing email but no email_verified claim."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "Auth0/admin transport tests show missing email_verified bootstraps and explicit false does not.",
+    "Admin SPA tenant workspace tests show missing email_verified bootstraps and explicit false does not.",
+    "hvc check agent/backlog/issues/TMP-058-bootstrap-email-without-email-verified.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/backlog/issues/TMP-058-bootstrap-email-without-email-verified.md",
+      "agent/state/TMP-058.work-order.json",
+      "agent/state/TMP-058.handoff.json",
+      "common/auth/auth0jwt/claims.go",
+      "common/auth/auth0jwt/claims_test.go",
+      "common/auth/tenantctx/identity.go",
+      "services/acquisition-api/internal/transport/admin.go",
+      "services/acquisition-api/internal/transport/admin_test.go",
+      "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.ts",
+      "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+      "slices/manifest.json",
+      "slices/TMP-058-bootstrap-email-without-email-verified/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**/go.mod",
+      "services/**/go.sum",
+      "frontend/**/package.json",
+      "frontend/**/package-lock.json",
+      "docker-compose*.yml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "agent/backlog/issues/TMP-058-bootstrap-email-without-email-verified.md",
+      "agent/state/TMP-058.work-order.json",
+      "agent/state/TMP-058.handoff.json",
+      "common/auth/auth0jwt/claims.go",
+      "common/auth/auth0jwt/claims_test.go",
+      "common/auth/tenantctx/identity.go",
+      "services/acquisition-api/internal/transport/admin.go",
+      "services/acquisition-api/internal/transport/admin_test.go",
+      "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.ts",
+      "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+      "slices/manifest.json",
+      "slices/TMP-058-bootstrap-email-without-email-verified/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-058-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

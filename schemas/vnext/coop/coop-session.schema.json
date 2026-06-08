@@ -1,0 +1,15 @@
+{
+  "$id": "https://agent-hub/schemas/coop-session.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "session_id",
+    "goal",
+    "status",
+    "workers",
+    "commands"
+  ],
+  "title": "Coop Session",
+  "type": "object"
+}

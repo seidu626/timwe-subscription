@@ -1,0 +1,15 @@
+{
+  "$id": "https://agent-hub/schemas/truth-refresh.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "kind",
+    "root",
+    "runtime",
+    "git",
+    "worktrees"
+  ],
+  "title": "Truth Refresh",
+  "type": "object"
+}

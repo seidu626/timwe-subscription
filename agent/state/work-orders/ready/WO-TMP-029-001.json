@@ -1,0 +1,94 @@
+{
+  "acceptance_tests": [
+    "jq empty slices/manifest.json agent/state/TMP-029.work-order.json agent/state/TMP-029.handoff.json .agent/tasks.json agent/state/TMP-021.handoff.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status && slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-029-compose-runtime-smoke-tooling-blocker.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-029",
+  "hashes": {
+    "classification_hash": "sha256:bff97babab09442b1a2f93d873f543c715cff7e71a1963999dccff0588d5b1d9",
+    "contract_hash": "sha256:e85f35947aca1c9d8b5bbbab5ae2723911461c1e779275f4be2b4a8cf04ea77a",
+    "issue_hash": "sha256:0bd842d05fa3570bb62c26c202c7ee554bdef47cd72d13193303b4a87c6b0501"
+  },
+  "issue_id": "TMP-029",
+  "non_goals": [],
+  "objective": {
+    "actor": "verification-agent",
+    "entrypoint": "docs/agent/full-system-verification-2026-05-09.md",
+    "outcome": "Compose smoke evidence distinguishes config readiness from local Docker auth/tooling failure before app containers start.",
+    "trigger": "Verifier attempts a bounded local compose runtime smoke after TMP-028."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "docker compose --project-name timwe_smoke_* --env-file .env.example -f docker-compose.yml -f /tmp/timwe-compose-smoke-override.yml up -d --build ...",
+    "docker pull docker.io/library/golang:1.24-alpine",
+    "slices/TMP-029-compose-runtime-smoke-tooling-blocker/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-029-compose-runtime-smoke-tooling-blocker/**",
+      "agent/backlog/issues/TMP-029-compose-runtime-smoke-tooling-blocker.md",
+      "agent/state/TMP-029.work-order.json",
+      "agent/state/TMP-029.handoff.json",
+      "agent/state/TMP-021.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "common/**",
+      "services/**",
+      "frontend/**",
+      "docker-compose.yml",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json",
+      "vendor/**"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-029-compose-runtime-smoke-tooling-blocker/**",
+      "agent/backlog/issues/TMP-029-compose-runtime-smoke-tooling-blocker.md",
+      "agent/state/TMP-029.work-order.json",
+      "agent/state/TMP-029.handoff.json",
+      "agent/state/TMP-021.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-029-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

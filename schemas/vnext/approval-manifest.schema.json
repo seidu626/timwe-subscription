@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/approval-manifest.schema.json",
+  "title": "Agent-Hub vNext Approval Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "approval_id", "plan_id", "root", "group", "action_type", "approval_status", "created_at", "expires_at", "approved_by", "rationale", "actions"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "approval_id": {"type": "string", "pattern": "^approval-[0-9]{8}T[0-9]{6}Z-[a-z0-9-]+$"},
+    "plan_id": {"type": "string", "minLength": 1},
+    "root": {"type": "string", "minLength": 1},
+    "group": {"type": "string", "enum": ["review"]},
+    "action_type": {"type": "string", "enum": ["move_closed_issue_to_archive", "move_work_order_to_review_queue", "move_work_order_to_blocked_queue"]},
+    "approval_status": {"type": "string", "enum": ["proposed", "approved", "rejected"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": ["string", "null"], "format": "date-time"},
+    "approved_by": {"type": ["string", "null"]},
+    "rationale": {"type": "string", "minLength": 1},
+    "actions": {"type": "array", "items": {"$ref": "#/$defs/action"}}
+  },
+  "$defs": {
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_id", "action_type", "source_path", "target_path", "source_sha256", "approved", "reason"],
+      "properties": {
+        "action_id": {"type": "string", "minLength": 1},
+        "action_type": {"type": "string", "enum": ["move_closed_issue_to_archive", "move_work_order_to_review_queue", "move_work_order_to_blocked_queue"]},
+        "source_path": {"type": "string", "minLength": 1},
+        "target_path": {"type": "string", "minLength": 1},
+        "source_sha256": {"type": ["string", "null"], "pattern": "^(sha256:[a-f0-9]{64})$"},
+        "approved": {"type": "boolean"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$id": "https://agent-hub/schemas/coop-result-capsule.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "session_id",
+    "task_id",
+    "runtime",
+    "status",
+    "summary",
+    "changed_files",
+    "evidence_refs"
+  ],
+  "title": "Coop Result Capsule",
+  "type": "object"
+}

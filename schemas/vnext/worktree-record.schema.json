@@ -1,0 +1,123 @@
+{
+  "$id": "https://agent-hub.local/schemas/worktree-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "backup_refs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "base_branch": {
+      "type": "string"
+    },
+    "base_sha": {
+      "type": "string"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "history": {
+      "type": "array"
+    },
+    "id": {
+      "pattern": "^wt-",
+      "type": "string"
+    },
+    "last_known": {
+      "type": "object"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "repo_git_common_dir": {
+      "type": "string"
+    },
+    "repo_root_at_creation": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "scope": {
+      "additionalProperties": false,
+      "properties": {
+        "allow": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deny": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "allow",
+        "deny"
+      ],
+      "type": "object"
+    },
+    "source_sha": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "PLANNED",
+        "CLAIMED",
+        "CREATED",
+        "ACTIVE",
+        "CHECKPOINTED",
+        "SYNCING",
+        "VERIFIED",
+        "READY_TO_MERGE",
+        "BASELINE_SHIFTED",
+        "BLOCKED_REBASE",
+        "UNKNOWN_STATE",
+        "MERGED",
+        "CLOSED",
+        "ABANDONED"
+      ],
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "work_order": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "worktree_path": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "repo_git_common_dir",
+    "worktree_path",
+    "branch",
+    "owner",
+    "task_id",
+    "base_branch",
+    "base_sha",
+    "state",
+    "scope",
+    "created_at"
+  ],
+  "title": "Agent Hub Worktree Record",
+  "type": "object"
+}

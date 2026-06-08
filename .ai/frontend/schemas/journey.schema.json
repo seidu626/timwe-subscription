@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Frontend Persona Journey",
+  "type": "object",
+  "required": [
+    "name",
+    "persona",
+    "goal",
+    "entryPoint",
+    "happyPath",
+    "states",
+    "acceptanceTests"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "persona": {
+      "type": "string"
+    },
+    "goal": {
+      "type": "string"
+    },
+    "entryPoint": {
+      "type": "string"
+    },
+    "happyPath": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "alternatePaths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "acceptanceTests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

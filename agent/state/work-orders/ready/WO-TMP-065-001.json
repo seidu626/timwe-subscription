@@ -1,0 +1,89 @@
+{
+  "acceptance_tests": [
+    "hvc check agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md --fail-on block",
+    "cd frontend/webspa-admin && npm run build"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-065",
+  "hashes": {
+    "classification_hash": "sha256:6c33f9775fab9f9df44849447a0e3f229fc59437893c4749e65fe997d8cc29ec",
+    "contract_hash": "sha256:3774eaded74c1c16e9189e7d6882a853473092ae454e8b49b1c50c78b52d7ae9",
+    "issue_hash": "sha256:3bc857af76db0b2a852e358f6ffa547311954dff9c11771f0ccb483bfcd6c062"
+  },
+  "issue_id": "TMP-065",
+  "non_goals": [],
+  "objective": {
+    "actor": "tenant admin user",
+    "entrypoint": "Protected admin routes and their initial tenant-scoped HTTP requests from http://localhost:4200",
+    "outcome": "The Angular admin app opens protected tenant-scoped pages for an account that already has the NRG tenant workspace.",
+    "trigger": "Admin navigates directly to a protected admin page immediately after authentication or page reload."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "tenant-workspace.interceptor spec proves loading requests wait for a ready workspace",
+    "page403 spec proves forbidden/not-found copy is not reported as missing assignment",
+    "npm run build",
+    "hvc check agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.ts",
+      "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts",
+      "frontend/webspa-admin/src/app/views/pages/page403/page403.component.ts",
+      "frontend/webspa-admin/src/app/views/pages/page403/page403.component.spec.ts",
+      "agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md",
+      "agent/state/TMP-065.work-order.json",
+      "agent/state/TMP-065.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**",
+      "frontend/webspa-admin/package.json",
+      "frontend/webspa-admin/package-lock.json",
+      "frontend/webspa-admin/src/environments/**",
+      "frontend/webspa-admin/src/app/core/guards/**",
+      "docker-compose*.yml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.ts",
+      "frontend/webspa-admin/src/app/core/http-interceptors/tenant-workspace.interceptor.spec.ts",
+      "frontend/webspa-admin/src/app/views/pages/page403/page403.component.ts",
+      "frontend/webspa-admin/src/app/views/pages/page403/page403.component.spec.ts",
+      "agent/backlog/issues/TMP-065-tenant-workspace-interceptor-readiness.md",
+      "agent/state/TMP-065.work-order.json",
+      "agent/state/TMP-065.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-065-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

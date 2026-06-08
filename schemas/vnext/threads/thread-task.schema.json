@@ -1,0 +1,182 @@
+{
+  "$id": "thread-task.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "allowed_files": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "child_thread_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "child_depth": {
+      "enum": [
+        1,
+        null
+      ]
+    },
+    "child_rollup_receipt_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "constraints": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "depends_on": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "expected_output": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "inputs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "objective": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "may_delegate": {
+      "type": "boolean"
+    },
+    "receipt_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requires_isolated_worktree": {
+      "type": "boolean"
+    },
+    "requires_worktree": {
+      "type": "boolean"
+    },
+    "role": {
+      "enum": [
+        "director",
+        "pm",
+        "scout",
+        "worker",
+        "verifier",
+        "judge"
+      ]
+    },
+    "runtime": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "runtime_preferences": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "active",
+        "blocked",
+        "needs_review",
+        "done",
+        "failed"
+      ]
+    },
+    "stop_if": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "subagent_profile": {
+      "enum": [
+        "supervisor-full",
+        "worker-minimal",
+        "worker-governed",
+        "reviewer-readonly"
+      ]
+    },
+    "task_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "thread_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "verify": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "receipt_required": {
+      "type": "boolean"
+    },
+    "forbidden_files": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "wave_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "work_order_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "write_locks": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "task_id",
+    "thread_id",
+    "role",
+    "status",
+    "objective",
+    "inputs",
+    "expected_output",
+    "constraints",
+    "allowed_files",
+    "verify",
+    "stop_if",
+    "depends_on",
+    "write_locks",
+    "requires_isolated_worktree"
+  ],
+  "type": "object"
+}

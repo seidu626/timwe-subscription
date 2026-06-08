@@ -1,0 +1,91 @@
+{
+  "acceptance_tests": [
+    "hvc check agent/backlog/issues/TMP-059-admin-dev-startup-latency.md --fail-on block",
+    "make -n dev-admin",
+    "WEBSPA_ADMIN_PORT=<free port> make dev-admin"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-059-admin-dev-startup-latency.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-059",
+  "hashes": {
+    "classification_hash": "sha256:ea7e87c4e02512cae5c9b5bfa3d0b33636b8a7b367e17e77b32bbdf013688ac8",
+    "contract_hash": "sha256:45f577039e9da195b5f630517f14a129dd73ecf01b52430b6d36d35b990ce5c8",
+    "issue_hash": "sha256:9b515e2d905124f3bee2c2c7d2a23cd71a8d9c5f8b223d4af121171c3e8c10e7"
+  },
+  "issue_id": "TMP-059",
+  "non_goals": [],
+  "objective": {
+    "actor": "developer",
+    "entrypoint": "Makefile dev-admin target",
+    "outcome": "Local `make dev` reaches the Angular admin server without paying a npm dependency check on every run when dependencies are already installed.",
+    "trigger": "Developer runs `make dev` or `make dev-admin` in a checkout with existing webspa-admin dependencies."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "Baseline timing for the current admin dependency/start command path",
+    "After timing for the patched admin dependency/start command path",
+    "make -n dev-admin",
+    "WEBSPA_ADMIN_PORT=<free port> make dev-admin"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "Makefile",
+      "agent/backlog/issues/TMP-059-admin-dev-startup-latency.md",
+      "agent/state/TMP-059.work-order.json",
+      "agent/state/TMP-059.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-059-admin-dev-startup-latency/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "frontend/webspa-admin/package.json",
+      "frontend/webspa-admin/package-lock.json",
+      "frontend/webspa-admin/src/**",
+      "services/**",
+      "common/**",
+      "ops/**",
+      "go.mod",
+      "go.sum",
+      "docker-compose*.yml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "Makefile",
+      "agent/backlog/issues/TMP-059-admin-dev-startup-latency.md",
+      "agent/state/TMP-059.work-order.json",
+      "agent/state/TMP-059.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-059-admin-dev-startup-latency/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-059-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

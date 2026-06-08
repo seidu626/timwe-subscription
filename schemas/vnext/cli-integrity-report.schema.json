@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/cli-integrity-report.schema.json",
+  "title": "Agent-Hub CLI Integrity Report",
+  "description": "Report produced by the cli-integrity linter. Records how well a command satisfies the 8-point agent-friendly CLI contract defined in policies/cli-for-agents.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cli_integrity_report_id",
+    "command",
+    "status",
+    "summary",
+    "findings"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "cli_integrity_report_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for this report instance."
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The command name that was inspected."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "warn", "fail"],
+      "description": "Overall verdict: pass=no findings, warn=warnings only, fail=one or more errors."
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["errors", "warnings"],
+      "properties": {
+        "errors": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of error-severity findings."
+        },
+        "warnings": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of warning-severity findings."
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/finding"},
+      "description": "List of contract violations or observations."
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "command", "message"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^CLI[0-9]{3}$",
+          "description": "Contract point identifier from policies/cli-for-agents.md."
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info"],
+          "description": "Severity of this finding."
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The specific command or subcommand this finding applies to."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable description of the finding."
+        }
+      }
+    }
+  }
+}

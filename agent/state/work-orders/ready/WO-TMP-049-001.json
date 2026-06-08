@@ -1,0 +1,96 @@
+{
+  "acceptance_tests": [
+    "Migration drops all legacy foreign keys that depend on campaigns(slug) before dropping campaigns_slug_key.",
+    "Migration does not use DROP CONSTRAINT ... CASCADE.",
+    "Acquisition repository migration tests pass."
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-049-acquisition-campaign-slug-migration-startup.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-049",
+  "hashes": {
+    "classification_hash": "sha256:241f1ff666ed05a77c9527a4226d6a5aef7880c72dfd4445a13b521e32473862",
+    "contract_hash": "sha256:de561387e4af4db7393c515703fd6129ac502879f0088b97e27dc921061cd167",
+    "issue_hash": "sha256:83a15de200966c7800615e29fd9fb4cb85cd0899b69d6e2463fca7f10c389753"
+  },
+  "issue_id": "TMP-049",
+  "non_goals": [
+    "Do not change runtime campaign or transaction business logic.",
+    "Do not add new migrations outside acquisition-api.",
+    "Do not connect to or mutate production data from tests."
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "services/acquisition-api/migrations/add_tenant_zz_acquisition_flow.sql",
+    "outcome": "acquisition-api can bootstrap tenant schema on databases that still have legacy campaign slug foreign keys.",
+    "trigger": "acquisition-api startup fails with pq cannot drop constraint campaigns_slug_key because other objects depend on it."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "cd services/acquisition-api && go test ./internal/repository",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slices/TMP-049-acquisition-campaign-slug-migration-startup/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "services/acquisition-api/migrations/add_tenant_zz_acquisition_flow.sql",
+      "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+      "agent/backlog/issues/TMP-049-acquisition-campaign-slug-migration-startup.md",
+      "agent/state/TMP-049.work-order.json",
+      "agent/state/TMP-049.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-049-acquisition-campaign-slug-migration-startup/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/acquisition-api/cmd/**",
+      "services/acquisition-api/internal/service/**",
+      "services/acquisition-api/internal/handler/**",
+      "services/acquisition-api/internal/repository/*_repository.go",
+      "services/subscription-external/**",
+      "frontend/**",
+      "docker-compose*.yml",
+      "go.mod",
+      "go.sum"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "services/acquisition-api/migrations/add_tenant_zz_acquisition_flow.sql",
+      "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+      "agent/backlog/issues/TMP-049-acquisition-campaign-slug-migration-startup.md",
+      "agent/state/TMP-049.work-order.json",
+      "agent/state/TMP-049.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-049-acquisition-campaign-slug-migration-startup/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-049-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

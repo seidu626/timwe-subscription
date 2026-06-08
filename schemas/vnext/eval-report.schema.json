@@ -1,0 +1,46 @@
+{
+  "$id": "https://agent-hub/schemas/eval-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cases": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "eval_id": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail",
+        "warn"
+      ]
+    },
+    "summary": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "eval_id",
+    "generated_at",
+    "status",
+    "summary",
+    "cases"
+  ],
+  "title": "Agent Hub Eval Report",
+  "type": "object"
+}

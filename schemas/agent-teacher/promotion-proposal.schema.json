@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/agent-teacher/promotion-proposal.schema.json",
+  "title": "Teacher Promotion Proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "status",
+    "proposal_id",
+    "hint_id",
+    "target_kind",
+    "target_path",
+    "patch_summary",
+    "risk",
+    "reviewer_runtime",
+    "rollback_path",
+    "evidence_refs",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "kind": { "type": "string", "const": "teacher_promotion_proposal" },
+    "status": { "type": "string", "enum": ["proposed", "approved", "applied", "blocked"] },
+    "proposal_id": { "type": "string", "minLength": 1 },
+    "hint_id": { "type": "string", "minLength": 1 },
+    "target_kind": {
+      "type": "string",
+      "enum": ["skill", "policy", "agent_teacher_hint", "test_fixture"]
+    },
+    "target_path": {
+      "type": "string",
+      "minLength": 1,
+      "not": { "pattern": "^/|(^|/)\\.\\.(/|$)" }
+    },
+    "patch_summary": { "type": "string", "minLength": 1 },
+    "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+    "reviewer_runtime": { "type": "string", "minLength": 1 },
+    "rollback_path": { "type": "string", "minLength": 1 },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "created_at": { "type": "string", "minLength": 1 },
+    "ledger_record_id": { "type": "string", "minLength": 1 },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["op", "path", "content"],
+        "properties": {
+          "op": { "type": "string", "enum": ["append"] },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "not": { "pattern": "^/|(^|/)\\.\\.(/|$)" }
+          },
+          "content": { "type": "string" }
+        }
+      }
+    }
+  }
+}

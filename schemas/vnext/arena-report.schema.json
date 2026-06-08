@@ -1,0 +1,35 @@
+{
+  "$id": "https://agent-hub/schemas/arena-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Arena Report",
+  "description": "Records parallel multi-runtime solution attempts for a WorkOrder and identifies the winning attempt.",
+  "type": "object",
+  "required": ["schema_version", "arena_id", "work_order_id", "attempts"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"type": "string", "enum": ["1.0"]},
+    "arena_id": {"type": "string"},
+    "work_order_id": {"type": "string"},
+    "runtimes": {"type": "array", "items": {"type": "string"}},
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["runtime", "summary"],
+        "additionalProperties": true,
+        "properties": {
+          "runtime": {"type": "string"},
+          "summary": {"type": "string"},
+          "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "status": {"type": "string", "enum": ["pending", "completed", "failed", "skipped"]},
+          "capsule_path": {"type": ["string", "null"]},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "winner": {"type": ["string", "null"]},
+    "status": {"type": "string", "enum": ["pending", "running", "complete", "failed"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": ["string", "null"]}
+  }
+}

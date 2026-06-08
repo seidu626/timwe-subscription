@@ -1,0 +1,91 @@
+{
+  "$id": "https://agent-hub/schemas/worker-result-capsule.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Hub Worker Result Capsule",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_order_id",
+    "status",
+    "changed_files",
+    "tests_run",
+    "evidence_refs",
+    "risks",
+    "followups"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "work_order_id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "done",
+        "blocked",
+        "failed",
+        "needs_review"
+      ]
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tests_run": {
+      "type": "array",
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "followups": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "subagent_id": {
+      "type": "string",
+      "description": "Optional: the subagent ID that produced this result."
+    },
+    "role": {
+      "type": "string",
+      "description": "Optional: the role the subagent was dispatched as."
+    },
+    "runtime": {
+      "type": "string",
+      "description": "Optional: the runtime that executed the subagent."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Optional: human-readable one-sentence summary of the result."
+    },
+    "questions": {
+      "type": "array",
+      "description": "Optional: questions the subagent could not resolve, routed to autopilot.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "capability_unconstrained_verdict": {
+      "type": "string",
+      "description": "Optional: path to the capability-unconstrained verdict capsule (.harness/runs/*/capability-unconstrained/verdict.json) that was active when this result was produced. Populated at closeout to record the gate verdict against this work order."
+    }
+  }
+}

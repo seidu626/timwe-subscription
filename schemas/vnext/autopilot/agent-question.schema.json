@@ -1,0 +1,37 @@
+{
+  "$id": "https://agent-hub/schemas/autopilot/agent-question.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Question",
+  "description": "A typed question raised by a worker/agent that the question broker answers under policy, without asking the human when allowed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "question_id", "session_id", "agent_id", "runtime", "question_type", "question", "created_at"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "question_id": {"type": "string", "minLength": 1},
+    "session_id": {"type": "string", "minLength": 1},
+    "agent_id": {"type": "string", "minLength": 1},
+    "runtime": {"type": "string", "minLength": 1},
+    "work_order_id": {"type": ["string", "null"]},
+    "question_type": {
+      "type": "string",
+      "enum": [
+        "scope_permission", "claim_permission", "continue_retry_escalate", "done_permission",
+        "evidence_sufficiency", "review_need", "runtime_selection", "spawn_agent",
+        "blocker_reality", "scope_check"
+      ]
+    },
+    "question": {"type": "string", "minLength": 1},
+    "proposed_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"type": "string"},
+        "paths": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "context_refs": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": "string"}
+  }
+}

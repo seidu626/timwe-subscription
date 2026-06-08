@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/migration-transaction-log.schema.json",
+  "title": "Agent-Hub vNext Migration Transaction Log",
+  "description": "A durable log for one dry-run or execute invocation of the migration applier.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "transaction_id",
+    "plan_id",
+    "root",
+    "mode",
+    "group",
+    "started_at",
+    "completed_at",
+    "status",
+    "summary",
+    "actions"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "transaction_id": {"type": "string", "pattern": "^migration-txn-[0-9]{8}T[0-9]{6}Z-[a-z0-9-]+$"},
+    "plan_id": {"type": "string", "minLength": 1},
+    "root": {"type": "string", "minLength": 1},
+    "mode": {"type": "string", "enum": ["dry_run", "execute"]},
+    "group": {"type": "string", "enum": ["safe", "review", "blocked"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "status": {"type": "string", "enum": ["success", "partial", "failed"]},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested", "planned", "applied", "skipped", "failed"],
+      "properties": {
+        "requested": {"type": "integer", "minimum": 0},
+        "planned": {"type": "integer", "minimum": 0},
+        "applied": {"type": "integer", "minimum": 0},
+        "skipped": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0}
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/action_result"}
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "artifact_type", "status", "sha256", "bytes", "pre_existing"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "artifact_type": {"type": "string", "enum": ["work_order_v2", "run_state", "backup", "unknown"]},
+        "status": {"type": "string", "enum": ["planned", "created", "overwritten", "backed_up", "skipped", "failed"]},
+        "sha256": {"type": ["string", "null"], "pattern": "^(sha256:[a-f0-9]{64})$"},
+        "bytes": {"type": ["integer", "null"], "minimum": 0},
+        "pre_existing": {"type": "boolean"}
+      }
+    },
+    "action_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "action_type",
+        "group",
+        "status",
+        "message",
+        "source_path",
+        "source_sha256_before",
+        "source_sha256_after",
+        "artifacts",
+        "errors"
+      ],
+      "properties": {
+        "action_id": {"type": "string", "minLength": 1},
+        "action_type": {"type": "string", "minLength": 1},
+        "group": {"type": "string", "enum": ["safe", "review", "blocked"]},
+        "status": {"type": "string", "enum": ["planned", "applied", "skipped", "failed"]},
+        "message": {"type": "string"},
+        "source_path": {"type": ["string", "null"]},
+        "source_sha256_before": {"type": ["string", "null"], "pattern": "^(sha256:[a-f0-9]{64})$"},
+        "source_sha256_after": {"type": ["string", "null"], "pattern": "^(sha256:[a-f0-9]{64})$"},
+        "artifacts": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
+        "errors": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

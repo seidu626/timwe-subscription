@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agent-hub/governance/review-gate.v1",
+  "title": "Review Gate",
+  "description": "Structured review gate result from a governance reviewer agent.",
+  "type": "object",
+  "required": ["schema_version", "work_order_id", "reviewer", "domain", "verdict", "findings", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "work_order_id": { "type": "string" },
+    "reviewer": { "type": "string", "description": "Agent or human reviewer identity." },
+    "domain": {
+      "type": "string",
+      "enum": ["repository", "backend", "data", "api", "security", "testing", "observability", "devex", "migration", "ai-change-control", "frontend"]
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["approve", "approve-with-conditions", "block"],
+      "description": "approve=all gates pass; approve-with-conditions=advisory gaps only; block=merge-blocking gaps present"
+    },
+    "ois_net_score": {
+      "type": ["number", "null"],
+      "description": "Objective Improvement Score net value. Must be > 0 for merge eligibility."
+    },
+    "absolute_blockers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Absolute blockers present (no_tests, no_evidence_ledger). Empty array = none."
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "gate", "finding", "required_fix"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["blocker", "warning", "info"] },
+          "gate": { "type": "string" },
+          "finding": { "type": "string" },
+          "evidence": { "type": "string" },
+          "required_fix": { "type": "string" }
+        }
+      }
+    },
+    "required_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

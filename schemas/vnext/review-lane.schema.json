@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReviewLane",
+  "description": "Schema for a single review lane in the Thermos review process.",
+  "type": "object",
+  "properties": {
+    "lane_id": {
+      "description": "The identifier for the review lane, e.g., 'A' or 'B'.",
+      "type": "string",
+      "enum": ["A", "B"]
+    },
+    "status": {
+      "description": "The overall status of the review lane.",
+      "type": "string",
+      "enum": ["pass", "warn", "fail", "block"]
+    },
+    "findings": {
+      "description": "A list of findings discovered during the review.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "description": "The path to the file where the finding was made.",
+            "type": "string"
+          },
+          "line_number": {
+            "description": "The line number of the finding.",
+            "type": "integer"
+          },
+          "severity": {
+            "description": "The severity of the finding.",
+            "type": "string",
+            "enum": ["info", "low", "medium", "high", "critical"]
+          },
+          "description": {
+            "description": "A description of the finding.",
+            "type": "string"
+          },
+          "rubric_item": {
+            "description": "For Lane B, the rubric item this finding relates to.",
+            "type": "string"
+          }
+        },
+        "required": ["severity", "description"]
+      }
+    },
+    "rubric_checklist": {
+        "description": "For Lane B, the checklist of rubric items and their status.",
+        "type": "object",
+        "patternProperties": {
+            "^[a-zA-Z0-9_-]+$": {
+                "type": "string",
+                "enum": ["pass", "fail", "not_applicable"]
+            }
+        }
+    }
+  },
+  "required": ["lane_id", "status", "findings"]
+}

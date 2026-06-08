@@ -1,0 +1,33 @@
+{
+  "$comment": "Drop this file at .harness/subagent-policy.json in a repo to override defaults. Or at ~/.agents/subagent-policy.json for per-user defaults. Fields are merged into the skill defaults, not replaced — omit anything you want to leave at default.",
+  "runtime_preference": "claude",
+  "tier_models": {
+    "LOW":  { "claude": "haiku-4-5",  "codex": "gpt-5.4-mini", "gemini": "gemini-2.5-flash" },
+    "MED":  { "claude": "sonnet-4-6", "codex": "gpt-5.5",      "gemini": "gemini-2.5-pro" },
+    "HIGH": { "claude": "opus-4-7",   "codex": "gpt-5.5",      "gemini": "gemini-2.5-pro" }
+  },
+  "tier_reasoning_effort": {
+    "LOW":  { "codex": "low",    "gemini": "low" },
+    "MED":  { "codex": "medium", "gemini": "medium" },
+    "HIGH": { "codex": "high",   "gemini": "high" }
+  },
+  "max_parallel_default": 64,
+  "max_parallel_low_tier": 64,
+  "force_tier": null,
+  "force_model": null,
+  "tier_overrides": {
+    "subagent_type:slice-reviewer": "HIGH",
+    "subagent_type:mythos-adversarial-reviewer": "HIGH",
+    "subagent_type:engineering-reviewer": "HIGH",
+    "subagent_type:security-reviewer": "HIGH",
+    "subagent_type:Explore": "LOW",
+    "subagent_type:codebase-researcher": "LOW",
+    "subagent_type:performance-investigator": "MED",
+    "subagent_type:migration-reviewer": "HIGH",
+    "skill:slice-build": "MED",
+    "skill:slice-spec": "MED",
+    "skill:value-gate": "MED",
+    "skill:slice-verify": "HIGH",
+    "skill:adversarial-self-review": "HIGH"
+  }
+}

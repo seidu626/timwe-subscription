@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/andon-event.schema.json",
+  "title": "Agent-Hub AndonEvent",
+  "description": "File-based flag that pauses orchestration spawns tree-wide for a named DAG.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dag_id",
+    "triggered_at",
+    "triggered_by",
+    "reason",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "dag_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "triggered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "triggered_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Agent ID or operator handle that triggered the andon pull."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "resolved"
+      ],
+      "description": "active = spawns are paused; resolved = pause lifted."
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_by": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

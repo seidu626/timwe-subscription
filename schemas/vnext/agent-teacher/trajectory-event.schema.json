@@ -1,0 +1,77 @@
+{
+  "$id": "https://agent-hub/schemas/agent-teacher/trajectory-event.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "agent_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "goal_id": {
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "ok",
+        "warn",
+        "block",
+        "fail"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "work_order_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "event_id",
+    "goal_id",
+    "agent_id",
+    "session_id",
+    "run_id",
+    "phase_id",
+    "event_type",
+    "status",
+    "summary",
+    "evidence_refs",
+    "created_at"
+  ],
+  "title": "Agent Teacher Trajectory Event",
+  "type": "object"
+}

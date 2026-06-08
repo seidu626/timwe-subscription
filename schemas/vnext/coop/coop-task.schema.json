@@ -1,0 +1,15 @@
+{
+  "$id": "https://agent-hub/schemas/coop-task.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "task_id",
+    "runtime",
+    "status",
+    "objective",
+    "scope"
+  ],
+  "title": "Coop Task",
+  "type": "object"
+}

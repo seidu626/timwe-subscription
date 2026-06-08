@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mythos Verification Matrix",
+  "type": "object",
+  "required": ["rows"],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["target", "check", "status"],
+        "properties": {
+          "target": {"type": "string"},
+          "check": {"type": "string"},
+          "command": {"type": "string"},
+          "expected": {"type": "string"},
+          "actual": {"type": "string"},
+          "status": {"enum": ["passed", "fixed", "failed", "blocked", "not applicable", "not implemented", "pending"]},
+          "evidence": {"type": "string"},
+          "risk": {"type": "string"}
+        }
+      }
+    }
+  }
+}

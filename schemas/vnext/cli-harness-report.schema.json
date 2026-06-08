@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/cli-harness-report.schema.json",
+  "title": "Agent-Hub CLI Harness Report",
+  "description": "Report produced by the control-cli harness. Records the result of driving a terminal command deterministically with tmux or PTY fallback.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cli_harness_report_id",
+    "command",
+    "status",
+    "steps",
+    "transcript_path",
+    "cleanup_ok"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "cli_harness_report_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for this harness run instance."
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The command that was executed."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail", "timeout"],
+      "description": "Overall result: pass=all steps matched, fail=a step did not match or command errored, timeout=a pattern-wait exceeded its deadline."
+    },
+    "steps": {
+      "type": "array",
+      "description": "Ordered list of action/expect steps executed during the run.",
+      "items": {"$ref": "#/$defs/step"}
+    },
+    "transcript_path": {
+      "type": "string",
+      "description": "Path to the full transcript capture file (relative to repo root or absolute)."
+    },
+    "cleanup_ok": {
+      "type": "boolean",
+      "description": "True if the tmux session or PTY process was successfully cleaned up after the run."
+    },
+    "driver": {
+      "type": "string",
+      "enum": ["tmux", "pty"],
+      "description": "The driver used for this run."
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "ISO-8601 timestamp when the report was generated."
+    },
+    "exit_code": {
+      "type": ["integer", "null"],
+      "description": "Exit code of the command, or null if unavailable."
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "expect", "matched"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "The action performed in this step (e.g. 'start', 'send', 'wait')."
+        },
+        "expect": {
+          "type": "string",
+          "description": "The regex pattern waited on in this step, or empty string if no wait was expected."
+        },
+        "matched": {
+          "type": "boolean",
+          "description": "Whether the expected pattern was found in the output."
+        },
+        "capture_path": {
+          "type": ["string", "null"],
+          "description": "Path to the captured output for this step, or null if no capture was taken."
+        }
+      }
+    }
+  }
+}

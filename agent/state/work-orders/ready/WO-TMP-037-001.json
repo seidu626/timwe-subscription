@@ -1,0 +1,92 @@
+{
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "test -f slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness status",
+    "slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-037-landing-web-dependency-remediation-approval.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-037",
+  "hashes": {
+    "classification_hash": "sha256:25fbc50ac0f59df2edcddb22ddbe81632fc235c9c09fd04b00978416463be77c",
+    "contract_hash": "sha256:9353dc8832dc6ef6545493eb67009c87e17c10d1004600de725b48fb12ef0807",
+    "issue_hash": "sha256:08ba3a8da942785938c11fb04cda568d28efb3dc5051b0be4a36b394158082f0"
+  },
+  "issue_id": "TMP-037",
+  "non_goals": [],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "services/landing-web/package.json and package-lock.json",
+    "outcome": "Landing-web dependency vulnerability remediation has an explicit approval gate before breaking Next/PostCSS upgrades are attempted.",
+    "trigger": "Verifier runs npm audit after landing-web build passes."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "npm audit --audit-level=moderate",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-021-full-system-verification/value-gate-report.md",
+    "slices/TMP-037-landing-web-dependency-remediation-approval/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/backlog/issues/TMP-037-landing-web-dependency-remediation-approval.md",
+      "agent/state/TMP-037.work-order.json",
+      "agent/state/TMP-037.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-037-landing-web-dependency-remediation-approval/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**",
+      "common/**",
+      "frontend/**",
+      "ops/**",
+      "docker-compose*.yml",
+      "Makefile",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "agent/backlog/issues/TMP-037-landing-web-dependency-remediation-approval.md",
+      "agent/state/TMP-037.work-order.json",
+      "agent/state/TMP-037.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-037-landing-web-dependency-remediation-approval/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-037-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

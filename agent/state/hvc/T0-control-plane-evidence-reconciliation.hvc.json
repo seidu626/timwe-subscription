@@ -1,0 +1,17 @@
+{
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred bounded_enabler from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "bounded_enabler",
+  "classification_id": "hvc-goal-20260608T053807Z-t0-control-plane-and-evi",
+  "created_at": "2026-06-08T05:38:08Z",
+  "domains": [
+    "workflow",
+    "schemas",
+    "hvc"
+  ],
+  "goal_id": "goal-20260608T053807Z-t0-control-plane-and-evi",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/frontend/component-contract.v2.schema.json",
+  "title": "Frontend Component Contract v2",
+  "description": "v2 extends component-contract.schema.json with required journey_nodes (minItems 1) for machine-checkable intent linkage. v1 files remain valid against component-contract.schema.json; new tasks use v2.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "name",
+    "purpose",
+    "file",
+    "consumingWorkflow",
+    "states",
+    "tests",
+    "callGraph",
+    "journey_nodes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "2.0" },
+    "name": { "type": "string" },
+    "purpose": { "type": "string" },
+    "file": { "type": "string" },
+    "ownerPersona": { "type": "string" },
+    "consumingRoute": { "type": "string" },
+    "consumingWorkflow": { "type": "string" },
+    "props": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "states": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "accessibility": { "type": "object" },
+    "responsive": { "type": "object" },
+    "tests": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "callGraph": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "journey_nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+      },
+      "description": "Journey step node IDs (format: <journey-id>.<step-slug>) this component implements. Min 1 required."
+    },
+    "deletion_criteria": {
+      "type": "string",
+      "description": "Condition under which this component may be deleted."
+    }
+  }
+}

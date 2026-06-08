@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/subagents/main-context-guard-report.schema.json",
+  "title": "Agent-Hub Main Context Guard Report",
+  "description": "Report emitted by the MAIN-DIRECT-WORK guard when it intercepts or allows a tool call in the main agent context.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "severity",
+    "decision",
+    "message",
+    "required_action"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "id": {
+      "const": "MAIN-DIRECT-WORK-001"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["error", "warn", "info"]
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["allow", "block"]
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "required_action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "paths", "file_count", "command"],
+      "properties": {
+        "action": { "type": "string", "minLength": 1 },
+        "paths": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "file_count": { "type": "integer", "minimum": 0 },
+        "command": { "type": "string" }
+      }
+    },
+    "allowed_reads": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

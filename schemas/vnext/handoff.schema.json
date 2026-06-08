@@ -1,0 +1,54 @@
+{
+  "$id": "https://agent-hub/schemas/handoff.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "branch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "from_node": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "handoff_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "ready",
+        "accepted",
+        "blocked",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "from_node",
+    "status",
+    "summary",
+    "evidence_refs"
+  ],
+  "title": "Agent Hub Typed Handoff",
+  "type": "object"
+}

@@ -1,0 +1,43 @@
+{
+  "$id": "https://agent-hub/schemas/workflow-run.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "artifacts": {
+      "type": "object"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "engine": {
+      "type": "string"
+    },
+    "goal_id": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "steps": {
+      "type": "array"
+    },
+    "workflow_run_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "workflow_run_id",
+    "goal_id",
+    "engine",
+    "phase",
+    "steps",
+    "artifacts",
+    "created_at"
+  ],
+  "title": "Workflow Run",
+  "type": "object"
+}

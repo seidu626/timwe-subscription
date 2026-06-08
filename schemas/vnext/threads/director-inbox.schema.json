@@ -1,0 +1,55 @@
+{
+  "$id": "director-inbox.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "director_thread_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "items": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "pinned_thread_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "ready_to_archive": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "clear",
+        "needs_attention"
+      ]
+    },
+    "summary": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "director_thread_id",
+    "generated_at",
+    "status",
+    "items",
+    "summary",
+    "ready_to_archive",
+    "pinned_thread_ids"
+  ],
+  "type": "object"
+}

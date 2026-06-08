@@ -1,0 +1,109 @@
+{
+  "acceptance_tests": [
+    "Migration script creates or resolves tenant_key=nrg and backfills every tenant_id IS NULL row in the configured tables.",
+    "Migration script has no rollback mode that restores tenant_id to NULL.",
+    "Active frontend bootstrap defaults and backend tests use nrg instead of legacy-default."
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-050-canonical-nrg-tenant-migration.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-050",
+  "hashes": {
+    "classification_hash": "sha256:62c079687290fb47aab9845597e42f7dc6b8832d579377d408838f1278fa2b0d",
+    "contract_hash": "sha256:125eb5cb555b1d9e5d08ac29ec322f285cb286332120fd3ee43d0553e5b1f782",
+    "issue_hash": "sha256:4a5f30f1aa74e629f59a7c2fc12b75b5d4845650e158b9a4bb6c9fe6de8174e4"
+  },
+  "issue_id": "TMP-050",
+  "non_goals": [
+    "Do not run the migration against a live remote database in this agent session.",
+    "Do not add multi-tenant membership tables in this slice.",
+    "Do not implement tenant list/update UI in this slice; that follows after the canonical tenant migration path is safe."
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "make db-migrate-tenant-platform",
+    "outcome": "existing tenantless production data is assigned to the canonical nrg tenant with no legacy-default compatibility path.",
+    "trigger": "operator has decided nrg is the canonical default tenant and legacy/default compatibility paths must be pruned."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "bash -n scripts/db-migrate-tenant-platform.sh",
+    "rg -n \"legacy-default|LEGACY_TENANT|db-rollback-tenant-platform|--rollback|tenant_id = NULL|channel_id IS NULL|channel_id IS NOT NULL\" scripts/db-migrate-tenant-platform.sh docs/tenant-platform-migration-runbook.md docs/tenant-channel-onboarding.md frontend/webspa-admin/src/environments services/acquisition-api/internal/transport/admin_test.go services/acquisition-api/internal/handler/reports_handler_test.go | cat",
+    "cd services/acquisition-api && go test ./internal/transport ./internal/handler",
+    "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless --progress=false",
+    "hvc check agent/backlog/issues/*.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "scripts/db-migrate-tenant-platform.sh",
+      "Makefile",
+      "docs/tenant-platform-migration-runbook.md",
+      "docs/tenant-channel-onboarding.md",
+      "frontend/webspa-admin/src/environments/environment.ts",
+      "frontend/webspa-admin/src/environments/environment.prod.ts",
+      "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+      "services/acquisition-api/internal/transport/admin_test.go",
+      "services/acquisition-api/internal/handler/reports_handler_test.go",
+      "agent/backlog/issues/TMP-050-canonical-nrg-tenant-migration.md",
+      "agent/state/TMP-050.work-order.json",
+      "agent/state/TMP-050.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-050-canonical-nrg-tenant-migration/**",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/acquisition-api/internal/service/**",
+      "services/acquisition-api/internal/repository/**",
+      "services/subscription-external/internal/**",
+      "services/*/go.mod",
+      "services/*/go.sum",
+      "docker-compose*.yml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "scripts/db-migrate-tenant-platform.sh",
+      "Makefile",
+      "docs/tenant-platform-migration-runbook.md",
+      "docs/tenant-channel-onboarding.md",
+      "frontend/webspa-admin/src/environments/environment.ts",
+      "frontend/webspa-admin/src/environments/environment.prod.ts",
+      "frontend/webspa-admin/src/app/core/services/tenant-workspace.service.spec.ts",
+      "services/acquisition-api/internal/transport/admin_test.go",
+      "services/acquisition-api/internal/handler/reports_handler_test.go",
+      "agent/backlog/issues/TMP-050-canonical-nrg-tenant-migration.md",
+      "agent/state/TMP-050.work-order.json",
+      "agent/state/TMP-050.handoff.json",
+      "slices/manifest.json",
+      "slices/TMP-050-canonical-nrg-tenant-migration/**",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-050-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

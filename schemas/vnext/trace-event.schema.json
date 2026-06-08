@@ -1,0 +1,80 @@
+{
+  "$id": "https://agent-hub/schemas/trace-event.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_refs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "goal_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "type": "object"
+    },
+    "phase": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "warn",
+        "fail",
+        "blocked",
+        "info"
+      ]
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "work_order_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "trace_id",
+    "event_id",
+    "event_type",
+    "phase",
+    "status",
+    "created_at",
+    "metrics",
+    "artifact_refs"
+  ],
+  "title": "Agent Hub Trace Event",
+  "type": "object"
+}

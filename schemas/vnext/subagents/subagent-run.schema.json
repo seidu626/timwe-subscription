@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/subagents/subagent-run.schema.json",
+  "title": "Agent-Hub Subagent Run",
+  "description": "Run record tracking the execution lifecycle of a single subagent dispatch.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "work_order_id",
+    "subagent_id",
+    "role",
+    "runtime",
+    "status",
+    "started_at",
+    "capsule_ref"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "work_order_id": { "type": "string", "minLength": 1 },
+    "subagent_id": { "type": "string", "minLength": 1 },
+    "role": { "type": "string", "minLength": 1 },
+    "runtime": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["spawned", "running", "done", "failed", "reassigned"]
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "expires_at"],
+      "properties": {
+        "owner": { "type": "string", "minLength": 1 },
+        "expires_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "capsule_ref": { "type": "string", "minLength": 1 },
+    "subagent_profile": {
+      "type": "string",
+      "enum": ["supervisor-full", "worker-minimal", "worker-governed", "reviewer-readonly"]
+    },
+    "may_delegate": { "type": "boolean" },
+    "result_ref": { "type": "string", "minLength": 1 },
+    "trace_ref": { "type": "string", "minLength": 1 }
+  }
+}

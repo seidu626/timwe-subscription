@@ -1,0 +1,116 @@
+{
+  "acceptance_tests": [
+    "hvc check agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md --fail-on block",
+    "cd frontend/webspa-admin && npm run build"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "vertical_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:41Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-071",
+  "hashes": {
+    "classification_hash": "sha256:1fa84a114d87e8e93b6e3bced984e2afb87a44e0e578ab7c5771ba9651d29b0a",
+    "contract_hash": "sha256:3257ee91ed1a2bae3ae47af8bc2497f2dd76bbb703ab64b33b38a5e1f516b7a9",
+    "issue_hash": "sha256:a074013a5a81e9cde538d750c54f271856945981d35bd5d3b135b2c478a3c2d5"
+  },
+  "issue_id": "TMP-071",
+  "non_goals": [
+    "No backend behavior changes.",
+    "No dependency manifest or lockfile changes.",
+    "No API URL, Auth0, tenant resolution, database, migration, or deployment changes."
+  ],
+  "objective": {
+    "actor": "tenant operations admin",
+    "entrypoint": "Authenticated webspa-admin routes under /dashboard and /tenants",
+    "outcome": "The admin user can scan acquisition health, tenant workspace state, and tenant catalog operations faster from the existing webspa-admin surfaces.",
+    "trigger": "Admin opens the portal after authentication or navigates to the tenant catalog."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "webspa-admin dashboard renders the existing KPI data in a clearer operator command-center layout",
+    "tenant catalog create/edit and member management preserve existing actions while improving hierarchy and scanability",
+    "global shell/header/sidebar polish keeps existing CoreUI and Angular Material dependencies",
+    "npm run build",
+    "hvc check agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md --fail-on block"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.html",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.scss",
+      "frontend/webspa-admin/src/app/layout/default-layout/_nav.ts",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.html",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.scss",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.ts",
+      "frontend/webspa-admin/src/app/views/pages/login/login.component.html",
+      "frontend/webspa-admin/src/app/views/pages/login/login.component.scss",
+      "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html",
+      "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss",
+      "frontend/webspa-admin/src/scss/_custom.scss",
+      "frontend/webspa-admin/src/scss/_theme.scss",
+      "agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md",
+      "agent/state/TMP-071.work-order.json",
+      "agent/state/TMP-071.handoff.json",
+      ".agent/**",
+      ".harness/**",
+      ".agent-work/**"
+    ],
+    "forbidden_files": [
+      "services/**",
+      "frontend/webspa-admin/package.json",
+      "frontend/webspa-admin/package-lock.json",
+      "frontend/webspa-admin/src/environments/**",
+      "frontend/webspa-admin/src/app/core/**",
+      "docker-compose*.yml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.html",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.scss",
+      "frontend/webspa-admin/src/app/layout/default-layout/_nav.ts",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.html",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.scss",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.ts",
+      "frontend/webspa-admin/src/app/views/pages/login/login.component.html",
+      "frontend/webspa-admin/src/app/views/pages/login/login.component.scss",
+      "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html",
+      "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss",
+      "frontend/webspa-admin/src/scss/_custom.scss",
+      "frontend/webspa-admin/src/scss/_theme.scss",
+      "agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md",
+      "agent/state/TMP-071.work-order.json",
+      "agent/state/TMP-071.handoff.json",
+      ".agent/**",
+      ".harness/**",
+      ".agent-work/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-071-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

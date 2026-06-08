@@ -1,0 +1,101 @@
+{
+  "$id": "https://agent-hub/schemas/runtime-adapter-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "adapters": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "backend": {
+            "enum": [
+              "cli",
+              "sdk"
+            ],
+            "type": "string"
+          },
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "interface": {
+            "items": {
+              "enum": [
+                "spawn",
+                "poll",
+                "cancel",
+                "collect_artifacts"
+              ],
+              "type": "string"
+            },
+            "minItems": 4,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "launches_process": {
+            "type": "boolean"
+          },
+          "runtime": {
+            "enum": [
+              "codex",
+              "claude",
+              "gemini",
+              "cursor"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "implemented",
+              "optional_not_implemented"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "runtime",
+          "backend",
+          "status",
+          "interface",
+          "launches_process"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "report_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "source_of_truth": {
+      "const": "agent-hub"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "report_id",
+    "generated_at",
+    "status",
+    "source_of_truth",
+    "adapters"
+  ],
+  "title": "Agent Hub Runtime Adapter Report",
+  "type": "object"
+}

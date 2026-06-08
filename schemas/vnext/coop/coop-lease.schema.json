@@ -1,0 +1,15 @@
+{
+  "$id": "https://agent-hub/schemas/coop-lease.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "session_id",
+    "task_id",
+    "runtime",
+    "agent_id",
+    "lease_expires_at"
+  ],
+  "title": "Coop Lease",
+  "type": "object"
+}

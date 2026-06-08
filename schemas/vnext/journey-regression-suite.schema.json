@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/journey-regression-suite.schema.json",
+  "title": "Journey Regression Suite Manifest",
+  "description": "Manifest produced by the journey-tests generator. Records emitted spec files, node coverage, and overall pass/fail status for G6 regression verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "suite_id",
+    "ecosystem_id",
+    "generated_at",
+    "journeys",
+    "coverage",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "suite_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for this regression suite run."
+    },
+    "ecosystem_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ecosystem_id from the source ecosystem-definition."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp when the suite was generated."
+    },
+    "journeys": {
+      "type": "array",
+      "description": "One entry per journey covered by this suite.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["journey_id", "spec_path", "surface_types", "node_tags"],
+        "properties": {
+          "journey_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Journey id from the ecosystem-definition."
+          },
+          "spec_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Relative path to the emitted spec file."
+          },
+          "surface_types": {
+            "type": "array",
+            "description": "Surface types present in this journey's steps.",
+            "items": {
+              "type": "string",
+              "enum": ["route", "endpoint", "cli_command", "job", "event_topic", "file_format"]
+            }
+          },
+          "node_tags": {
+            "type": "array",
+            "description": "Every step node id covered by emitted test blocks in spec_path.",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "actors": {
+            "type": "array",
+            "description": "Distinct actor ids present in this journey's steps (populated for cross-actor journeys; omitted for single-actor journeys).",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_nodes", "covered_nodes", "orphan_nodes"],
+      "properties": {
+        "total_nodes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total journey-step node ids in the ecosystem."
+        },
+        "covered_nodes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Node ids that appear in at least one emitted test block."
+        },
+        "orphan_nodes": {
+          "type": "array",
+          "description": "Node ids that appear in the ecosystem but have no emitted test block.",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail"],
+      "description": "pass when coverage.orphan_nodes is empty; fail otherwise."
+    }
+  }
+}

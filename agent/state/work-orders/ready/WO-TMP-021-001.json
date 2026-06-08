@@ -1,0 +1,92 @@
+{
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "agent-supervisor --config .harness/config.json preflight",
+    "test -f docs/agent/full-system-verification-2026-05-09.md",
+    "test -f slices/TMP-021-full-system-verification/value-gate-report.md"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-021-full-system-verification.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-021",
+  "hashes": {
+    "classification_hash": "sha256:973119ab33d783e05ced51bcf6547c297f7e79b8bdaa17859b84ebfe87cc4973",
+    "contract_hash": "sha256:64966637e382078d7929e774db73388aa3325b69c590349fa41108a9abad21cc",
+    "issue_hash": "sha256:33fc0573b95dddada2c2298b1d48dba3fc88aa3ccb9843ef17ec5d28aaf164c1"
+  },
+  "issue_id": "TMP-021",
+  "non_goals": [
+    "No production deploy.",
+    "No dependency additions or upgrades.",
+    "No broad refactor."
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "docs/agent/full-system-verification-2026-05-09.md",
+    "outcome": "Operator has evidence-backed release-readiness status for every discovered runnable component and implemented feature, including passed, fixed, blocked, failed, not applicable, or not implemented rows.",
+    "trigger": "Operator requests end-to-end release verification"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "agent-supervisor --config .harness/config.json preflight",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "docs/agent/full-system-verification-2026-05-09.md",
+    "slices/TMP-021-full-system-verification/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "docs/agent/**",
+      "slices/TMP-021-full-system-verification/**",
+      "slices/manifest.json",
+      "agent/backlog/issues/TMP-021-full-system-verification.md",
+      "agent/state/TMP-021.work-order.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "services/**",
+      "common/**",
+      "frontend/**",
+      "ops/**",
+      "docker-compose*.yml",
+      "Makefile"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "docs/agent/**",
+      "slices/TMP-021-full-system-verification/**",
+      "slices/manifest.json",
+      "agent/backlog/issues/TMP-021-full-system-verification.md",
+      "agent/state/TMP-021.work-order.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-021-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

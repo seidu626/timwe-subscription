@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/migration-plan.schema.json",
+  "title": "Agent-Hub vNext Migration Plan",
+  "description": "A non-mutating, reviewable migration plan generated from a reconciliation report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "generated_at",
+    "root",
+    "source_reconcile_report",
+    "summary",
+    "actions"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "plan_id": {"type": "string", "pattern": "^migration-plan-[0-9]{8}T[0-9]{6}Z-[a-z0-9-]+$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "root": {"type": "string", "minLength": 1},
+    "source_reconcile_report": {"type": "string", "minLength": 1},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["safe", "review", "blocked", "total"],
+      "properties": {
+        "safe": {"type": "integer", "minimum": 0},
+        "review": {"type": "integer", "minimum": 0},
+        "blocked": {"type": "integer", "minimum": 0},
+        "total": {"type": "integer", "minimum": 0}
+      }
+    },
+    "actions": {"type": "array", "items": {"$ref": "#/$defs/action"}}
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "message", "severity", "fix"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1},
+        "severity": {"type": ["string", "null"], "enum": ["error", "warning", "info", null]},
+        "fix": {"type": ["string", "null"]}
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id", "group", "action_type", "source_path", "target_path",
+        "secondary_targets", "reason", "findings", "preconditions", "command",
+        "rollback", "dry_run_only", "metadata"
+      ],
+      "properties": {
+        "action_id": {"type": "string", "pattern": "^act-[0-9]{4}-[a-z0-9-]+$"},
+        "group": {"type": "string", "enum": ["safe", "review", "blocked"]},
+        "action_type": {
+          "type": "string",
+          "enum": [
+            "migrate_legacy_work_order_to_v2",
+            "resolve_orphan_work_order",
+            "emit_missing_work_order",
+            "attach_issue_id",
+            "move_closed_issue_to_archive",
+            "move_work_order_to_review_queue",
+            "move_work_order_to_blocked_queue",
+            "split_mutable_v2_work_order",
+            "repair_work_order_v2_contract",
+            "repair_json",
+            "restore_runtime_package_paths",
+            "apply_pyproject_vnext_patch",
+            "manual_review"
+          ]
+        },
+        "source_path": {"type": ["string", "null"]},
+        "target_path": {"type": ["string", "null"]},
+        "secondary_targets": {"type": "array", "items": {"type": "string"}},
+        "reason": {"type": "string", "minLength": 1},
+        "findings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/finding"}},
+        "preconditions": {"type": "array", "items": {"type": "string"}},
+        "command": {"type": ["string", "null"]},
+        "rollback": {"type": "string", "minLength": 1},
+        "dry_run_only": {"type": "boolean"},
+        "metadata": {"type": "object"}
+      }
+    }
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "acceptance_tests": [
+    "docker compose --env-file .env.example -f docker-compose.yml config",
+    "jq empty slices/manifest.json agent/state/TMP-028.work-order.json",
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "slice-harness sync --dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "agent/backlog/issues/TMP-028-compose-secret-env-hygiene.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-legacy-TMP-028",
+  "hashes": {
+    "classification_hash": "sha256:859c4feb7f1c421607f84d6ee86077798304c9dc0469aa5584716353f9d160cb",
+    "contract_hash": "sha256:36bf4598524cdad795a63dc26e177c601ed752ca7bd00e0cdad671a1d423db81",
+    "issue_hash": "sha256:aafcaed69e678df41415105fdf658372601f77d410d97e361e5d5093a97d93e6"
+  },
+  "issue_id": "TMP-028",
+  "non_goals": [],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "docker-compose.yml",
+    "outcome": "Local compose configuration no longer depends on checked-in subscription database credential material.",
+    "trigger": "Operator renders or starts the local compose stack."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "docker compose --env-file .env.example -f docker-compose.yml config",
+    "rg -n 'APP_DATABASE_POSTGRESQL_HOST=139|APP_DATABASE_POSTGRESQL_PASSWORD=[^$]' docker-compose.yml || true",
+    "slices/TMP-028-compose-secret-env-hygiene/value-gate-report.md"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      ".env.example",
+      "docker-compose.yml",
+      "docs/environment-variables.md",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-028-compose-secret-env-hygiene/**",
+      "agent/backlog/issues/TMP-028-compose-secret-env-hygiene.md",
+      "agent/state/TMP-028.work-order.json",
+      "agent/state/TMP-028.handoff.json",
+      "agent/state/TMP-021.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "common/**",
+      "services/**",
+      "frontend/**",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "package-lock.json",
+      "vendor/**"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      ".env.example",
+      "docker-compose.yml",
+      "docs/environment-variables.md",
+      "docs/agent/full-system-verification-2026-05-09.md",
+      "slices/manifest.json",
+      "slices/TMP-021-full-system-verification/value-gate-report.md",
+      "slices/TMP-028-compose-secret-env-hygiene/**",
+      "agent/backlog/issues/TMP-028-compose-secret-env-hygiene.md",
+      "agent/state/TMP-028.work-order.json",
+      "agent/state/TMP-028.handoff.json",
+      "agent/state/TMP-021.handoff.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-028-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

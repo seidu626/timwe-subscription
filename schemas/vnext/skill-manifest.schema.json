@@ -1,0 +1,54 @@
+{
+  "$id": "https://agent-hub/schemas/skill-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "budget": {
+      "additionalProperties": false,
+      "properties": {
+        "initial_tokens": {
+          "type": "integer"
+        },
+        "max_tokens": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "initial_tokens",
+        "max_tokens"
+      ],
+      "type": "object"
+    },
+    "loads": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "triggers": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "name",
+    "summary",
+    "triggers",
+    "loads",
+    "budget"
+  ],
+  "title": "Agent Hub Skill Manifest",
+  "type": "object"
+}

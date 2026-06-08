@@ -1,0 +1,89 @@
+{
+  "$id": "thread-goal.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "blind_spots": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "charter": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "concurrency_policy": {
+      "type": "object"
+    },
+    "constraints": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "final_audit_required": {
+      "const": true
+    },
+    "goal_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "interpreted_outcome": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "likely_misfire": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "non_goals": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "oracle": {
+      "type": "object"
+    },
+    "owner_outcome": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "thread_goal_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "thread_id": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "thread_goal_id",
+    "thread_id",
+    "owner_outcome",
+    "interpreted_outcome",
+    "charter",
+    "non_goals",
+    "constraints",
+    "likely_misfire",
+    "blind_spots",
+    "oracle",
+    "final_audit_required",
+    "concurrency_policy",
+    "created_at"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,108 @@
+{
+  "acceptance_tests": [
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "make db-migrate-tenant-platform-dry-run"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "declared_class_valid",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1200,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "/home/xper626/workspace/apps/worktrees/codex-pending-slices-20260508-095850/agent/backlog/issues/TMP-011-legacy-data-migration-isolation.md"
+    ]
+  },
+  "created_at": "2026-06-08T05:39:40Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": [
+      "TMP-001",
+      "TMP-002",
+      "TMP-005",
+      "TMP-006",
+      "TMP-008",
+      "TMP-009"
+    ]
+  },
+  "goal_id": "goal-legacy-TMP-011",
+  "hashes": {
+    "classification_hash": "sha256:cd8766ac25d253e1111b5dfc389754f1387256c1b90a8f3e4e1df77beb7444d9",
+    "contract_hash": "sha256:618c7b2ff1e87786639340e60d96d72d59862997e0be59071f262c1be4e5ddcb",
+    "issue_hash": "sha256:216b8589ed35db3d75b4fdddc1d38e6ff76a7f923c7a8f933349eac422dc7cbc"
+  },
+  "issue_id": "TMP-011",
+  "non_goals": [
+    "No admin portal tenant workspace changes.",
+    "No partner onboarding contract breadth.",
+    "No production database execution from this agent session."
+  ],
+  "objective": {
+    "actor": "platform-operator",
+    "entrypoint": "make db-migrate-tenant-platform",
+    "outcome": "Existing production data can be backfilled and verified under tenant isolation before multi-tenant enforcement.",
+    "trigger": "Platform operator runs the tenant platform migration workflow"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 1,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "hvc check agent/backlog/issues/*.md --fail-on block",
+    "agent-supervisor --config .harness/config.json preflight",
+    "jq empty slices/manifest.json",
+    "slice-harness status",
+    "make db-migrate-tenant-platform-dry-run or equivalent SQL dry-run verification",
+    "TMP-011 value-gate report"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "Makefile",
+      "docs/**",
+      "scripts/**",
+      "slices/TMP-011-migration-and-data-isolation/**",
+      "slices/manifest.json",
+      "services/acquisition-api/migrations/**",
+      "services/subscription-external/migrations/**",
+      "services/**/internal/**",
+      "services/**/cmd/**",
+      "agent/backlog/issues/TMP-011-legacy-data-migration-isolation.md",
+      "agent/state/TMP-011.work-order.json",
+      ".agent/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      "frontend/webspa-admin/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "read_scopes": [],
+    "write_locks": [
+      "Makefile",
+      "docs/**",
+      "scripts/**",
+      "slices/TMP-011-migration-and-data-isolation/**",
+      "slices/manifest.json",
+      "services/acquisition-api/migrations/**",
+      "services/subscription-external/migrations/**",
+      "services/**/internal/**",
+      "services/**/cmd/**",
+      "agent/backlog/issues/TMP-011-legacy-data-migration-isolation.md",
+      "agent/state/TMP-011.work-order.json",
+      ".agent/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-TMP-011-001",
+  "required_skills": [
+    "repository-codebase-governance"
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Frontend Component Contract",
+  "type": "object",
+  "required": [
+    "name",
+    "purpose",
+    "file",
+    "consumingWorkflow",
+    "states",
+    "tests",
+    "callGraph"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "file": {
+      "type": "string"
+    },
+    "ownerPersona": {
+      "type": "string"
+    },
+    "consumingRoute": {
+      "type": "string"
+    },
+    "consumingWorkflow": {
+      "type": "string"
+    },
+    "props": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "accessibility": {
+      "type": "object"
+    },
+    "responsive": {
+      "type": "object"
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "callGraph": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

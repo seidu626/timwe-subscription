@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/agent-teacher/phase-profile-manifest.schema.json",
+  "title": "Agent Teacher Phase Profile Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "manifest_version", "profiles", "invariants"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "kind": { "type": "string", "const": "phase_profile_manifest" },
+    "manifest_version": { "type": "integer", "const": 1 },
+    "profiles": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile_id",
+          "phase_id",
+          "display_name",
+          "description",
+          "write_capable",
+          "first_write_capable",
+          "default_tier",
+          "reasoning_effort",
+          "allowed_operations",
+          "forbidden_operations",
+          "requires_input_artifacts",
+          "requires_output_artifacts",
+          "requires_evidence_against",
+          "dispatch_requires_goal_id"
+        ],
+        "properties": {
+          "profile_id": { "type": "string", "enum": ["explore", "plan", "execute", "validate"] },
+          "phase_id": { "type": "string", "enum": ["research", "plan", "execute", "validate"] },
+          "display_name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "write_capable": { "type": "boolean" },
+          "first_write_capable": { "type": "boolean" },
+          "default_tier": { "type": "string", "enum": ["LOW", "MED", "HIGH"] },
+          "reasoning_effort": { "type": "string", "enum": ["low", "medium", "high"] },
+          "allowed_operations": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "forbidden_operations": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "requires_input_artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "requires_output_artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "requires_evidence_against": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "dispatch_requires_goal_id": { "type": "boolean" }
+        }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "read_only_profiles",
+        "first_write_capable_profile",
+        "validate_requires_evidence_against"
+      ],
+      "properties": {
+        "read_only_profiles": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["explore", "plan", "execute", "validate"] }
+        },
+        "first_write_capable_profile": { "type": "string", "const": "execute" },
+        "validate_requires_evidence_against": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

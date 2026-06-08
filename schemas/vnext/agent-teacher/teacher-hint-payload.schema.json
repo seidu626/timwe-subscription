@@ -1,0 +1,58 @@
+{
+  "$id": "https://agent-hub/schemas/agent-teacher/teacher-hint-payload.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action_type": {
+      "type": "string"
+    },
+    "max_bytes": {
+      "type": "integer"
+    },
+    "omitted": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "target": {
+      "type": "string"
+    },
+    "teacher_hints": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "hint_id": {
+            "type": "string"
+          },
+          "instruction": {
+            "type": "string"
+          },
+          "source_event_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "hint_id",
+          "source_event_id",
+          "instruction"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "action_type",
+    "target",
+    "max_bytes",
+    "teacher_hints",
+    "omitted"
+  ],
+  "title": "Agent Teacher Hint Payload",
+  "type": "object"
+}

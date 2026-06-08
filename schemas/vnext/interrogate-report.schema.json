@@ -1,0 +1,61 @@
+{
+  "$id": "https://agent-hub/schemas/interrogate-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Interrogate Report",
+  "description": "Multi-runtime break-the-diff review. Reuses the peer-grill verdict envelope. Enforces different runtimes than the implementer.",
+  "type": "object",
+  "required": ["schema_version", "interrogate_id", "work_order_id", "implementer_runtime", "models", "verdict"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"type": "string", "enum": ["1.0"]},
+    "interrogate_id": {"type": "string"},
+    "work_order_id": {"type": "string"},
+    "implementer_runtime": {"type": "string"},
+    "models": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["request_id", "runtime"],
+        "additionalProperties": true,
+        "properties": {
+          "request_id": {"type": "string"},
+          "runtime": {"type": "string"},
+          "model": {"type": "string"},
+          "verdict": {"type": ["string", "null"], "enum": ["pass", "fail", "blocked", null]},
+          "summary": {"type": "string"},
+          "findings": {"type": "array", "items": {"type": "string"}},
+          "completed_at": {"type": ["string", "null"]},
+          "history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "runtime": {"type": "string"},
+                "model": {"type": "string"},
+                "request_id": {"type": "string"},
+                "verdict": {"type": "string"},
+                "completed_at": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "contradictions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["target_id", "verdicts"],
+        "properties": {
+          "target_id": {"type": "string"},
+          "verdicts": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "verdict": {"type": "string", "enum": ["pass", "fail", "blocked"]},
+    "status": {"type": "string", "enum": ["pending", "running", "complete", "failed"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": ["string", "null"]}
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/agent-teacher/trajectory-event.schema.json",
+  "title": "Trajectory Teacher Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "event_id",
+    "goal_id",
+    "task_id",
+    "run_id",
+    "phase_id",
+    "action",
+    "outcome",
+    "evidence_ref",
+    "ts"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "kind": { "type": "string", "const": "trajectory_event" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "goal_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "phase_id": { "type": "string", "minLength": 1 },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "target"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "summary"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["passed", "fixed", "failed", "blocked", "not applicable", "not implemented"]
+        },
+        "summary": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence_ref": { "type": "string", "minLength": 1 },
+    "ts": { "type": "string", "minLength": 1 }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/subagent-definition.schema.json",
+  "title": "Agent-Hub Subagent Definition",
+  "description": "Canonical source for generated Claude subagent files and all runtime worker profiles.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "description",
+    "runtime",
+    "model",
+    "tools",
+    "permission_mode",
+    "background",
+    "isolation",
+    "output_contract"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime": {
+      "type": "string",
+      "enum": ["claude", "codex", "gemini", "copilot", "local-tools"]
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "disallowed_tools": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "permission_mode": {
+      "type": "string",
+      "enum": ["default", "restricted", "elevated"]
+    },
+    "background": {
+      "type": "boolean"
+    },
+    "isolation": {
+      "type": "string",
+      "enum": ["none", "worktree", "sandbox"]
+    },
+    "max_turns": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "mcp_servers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "agent_hub_role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subagent_profile": {
+      "type": "string",
+      "enum": ["supervisor-full", "worker-minimal", "worker-governed", "reviewer-readonly"]
+    },
+    "may_delegate": {
+      "type": "boolean"
+    },
+    "output_contract": {
+      "type": "string",
+      "enum": ["worker_result_capsule", "external_task_result_capsule"]
+    }
+  }
+}
