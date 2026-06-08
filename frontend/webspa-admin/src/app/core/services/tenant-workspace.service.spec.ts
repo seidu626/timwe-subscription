@@ -124,6 +124,38 @@ describe('TenantWorkspaceService', () => {
     expect(workspace.currentTenant?.tenantKey).toBe('nrg');
   });
 
+  it('maps configured runtime bootstrap workspaces when email_verified is unavailable', () => {
+    (window as unknown as Record<string, unknown>)['__ADMIN_TENANT_BOOTSTRAP__'] = {
+      platformAdminEmails: ['bootstrap@example.com'],
+      tenantWorkspaces: [
+        { tenant_key: 'tenant-runtime', tenant_id: 'tenant-runtime-id', name: 'Runtime Tenant' }
+      ]
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              email: 'bootstrap@example.com',
+              name: 'Bootstrap Admin'
+            })
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const workspace = service.getCurrentWorkspace();
+
+    expect(workspace.status).toBe('ready');
+    expect(workspace.platformScoped).toBeTrue();
+    expect(workspace.currentTenant?.tenantKey).toBe('tenant-runtime');
+    expect(workspace.currentTenant?.tenantId).toBe('tenant-runtime-id');
+  });
+
   it('maps bootstrap admin emails from user metadata case-insensitively', () => {
     TestBed.configureTestingModule({
       providers: [

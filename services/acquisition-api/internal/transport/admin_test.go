@@ -232,6 +232,9 @@ func TestAdminRequireDoesNotBootstrapUnverifiedEmail(t *testing.T) {
 	if identity.PlatformScoped || identity.TenantKey != "" {
 		t.Fatalf("identity = %#v", identity)
 	}
+	if !identity.HasExplicitlyUnverifiedEmail() {
+		t.Fatalf("explicit email_verified=false must be preserved, identity = %#v", identity)
+	}
 }
 
 func TestAdminRequireStampsSingleMembershipTenant(t *testing.T) {
