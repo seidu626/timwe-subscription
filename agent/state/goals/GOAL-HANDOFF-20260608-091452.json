@@ -1,0 +1,49 @@
+{
+  "classification_hints": {
+    "domains": [
+      "hvc",
+      "security"
+    ],
+    "likely_hvc_class": "operational_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-08T09:17:29Z",
+  "goal_id": "goal-20260608T091729Z-create-a-next-session-ha",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Create a next-session handoff document for the locally committed and merged multitenant onboarding WorkOrder wave, including validation evidence, queue truth, rollback notes, and resume commands.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "Generated WorkOrders validate against WorkOrder v2 schema."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "high",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Create a next-session handoff document for the locally committed and merged multitenant onboarding WorkOrder wave, including validation evidence, queue truth, rollback notes, and resume commands.",
+    "prompt_hash": "sha256:79fe691de381b37d4073f2c1a7ff70f795ba29b702405772e66e08bdf6bdfbc9",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "Generated WorkOrders validate against WorkOrder v2 schema."
+  ],
+  "title": "Create a next-session handoff document for the locally committed and merged multitenant on"
+}

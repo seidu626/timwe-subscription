@@ -1,0 +1,45 @@
+{
+  "schema_version": "2.0",
+  "evidence_id": "evidence-WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L-20260608T091800Z",
+  "goal_id": "goal-20260608T091729Z-create-a-next-session-ha",
+  "work_order_id": "WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L",
+  "run_id": "codex-session-handoff-20260608-091452",
+  "claims": [
+    {
+      "claim_id": "schema_validation",
+      "claim": "schema_validation verified",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub schema validate-all --root . --json && agent-hub schema validate --root . --schema work_order_v2 --file agent/state/work-orders/active/WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L.json --json",
+      "artifact_ref": "agent/state/capsules/WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L.result.json",
+      "result_summary": "Repository schema validation passed with 126 schemas checked before handoff WorkOrder creation; handoff WorkOrder schema validation passed while active.",
+      "created_at": "2026-06-08T09:18:00Z"
+    },
+    {
+      "claim_id": "dispatch_ready_report",
+      "claim": "dispatch_ready_report verified",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub dispatch ready --root . --out /tmp/timwe-ready-before-handoff.json --json",
+      "artifact_ref": "docs/agent/next-session-handoff-2026-06-08.md",
+      "result_summary": "Dispatch-ready reported claimable 0, errors 0, warnings 52.",
+      "created_at": "2026-06-08T09:18:00Z"
+    },
+    {
+      "claim_id": "review_gate_result",
+      "claim": "review_gate_result verified",
+      "status": "proved",
+      "evidence_type": "manual_review",
+      "command": null,
+      "artifact_ref": "docs/agent/next-session-handoff-2026-06-08.md",
+      "result_summary": "Docs-only handoff matched the user request to commit, merge, and create a next-session handoff; no production-impacting changes were introduced by this WorkOrder.",
+      "created_at": "2026-06-08T09:18:00Z"
+    }
+  ],
+  "unsupported_claims": [],
+  "review": {
+    "status": "accepted",
+    "reviewer": "codex-supervisor",
+    "reviewed_at": "2026-06-08T09:18:00Z"
+  }
+}

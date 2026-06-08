@@ -1,0 +1,89 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "Generated WorkOrders validate against WorkOrder v2 schema.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "Inferred operational_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-08T09:17:30Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260608T091729Z-create-a-next-session-ha",
+  "hashes": {
+    "classification_hash": "sha256:9033f36f6d72ea6ceeef2a0681be4dcca2af8498a9b704bc9fe989a91e4705a9",
+    "contract_hash": "sha256:660c2aa20cf0aada40c9a61e9b675fba2eaad66124e5f7086bd55cafbad4cfa0",
+    "issue_hash": "sha256:fd80cf7d00ec995d01c52741f370e190c91bd1eac592675a702b53c906a8e407"
+  },
+  "issue_id": "ISSUE-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-F",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Create a next-session handoff document for the locally committed and merged multitenant onboarding WorkOrder wave, including validation evidence, queue truth, rollback notes, and resume commands.",
+    "trigger": "Create a next-session handoff document for the locally committed and merged multitenant onboarding WorkOrder wave, including validation evidence, queue truth, rollback notes, and resume commands."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": "wave-001",
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "migration-orchestrator",
+    "ai-change-control"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/state/work-orders/**",
+      "agent/backlog/**",
+      "policies/security/**",
+      "tools/**",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "agent/state/work-orders/**",
+      "agent/backlog/**",
+      "policies/security/**"
+    ]
+  },
+  "work_order_id": "WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L"
+}
