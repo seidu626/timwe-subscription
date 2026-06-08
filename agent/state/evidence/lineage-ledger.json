@@ -746,6 +746,78 @@
       "record_id": "lineage-0083-3e981e2c",
       "rel": "handoff_for",
       "skill": "implementation-recap"
+    },
+    {
+      "artifact_ref": ".harness/runs/parallel-TMP057-20260608-0742/members/tmp057/result.json",
+      "created_at": "2026-06-08T07:53:55Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TMP-057-001",
+      "record_id": "lineage-0084-6dbcc3c7",
+      "rel": "satisfies",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/parallel-TMP058-20260608-0742/members/tmp058/result.json",
+      "created_at": "2026-06-08T08:02:42Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TMP-058-001",
+      "record_id": "lineage-0085-96ace2a3",
+      "rel": "satisfies",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/parallel-T2-rfc-20260608-0742/members/t2-rfc/result.json",
+      "created_at": "2026-06-08T08:03:25Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-CREATE-A-DOCS-ONLY-BOUNDED-ENABLER-FOR-T2-DRAFT",
+      "record_id": "lineage-0086-bfb211ec",
+      "rel": "satisfies",
+      "skill": "architecture-rfc"
+    },
+    {
+      "artifact_ref": ".harness/runs/parallel-TMP065-20260608-0742/members/tmp065/result.json",
+      "created_at": "2026-06-08T08:07:12Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TMP-065-001",
+      "record_id": "lineage-0087-dbbc522c",
+      "rel": "satisfies",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/parallel-TMP056-20260608-0742/members/tmp056/result.json",
+      "created_at": "2026-06-08T08:07:55Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TMP-056-001",
+      "record_id": "lineage-0088-93f9e8d0",
+      "rel": "satisfies",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/parallel-TMP015-20260608-0742/members/tmp015/result.json",
+      "created_at": "2026-06-08T08:10:28Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TMP-015-001",
+      "record_id": "lineage-0089-c2cfbf9e",
+      "rel": "satisfies",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/parallel-TMP055-20260608-0742/members/tmp055/result.json",
+      "created_at": "2026-06-08T08:22:01Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TMP-055-001",
+      "record_id": "lineage-0090-5e1e6c2a",
+      "rel": "satisfies",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/parallel-TMP042-20260608-0742/members/tmp042/result.json",
+      "created_at": "2026-06-08T08:23:31Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TMP-042-001",
+      "record_id": "lineage-0091-d67394aa",
+      "rel": "satisfies",
+      "skill": "implement-verify"
     }
   ],
   "schema_version": "1.0"
