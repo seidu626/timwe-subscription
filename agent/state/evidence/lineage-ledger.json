@@ -449,6 +449,168 @@
       "record_id": "lineage-0050-8882cb77",
       "rel": "reports",
       "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "commit:257a9bb240ca0be74c548bdc07770314dedd3ef0",
+      "created_at": "2026-06-08T06:25:35Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0051-5f164688",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/review/WO-TMP-016-001.json",
+      "created_at": "2026-06-08T06:25:35Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0052-aa31dad7",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "docs/tenant-channel-onboarding.md:7",
+      "created_at": "2026-06-08T06:25:36Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0053-ca3145dd",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "docs/tenant-channel-onboarding.md:21",
+      "created_at": "2026-06-08T06:25:37Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0054-73c34ce9",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "docs/tenant-channel-onboarding.md:43",
+      "created_at": "2026-06-08T06:25:37Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0055-7dc8332e",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "docs/tenant-channel-onboarding.md:99",
+      "created_at": "2026-06-08T06:25:38Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0056-f77cd94b",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "docs/tenant-channel-onboarding.md:148",
+      "created_at": "2026-06-08T06:25:38Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0057-214f04e6",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "docs/tenant-channel-onboarding.md:170",
+      "created_at": "2026-06-08T06:25:39Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0058-3f9a29f9",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "docs/tenant-channel-onboarding.md:182",
+      "created_at": "2026-06-08T06:25:39Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0059-b46c15a8",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "examples/tenant-channel-onboarding/contract-fixtures.json:8",
+      "created_at": "2026-06-08T06:25:40Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0060-7553702f",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "examples/tenant-channel-onboarding/contract-fixtures.json:53",
+      "created_at": "2026-06-08T06:25:40Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0061-e022afb7",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "examples/tenant-channel-onboarding/contract-fixtures.json:76",
+      "created_at": "2026-06-08T06:25:41Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0062-758ee22d",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "examples/tenant-channel-onboarding/contract-fixtures.json:95",
+      "created_at": "2026-06-08T06:25:41Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0063-8a0e1bc7",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "examples/tenant-channel-onboarding/contract-fixtures.json:116",
+      "created_at": "2026-06-08T06:25:42Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0064-1d5c0537",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "examples/tenant-channel-onboarding/validate-fixtures.sh:6",
+      "created_at": "2026-06-08T06:25:42Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0065-297d5407",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "slices/TMP-016-partner-channel-onboarding-contracts/value-gate-report.md:15",
+      "created_at": "2026-06-08T06:25:43Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0066-c70539e6",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "slices/TMP-016-partner-channel-onboarding-contracts/contract-review-checklist.md:3",
+      "created_at": "2026-06-08T06:25:44Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "record_id": "lineage-0067-e3986e28",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp016-partner-contracts-20260608-0614/members/tmp016-review/result.json",
+      "created_at": "2026-06-08T06:25:44Z",
+      "kind": "result_capsule",
+      "parent_id": "agent/state/work-orders/archive/WO-TMP-016-001.json",
+      "record_id": "lineage-0068-1f48e8cf",
+      "rel": "reviews",
+      "skill": "repository-codebase-governance"
     }
   ],
   "schema_version": "1.0"
