@@ -8,7 +8,7 @@
 --   3) Conversion postback sends tracker={click_id} to Level23
 --
 -- Run:
---   make db-exec-sql FILE=services/acquisition-api/migrations/configure_level23_campaign.sql
+--   just db-exec-sql services/acquisition-api/migrations/configure_level23_campaign.sql
 -- =============================================================================
 
 BEGIN;

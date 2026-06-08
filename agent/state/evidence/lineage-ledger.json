@@ -872,6 +872,141 @@
       "record_id": "lineage-0097-baaa837f",
       "rel": "classifies",
       "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/goals/GOAL-POST-MERGE-LIVE-STACK-PROOF-20260608.json",
+      "created_at": "2026-06-08T09:54:06Z",
+      "kind": "goal_spec",
+      "parent_id": null,
+      "record_id": "lineage-0098-b3057c3e",
+      "rel": null,
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/hvc/GOAL-POST-MERGE-LIVE-STACK-PROOF-20260608.hvc.json",
+      "created_at": "2026-06-08T09:54:07Z",
+      "kind": "evidence_record",
+      "parent_id": "goal-20260608T095007Z-create-an-operational-sl",
+      "record_id": "lineage-0099-70cbea76",
+      "rel": "classifies",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/review/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.json",
+      "created_at": "2026-06-08T09:54:08Z",
+      "kind": "work_order",
+      "parent_id": "goal-20260608T095007Z-create-an-operational-sl",
+      "record_id": "lineage-0100-cb30e2e2",
+      "rel": "derives_from",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/evidence/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.evidence.json",
+      "created_at": "2026-06-08T09:54:08Z",
+      "kind": "evidence_record",
+      "parent_id": "WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE",
+      "record_id": "lineage-0101-3504035d",
+      "rel": "explains_blocker",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": "agent/state/capsules/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.result.json",
+      "created_at": "2026-06-08T09:54:09Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE",
+      "record_id": "lineage-0102-f019bbd5",
+      "rel": "summarizes",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": "agent/state/goals/GOAL-MIGRATE-MAKE-TO-JUST-20260608.json",
+      "created_at": "2026-06-08T10:48:30Z",
+      "kind": "goal_spec",
+      "parent_id": "migrate-make-to-just-20260608",
+      "record_id": "lineage-0103-5f3c5d33",
+      "rel": "defines",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/archive/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.json",
+      "created_at": "2026-06-08T10:48:46Z",
+      "kind": "work_order",
+      "parent_id": "agent/state/goals/GOAL-MIGRATE-MAKE-TO-JUST-20260608.json",
+      "record_id": "lineage-0104-adb1e483",
+      "rel": "derives_from",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": "agent/state/evidence/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.evidence.json",
+      "created_at": "2026-06-08T10:48:58Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/work-orders/archive/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.json",
+      "record_id": "lineage-0105-85137d2d",
+      "rel": "supports",
+      "skill": "just-not-make"
+    },
+    {
+      "artifact_ref": ".harness/runs/migrate-make-to-just-20260608/dispatch-ready-final.json",
+      "created_at": "2026-06-08T10:49:05Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/evidence/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.evidence.json",
+      "record_id": "lineage-0106-cd292723",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "agent/state/capsules/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.result.json",
+      "created_at": "2026-06-08T10:49:12Z",
+      "kind": "result_capsule",
+      "parent_id": "agent/state/evidence/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.evidence.json",
+      "record_id": "lineage-0107-90932a5e",
+      "rel": "summarizes",
+      "skill": "just-not-make"
+    },
+    {
+      "artifact_ref": "justfile",
+      "created_at": "2026-06-08T10:50:33Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.result.json",
+      "record_id": "lineage-0108-6ad5e0d4",
+      "rel": "supports",
+      "skill": "just-not-make"
+    },
+    {
+      "artifact_ref": "scripts/just/timwe.sh",
+      "created_at": "2026-06-08T10:50:44Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.result.json",
+      "record_id": "lineage-0109-72fea76a",
+      "rel": "supports",
+      "skill": "just-not-make"
+    },
+    {
+      "artifact_ref": "docs/just-readme.md",
+      "created_at": "2026-06-08T10:51:19Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.result.json",
+      "record_id": "lineage-0110-560a7adc",
+      "rel": "supports",
+      "skill": "just-not-make"
+    },
+    {
+      "artifact_ref": "services/subscription-external/cmd/resubscribe-processor/justfile",
+      "created_at": "2026-06-08T10:51:25Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.result.json",
+      "record_id": "lineage-0111-8166f2e6",
+      "rel": "supports",
+      "skill": "just-not-make"
+    },
+    {
+      "artifact_ref": "services/subscription-external/cmd/batch-processor/justfile",
+      "created_at": "2026-06-08T10:51:34Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.result.json",
+      "record_id": "lineage-0112-eaa18673",
+      "rel": "supports",
+      "skill": "just-not-make"
     }
   ],
   "schema_version": "1.0"

@@ -26,6 +26,7 @@ WAIT_TIME="30s"
 DEBUG=false
 DRY_RUN=false
 METRICS_PORT=":9102"
+BINARY_PATH="./build/resubscribe-processor"
 
 # Function to print usage
 print_usage() {
@@ -55,13 +56,13 @@ print_usage() {
 
 # Function to check if binary exists
 check_binary() {
-    if [[ ! -f "./resubscribe-processor" ]]; then
+    if [[ ! -x "$BINARY_PATH" ]]; then
         echo -e "${YELLOW}Binary not found. Building...${NC}"
-        if command -v make &> /dev/null; then
-            make build
+        if command -v just &> /dev/null; then
+            just build
         else
-            echo -e "${RED}Make not found. Please build manually:${NC}"
-            echo "go build -o resubscribe-processor ."
+            echo -e "${RED}just not found. Please build manually:${NC}"
+            echo "go build -o $BINARY_PATH ."
             exit 1
         fi
     fi
@@ -118,11 +119,11 @@ run_processor() {
     fi
     
     echo -e "${GREEN}Starting Resubscribe Processor...${NC}"
-    echo -e "${BLUE}Command: ./resubscribe-processor ${args[*]}${NC}"
+    echo -e "${BLUE}Command: $BINARY_PATH ${args[*]}${NC}"
     echo ""
     
     # Run the processor
-    ./resubscribe-processor "${args[@]}"
+    "$BINARY_PATH" "${args[@]}"
 }
 
 # Parse command line arguments

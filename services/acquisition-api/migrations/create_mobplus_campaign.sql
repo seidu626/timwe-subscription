@@ -4,8 +4,8 @@
 -- Run against remote database:
 --   psql -h 139.59.135.253 -U sm_admin -d subscription_manager -f create_mobplus_campaign.sql
 --
--- Or via make target:
---   make db-exec-sql FILE=services/acquisition-api/migrations/create_mobplus_campaign.sql
+-- Or via just recipe:
+--   just db-exec-sql services/acquisition-api/migrations/create_mobplus_campaign.sql
 -- =============================================================================
 
 BEGIN;

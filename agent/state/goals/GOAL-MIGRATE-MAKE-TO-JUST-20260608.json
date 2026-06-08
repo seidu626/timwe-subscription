@@ -1,0 +1,52 @@
+{
+  "classification_hints": {
+    "domains": [
+      "workflow",
+      "schemas",
+      "context",
+      "security"
+    ],
+    "likely_hvc_class": "bounded_enabler",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Migrate timwe-subscription command automation from Makefiles to justfiles. Actor: developer/operator. Outcome: project command entrypoints use just, not make, for dev workflows, tests, docker helpers, processor commands, and script catalogs. Entrypoints: root Makefile, services/subscription-external/cmd/resubscribe-processor/Makefile, services/subscription-external/cmd/batch-processor/Makefile, and command references in docs/scripts where needed. Allowed scope: remove migrated Makefiles, add root and nested justfiles, update docs/scripts command references from make to just where directly tied to migrated recipes, agent/state evidence/capsules. Forbidden scope: product business logic, dependency manifests, migrations, secrets, production config, and unrelated refactors. Acceptance proof: no Makefile files remain for command-runner surfaces; just --list works at root and nested directories; just --fmt --check passes for all justfiles; representative dry-run/list/safe recipes validate without starting long-running services unless explicitly safe; agent-hub schema validate-all and reconcile pass; dispatch-ready reports no claimable errors.",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-08T10:27:27Z",
+  "goal_id": "goal-20260608T102727Z-migrate-timwe-subscripti",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Migrate timwe-subscription command automation from Makefiles to justfiles. Actor: developer/operator. Outcome: project command entrypoints use just, not make, for dev workflows, tests, docker helpers, processor commands, and script catalogs. Entrypoints: root Makefile, services/subscription-external/cmd/resubscribe-processor/Makefile, services/subscription-external/cmd/batch-processor/Makefile, and command references in docs/scripts where needed. Allowed scope: remove migrated Makefiles, add root and nested justfiles, update docs/scripts command references from make to just where directly tied to migrated recipes, agent/state evidence/capsules. Forbidden scope: product business logic, dependency manifests, migrations, secrets, production config, and unrelated refactors. Acceptance proof: n",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "Dispatch plan proves dependencies and write locks are safe."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Migrate timwe-subscription command automation from Makefiles to justfiles. Actor: developer/operator. Outcome: project command entrypoints use just, not make, for dev workflows, tests, docker helpers, processor commands, and script catalogs. Entrypoints: root Makefile, services/subscription-external/cmd/resubscribe-processor/Makefile, services/subscription-external/cmd/batch-processor/Makefile, and command references in docs/scripts where needed. Allowed scope: remove migrated Makefiles, add roo",
+    "prompt_hash": "sha256:8b9606eadb10e88f5694fa4129475daa4516fb5b89683503ab694189250a5ca4",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "Dispatch plan proves dependencies and write locks are safe."
+  ],
+  "title": "Migrate timwe-subscription command automation from Makefiles to justfiles"
+}

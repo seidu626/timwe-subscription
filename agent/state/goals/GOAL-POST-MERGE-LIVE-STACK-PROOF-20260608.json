@@ -1,0 +1,55 @@
+{
+  "classification_hints": {
+    "domains": [
+      "workflow",
+      "schemas",
+      "hvc",
+      "context",
+      "security"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Create an operational_slice for post-merge live-stack verification of the merged multitenant onboarding work on main. Actor: operator/maintainer. Outcome: durable evidence proves the merged tenant-scoped onboarding/admin/subscription paths run against the local live stack, or records exact runtime blockers. Entrypoints: frontend/webspa-admin admin tenant workspace flow, services/acquisition-api admin tenant/account surface, services/subscription-external tenant routing/subscription request surface, and vNext control-plane gates. Trigger: next-session handoff dated 2026-06-08 lists known risk \"Full live-stack browser/API proof against running services was not rerun after the merge.\" Allowed scope: verification commands, runtime smoke evidence, docs/agent verification note, agent/state evidence/result capsule, and .harness run artifacts. Forbidden scope: dependency manifests, migrations, compose files, secrets, production config, and product-code edits unless a separate fresh defect GoalSpec/WorkOrder is created. Acceptance proof: run or attempt the local stack with documented command/cwd, perform browser/API smoke against the tenant-scoped admin/onboarding/subscription path when services are available, run agent-hub schema validate-all --root . --json, agent-hub reconcile --root . --check --json, agent-hub dispatch ready --root . --out <artifact> --json, and record a result capsule/evidence ledger entry. If credentials/tools/services are unavailable, the proof must include the exact command, exit/status, and blocker class.",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-08T09:50:07Z",
+  "goal_id": "goal-20260608T095007Z-create-an-operational-sl",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Create an operational_slice for post-merge live-stack verification of the merged multitenant onboarding work on main. Actor: operator/maintainer. Outcome: durable evidence proves the merged tenant-scoped onboarding/admin/subscription paths run against the local live stack, or records exact runtime blockers. Entrypoints: frontend/webspa-admin admin tenant workspace flow, services/acquisition-api admin tenant/account surface, services/subscription-external tenant routing/subscription request surface, and vNext control-plane gates. Trigger: next-session handoff dated 2026-06-08 lists known risk \"Full live-stack browser/API proof against running services was not rerun after the merge.\" Allowed scope: verification commands, runtime smoke evidence, docs/agent verification note, agent/state evide",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "Generated WorkOrders validate against WorkOrder v2 schema.",
+        "Dispatch plan proves dependencies and write locks are safe."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Create an operational_slice for post-merge live-stack verification of the merged multitenant onboarding work on main. Actor: operator/maintainer. Outcome: durable evidence proves the merged tenant-scoped onboarding/admin/subscription paths run against the local live stack, or records exact runtime blockers. Entrypoints: frontend/webspa-admin admin tenant workspace flow, services/acquisition-api admin tenant/account surface, services/subscription-external tenant routing/subscription request surfa",
+    "prompt_hash": "sha256:b45946671dca831c7f5d2c6889635972390a6b49bb96d749f4b0a398593d963d",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "Generated WorkOrders validate against WorkOrder v2 schema.",
+    "Dispatch plan proves dependencies and write locks are safe."
+  ],
+  "title": "Create an operational_slice for post-merge live-stack verification of the merged multitena"
+}

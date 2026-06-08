@@ -1,0 +1,65 @@
+{
+  "schema_version": "2.0",
+  "evidence_id": "evidence-WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR-20260608T104543Z",
+  "goal_id": "goal-20260608T102727Z-migrate-timwe-subscripti",
+  "work_order_id": "WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR",
+  "run_id": "migrate-make-to-just-20260608",
+  "claims": [
+    {
+      "claim_id": "schema_validation",
+      "claim": "schema_validation verified for the make-to-just migration WorkOrder and repository schemas",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub schema validate-all --root . --json && agent-hub schema validate --root . --schema work_order_v2 --file agent/state/work-orders/active/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.json --json",
+      "artifact_ref": "agent/state/capsules/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.result.json",
+      "result_summary": "Schema validation passed with 126 schemas checked; the active WorkOrder contract validated after scope was narrowed to command-runner files plus README and review_bundle examples.",
+      "created_at": "2026-06-08T10:45:43Z"
+    },
+    {
+      "claim_id": "dispatch_ready_report",
+      "claim": "dispatch_ready_report captured after command-runner migration",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub dispatch ready --root . --out .harness/runs/migrate-make-to-just-20260608/dispatch-ready-final.json --json",
+      "artifact_ref": ".harness/runs/migrate-make-to-just-20260608/dispatch-ready-final.json",
+      "result_summary": "Dispatch-ready reported claimable 0, errors 0, warnings 55 after archive; warnings are non-claimable archive/review WorkOrders.",
+      "created_at": "2026-06-08T10:45:43Z"
+    },
+    {
+      "claim_id": "review_gate_result",
+      "claim": "review_gate_result accepted for the bounded command-runner migration",
+      "status": "proved",
+      "evidence_type": "manual_review",
+      "command": "find . -path './.git' -prune -o -path './**/vendor/**' -prune -o -type f \\( -name 'Makefile' -o -name 'makefile' -o -name 'MakeFile' -o -name 'GNUmakefile' -o -name '*.mk' \\) -print && rg -n \"vendor-check|\\bmake\\b|make \" README.md tools/review_bundle.py docs/claude-cursor-integration-guide.md docs/tenant-platform-migration-runbook.md docs/WEB_ACQUISITION_POSTBACK_GUIDE.md services/acquisition-api/migrations services/subscription-external/cmd services/subscription-external/docs/README.md --glob '!**/vendor/**' --glob '!**/node_modules/**' --glob '!**/build/**' --glob '!**/dist/**'",
+      "artifact_ref": "justfile",
+      "result_summary": "No project-owned Makefiles remain outside vendor paths. Current command references in migrated surfaces use just; remaining hits in targeted scan are Go make(...) built-ins.",
+      "created_at": "2026-06-08T10:45:43Z"
+    },
+    {
+      "claim_id": "just_validation",
+      "claim": "root and processor justfiles parse, format, list, and dry-run representative recipes",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "just --fmt --check && just --list; nested processor just --fmt --check && just --list; representative just --dry-run recipes for dev, stop, db-exec-sql, processor run/build-prod, and guarded install-service",
+      "artifact_ref": "docs/just-readme.md",
+      "result_summary": "Root, resubscribe-processor, and batch-processor justfiles passed formatting/list checks and representative dry-run expansion.",
+      "created_at": "2026-06-08T10:45:43Z"
+    },
+    {
+      "claim_id": "safe_smoke_checks",
+      "claim": "safe non-destructive smoke checks passed",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "bash -n scripts/just/timwe.sh services/subscription-external/cmd/resubscribe-processor/run_resubscribe_processor.sh && just status && just krakend-query-forwarding-check && agent-hub reconcile --root . --check --json",
+      "artifact_ref": "scripts/just/timwe.sh",
+      "result_summary": "Shell syntax passed, just status reported all local services stopped, KrakenD query forwarding check passed, and reconcile passed with 0 findings.",
+      "created_at": "2026-06-08T10:45:43Z"
+    }
+  ],
+  "unsupported_claims": [],
+  "review": {
+    "status": "accepted",
+    "reviewer": "codex-supervisor",
+    "reviewed_at": "2026-06-08T10:45:43Z"
+  }
+}

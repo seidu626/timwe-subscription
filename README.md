@@ -77,7 +77,7 @@ Add a GitHub Actions secret:
 ## Daily driver workflow (recommended)
 
 1) Implement a small slice in Cursor/Claude (minimal diff, add/adjust tests)
-2) Run your check command (e.g., `make test && make lint`)
+2) Run your check command (e.g., `just test && just krakend-query-forwarding-check`)
 3) Open/update PR
 4) Run review:
    - `@codex review` (or let the action post a review)
@@ -93,8 +93,8 @@ Add a GitHub Actions secret:
 python tools/review_bundle.py \
   --base origin/main \
   --out review_bundle.md \
-  --cmd "make test" \
-  --cmd "make lint"
+  --cmd "just test" \
+  --cmd "just krakend-query-forwarding-check"
 ```
 
 Paste `review_bundle.md` into your reviewer model of choice.

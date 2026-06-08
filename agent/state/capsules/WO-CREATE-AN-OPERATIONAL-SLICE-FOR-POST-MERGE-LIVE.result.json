@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "work_order_id": "WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE",
+  "status": "needs_review",
+  "changed_files": [
+    "agent/state/goals/GOAL-POST-MERGE-LIVE-STACK-PROOF-20260608.json",
+    "agent/state/hvc/GOAL-POST-MERGE-LIVE-STACK-PROOF-20260608.hvc.json",
+    "agent/state/work-orders/review/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.json",
+    "agent/state/capsules/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.result.json",
+    "agent/state/evidence/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.evidence.json"
+  ],
+  "tests_run": [
+    {
+      "command": "agent-hub schema validate-all --root . --json",
+      "result": "pass",
+      "evidence": "126 schemas checked after moving the generated review-gated WorkOrder to review."
+    },
+    {
+      "command": "agent-hub reconcile --root . --check --json",
+      "result": "pass",
+      "evidence": "0 errors and 0 warnings after moving the generated review-gated WorkOrder to review."
+    },
+    {
+      "command": "agent-hub dispatch ready --root . --out .harness/runs/resume-pending-20260608-094307/dispatch-ready-after-review.json --json",
+      "result": "warn",
+      "evidence": "claimable 0, errors 0, warnings 54; warnings are non-claimable archive/review WorkOrders."
+    }
+  ],
+  "evidence_refs": [
+    "docs/agent/next-session-handoff-2026-06-08.md",
+    "agent/state/goals/GOAL-POST-MERGE-LIVE-STACK-PROOF-20260608.json",
+    "agent/state/hvc/GOAL-POST-MERGE-LIVE-STACK-PROOF-20260608.hvc.json",
+    "agent/state/work-orders/review/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.json",
+    "agent/state/evidence/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.evidence.json"
+  ],
+  "risks": [
+    "The post-merge live-stack browser/API proof remains unexecuted because the fresh HVC classification requires review before dispatch.",
+    "Dispatch ready has no claimable WorkOrder for this verification scope.",
+    "main remains locally ahead of origin/main in the source checkout; push/release was outside this session."
+  ],
+  "followups": [
+    "Human review or approval is required before moving WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE into an executable queue.",
+    "After approval, run the live-stack/browser/API smoke proof and record evidence against this WorkOrder."
+  ],
+  "runtime": "codex",
+  "role": "supervisor-full",
+  "summary": "Materialized the handoff's post-merge live-stack verification risk as a fresh WorkOrder, but HVC classified it as review-gated and non-claimable."
+}

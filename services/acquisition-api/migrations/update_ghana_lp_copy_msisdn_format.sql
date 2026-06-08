@@ -9,7 +9,7 @@
 --   - tracking_config.gh_with_new_placeholder: 1
 --
 -- Run:
---   make db-exec-sql FILE=services/acquisition-api/migrations/update_ghana_lp_copy_msisdn_format.sql
+--   just db-exec-sql services/acquisition-api/migrations/update_ghana_lp_copy_msisdn_format.sql
 -- =============================================================================
 
 BEGIN;

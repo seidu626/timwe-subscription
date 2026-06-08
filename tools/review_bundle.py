@@ -15,7 +15,7 @@ Why:
 
 Usage examples:
   python tools/review_bundle.py --base origin/main --out review_bundle.md
-  python tools/review_bundle.py --base main --cmd "make test" --cmd "make lint"
+  python tools/review_bundle.py --base main --cmd "just test" --cmd "just krakend-query-forwarding-check"
   python tools/review_bundle.py --base origin/main --max-diff-lines 2500
 """
 

@@ -1,0 +1,100 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+BINARY_NAME := "resubscribe-processor"
+BUILD_DIR := "./build"
+
+default: help
+
+all: build
+
+[private]
+build-with-env prefix="":
+    mkdir -p "{{ BUILD_DIR }}"
+    version="$(git describe --tags --always --dirty)"; \
+      build_time="$(date -u '+%Y-%m-%d_%H:%M:%S')"; \
+      {{ prefix }} go build -ldflags "-X main.Version=$version -X main.BuildTime=$build_time" -o "{{ BUILD_DIR }}/{{ BINARY_NAME }}" .
+
+[group("build")]
+build:
+    echo "Building {{ BINARY_NAME }}..."
+    just build-with-env
+    echo "Build complete: {{ BUILD_DIR }}/{{ BINARY_NAME }}"
+
+[group("build")]
+build-prod:
+    echo "Building {{ BINARY_NAME }} for production..."
+    just build-with-env "CGO_ENABLED=0 GOOS=linux"
+    echo "Production build complete: {{ BUILD_DIR }}/{{ BINARY_NAME }}"
+
+[group("run")]
+run: build
+    echo "Running {{ BINARY_NAME }}..."
+    "{{ BUILD_DIR }}/{{ BINARY_NAME }}"
+
+[group("run")]
+run-config: build
+    echo "Running {{ BINARY_NAME }} with custom config..."
+    "{{ BUILD_DIR }}/{{ BINARY_NAME }}" -config config.json
+
+[group("run")]
+run-debug: build
+    echo "Running {{ BINARY_NAME }} in debug mode..."
+    "{{ BUILD_DIR }}/{{ BINARY_NAME }}" -debug
+
+[group("run")]
+run-once: build
+    echo "Running {{ BINARY_NAME }} once..."
+    "{{ BUILD_DIR }}/{{ BINARY_NAME }}" -once
+
+[group("run")]
+dry-run: build
+    echo "Running {{ BINARY_NAME }} in dry-run mode..."
+    "{{ BUILD_DIR }}/{{ BINARY_NAME }}" -dry-run
+
+[group("test")]
+test:
+    go test -v ./...
+
+[group("test")]
+test-coverage:
+    go test -v -coverprofile=coverage.out ./...
+    go tool cover -html=coverage.out -o coverage.html
+    echo "Coverage report generated: coverage.html"
+
+[group("tools")]
+deps:
+    go mod tidy
+    go mod download
+
+[group("tools")]
+fmt:
+    go fmt ./...
+
+[group("tools")]
+lint:
+    golangci-lint run
+
+[group("ops")]
+logs:
+    mkdir -p ./logs
+
+[group("ops")]
+clean:
+    rm -rf "{{ BUILD_DIR }}" ./logs
+    echo "Clean complete"
+
+[confirm]
+[group("ops")]
+install: build
+    sudo cp "{{ BUILD_DIR }}/{{ BINARY_NAME }}" /usr/local/bin/
+    echo "Installation complete"
+
+[confirm]
+[group("ops")]
+uninstall:
+    sudo rm -f "/usr/local/bin/{{ BINARY_NAME }}"
+    echo "Uninstallation complete"
+
+[group("meta")]
+help:
+    just --list

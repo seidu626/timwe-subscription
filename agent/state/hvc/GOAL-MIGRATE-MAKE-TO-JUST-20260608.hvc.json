@@ -1,0 +1,18 @@
+{
+  "assignment": {
+    "decision": "allow",
+    "reason": "operator_approved_bounded_command_runner_migration_in_prompt_20260608",
+    "runtime_tier": "MED"
+  },
+  "class": "bounded_enabler",
+  "classification_id": "hvc-goal-20260608T102727Z-migrate-timwe-subscripti",
+  "created_at": "2026-06-08T10:27:27Z",
+  "domains": [
+    "workflow",
+    "schemas",
+    "context",
+    "security"
+  ],
+  "goal_id": "goal-20260608T102727Z-migrate-timwe-subscripti",
+  "schema_version": "1.0"
+}

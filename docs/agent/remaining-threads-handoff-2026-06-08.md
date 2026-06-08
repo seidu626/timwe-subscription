@@ -100,7 +100,7 @@ Resume rule: these are good candidates while T2 waits on review, as long as they
 - `WO-TMP-046-001` - reproducible admin frontend source.
 - `WO-TMP-059-001` - faster local admin dev startup.
 - `WO-TMP-060-001` - Sentry `ErrorHandler` provider startup fix.
-- `WO-TMP-062-001` - faster `make stop && make dev` restart.
+- `WO-TMP-062-001` - faster `just stop && just dev` restart.
 - `WO-TMP-064-001` - Angular 18 Sentry peer dependency install.
 - `WO-TMP-071-001` - webspa-admin UI refresh.
 

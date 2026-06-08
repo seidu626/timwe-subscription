@@ -2,7 +2,7 @@
 -- Generate Mobplus Campaign Share Information
 -- =============================================================================
 -- Generates a complete package of information to share with Mobplus
--- Run: make db-exec-sql FILE=services/acquisition-api/migrations/generate_mobplus_share_info.sql
+-- Run: just db-exec-sql services/acquisition-api/migrations/generate_mobplus_share_info.sql
 -- =============================================================================
 
 \echo ''

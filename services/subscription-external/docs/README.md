@@ -25,7 +25,7 @@ This service calls the `BatchOptinHandler` endpoint with varying request data, i
 
 ```bash
 cd /home/xper626/Documents/repositories/timwe-subscription/services/subscription-external/cmd/batch-processor
-make build
+just build
 ```
 
 ## Configuration
@@ -104,26 +104,26 @@ The batch processor supports rotating between multiple entry channels to distrib
 
 ```bash
 # Run with default configuration
-make run
+just run
 
 # Run with custom parameters
 ./batch-processor -start 1000 -max 10000 -increment 500 -telco "AirtelTigo"
 
 # Dry run to see what would be executed
-make dry-run
+just dry-run
 
 # Run once for testing
-make run-once
+just run-once
 
 # Test with small batch
-make test
+just test
 ```
 
 ### 2. Systemd Service (Background Service)
 
 #### Install the service:
 ```bash
-sudo make install-service
+sudo just install-service
 ```
 
 #### Start the service:
@@ -148,7 +148,7 @@ sudo systemctl stop batch-processor
 
 #### Uninstall the service:
 ```bash
-sudo make uninstall-service
+sudo just uninstall-service
 ```
 
 ### 3. Cron Job (Scheduled Execution)
@@ -218,7 +218,7 @@ ps aux | grep batch-processor
 
 ### View real-time logs:
 ```bash
-make logs
+just logs
 ```
 
 ### Check processed results:
