@@ -1,0 +1,107 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "Generated WorkOrders validate against WorkOrder v2 schema.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred bounded_enabler from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "bounded_enabler",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-08T06:41:13Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260608T064113Z-create-a-docs-only-bound",
+  "hashes": {
+    "classification_hash": "sha256:72c0ee1292fdf5f5120fcd3ef2bc6e059971556a070df3c11f818f9b439f6440",
+    "contract_hash": "sha256:a2a26edf0ca55be9fe12fe46fd2d17b9421c319c60b9b38f349638c7bebc901a",
+    "issue_hash": "sha256:91b4709a398dc906b5d97fca8fa3b421fd4e816bb494927d10a3160867c3a933"
+  },
+  "issue_id": "ISSUE-CREATE-A-DOCS-ONLY-BOUNDED-ENABLER-FOR-T",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Create a docs-only bounded enabler for T2: draft the proposed canonical tenancy model RFC for later review before further tenant-management backend/frontend implementation. Actor: platform operator and downstream backend/frontend workers. Trigger: after TMP-016 partner channel onboarding contracts are archived and before activating tenant-management implementation WorkOrders TMP-048, TMP-051, TMP-055, TMP-057, TMP-065, TMP-071, or TMP-074. Outcome: a proposed RFC document exists at docs/architec",
+    "trigger": "Create a docs-only bounded enabler for T2: draft the proposed canonical tenancy model RFC for later review before further tenant-management backend/frontend implementation. Actor: platform operator and downstream backend/frontend workers. Trigger: after TMP-016 partner channel onboarding contracts a"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "api-contract-design",
+    "data-governance",
+    "observability-design",
+    "migration-orchestrator",
+    "ai-change-control"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "docs/architecture/canonical-tenancy-model.md",
+      "docs/admin-tenant-account-mapping.md",
+      "docs/tenant-channel-onboarding.md",
+      "docs/tenant-platform-migration-runbook.md",
+      "docs/tenant-nullability-enforcement-plan.md",
+      "agent/backlog/issues/TMP-canonical-tenancy-model.md",
+      "agent/state/goals/**",
+      "agent/state/hvc/**",
+      "agent/state/work-orders/ready/**",
+      "slices/manifest.json",
+      "slices/T2-canonical-tenancy-model/**",
+      ".harness/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "docs/architecture/canonical-tenancy-model.md",
+      "docs/admin-tenant-account-mapping.md",
+      "docs/tenant-channel-onboarding.md",
+      "docs/tenant-platform-migration-runbook.md",
+      "docs/tenant-nullability-enforcement-plan.md",
+      "agent/backlog/issues/TMP-canonical-tenancy-model.md",
+      "agent/state/goals/**",
+      "agent/state/hvc/**",
+      "agent/state/work-orders/ready/**",
+      "slices/manifest.json",
+      "slices/T2-canonical-tenancy-model/**",
+      ".harness/**"
+    ]
+  },
+  "work_order_id": "WO-CREATE-A-DOCS-ONLY-BOUNDED-ENABLER-FOR-T2-DRAFT"
+}

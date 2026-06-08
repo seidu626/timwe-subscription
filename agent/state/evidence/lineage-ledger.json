@@ -611,6 +611,42 @@
       "record_id": "lineage-0068-1f48e8cf",
       "rel": "reviews",
       "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "agent/state/goals/T2-canonical-tenancy-model.json",
+      "created_at": "2026-06-08T06:42:10Z",
+      "kind": "goal_spec",
+      "parent_id": null,
+      "record_id": "lineage-0069-a9cec82d",
+      "rel": "created_for",
+      "skill": "ai-change-control"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/review/WO-CREATE-A-DOCS-ONLY-BOUNDED-ENABLER-FOR-T2-DRAFT.json",
+      "created_at": "2026-06-08T06:42:10Z",
+      "kind": "work_order",
+      "parent_id": "goal-20260608T064113Z-create-a-docs-only-bound",
+      "record_id": "lineage-0070-d88a1c03",
+      "rel": "derives_from",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t2-tenancy-model-20260608-0636/members/t2-scout/result.json",
+      "created_at": "2026-06-08T06:42:11Z",
+      "kind": "result_capsule",
+      "parent_id": "goal-20260608T064113Z-create-a-docs-only-bound",
+      "record_id": "lineage-0071-70b5ee41",
+      "rel": "informs",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t2-tenancy-model-20260608-0636/hvc-classify-v2.json",
+      "created_at": "2026-06-08T06:42:11Z",
+      "kind": "evidence_record",
+      "parent_id": "goal-20260608T064113Z-create-a-docs-only-bound",
+      "record_id": "lineage-0072-224ecf73",
+      "rel": "classifies",
+      "skill": "ai-change-control"
     }
   ],
   "schema_version": "1.0"

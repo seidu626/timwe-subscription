@@ -1,0 +1,52 @@
+{
+  "classification_hints": {
+    "domains": [
+      "schemas",
+      "hvc",
+      "security"
+    ],
+    "likely_hvc_class": "bounded_enabler",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Allowed scope: docs/architecture/canonical-tenancy-model.md, docs/admin-tenant-account-mapping.md, docs/tenant-channel-onboarding.md, docs/tenant-platform-migration-runbook.md, docs/tenant-nullability-enforcement-plan.md, agent/backlog/issues/TMP-canonical-tenancy-model.md, agent/state/goals/**, agent/state/hvc/**, agent/state/work-orders/ready/**, slices/manifest.json, slices/T2-canonical-tenancy-model/**, .harness/**",
+    "Create a docs-only bounded enabler for T2: draft the proposed canonical tenancy model RFC for later review before further tenant-management backend/frontend implementation. Actor: platform operator and downstream backend/frontend workers. Trigger: after TMP-016 partner channel onboarding contracts are archived and before activating tenant-management implementation WorkOrders TMP-048, TMP-051, TMP-055, TMP-057, TMP-065, TMP-071, or TMP-074. Outcome: a proposed RFC document exists at docs/architecture/canonical-tenancy-model.md defining tenant identity, tenant/channel hierarchy, admin membership source of truth, platform-vs-tenant scope, onboarding lifecycle, credential-reference boundaries, resolver precedence, migration/enforcement gates, and downstream WorkOrders that must consume the RFC. The slice does not approve the RFC; completion means draft ready for independent review. Allowed files: docs/architecture/canonical-tenancy-model.md, docs/admin-tenant-account-mapping.md, docs/tenant-channel-onboarding.md, docs/tenant-platform-migration-runbook.md, docs/tenant-nullability-enforcement-plan.md, agent/backlog/issues/TMP-canonical-tenancy-model.md, agent/state/goals/**, agent/state/hvc/**, agent/state/work-orders/ready/**, slices/manifest.json, slices/T2-canonical-tenancy-model/**, .harness/**. Forbidden files: services/**, frontend/**, common/**, scripts/**, ops/**, docker-compose*.yml, go.mod, go.sum, package.json, package-lock.json, **/.env, secrets/**. Acceptance proof: RFC names canonical tenancy entities and ownership boundaries; RFC reconciles the four existing tenant docs as source inputs or superseded fragments; RFC lists downstream WorkOrders blocked on or consuming the decision; no backend, frontend, migration, deployment, dependency, or secret files are changed; schema validate-all and reconcile pass after WorkOrder emission and evidence recording.",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-08T06:41:13Z",
+  "goal_id": "goal-20260608T064113Z-create-a-docs-only-bound",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Create a docs-only bounded enabler for T2: draft the proposed canonical tenancy model RFC for later review before further tenant-management backend/frontend implementation. Actor: platform operator and downstream backend/frontend workers. Trigger: after TMP-016 partner channel onboarding contracts are archived and before activating tenant-management implementation WorkOrders TMP-048, TMP-051, TMP-055, TMP-057, TMP-065, TMP-071, or TMP-074. Outcome: a proposed RFC document exists at docs/architecture/canonical-tenancy-model.md defining tenant identity, tenant/channel hierarchy, admin membership source of truth, platform-vs-tenant scope, onboarding lifecycle, credential-reference boundaries, resolver precedence, migration/enforcement gates, and downstream WorkOrders that must consume the RFC",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "Generated WorkOrders validate against WorkOrder v2 schema."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Create a docs-only bounded enabler for T2: draft the proposed canonical tenancy model RFC for later review before further tenant-management backend/frontend implementation. Actor: platform operator and downstream backend/frontend workers. Trigger: after TMP-016 partner channel onboarding contracts are archived and before activating tenant-management implementation WorkOrders TMP-048, TMP-051, TMP-055, TMP-057, TMP-065, TMP-071, or TMP-074. Outcome: a proposed RFC document exists at docs/architec",
+    "prompt_hash": "sha256:f94e885f7960fa455048624b8b044862ef90262be7704c543c3d06d25f5762b6",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "Generated WorkOrders validate against WorkOrder v2 schema."
+  ],
+  "title": "Create a docs-only bounded enabler for T2: draft the proposed canonical tenancy model RFC "
+}
