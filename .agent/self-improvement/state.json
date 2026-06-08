@@ -24,8 +24,33 @@
       "summary": "zsh local variable named path can shadow PATH during worktree creation",
       "targets": [],
       "updated_at": "2026-06-08T07:46:38Z"
+    },
+    {
+      "blocked_reason": null,
+      "branch": "main",
+      "created_at": "2026-06-08T11:53:23Z",
+      "duplicate_of": null,
+      "duplicate_reason": null,
+      "duplicate_score": null,
+      "duplicates": [],
+      "evidence": [
+        "2026-06-08: just dev continues after acquisition-api/cadence-engine failures; tcp to 139.59.135.253:5432 timed out; docker-compose database path maps 5434, currently occupied by another container, so compose-up was not run without operator approval."
+      ],
+      "fingerprint": "a215fd4a887b4b223d46",
+      "id": "SI-20260608T115323Z-timwe-subscription-just--6bd1c3",
+      "kind": "gotcha",
+      "metadata": [],
+      "prevention": [],
+      "run_id": null,
+      "severity": "medium",
+      "source": "operator",
+      "source_issue": null,
+      "status": "queued",
+      "summary": "timwe-subscription just dev database-backed services block before binding when configured Postgres is unreachable",
+      "targets": [],
+      "updated_at": "2026-06-08T11:53:23Z"
     }
   ],
   "schema_version": 1,
-  "updated_at": "2026-06-08T07:46:38Z"
+  "updated_at": "2026-06-08T11:53:23Z"
 }

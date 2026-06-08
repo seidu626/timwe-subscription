@@ -1,0 +1,98 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "The requested outcome is implemented with evidence and tests.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-08T11:31:11Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260608T113110Z-create-a-bounded-operati",
+  "hashes": {
+    "classification_hash": "sha256:32166e4f48eccde63f0d962c73fc90ddb270901e5f8326d2385bbb638de8bb37",
+    "contract_hash": "sha256:6b042a1bbd0d47dad8d194bed689ff2e794dbbff9158da3729418b1787401393",
+    "issue_hash": "sha256:2757d555aca8b2ce3dfe8c998e90ee5bb82b1bac2c35eaa9ae9a78c4a105c9da"
+  },
+  "issue_id": "ISSUE-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FI",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Create a bounded operational slice to fix just dev ergonomics after the Make-to-just migration. Actor: maintainer running local dev. Outcome: repeated just dev does not start duplicate service processes when pid files already point at live services, and just dev/dev-all continue through optional runtime-blocked services while reporting failures instead of aborting before later services. Entrypoints: root justfile dev/dev-all recipes and scripts/just/timwe.sh start-binary helper. Trigger: just de",
+    "trigger": "Create a bounded operational slice to fix just dev ergonomics after the Make-to-just migration. Actor: maintainer running local dev. Outcome: repeated just dev does not start duplicate service processes when pid files already point at live services, and just dev/dev-all continue through optional run"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "api-contract-design",
+    "data-governance",
+    "migration-orchestrator",
+    "ai-change-control"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "justfile",
+      "scripts/just/timwe.sh",
+      "agent/state/goals/**",
+      "agent/state/hvc/**",
+      "agent/state/work-orders/**",
+      "agent/state/evidence/**",
+      "agent/state/capsules/**",
+      ".harness/runs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "justfile",
+      "scripts/just/timwe.sh",
+      "agent/state/goals/**",
+      "agent/state/hvc/**",
+      "agent/state/work-orders/**",
+      "agent/state/evidence/**",
+      "agent/state/capsules/**",
+      ".harness/runs/**"
+    ]
+  },
+  "work_order_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D"
+}

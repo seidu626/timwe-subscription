@@ -1,0 +1,52 @@
+{
+  "classification_hints": {
+    "domains": [
+      "schemas",
+      "hvc",
+      "context",
+      "security"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Allowed scope: scripts/just/timwe.sh, agent/state/goals/**, agent/state/hvc/**, agent/state/work-orders/**, agent/state/evidence/**, agent/state/capsules/**, .harness/runs/**",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-08T11:31:10Z",
+  "goal_id": "goal-20260608T113110Z-create-a-bounded-operati",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Create a bounded operational slice to fix just dev ergonomics after the Make-to-just migration. Actor: maintainer running local dev. Outcome: repeated just dev does not start duplicate service processes when pid files already point at live services, and just dev/dev-all continue through optional runtime-blocked services while reporting failures instead of aborting before later services. Entrypoints: root justfile dev/dev-all recipes and scripts/just/timwe.sh start-binary helper. Trigger: just dev failed at dev-acquisition-api because acquisition-api cannot reach remote Postgres 139.59.135.253:5432, leaving earlier services running and preventing cadence/landing/admin attempts. Allowed files: justfile, scripts/just/timwe.sh, agent/state/goals/**, agent/state/hvc/**, agent/state/work-orders/",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "The requested outcome is implemented with evidence and tests."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Create a bounded operational slice to fix just dev ergonomics after the Make-to-just migration. Actor: maintainer running local dev. Outcome: repeated just dev does not start duplicate service processes when pid files already point at live services, and just dev/dev-all continue through optional runtime-blocked services while reporting failures instead of aborting before later services. Entrypoints: root justfile dev/dev-all recipes and scripts/just/timwe.sh start-binary helper. Trigger: just de",
+    "prompt_hash": "sha256:860ebef3a1a04738f46b838a65cc97f8ecf3e447a2fa5abbdffefd05348058ec",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "The requested outcome is implemented with evidence and tests."
+  ],
+  "title": "Create a bounded operational slice to fix just dev ergonomics after the Make-to-just migra"
+}

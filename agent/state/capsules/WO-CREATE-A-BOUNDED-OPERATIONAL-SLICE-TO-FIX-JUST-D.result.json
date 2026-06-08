@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "work_order_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D",
+  "status": "done",
+  "changed_files": [
+    "justfile",
+    "scripts/just/timwe.sh",
+    "agent/state/goals/GOAL-FIX-JUST-DEV-BEST-EFFORT-20260608.json",
+    "agent/state/hvc/GOAL-FIX-JUST-DEV-BEST-EFFORT-20260608.hvc.json",
+    "agent/state/work-orders/archive/WO-FIX-JUST-DEV-BEST-EFFORT-20260608.json",
+    "agent/state/evidence/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D.evidence.json",
+    "agent/state/capsules/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D.result.json",
+    ".harness/runs/fix-just-dev-best-effort-20260608/dispatch-ready-final.json"
+  ],
+  "tests_run": [
+    {
+      "command": "just --fmt --check && bash -n scripts/just/timwe.sh",
+      "result": "pass",
+      "evidence": "justfile formatted and helper shell syntax passed"
+    },
+    {
+      "command": "just dev-landing",
+      "result": "pass",
+      "evidence": "existing landing-web Next dev server was detected and skipped instead of spawning another process"
+    },
+    {
+      "command": "just dev",
+      "result": "pass",
+      "evidence": "existing services were skipped, acquisition/cadence failures were summarized, landing/admin were still attempted, and the recipe exited 0"
+    },
+    {
+      "command": "just status",
+      "result": "pass",
+      "evidence": "subscription-external, subscription, billing, notification, landing web, and admin panel are running; acquisition API and cadence engine are stopped"
+    }
+  ],
+  "evidence_refs": [
+    "justfile",
+    "scripts/just/timwe.sh",
+    "agent/state/evidence/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D.evidence.json",
+    ".harness/runs/fix-just-dev-best-effort-20260608/dispatch-ready-final.json"
+  ],
+  "risks": [
+    "Acquisition API still depends on remote Postgres 139.59.135.253:5432 and is reported as a dev failure when unavailable.",
+    "Cadence engine still does not bind its admin HTTP port before the readiness timeout and is reported as a dev failure.",
+    "DEV_STRICT=1 intentionally preserves fail-on-any-dev-service-failure behavior."
+  ],
+  "followups": [],
+  "runtime": "codex",
+  "role": "supervisor-full",
+  "summary": "Made just dev best-effort, idempotent for already-running services, and honest about occupied ports and runtime blockers."
+}

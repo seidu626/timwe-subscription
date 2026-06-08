@@ -1,0 +1,75 @@
+{
+  "schema_version": "2.0",
+  "evidence_id": "evidence-WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D-20260608T114453Z",
+  "goal_id": "goal-20260608T113110Z-create-a-bounded-operati",
+  "work_order_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D",
+  "run_id": "fix-just-dev-best-effort-20260608",
+  "claims": [
+    {
+      "claim_id": "schema_validation",
+      "claim": "schema_validation verified for just dev best-effort fix artifacts",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub schema validate-all --root . --json",
+      "artifact_ref": "agent/state/capsules/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D.result.json",
+      "result_summary": "Schema validation passed after the just dev best-effort fix artifacts were created.",
+      "created_at": "2026-06-08T11:44:53Z"
+    },
+    {
+      "claim_id": "just_dev_best_effort",
+      "claim": "just dev continues through runtime-blocked services and reports failures",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "just dev",
+      "artifact_ref": "justfile",
+      "result_summary": "just dev exited 0, skipped existing services, reported dev-acquisition-api and dev-cadence-engine failures, and continued through landing/admin.",
+      "created_at": "2026-06-08T11:44:53Z"
+    },
+    {
+      "claim_id": "idempotent_start",
+      "claim": "dev service starts are idempotent for live pid-file services",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "just dev",
+      "artifact_ref": "scripts/just/timwe.sh",
+      "result_summary": "start-binary reported already-running services instead of starting duplicate subscription-external, subscription, billing, and notification processes.",
+      "created_at": "2026-06-08T11:44:53Z"
+    },
+    {
+      "claim_id": "port_probe_integrity",
+      "claim": "port readiness probes do not treat another process on the target port as this service readiness",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "just dev-acquisition-api",
+      "artifact_ref": "scripts/just/timwe.sh",
+      "result_summary": "with notification already on 8084, acquisition selected 8092 and then failed honestly on its remote DB startup path instead of claiming notification's port.",
+      "created_at": "2026-06-08T11:44:53Z"
+    },
+    {
+      "claim_id": "dispatch_ready_report",
+      "claim": "dispatch_ready_report captured after just dev best-effort fix",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub dispatch ready --root . --out .harness/runs/fix-just-dev-best-effort-20260608/dispatch-ready-final.json --json",
+      "artifact_ref": ".harness/runs/fix-just-dev-best-effort-20260608/dispatch-ready-final.json",
+      "result_summary": "Dispatch-ready report captured after archive; warnings are non-claimable archive/review WorkOrders.",
+      "created_at": "2026-06-08T11:44:53Z"
+    },
+    {
+      "claim_id": "review_gate_result",
+      "claim": "review_gate_result accepted for just dev best-effort fix",
+      "status": "proved",
+      "evidence_type": "manual_review",
+      "command": "git diff --check && agent-hub reconcile --root . --check --json",
+      "artifact_ref": "agent/state/capsules/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D.result.json",
+      "result_summary": "Diff whitespace check and reconcile gate passed for the follow-up just dev fix.",
+      "created_at": "2026-06-08T11:44:53Z"
+    }
+  ],
+  "unsupported_claims": [],
+  "review": {
+    "status": "accepted",
+    "reviewer": "codex-supervisor",
+    "reviewed_at": "2026-06-08T11:44:53Z"
+  }
+}

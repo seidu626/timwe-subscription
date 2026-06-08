@@ -1052,6 +1052,51 @@
       "record_id": "lineage-0117-88fe74d1",
       "rel": "readiness",
       "skill": "ai-change-control"
+    },
+    {
+      "artifact_ref": "agent/state/goals/GOAL-FIX-JUST-DEV-BEST-EFFORT-20260608.json",
+      "created_at": "2026-06-08T11:45:52Z",
+      "kind": "goal_spec",
+      "parent_id": null,
+      "record_id": "lineage-0118-1fa362e9",
+      "rel": null,
+      "skill": "ai-change-control"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/archive/WO-FIX-JUST-DEV-BEST-EFFORT-20260608.json",
+      "created_at": "2026-06-08T11:45:52Z",
+      "kind": "work_order",
+      "parent_id": "goal-20260608T113110Z-create-a-bounded-operati",
+      "record_id": "lineage-0119-dd7ee2e9",
+      "rel": "derives_from",
+      "skill": "ai-change-control"
+    },
+    {
+      "artifact_ref": "agent/state/evidence/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D.evidence.json",
+      "created_at": "2026-06-08T11:45:53Z",
+      "kind": "evidence_record",
+      "parent_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D",
+      "record_id": "lineage-0120-2f5c0ba2",
+      "rel": "supports",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": "agent/state/capsules/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D.result.json",
+      "created_at": "2026-06-08T11:45:53Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D",
+      "record_id": "lineage-0121-f5f7b1bd",
+      "rel": "reports",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/fix-just-dev-best-effort-20260608/dispatch-ready-final.json",
+      "created_at": "2026-06-08T11:45:53Z",
+      "kind": "dispatch_plan",
+      "parent_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-FIX-JUST-D",
+      "record_id": "lineage-0122-1e31a062",
+      "rel": "readiness",
+      "skill": "ai-change-control"
     }
   ],
   "schema_version": "1.0"

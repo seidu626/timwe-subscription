@@ -64,15 +64,11 @@ default: help
 
 [group("dev")]
 dev:
-    just dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api dev-cadence-engine dev-landing dev-admin
-    echo ""
-    echo "All development services started."
+    "{{ TIMWE_JUST_HELPER }}" run-dev-recipes "All development services started." dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api dev-cadence-engine dev-landing dev-admin
 
 [group("dev")]
 dev-all:
-    just dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api
-    echo ""
-    echo "Core development services started."
+    "{{ TIMWE_JUST_HELPER }}" run-dev-recipes "Core development services started." dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api
 
 [group("dev")]
 dev-subscription-external: build-local-subscription-external
@@ -101,17 +97,14 @@ dev-cadence-engine: build-local-cadence-engine
 
 [group("dev")]
 dev-landing:
-    cd "{{ LANDING_WEB_DIR }}" && if [ ! -d node_modules ] || [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then npm install --silent; else echo "Landing Web dependencies current; skipping npm install."; fi
-    cd "{{ LANDING_WEB_DIR }}" && nohup setsid npm run dev > landing-web.log 2>&1 & echo $! > landing-web.pid
-    sleep 4
-    port="$(grep -oE 'localhost:[0-9]+' "{{ LANDING_WEB_DIR }}/landing-web.log" 2>/dev/null | head -1 | grep -oE '[0-9]+$' || true)"; if [ -n "$port" ]; then echo "Landing Web started on port $port"; else echo "Landing Web started; check {{ LANDING_WEB_DIR }}/landing-web.log for port"; fi
+    "{{ TIMWE_JUST_HELPER }}" start-landing "{{ LANDING_WEB_DIR }}" "{{ LANDING_WEB_PID_FILE }}"
 
 [group("dev")]
 dev-admin:
     cd "{{ WEBSPA_ADMIN_DIR }}" && if [ ! -d node_modules ] || [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then npm install; else echo "Admin Panel dependencies current; skipping npm install."; fi
-    port="$WEBSPA_ADMIN_PORT"; if ss -ltn 2>/dev/null | grep -q ":$port " || netstat -ltn 2>/dev/null | grep -q ":$port "; then echo "Admin Panel port $port is already in use; skipping start."; exit 0; fi; cd "{{ WEBSPA_ADMIN_DIR }}" && nohup setsid npm run start -- --port "$port" > webspa-admin.log 2>&1 & echo $! > webspa-admin.pid
+    port="$WEBSPA_ADMIN_PORT"; if ss -ltn 2>/dev/null | grep -q ":$port " || netstat -ltn 2>/dev/null | grep -q ":$port "; then echo "Admin Panel port $port is already in use; skipping start."; exit 0; fi; cd "{{ WEBSPA_ADMIN_DIR }}" && nohup setsid npm run start -- --port "$port" > webspa-admin.log 2>&1 & echo $! > "{{ WEBSPA_ADMIN_PID_FILE }}"
     for _ in 1 2 3 4 5 6 7 8 9 10; do sleep 2; if ss -ltn 2>/dev/null | grep -q ":$WEBSPA_ADMIN_PORT " || netstat -ltn 2>/dev/null | grep -q ":$WEBSPA_ADMIN_PORT "; then break; fi; if grep -q "Compiled successfully\|Application bundle generation complete\|Watch mode enabled\|listening on\|Local:\|open your browser" "{{ WEBSPA_ADMIN_DIR }}/webspa-admin.log" 2>/dev/null; then break; fi; done
-    if ss -ltn 2>/dev/null | grep -q ":$WEBSPA_ADMIN_PORT " || netstat -ltn 2>/dev/null | grep -q ":$WEBSPA_ADMIN_PORT "; then echo "Admin Panel started on port $WEBSPA_ADMIN_PORT"; else echo "Admin Panel did not bind to expected port $WEBSPA_ADMIN_PORT"; tail -20 "{{ WEBSPA_ADMIN_DIR }}/webspa-admin.log" 2>/dev/null || true; exit 1; fi
+    if ss -ltn 2>/dev/null | grep -q ":$WEBSPA_ADMIN_PORT " || netstat -ltn 2>/dev/null | grep -q ":$WEBSPA_ADMIN_PORT " || grep -q "Local:.*:$WEBSPA_ADMIN_PORT" "{{ WEBSPA_ADMIN_DIR }}/webspa-admin.log" 2>/dev/null; then echo "Admin Panel started on port $WEBSPA_ADMIN_PORT"; else echo "Admin Panel did not bind to expected port $WEBSPA_ADMIN_PORT"; tail -20 "{{ WEBSPA_ADMIN_DIR }}/webspa-admin.log" 2>/dev/null || true; exit 1; fi
 
 [group("service")]
 start: start-subscription start-notification start-acquisition-api

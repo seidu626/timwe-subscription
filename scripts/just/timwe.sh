@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="${TIMWE_REPO_ROOT:-$(pwd)}"
+ROOT_INPUT="${TIMWE_REPO_ROOT:-$(pwd)}"
+ROOT="$(cd "$ROOT_INPUT" && pwd)"
 
 port_in_use() {
   local port="$1"
-  ss -ltn 2>/dev/null | grep -q ":${port} " || netstat -ltn 2>/dev/null | grep -q ":${port} "
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltnH 2>/dev/null | awk -v port="$port" '$4 ~ "(^|:)" port "$" { found = 1 } END { exit found ? 0 : 1 }'
+    return $?
+  fi
+  if command -v netstat >/dev/null 2>&1; then
+    netstat -ltn 2>/dev/null | awk -v port="$port" '$4 ~ "(^|:)" port "$" { found = 1 } END { exit found ? 0 : 1 }'
+    return $?
+  fi
+  return 1
 }
 
 next_port() {
@@ -28,9 +37,86 @@ build_go() {
   fi
 }
 
+run_dev_recipes() {
+  local success_message="$1"
+  shift
+
+  local recipe failures=()
+  for recipe in "$@"; do
+    printf '\n==> just %s\n' "$recipe"
+    if just "$recipe"; then
+      continue
+    fi
+    failures+=("$recipe")
+    printf 'WARN: just %s failed; continuing.\n' "$recipe"
+  done
+
+  printf '\n'
+  if [ "${#failures[@]}" -eq 0 ]; then
+    printf '%s\n' "$success_message"
+    return 0
+  fi
+
+  printf 'Development services started with failures:\n'
+  printf '  - %s\n' "${failures[@]}"
+  if [ "${DEV_STRICT:-0}" = "1" ]; then
+    return 1
+  fi
+  printf 'Set DEV_STRICT=1 to fail when any dev service cannot start.\n'
+}
+
+start_landing() {
+  local dir="$1" pid_file="$2"
+  local service_dir="${ROOT}/${dir}" pid_path="${ROOT}/${pid_file}"
+  local existing_pid port
+
+  if [ -f "$pid_path" ]; then
+    existing_pid="$(cat "$pid_path" 2>/dev/null || true)"
+    if printf '%s' "$existing_pid" | grep -Eq '^[0-9]+$' && kill -0 "$existing_pid" 2>/dev/null; then
+      echo "Landing Web already running (pid ${existing_pid}); skipping start."
+      return 0
+    fi
+    rm -f "$pid_path"
+  fi
+
+  if pgrep -f "${service_dir}/node_modules/.bin/next dev" >/dev/null 2>&1; then
+    echo "Landing Web already running; skipping start."
+    return 0
+  fi
+
+  cd "$service_dir"
+  if [ ! -d node_modules ] || [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
+    npm install --silent
+  else
+    echo "Landing Web dependencies current; skipping npm install."
+  fi
+  nohup setsid npm run dev > landing-web.log 2>&1 &
+  echo "$!" > "$pid_path"
+  sleep 4
+  port="$(grep -oE 'localhost:[0-9]+' landing-web.log 2>/dev/null | head -1 | grep -oE '[0-9]+$' || true)"
+  if [ -n "$port" ]; then
+    echo "Landing Web started on port $port"
+  else
+    echo "Landing Web started; check ${dir}/landing-web.log for port"
+  fi
+}
+
 start_binary() {
   local dir="$1" bin="$2" port="$3" env_name="$4" log_file="$5" pid_file="$6" label="$7" wait_seconds="${8:-5}"
-  local resolved_port pid
+  local resolved_port pid pid_path existing_pid existing_cmd
+  pid_path="${ROOT}/${dir}/${pid_file}"
+  if [ -f "$pid_path" ]; then
+    existing_pid="$(cat "$pid_path" 2>/dev/null || true)"
+    if printf '%s' "$existing_pid" | grep -Eq '^[0-9]+$' && kill -0 "$existing_pid" 2>/dev/null; then
+      existing_cmd="$(ps -p "$existing_pid" -o args= 2>/dev/null || true)"
+      if printf '%s' "$existing_cmd" | grep -Eq "(^|/| )${bin}( |$)"; then
+        echo "${label} already running (pid ${existing_pid}); skipping start."
+        return 0
+      fi
+    fi
+    rm -f "$pid_path"
+  fi
+
   resolved_port="$(next_port "$port")"
   echo "Starting ${label} on port ${resolved_port}..."
   cd "${ROOT}/${dir}"
@@ -197,6 +283,14 @@ psql_or_docker() {
 }
 
 case "${1:-}" in
+  run-dev-recipes)
+    shift
+    run_dev_recipes "$@"
+    ;;
+  start-landing)
+    shift
+    start_landing "$@"
+    ;;
   build-go)
     shift
     build_go "$@"
