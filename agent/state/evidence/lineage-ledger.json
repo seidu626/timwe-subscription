@@ -656,6 +656,33 @@
       "record_id": "lineage-0073-300ebb9d",
       "rel": "handoff_for",
       "skill": "implementation-recap"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-ready-workorder-reconcile-20260608-0658/dispatch-ready-after.json",
+      "created_at": "2026-06-08T07:00:05Z",
+      "kind": "evidence_record",
+      "parent_id": "WO-T0-CONTROL-PLANE-AND-EVIDENCE-RECONCILIATION-REC",
+      "record_id": "lineage-0074-cb0f7734",
+      "rel": "verifies",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-ready-workorder-reconcile-20260608-0658/archived-workorders.txt",
+      "created_at": "2026-06-08T07:00:05Z",
+      "kind": "evidence_record",
+      "parent_id": "WO-T0-CONTROL-PLANE-AND-EVIDENCE-RECONCILIATION-REC",
+      "record_id": "lineage-0075-8923cf31",
+      "rel": "reconciles",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/t0-ready-workorder-reconcile-20260608-0658/archive-results.jsonl",
+      "created_at": "2026-06-08T07:00:05Z",
+      "kind": "evidence_record",
+      "parent_id": "WO-T0-CONTROL-PLANE-AND-EVIDENCE-RECONCILIATION-REC",
+      "record_id": "lineage-0076-d93b07fc",
+      "rel": "executes",
+      "skill": "repository-codebase-governance"
     }
   ],
   "schema_version": "1.0"
