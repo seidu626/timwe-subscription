@@ -1,0 +1,18 @@
+{
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "classification_id": "hvc-goal-20260608T110318Z-create-a-bounded-operati",
+  "created_at": "2026-06-08T11:03:30Z",
+  "domains": [
+    "schemas",
+    "hvc",
+    "context",
+    "security"
+  ],
+  "goal_id": "goal-20260608T110318Z-create-a-bounded-operati",
+  "schema_version": "1.0"
+}

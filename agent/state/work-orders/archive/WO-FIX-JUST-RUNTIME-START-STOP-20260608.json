@@ -1,0 +1,101 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "The requested outcome is implemented with evidence and tests.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-08T11:03:31Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260608T110318Z-create-a-bounded-operati",
+  "hashes": {
+    "classification_hash": "sha256:6ae688736715a6dc477322923cdb9e33b833e63f7dc5b48c830eed8ad8895171",
+    "contract_hash": "sha256:15b7d8373b46b1787e67fe1e7c0292319e71d2d77c8457dc6ab90541197062fd",
+    "issue_hash": "sha256:763892f8576369696f717b943429db71f5164cf324374ab58e5460d2cc5caba4"
+  },
+  "issue_id": "ISSUE-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-RE",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Create a bounded operational slice to repair the just command-runner runtime start/stop regressions discovered after merging the Make-to-just migration. Actor: maintainer running local services. Outcome: just stop works with installed just 1.51.0, start-all uses the readiness helper for subscription-external, billing, and cadence, and start-all includes cadence. Entrypoints: root justfile service/dev recipes and scripts/just/timwe.sh runtime helper. Trigger: post-merge build/run proof failed on ",
+    "trigger": "Create a bounded operational slice to repair the just command-runner runtime start/stop regressions discovered after merging the Make-to-just migration. Actor: maintainer running local services. Outcome: just stop works with installed just 1.51.0, start-all uses the readiness helper for subscription"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "data-governance",
+    "migration-orchestrator",
+    "ai-change-control"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "justfile",
+      "scripts/just/timwe.sh",
+      "docs/just-readme.md",
+      "agent/state/goals/**",
+      "agent/state/hvc/**",
+      "agent/state/work-orders/**",
+      "agent/state/evidence/**",
+      "agent/state/capsules/**",
+      ".harness/runs/*",
+      ".harness/runs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "justfile",
+      "scripts/just/timwe.sh",
+      "docs/just-readme.md",
+      "agent/state/goals/**",
+      "agent/state/hvc/**",
+      "agent/state/work-orders/**",
+      "agent/state/evidence/**",
+      "agent/state/capsules/**",
+      ".harness/runs/*",
+      ".harness/runs/**"
+    ]
+  },
+  "work_order_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE"
+}

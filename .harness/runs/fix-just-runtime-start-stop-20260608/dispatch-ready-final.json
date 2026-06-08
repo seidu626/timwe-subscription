@@ -1,0 +1,409 @@
+{
+  "claimable_work_order_ids": [],
+  "claimable_work_orders": [],
+  "findings": [
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-CREATE-A-DOCS-ONLY-BOUNDED-ENABLER-FOR-T2-DRAFT.json",
+      "severity": "warning",
+      "work_order_id": "WO-CREATE-A-DOCS-ONLY-BOUNDED-ENABLER-FOR-T2-DRAFT"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L.json",
+      "severity": "warning",
+      "work_order_id": "WO-CREATE-A-NEXT-SESSION-HANDOFF-DOCUMENT-FOR-THE-L"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-FIX-JUST-RUNTIME-START-STOP-20260608.json",
+      "severity": "warning",
+      "work_order_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR.json",
+      "severity": "warning",
+      "work_order_id": "WO-MIGRATE-TIMWE-SUBSCRIPTION-COMMAND-AUTOMATION-FR"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-T0-CONTROL-PLANE-AND-EVIDENCE-RECONCILIATION-REC.json",
+      "severity": "warning",
+      "work_order_id": "WO-T0-CONTROL-PLANE-AND-EVIDENCE-RECONCILIATION-REC"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-011-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-011-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-014-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-014-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-015-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-015-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-016-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-016-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-021-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-021-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-022-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-022-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-023-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-023-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-024-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-024-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-025-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-025-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-026-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-026-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-027-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-027-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-028-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-028-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-029-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-029-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-030-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-030-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-031-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-031-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-032-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-032-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-033-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-033-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-034-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-034-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-035-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-035-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-036-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-036-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-037-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-037-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-038-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-038-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-039-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-039-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-040-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-040-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-041-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-041-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-042-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-042-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-043-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-043-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-044-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-044-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-045-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-045-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-046-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-046-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-047-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-047-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-048-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-048-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-049-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-049-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-050-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-050-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-051-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-051-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-052-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-052-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-053-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-053-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-054-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-054-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-055-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-055-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-056-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-056-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-057-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-057-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-058-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-058-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-059-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-059-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-060-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-060-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-062-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-062-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-063-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-063-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-064-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-064-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-065-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-065-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-071-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-071-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in archive queue is not claimable",
+      "path": "agent/state/work-orders/archive/WO-TMP-074-001.json",
+      "severity": "warning",
+      "work_order_id": "WO-TMP-074-001"
+    },
+    {
+      "id": "DR004",
+      "message": "WorkOrder in review queue is not claimable",
+      "path": "agent/state/work-orders/review/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.json",
+      "severity": "warning",
+      "work_order_id": "WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE"
+    }
+  ],
+  "generated_at": "2026-06-08T11:15:04Z",
+  "report_id": "dispatch-ready-2026-06-08T11:15:04Z",
+  "root": ".",
+  "schema_version": "1.0",
+  "status": "warn",
+  "summary": {
+    "claimable": 0,
+    "errors": 0,
+    "warnings": 56,
+    "work_orders_seen": 56
+  }
+}

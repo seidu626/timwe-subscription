@@ -64,13 +64,13 @@ default: help
 
 [group("dev")]
 dev:
-    just -j "$DEV_JOBS" dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api dev-cadence-engine dev-landing dev-admin
+    just dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api dev-cadence-engine dev-landing dev-admin
     echo ""
     echo "All development services started."
 
 [group("dev")]
 dev-all:
-    just -j "$DEV_JOBS" dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api
+    just dev-subscription-external dev-subscription dev-billing dev-notification dev-acquisition-api
     echo ""
     echo "Core development services started."
 
@@ -119,14 +119,13 @@ start: start-subscription start-notification start-acquisition-api
     echo "All services started."
 
 [group("service")]
-start-all: start-subscription-external start-subscription start-billing start-notification start-acquisition-api
+start-all: start-subscription-external start-subscription start-billing start-notification start-acquisition-api start-cadence-engine
     echo ""
     echo "All services started."
 
 [group("service")]
 start-subscription-external:
-    cd "{{ SUBSCRIPTION_EXTERNAL_DIR }}" && nohup ./subscription-external > subscription-external.log 2>&1 & echo $! > subscription-external.pid
-    echo "Subscription External Service started on port {{ SUBSCRIPTION_EXTERNAL_PORT }}"
+    "{{ TIMWE_JUST_HELPER }}" start-binary "{{ SUBSCRIPTION_EXTERNAL_DIR }}" subscription-external "$SUBSCRIPTION_EXTERNAL_PORT" APP_APPLICATION_PORT subscription-external.log subscription-external.pid "Subscription External Service" 45
 
 [group("service")]
 start-subscription:
@@ -134,8 +133,7 @@ start-subscription:
 
 [group("service")]
 start-billing:
-    cd "{{ BILLING_DIR }}" && nohup ./billing > billing.log 2>&1 & echo $! > billing.pid
-    echo "Billing Service started on port {{ BILLING_PORT }}"
+    "{{ TIMWE_JUST_HELPER }}" start-binary "{{ BILLING_DIR }}" billing "$BILLING_PORT" APPLICATION_PORT billing.log billing.pid "Billing Service" 5
 
 [group("service")]
 start-notification:
@@ -148,12 +146,11 @@ start-acquisition-api:
 
 [group("service")]
 start-cadence-engine:
-    cd "{{ CADENCE_ENGINE_DIR }}" && nohup ./cadence-engine > cadence-engine.log 2>&1 & echo $! > cadence-engine.pid
-    echo "Cadence Engine started on port 8091"
+    "{{ TIMWE_JUST_HELPER }}" start-binary "{{ CADENCE_ENGINE_DIR }}" cadence-engine 8091 CADENCE_ADMIN_HTTP_ADDR cadence-engine.log cadence-engine.pid "Cadence Engine" 10
 
 [group("service")]
 stop:
-    just -j "$DEV_JOBS" stop-subscription-external stop-subscription stop-billing stop-notification stop-acquisition-api stop-cadence-engine stop-landing stop-admin
+    just stop-subscription-external stop-subscription stop-billing stop-notification stop-acquisition-api stop-cadence-engine stop-landing stop-admin
     echo "All services stopped."
 
 [group("service")]
@@ -294,7 +291,7 @@ health: health-subscription-external health-subscription health-billing health-n
 
 [group("ops")]
 health-subscription-external:
-    curl -s "http://localhost:{{ SUBSCRIPTION_EXTERNAL_PORT }}/api/v1/subscription-external/monitoring/health" | jq '.health.overall_status' || echo "Service not responding"
+    body="$(curl -fsS "http://localhost:{{ SUBSCRIPTION_EXTERNAL_PORT }}/api/v1/subscription-external/monitoring/health")" && printf '%s\n' "$body" | jq -r '.health.overall_status // .data.health.overall_status // .status // "unknown"' || echo "Service not responding"
 
 [group("ops")]
 health-subscription:
@@ -302,7 +299,7 @@ health-subscription:
 
 [group("ops")]
 health-billing:
-    curl -s "http://localhost:{{ BILLING_PORT }}/health" | jq '.status' || echo "Service not responding"
+    body="$(curl -fsS "http://localhost:{{ BILLING_PORT }}/health")" && { printf '%s\n' "$body" | jq -r '.status' 2>/dev/null || printf '%s\n' "$body"; } || echo "Service not responding"
 
 [group("ops")]
 health-notification:

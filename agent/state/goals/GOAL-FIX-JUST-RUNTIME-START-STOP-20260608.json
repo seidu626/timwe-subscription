@@ -1,0 +1,52 @@
+{
+  "classification_hints": {
+    "domains": [
+      "schemas",
+      "hvc",
+      "context",
+      "security"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Allowed scope: scripts/just/timwe.sh, docs/just-readme.md, agent/state/goals/**, agent/state/hvc/**, agent/state/work-orders/**, agent/state/evidence/**, agent/state/capsules/**, .harness/runs/**",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-08T11:03:18Z",
+  "goal_id": "goal-20260608T110318Z-create-a-bounded-operati",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Create a bounded operational slice to repair the just command-runner runtime start/stop regressions discovered after merging the Make-to-just migration. Actor: maintainer running local services. Outcome: just stop works with installed just 1.51.0, start-all uses the readiness helper for subscription-external, billing, and cadence, and start-all includes cadence. Entrypoints: root justfile service/dev recipes and scripts/just/timwe.sh runtime helper. Trigger: post-merge build/run proof failed on unsupported just -j, billing port conflict, and direct start recipes falsely reporting success. Allowed files: justfile, scripts/just/timwe.sh, docs/just-readme.md, agent/state/goals/**, agent/state/hvc/**, agent/state/work-orders/**, agent/state/evidence/**, agent/state/capsules/**, .harness/runs/*",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "The requested outcome is implemented with evidence and tests."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Create a bounded operational slice to repair the just command-runner runtime start/stop regressions discovered after merging the Make-to-just migration. Actor: maintainer running local services. Outcome: just stop works with installed just 1.51.0, start-all uses the readiness helper for subscription-external, billing, and cadence, and start-all includes cadence. Entrypoints: root justfile service/dev recipes and scripts/just/timwe.sh runtime helper. Trigger: post-merge build/run proof failed on ",
+    "prompt_hash": "sha256:ef98c28d04d62ea9cef70ae137a088c1b000aafd4cb160c17c285e080bab314f",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "The requested outcome is implemented with evidence and tests."
+  ],
+  "title": "Create a bounded operational slice to repair the just command-runner runtime start/stop re"
+}

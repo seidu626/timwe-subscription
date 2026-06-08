@@ -1007,6 +1007,51 @@
       "record_id": "lineage-0112-eaa18673",
       "rel": "supports",
       "skill": "just-not-make"
+    },
+    {
+      "artifact_ref": "agent/state/goals/GOAL-FIX-JUST-RUNTIME-START-STOP-20260608.json",
+      "created_at": "2026-06-08T11:13:50Z",
+      "kind": "goal_spec",
+      "parent_id": null,
+      "record_id": "lineage-0113-fb4bd3cc",
+      "rel": null,
+      "skill": "ai-change-control"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/archive/WO-FIX-JUST-RUNTIME-START-STOP-20260608.json",
+      "created_at": "2026-06-08T11:13:51Z",
+      "kind": "work_order",
+      "parent_id": "goal-20260608T110318Z-create-a-bounded-operati",
+      "record_id": "lineage-0114-8a5ccf00",
+      "rel": "derives_from",
+      "skill": "ai-change-control"
+    },
+    {
+      "artifact_ref": "agent/state/evidence/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE.evidence.json",
+      "created_at": "2026-06-08T11:13:51Z",
+      "kind": "evidence_record",
+      "parent_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE",
+      "record_id": "lineage-0115-f22c4b2a",
+      "rel": "supports",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": "agent/state/capsules/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE.result.json",
+      "created_at": "2026-06-08T11:13:51Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE",
+      "record_id": "lineage-0116-d65bb459",
+      "rel": "reports",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/fix-just-runtime-start-stop-20260608/dispatch-ready-final.json",
+      "created_at": "2026-06-08T11:13:51Z",
+      "kind": "dispatch_plan",
+      "parent_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE",
+      "record_id": "lineage-0117-88fe74d1",
+      "rel": "readiness",
+      "skill": "ai-change-control"
     }
   ],
   "schema_version": "1.0"

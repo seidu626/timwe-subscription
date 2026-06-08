@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "work_order_id": "WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE",
+  "status": "done",
+  "changed_files": [
+    "justfile",
+    "scripts/just/timwe.sh",
+    "agent/state/goals/GOAL-FIX-JUST-RUNTIME-START-STOP-20260608.json",
+    "agent/state/hvc/GOAL-FIX-JUST-RUNTIME-START-STOP-20260608.hvc.json",
+    "agent/state/work-orders/archive/WO-FIX-JUST-RUNTIME-START-STOP-20260608.json",
+    "agent/state/evidence/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE.evidence.json",
+    "agent/state/capsules/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE.result.json",
+    ".harness/runs/fix-just-runtime-start-stop-20260608/dispatch-ready-final.json"
+  ],
+  "tests_run": [
+    {
+      "command": "just --fmt --check && just --list",
+      "result": "pass",
+      "evidence": "root justfile formats, parses, and lists after start/stop/health fixes"
+    },
+    {
+      "command": "just --dry-run stop",
+      "result": "pass",
+      "evidence": "stop expands without unsupported just -j flag on just 1.51.0"
+    },
+    {
+      "command": "just stop",
+      "result": "pass",
+      "evidence": "partial local run was cleaned up; status then reported all TIMWE local services stopped"
+    },
+    {
+      "command": "just build-all-local",
+      "result": "pass",
+      "evidence": "subscription-external, subscription, billing, notification, notification-worker, acquisition-api, and cadence-engine binaries were current or built"
+    },
+    {
+      "command": "SUBSCRIPTION_EXTERNAL_PORT=8083 just start-subscription-external; SUBSCRIPTION_PORT=8087 just start-subscription; BILLING_PORT=8085 just start-billing; NOTIFICATION_PORT=8084 just start-notification",
+      "result": "pass",
+      "evidence": "subscription-external, subscription, billing, and notification bound ports 8083, 8087, 8085, and 8084"
+    },
+    {
+      "command": "SUBSCRIPTION_EXTERNAL_PORT=8083 SUBSCRIPTION_PORT=8087 BILLING_PORT=8085 NOTIFICATION_PORT=8084 just health",
+      "result": "pass",
+      "evidence": "subscription-external reported healthy, subscription reported healthy, billing returned OK, and notification reported healthy"
+    },
+    {
+      "command": "agent-hub dispatch ready --root . --out .harness/runs/fix-just-runtime-start-stop-20260608/dispatch-ready-final.json --json",
+      "result": "warn",
+      "evidence": "claimable 0, errors 0, warnings 56; warnings are non-claimable archive/review WorkOrders"
+    },
+    {
+      "command": "ACQUISITION_API_PORT=8086 just start-acquisition-api",
+      "result": "blocked",
+      "evidence": "startup failed while connecting to remote Postgres 139.59.135.253:5432; helper removed the failed process and pid file"
+    },
+    {
+      "command": "just start-cadence-engine",
+      "result": "blocked",
+      "evidence": "cadence-engine process did not bind localhost:8091 within readiness window; helper removed the failed process and pid file"
+    }
+  ],
+  "evidence_refs": [
+    "justfile",
+    "scripts/just/timwe.sh",
+    "agent/state/evidence/WO-CREATE-A-BOUNDED-OPERATIONAL-SLICE-TO-REPAIR-THE.evidence.json",
+    ".harness/runs/fix-just-runtime-start-stop-20260608/dispatch-ready-final.json"
+  ],
+  "risks": [
+    "Acquisition API could not be run to HTTP readiness because it timed out connecting to configured remote Postgres 139.59.135.253:5432.",
+    "Cadence engine remains a runtime blocker: it stays alive in local mode but does not bind the configured admin HTTP port 8091 before readiness timeout.",
+    "Notification was run on 8084 because an unrelated Veritas EDP process from /home/xper626/workspace/apps/mtn/veritas-edp owns 8082."
+  ],
+  "followups": [],
+  "runtime": "codex",
+  "role": "supervisor-full",
+  "summary": "Repaired post-merge just start/stop/health regressions, proved four local services running, and recorded exact blockers for acquisition API and cadence engine."
+}

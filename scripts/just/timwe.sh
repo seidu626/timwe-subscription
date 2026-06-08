@@ -30,7 +30,7 @@ build_go() {
 
 start_binary() {
   local dir="$1" bin="$2" port="$3" env_name="$4" log_file="$5" pid_file="$6" label="$7" wait_seconds="${8:-5}"
-  local resolved_port
+  local resolved_port pid
   resolved_port="$(next_port "$port")"
   echo "Starting ${label} on port ${resolved_port}..."
   cd "${ROOT}/${dir}"
@@ -39,7 +39,8 @@ start_binary() {
   else
     nohup setsid env "${env_name}=${resolved_port}" "./${bin}" > "$log_file" 2>&1 &
   fi
-  echo $! > "$pid_file"
+  pid="$!"
+  echo "$pid" > "$pid_file"
   for _ in $(seq 1 "$wait_seconds"); do
     port_in_use "$resolved_port" && break
     sleep 1
@@ -49,6 +50,16 @@ start_binary() {
   else
     echo "${label} failed to start; check ${dir}/${log_file}"
     tail -10 "$log_file" 2>/dev/null || true
+    if kill -0 "$pid" 2>/dev/null; then
+      pkill -TERM -P "$pid" 2>/dev/null || true
+      kill -TERM "$pid" 2>/dev/null || true
+      sleep 1
+      if kill -0 "$pid" 2>/dev/null; then
+        pkill -KILL -P "$pid" 2>/dev/null || true
+        kill -KILL "$pid" 2>/dev/null || true
+      fi
+    fi
+    rm -f "$pid_file"
     exit 1
   fi
 }
