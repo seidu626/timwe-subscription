@@ -40,6 +40,7 @@ Credential source: `/home/xper626/workspace/apps/timwe-subscription/.env`
 | Acquisition transaction creation no longer depends on `tenant_id IS NULL` slug-only campaign lookup. | PASS | `TransactionService.CreateTransaction` now requires a tenant key and resolves campaigns through `GetByTenantKeyAndSlug`; signed public tenant headers are copied into the request by the HTTP handler when the body omits `tenant_key`. |
 | Acquisition reports no longer join tenant-owned transactions through nullable campaign ownership. | PASS | `transactionCampaignPredicate` now requires `campaign.tenant_id = acquisition_transactions.tenant_id`. |
 | Acquisition postback template lookup no longer falls back from tenant-owned transactions to slug-only campaign lookup. | PASS | `campaignForTransaction` and callback template lookup fail closed when a transaction tenant cannot be resolved. |
+| Subscription provider runtime paths no longer use tenantless global provider compatibility. | PASS | `providerConfigForRoute` requires tenant/channel context and all provider operations resolve through `TenantProviderRouter`; missing tenant routes fail before provider calls. |
 | Cadence due/missing-state queries no longer accept NULL tenant matches after proof. | PASS | `ClaimDueStatesTx` and `ListMissingStates` now require tenant equality with subscriptions. |
 | Forward migrations clean legacy partial indexes or nullable constraints only where proof exists. | PASS | Added forward migrations dropping `idx_campaigns_legacy_slug` and `idx_product_message_series_legacy_key`; acquisition cleanup is included in the service-local schema bootstrap after campaign tenant binding. Notification legacy index remains because live notifications still contain tenantless rows. |
 
@@ -48,7 +49,6 @@ Credential source: `/home/xper626/workspace/apps/timwe-subscription/.env`
 - Reconcile the single tenantless `admin_activity_logs` row before applying not-null enforcement there.
 - Reconcile 10 tenantless `notifications` rows before removing notification charge legacy idempotency paths or `idx_notifications_charge_legacy_tx_uuid`.
 - `CampaignRepository.GetBySlug` and `ListEnabled` still expose explicit public legacy compatibility against `tenant_id IS NULL`; live proof shows zero matching campaign rows, and transaction/report/callback runtime paths no longer use it. Removing or rejecting those public endpoints is a separate API compatibility decision.
-- `subscription-external` still has `legacyProviderConfig` for explicit no-tenant partner compatibility. Removing that is a separate partner-contract decision because no-tenant callbacks are still documented as tolerated in onboarding docs.
 - Channel nullable compatibility remains in cadence joins. TMP-055 evidence only proved tenant ownership, not channel ownership completeness.
 
 ## Verification

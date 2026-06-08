@@ -3,7 +3,7 @@
   "task_id": "TMP-055",
   "status": "done",
   "supervisor_decision": "ready_for_review",
-  "summary": "Implemented tenant nullable runtime enforcement after live proof refresh: acquisition transaction/report/postback runtime paths and cadence due/missing-state queries now require tenant ownership, with forward cleanup migrations for proven legacy partial indexes.",
+  "summary": "Implemented tenant nullable runtime enforcement after live proof refresh: acquisition transaction/report/postback runtime paths, subscription provider routing, and cadence due/missing-state queries now require tenant ownership, with forward cleanup migrations for proven legacy partial indexes.",
   "session_id": "codex-tmp055-20260514T032620Z",
   "acceptance_results": [
     {
@@ -66,6 +66,10 @@
     "services/acquisition-api/migrations/remove_legacy_campaign_slug_index.sql",
     "services/cadence-engine/internal/repository/postgres.go",
     "services/cadence-engine/internal/repository/postgres_admin_test.go",
+    "services/subscription-external/internal/service/admin_actions.go",
+    "services/subscription-external/internal/service/subscription.go",
+    "services/subscription-external/internal/service/tenant_routing.go",
+    "services/subscription-external/internal/service/tenant_routing_test.go",
     "services/subscription-external/migrations/019_tenant_nullable_runtime_cleanup.sql",
     "slices/TMP-055-tenant-null-runtime-enforcement/value-gate-report.md",
     "slices/manifest.json"
@@ -81,6 +85,7 @@
     "Confirmed zero tenantless rows for campaigns, acquisition_transactions, products, userbase, postback_outbox, subscriptions, product_message_series, subscription_message_state, message_outbox, and admin_subscription_action_logs.",
     "Kept admin_activity_logs and notifications nullable because live proof still shows one and ten tenantless rows respectively.",
     "Removed acquisition runtime nullable campaign matching from transaction creation, report joins, manual postback trigger, and callback template lookup.",
+    "Removed subscription-external tenantless global provider fallback; provider operations now require tenant/channel context before resolving TIMWE credentials.",
     "Removed cadence runtime tenant-null matching from due-state claiming and missing-state listing.",
     "Added forward cleanup migrations for proven legacy partial indexes and wired acquisition cleanup into service-local schema bootstrap.",
     "Updated TMP-055 evidence with residual API/data gaps and verification commands."
@@ -96,7 +101,7 @@
     "Channel ownership proof was not part of TMP-055; cadence channel-null compatibility remains documented as out of scope."
   ],
   "next_tasks": [],
-  "operator_message": "TMP-055 is complete on this branch: no hardcoded nrg runtime fallback was introduced, transaction/report/postback/cadence runtime paths now require tenant ownership, and proven legacy partial indexes have forward cleanup migrations.",
+  "operator_message": "TMP-055 is complete on this branch: no hardcoded nrg runtime fallback was introduced, transaction/report/postback/subscription-provider/cadence runtime paths now require tenant ownership, and proven legacy partial indexes have forward cleanup migrations.",
   "residual_work_policy": "complete",
   "risk_notes": [
     "Transaction creation now requires tenant context. The handler preserves signed-header callers by copying the verified tenant key into the request when tenant_key is absent from the JSON body.",

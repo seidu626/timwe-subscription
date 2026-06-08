@@ -40,10 +40,10 @@ func (d *fakeDriver) Open(_ string) (driver.Conn, error) { return &fakeConn{row:
 func (c *fakeConn) Prepare(_ string) (driver.Stmt, error) {
 	return &fakeStmt{row: c.row}, nil
 }
-func (c *fakeConn) Close() error          { return nil }
+func (c *fakeConn) Close() error              { return nil }
 func (c *fakeConn) Begin() (driver.Tx, error) { return nil, errors.New("unsupported") }
-func (s *fakeStmt) Close() error          { return nil }
-func (s *fakeStmt) NumInput() int         { return -1 } // variadic
+func (s *fakeStmt) Close() error              { return nil }
+func (s *fakeStmt) NumInput() int             { return -1 } // variadic
 func (s *fakeStmt) Exec(_ []driver.Value) (driver.Result, error) {
 	return nil, errors.New("unsupported")
 }
@@ -271,12 +271,12 @@ func TestTenantProviderStrictModeRejectsMissingTenantCredentialMaterial(t *testi
 		{
 			name:    "missing api key",
 			envName: "TENANT_PROVIDER_MISSING_API_KEY",
-			secret: `{"base_url":"https://tenant-provider.test","authentication_key":"tenant-auth-key","partner_role_id":"tenant-role"}`,
+			secret:  `{"base_url":"https://tenant-provider.test","authentication_key":"tenant-auth-key","partner_role_id":"tenant-role"}`,
 		},
 		{
 			name:    "missing auth material",
 			envName: "TENANT_PROVIDER_MISSING_AUTH_MATERIAL",
-			secret: `{"base_url":"https://tenant-provider.test","api_key":"tenant-api-key","partner_role_id":"tenant-role"}`,
+			secret:  `{"base_url":"https://tenant-provider.test","api_key":"tenant-api-key","partner_role_id":"tenant-role"}`,
 		},
 	}
 	for _, tc := range cases {
@@ -640,6 +640,80 @@ func TestSendMTFailsClosedBeforeProviderCallWhenTenantRoutingRejects(t *testing.
 				t.Fatalf("expected no provider calls, got %d", providerCalls)
 			}
 		})
+	}
+}
+
+func TestProviderConfigForRouteRequiresTenantChannelContext(t *testing.T) {
+	svc := NewSubscriptionService(zap.NewNop(), nil, nil, nil, tenantRoutingTestConfig("http://legacy.invalid"), nil)
+	cases := []struct {
+		name  string
+		route domain.TenantRouteContext
+	}{
+		{name: "empty route", route: domain.TenantRouteContext{}},
+		{name: "tenant without channel", route: domain.TenantRouteContext{TenantID: "tenant-1"}},
+		{name: "channel without tenant", route: domain.TenantRouteContext{ChannelID: "channel-1"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resolved, err := svc.providerConfigForRoute(context.Background(), ChannelOperationMT, tc.route)
+			if !errors.Is(err, ErrTenantRoutingRequired) {
+				t.Fatalf("expected tenant routing required, got resolved=%+v err=%v", resolved, err)
+			}
+			if resolved != nil {
+				t.Fatalf("expected no provider config, got %+v", resolved)
+			}
+		})
+	}
+
+	_, err := svc.providerConfigForRoute(context.Background(), ChannelOperationMT, domain.TenantRouteContext{
+		TenantID:  "tenant-1",
+		ChannelID: "channel-1",
+	})
+	if !errors.Is(err, ErrTenantRoutingNotConfigured) {
+		t.Fatalf("expected configured tenant route to require router, got %v", err)
+	}
+}
+
+func TestSendMTFailsClosedBeforeProviderCallWhenTenantRouteMissing(t *testing.T) {
+	providerCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		providerCalls++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	svc := NewSubscriptionService(zap.NewNop(), nil, nil, nil, tenantRoutingTestConfig(server.URL), nil)
+
+	resp, err := svc.SendMT(domain.MTRequest{
+		ProductID:          14397,
+		UserIdentifier:     "233241234567",
+		UserIdentifierType: "MSISDN",
+		EntryChannel:       "WEB",
+	}, "tenant-realm", "WEB")
+	if !errors.Is(err, ErrTenantRoutingRequired) {
+		t.Fatalf("expected tenant routing required, got resp=%+v err=%v", resp, err)
+	}
+	if providerCalls != 0 {
+		t.Fatalf("expected no provider calls, got %d", providerCalls)
+	}
+}
+
+func TestAdminSubscriptionActionRequiresTenantRoute(t *testing.T) {
+	svc := NewSubscriptionService(zap.NewNop(), nil, nil, nil, tenantRoutingTestConfig("http://legacy.invalid"), nil)
+
+	logEntry, err := svc.ExecuteAdminSubscriptionAction(domain.AdminActionOptin, domain.AdminSubscriptionActionRequest{
+		MSISDN:             "233241234567",
+		UserIdentifierType: "MSISDN",
+		ProductID:          14397,
+		EntryChannel:       "WEB",
+		PartnerRoleID:      2117,
+	})
+	if !errors.Is(err, ErrTenantRoutingRequired) {
+		t.Fatalf("expected tenant routing required, got log=%+v err=%v", logEntry, err)
+	}
+	if logEntry != nil {
+		t.Fatalf("expected no admin action log entry, got %+v", logEntry)
 	}
 }
 

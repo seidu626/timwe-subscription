@@ -21,12 +21,13 @@ Enforced runtime paths:
 
 - Acquisition transaction creation requires a tenant key and uses tenant-scoped campaign lookup. The HTTP handler accepts the already supported signed public tenant headers and copies the verified tenant key into the transaction request when the body omits `tenant_key`.
 - Acquisition reporting and postback template lookup no longer join or fall back through nullable campaign ownership.
+- Subscription provider runtime paths require tenant/channel context and resolve TIMWE provider credentials through the tenant provider router; empty tenant routes now fail closed instead of using global compatibility credentials.
 - Cadence due-state and missing-state queries require tenant equality between subscription state, subscriptions, and product message series.
 
 Two residual groups remain intentionally nullable:
 
 - `admin_activity_logs` still has one tenantless row.
-- `notifications` still has ten tenantless rows, so notification charge idempotency and no-tenant partner compatibility remain follow-up work.
+- `notifications` still has ten tenantless rows, so notification charge idempotency cleanup remains follow-up work.
 - Public campaign `GetBySlug`/`ListEnabled` still contain explicit `tenant_id IS NULL` compatibility. Live proof shows zero rows in that lane, and transaction/report/callback paths no longer depend on it; removing the public compatibility endpoints requires a separate API decision.
 
 Do not apply broad `SET NOT NULL` constraints until those residual rows are reconciled and channel ownership proof is collected separately.
