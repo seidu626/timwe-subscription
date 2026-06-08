@@ -287,6 +287,87 @@
       "record_id": "lineage-0032-abc14f6b",
       "rel": "reports",
       "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp028-compose-secret-20260608-0559/evidence/docker-compose-config.txt",
+      "created_at": "2026-06-08T06:05:03Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-worker/result.json",
+      "record_id": "lineage-0033-b42ff89e",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp028-compose-secret-20260608-0559/evidence/docker-compose-config.stderr",
+      "created_at": "2026-06-08T06:05:03Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-worker/result.json",
+      "record_id": "lineage-0034-0dc5ba49",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp028-compose-secret-20260608-0559/evidence/hardcoded-secret-search.txt",
+      "created_at": "2026-06-08T06:05:03Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-worker/result.json",
+      "record_id": "lineage-0035-c0119303",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp028-compose-secret-20260608-0559/evidence/jq-manifest.txt",
+      "created_at": "2026-06-08T06:05:04Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-worker/result.json",
+      "record_id": "lineage-0036-e1644167",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp028-compose-secret-20260608-0559/evidence/schema-validate.json",
+      "created_at": "2026-06-08T06:05:04Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-worker/result.json",
+      "record_id": "lineage-0037-b1ee6bd3",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp028-compose-secret-20260608-0559/evidence/reconcile.json",
+      "created_at": "2026-06-08T06:05:04Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-worker/result.json",
+      "record_id": "lineage-0038-10d56d0a",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp028-compose-secret-20260608-0559/evidence/git-diff-check.txt",
+      "created_at": "2026-06-08T06:05:05Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-worker/result.json",
+      "record_id": "lineage-0039-a61db533",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": "slices/TMP-028-compose-secret-env-hygiene/value-gate-report.md",
+      "created_at": "2026-06-08T06:05:05Z",
+      "kind": "evidence_record",
+      "parent_id": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-worker/result.json",
+      "record_id": "lineage-0040-80e7a89f",
+      "rel": "supports",
+      "skill": "repository-codebase-governance"
+    },
+    {
+      "artifact_ref": ".harness/runs/tmp028-compose-secret-20260608-0559/members/tmp028-worker/result.json",
+      "created_at": "2026-06-08T06:05:05Z",
+      "kind": "result_capsule",
+      "parent_id": "agent/state/work-orders/active/WO-TMP-028-001.json",
+      "record_id": "lineage-0041-aaba2183",
+      "rel": "reports",
+      "skill": "repository-codebase-governance"
     }
   ],
   "schema_version": "1.0"
