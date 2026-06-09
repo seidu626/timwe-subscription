@@ -17,16 +17,16 @@
       <strong>{{ totalCount || dataSource.data.length }}</strong>
     </div>
     <div>
-      <span>Active on page</span>
-      <strong>{{ activePageCount }}</strong>
+      <span>Page records</span>
+      <strong>{{ dataSource.data.length }}</strong>
     </div>
     <div>
-      <span>Inactive on page</span>
-      <strong>{{ inactivePageCount }}</strong>
+      <span>Rows per page</span>
+      <strong>{{ pageSize }}</strong>
     </div>
     <div>
-      <span>Selected</span>
-      <strong>{{ selectedTenantLabel }}</strong>
+      <span>Filter</span>
+      <strong>{{ filters.status || 'All statuses' }}</strong>
     </div>
   </section>
 

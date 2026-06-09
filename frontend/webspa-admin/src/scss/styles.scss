@@ -32,26 +32,26 @@
 .mat-mdc-form-field {
   --mdc-outlined-text-field-label-text-color: #475569 !important;
   --mdc-outlined-text-field-hover-label-text-color: #334155 !important;
-  --mdc-outlined-text-field-focus-label-text-color: #e60000 !important;
+  --mdc-outlined-text-field-focus-label-text-color: #4f46e5 !important;
   --mdc-outlined-text-field-input-text-color: #1e293b !important;
   --mdc-outlined-text-field-input-text-placeholder-color: #94a3b8 !important;
-  --mdc-outlined-text-field-caret-color: #e60000 !important;
+  --mdc-outlined-text-field-caret-color: #4f46e5 !important;
   --mdc-outlined-text-field-outline-color: #cbd5e1 !important;
   --mdc-outlined-text-field-hover-outline-color: #94a3b8 !important;
-  --mdc-outlined-text-field-focus-outline-color: #e60000 !important;
+  --mdc-outlined-text-field-focus-outline-color: #4f46e5 !important;
   --mdc-outlined-text-field-disabled-label-text-color: #94a3b8 !important;
   --mdc-outlined-text-field-disabled-input-text-color: #94a3b8 !important;
 
   // Filled text field
   --mdc-filled-text-field-label-text-color: #475569 !important;
   --mdc-filled-text-field-hover-label-text-color: #334155 !important;
-  --mdc-filled-text-field-focus-label-text-color: #e60000 !important;
+  --mdc-filled-text-field-focus-label-text-color: #4f46e5 !important;
   --mdc-filled-text-field-input-text-color: #1e293b !important;
   --mdc-filled-text-field-input-text-placeholder-color: #94a3b8 !important;
-  --mdc-filled-text-field-caret-color: #e60000 !important;
+  --mdc-filled-text-field-caret-color: #4f46e5 !important;
   --mdc-filled-text-field-active-indicator-color: #cbd5e1 !important;
   --mdc-filled-text-field-hover-active-indicator-color: #94a3b8 !important;
-  --mdc-filled-text-field-focus-active-indicator-color: #e60000 !important;
+  --mdc-filled-text-field-focus-active-indicator-color: #4f46e5 !important;
 }
 
 // Force label colors
@@ -125,7 +125,7 @@
 
 // Button colors
 .mat-mdc-raised-button.mat-primary {
-  --mdc-protected-button-container-color: #e60000 !important;
+  --mdc-protected-button-container-color: #4f46e5 !important;
   --mdc-protected-button-label-text-color: #ffffff !important;
 }
 
@@ -151,23 +151,23 @@
   .mat-mdc-form-field {
     --mdc-outlined-text-field-label-text-color: #94a3b8 !important;
     --mdc-outlined-text-field-hover-label-text-color: #cbd5e1 !important;
-    --mdc-outlined-text-field-focus-label-text-color: #ff5a52 !important;
+    --mdc-outlined-text-field-focus-label-text-color: #818cf8 !important;
     --mdc-outlined-text-field-input-text-color: #f1f5f9 !important;
     --mdc-outlined-text-field-input-text-placeholder-color: #64748b !important;
-    --mdc-outlined-text-field-caret-color: #ff5a52 !important;
+    --mdc-outlined-text-field-caret-color: #818cf8 !important;
     --mdc-outlined-text-field-outline-color: #475569 !important;
     --mdc-outlined-text-field-hover-outline-color: #64748b !important;
-    --mdc-outlined-text-field-focus-outline-color: #ff5a52 !important;
+    --mdc-outlined-text-field-focus-outline-color: #818cf8 !important;
 
     --mdc-filled-text-field-label-text-color: #94a3b8 !important;
     --mdc-filled-text-field-hover-label-text-color: #cbd5e1 !important;
-    --mdc-filled-text-field-focus-label-text-color: #ff5a52 !important;
+    --mdc-filled-text-field-focus-label-text-color: #818cf8 !important;
     --mdc-filled-text-field-input-text-color: #f1f5f9 !important;
     --mdc-filled-text-field-input-text-placeholder-color: #64748b !important;
-    --mdc-filled-text-field-caret-color: #ff5a52 !important;
+    --mdc-filled-text-field-caret-color: #818cf8 !important;
     --mdc-filled-text-field-active-indicator-color: #475569 !important;
     --mdc-filled-text-field-hover-active-indicator-color: #64748b !important;
-    --mdc-filled-text-field-focus-active-indicator-color: #ff5a52 !important;
+    --mdc-filled-text-field-focus-active-indicator-color: #818cf8 !important;
   }
 
   .mdc-floating-label,
@@ -297,7 +297,7 @@ code, pre, kbd, samp {
 
 // Better focus outlines for accessibility
 *:focus-visible {
-  outline: 2px solid var(--admin-primary, #e60000);
+  outline: 2px solid var(--admin-primary, #4f46e5);
   outline-offset: 2px;
 }
 
@@ -393,7 +393,7 @@ a {
   --mat-snack-bar-button-color: #6ee7b7 !important;
 
   .mdc-snackbar__surface {
-    border-radius: 0.5rem !important;
+    border-radius: 0.75rem !important;
     box-shadow: 0 12px 32px -8px rgba(6, 95, 70, 0.4) !important;
   }
 }
@@ -404,7 +404,7 @@ a {
   --mat-snack-bar-button-color: #fca5a5 !important;
 
   .mdc-snackbar__surface {
-    border-radius: 0.5rem !important;
+    border-radius: 0.75rem !important;
     box-shadow: 0 12px 32px -8px rgba(127, 29, 29, 0.4) !important;
   }
 }
