@@ -1223,6 +1223,60 @@
       "record_id": "lineage-0136-4eb00104",
       "rel": null,
       "skill": null
+    },
+    {
+      "artifact_ref": "agent/state/evidence/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.evidence.json",
+      "created_at": "2026-06-09T10:06:05Z",
+      "kind": "evidence_record",
+      "parent_id": "WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH",
+      "record_id": "lineage-0137-d9e6f7f0",
+      "rel": "supports",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": "agent/state/capsules/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.result.json",
+      "created_at": "2026-06-09T10:06:05Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH",
+      "record_id": "lineage-0138-013f438c",
+      "rel": "completes",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/webspa-admin-ui-refresh-20260609-092233/login-390.png",
+      "created_at": "2026-06-09T10:06:41Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/evidence/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.evidence.json",
+      "record_id": "lineage-0139-e2c56c4d",
+      "rel": "visual_artifact",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/webspa-admin-ui-refresh-20260609-092233/login-1440.png",
+      "created_at": "2026-06-09T10:06:42Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/evidence/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.evidence.json",
+      "record_id": "lineage-0140-474eaedd",
+      "rel": "visual_artifact",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/webspa-admin-ui-refresh-20260609-092233/login-dom.html",
+      "created_at": "2026-06-09T10:06:42Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/evidence/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.evidence.json",
+      "record_id": "lineage-0141-d7d905e8",
+      "rel": "rendered_dom",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/webspa-admin-ui-refresh-20260609-092233/dispatch-ready-final.json",
+      "created_at": "2026-06-09T10:08:08Z",
+      "kind": "dispatch_plan",
+      "parent_id": "WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH",
+      "record_id": "lineage-0142-6f3256c6",
+      "rel": "final_ready_check",
+      "skill": "implement-verify"
     }
   ],
   "schema_version": "1.0"

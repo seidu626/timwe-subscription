@@ -1,0 +1,97 @@
+{
+  "schema_version": "2.0",
+  "evidence_id": "evidence-WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH-20260609T100409Z",
+  "goal_id": "goal-20260609T065200Z-tmp-075-webspa-admin-ope",
+  "work_order_id": "WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH",
+  "run_id": "webspa-admin-ui-refresh-20260609-092233",
+  "claims": [
+    {
+      "claim_id": "schema_validation",
+      "claim": "schema_validation passed for the repository before TMP-075 closeout",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub schema validate-all --root . --json",
+      "artifact_ref": "agent/state/capsules/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.result.json",
+      "result_summary": "Schema validation passed with 126 schemas checked.",
+      "created_at": "2026-06-09T10:04:09Z"
+    },
+    {
+      "claim_id": "reconcile_gate",
+      "claim": "reconcile reported no findings before TMP-075 closeout",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub reconcile --root . --check --json",
+      "artifact_ref": "agent/state/capsules/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.result.json",
+      "result_summary": "Reconcile passed with 0 errors, 0 warnings, and 0 pre-existing findings.",
+      "created_at": "2026-06-09T10:04:09Z"
+    },
+    {
+      "claim_id": "angular_build",
+      "claim": "webspa-admin production build passes after the operator UI refresh",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "cd frontend/webspa-admin && npm run build",
+      "artifact_ref": "frontend/webspa-admin/dist/webspa-admin",
+      "result_summary": "Angular build completed successfully. Warnings were limited to the existing campaign-form.component.scss style budget and one skipped CoreUI selector.",
+      "created_at": "2026-06-09T10:04:09Z"
+    },
+    {
+      "claim_id": "angular_tests",
+      "claim": "webspa-admin headless test suite passes after the operator UI refresh",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless",
+      "artifact_ref": "frontend/webspa-admin",
+      "result_summary": "Karma reported TOTAL: 110 SUCCESS.",
+      "created_at": "2026-06-09T10:04:09Z"
+    },
+    {
+      "claim_id": "browser_login_visual",
+      "claim": "unauthenticated login page renders the refreshed operator palette on desktop and mobile",
+      "status": "proved",
+      "evidence_type": "artifact",
+      "command": "npm run start -- --host 127.0.0.1 --port 4300; google-chrome-stable --headless=new --screenshot and --dump-dom http://127.0.0.1:4300/",
+      "artifact_ref": ".harness/runs/webspa-admin-ui-refresh-20260609-092233/",
+      "result_summary": "HTTP 200 OK; desktop screenshot sha256 82a9101a6736da61c974b9e291ca586ada0507dd16eb8eba55946b23e43ffdb0; mobile screenshot sha256 eb74fe0e43ad47ceb9fe977c550b95ad7c3ea08ce481a7358778307b1b4815b3; rendered DOM sha256 434d94601631f7746c57bf51bc696ce73e2891571514d49bffaf81b0e697827b and contains Operator access, Login with Auth0, and Managed identity, scoped tenants.",
+      "created_at": "2026-06-09T10:04:09Z"
+    },
+    {
+      "claim_id": "review_gate_result",
+      "claim": "TMP-075 file scope was reviewed after implementation",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "git diff --name-only 590384b30a8ece9e671b1ad97d8a8957f5ca3679..HEAD",
+      "artifact_ref": "agent/state/work-orders/active/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.json",
+      "result_summary": "Final implementation diff is limited to WorkOrder-allowed admin layout, dashboard, login, tenant catalog HTML/SCSS, theme SCSS, and control-plane evidence paths.",
+      "created_at": "2026-06-09T10:04:09Z"
+    },
+    {
+      "claim_id": "dispatch_ready_report",
+      "claim": "dispatch_ready_report captured after TMP-075 archive",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub dispatch ready --root . --out .harness/runs/webspa-admin-ui-refresh-20260609-092233/dispatch-ready-final.json --json",
+      "artifact_ref": ".harness/runs/webspa-admin-ui-refresh-20260609-092233/dispatch-ready-final.json",
+      "result_summary": "Dispatch-ready reported claimable 0, errors 0, warnings 60 after archive; warnings are archive-queue non-claimable notices.",
+      "created_at": "2026-06-09T10:07:21Z"
+    },
+    {
+      "claim_id": "capability_unconstrained_verdict",
+      "claim": "No missing capability was used to down-scope TMP-075",
+      "status": "proved",
+      "evidence_type": "manual_review",
+      "command": "Reviewed existing Angular/CoreUI/Angular Material surfaces and used existing project dependencies; no new dependency was needed or added.",
+      "artifact_ref": "frontend/webspa-admin/src/scss/_custom.scss",
+      "result_summary": "custom_justified: the slice is a scoped UI refresh of existing components and theme variables; existing framework components were reused and no dependency gate was triggered.",
+      "created_at": "2026-06-09T10:04:09Z"
+    }
+  ],
+  "unsupported_claims": [
+    "Authenticated dashboard and tenant catalog routes were not visually verified in-browser because no Auth0-authenticated browser session was available; unauthenticated local route redirects to the login surface. Build and test coverage were used for protected route code paths."
+  ],
+  "review": {
+    "status": "accepted",
+    "reviewer": "codex-supervisor",
+    "reviewed_at": "2026-06-09T10:04:09Z"
+  }
+}

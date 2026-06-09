@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "work_order_id": "WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH",
+  "status": "done",
+  "changed_files": [
+    "agent/state/work-orders/archive/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.json",
+    "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html",
+    "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss",
+    "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.scss",
+    "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss",
+    "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.html",
+    "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.scss",
+    "frontend/webspa-admin/src/app/views/pages/login/login.component.scss",
+    "frontend/webspa-admin/src/scss/_custom.scss",
+    "frontend/webspa-admin/src/scss/_theme.scss",
+    "agent/state/evidence/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.evidence.json",
+    "agent/state/capsules/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.result.json",
+    ".harness/runs/webspa-admin-ui-refresh-20260609-092233/dispatch-ready-final.json"
+  ],
+  "tests_run": [
+    {
+      "command": "agent-hub schema validate-all --root . --json",
+      "result": "pass",
+      "evidence": "126 schemas checked successfully before closeout."
+    },
+    {
+      "command": "agent-hub reconcile --root . --check --json",
+      "result": "pass",
+      "evidence": "0 errors and 0 warnings before closeout."
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm run build",
+      "result": "pass",
+      "evidence": "Angular production build completed; only pre-existing campaign SCSS budget and CoreUI selector warnings were reported."
+    },
+    {
+      "command": "cd frontend/webspa-admin && npm test -- --watch=false --browsers=ChromeHeadless",
+      "result": "pass",
+      "evidence": "Karma completed TOTAL: 110 SUCCESS."
+    },
+    {
+      "command": "npm run start -- --host 127.0.0.1 --port 4300; google-chrome-stable --headless=new screenshots and rendered DOM dump",
+      "result": "pass",
+      "evidence": "Local dev server returned 200 OK; desktop and mobile login screenshots plus rendered DOM were captured under .harness/runs/webspa-admin-ui-refresh-20260609-092233/."
+    },
+    {
+      "command": "agent-hub dispatch ready --root . --out .harness/runs/webspa-admin-ui-refresh-20260609-092233/dispatch-ready-final.json --json",
+      "result": "warn",
+      "evidence": "Dispatch-ready reported claimable 0, errors 0, warnings 60 after archive; warnings are archive-queue non-claimable notices."
+    }
+  ],
+  "evidence_refs": [
+    "agent/state/evidence/WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH.evidence.json",
+    ".harness/runs/webspa-admin-ui-refresh-20260609-092233/dispatch-ready-final.json",
+    ".harness/runs/webspa-admin-ui-refresh-20260609-092233/login-1440.png",
+    ".harness/runs/webspa-admin-ui-refresh-20260609-092233/login-390.png",
+    ".harness/runs/webspa-admin-ui-refresh-20260609-092233/login-dom.html"
+  ],
+  "risks": [
+    "Authenticated dashboard and tenant catalog routes were not browser-opened because no Auth0 session was available in this run; Angular build/tests and unauthenticated login visual proof cover the accessible surface.",
+    "npm ci was used from the existing package-lock to install node_modules for verification only; package manifests were not changed.",
+    "The build still reports pre-existing warnings in campaign-form.component.scss and CoreUI selector output."
+  ],
+  "followups": [],
+  "runtime": "codex",
+  "role": "supervisor-full",
+  "summary": "Refreshed the WebSPA admin operator UI shell, dashboard, tenant catalog, and login styling inside TMP-075 scope while preserving existing Angular/CoreUI/Auth0 behavior."
+}
