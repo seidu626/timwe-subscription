@@ -49,8 +49,33 @@
       "summary": "timwe-subscription just dev database-backed services block before binding when configured Postgres is unreachable",
       "targets": [],
       "updated_at": "2026-06-08T11:53:23Z"
+    },
+    {
+      "blocked_reason": null,
+      "branch": "agent/codex/workspaces-404-20260609-021823",
+      "created_at": "2026-06-09T02:23:25Z",
+      "duplicate_of": null,
+      "duplicate_reason": null,
+      "duplicate_score": null,
+      "duplicates": [],
+      "evidence": [
+        "GET http://localhost:8084/v1/admin/tenants/workspaces returned 404 because port 8084 was bound by services/notification; scripts/just/timwe.sh used next_port and could move notification from 8082 to the acquisition-api port."
+      ],
+      "fingerprint": "7ae2010babfe8e07ab10",
+      "id": "SI-20260609T022325Z-timwe-just-start-binary--27be68",
+      "kind": "bug",
+      "metadata": [],
+      "prevention": [],
+      "run_id": null,
+      "severity": "medium",
+      "source": "operator",
+      "source_issue": null,
+      "status": "queued",
+      "summary": "timwe just start-binary silently shifted fixed service ports",
+      "targets": [],
+      "updated_at": "2026-06-09T02:23:25Z"
     }
   ],
   "schema_version": 1,
-  "updated_at": "2026-06-08T11:53:23Z"
+  "updated_at": "2026-06-09T02:23:25Z"
 }
