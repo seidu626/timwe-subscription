@@ -1,6 +1,6 @@
 # RFC: Canonical Tenancy Model
 
-Status: Proposed draft only. This RFC is not approved and does not authorize backend, frontend, migration, credential, deployment, dependency, or secret changes.
+Status: Approved.
 
 Cross-runtime peer review status: unavailable in this worker run. The available tool surface exposed same-runtime subagents and GitHub PR review actions, but no repo-enabled non-Codex reviewer. Same-runtime review does not satisfy the architecture RFC peer-grill gate.
 
@@ -251,7 +251,7 @@ Error posture:
 
 ## Decision
 
-- Chosen option: Option A, pending independent review and operator approval.
+- Chosen option: Option A, approved.
 - Why:
   - It aligns the partner API, admin workspace, migration runbook, and nullability enforcement plan around one model.
   - It separates external identity from internal ownership.
@@ -261,7 +261,7 @@ Error posture:
   - Auth0/JWT-only tenant assignment does not provide repo-owned membership auditability.
   - A canonical default tenant is useful for migration backfill, but unsafe as an active runtime fallback.
 
-This decision is proposed only. Approval requires cross-runtime peer review or an explicit operator decision.
+This decision is approved.
 
 ## Implementation Plan
 

@@ -1196,6 +1196,33 @@
       "record_id": "lineage-0133-f4cd5657",
       "rel": "verification",
       "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/archive/WO-CREATE-A-BOUNDED-VERTICAL-DEFECT-SLICE-TO-FIX-LO.json",
+      "created_at": "2026-06-09T06:20:16Z",
+      "kind": "work_order",
+      "parent_id": null,
+      "record_id": "lineage-0134-e5635ac8",
+      "rel": null,
+      "skill": null
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/archive/WO-CREATE-A-BOUNDED-VERTICAL-DEFECT-SLICE-TO-FIX-TH.json",
+      "created_at": "2026-06-09T06:20:28Z",
+      "kind": "work_order",
+      "parent_id": null,
+      "record_id": "lineage-0135-1a92ddfb",
+      "rel": null,
+      "skill": null
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/archive/WO-CREATE-AN-OPERATIONAL-SLICE-FOR-POST-MERGE-LIVE.json",
+      "created_at": "2026-06-09T06:20:40Z",
+      "kind": "work_order",
+      "parent_id": null,
+      "record_id": "lineage-0136-4eb00104",
+      "rel": null,
+      "skill": null
     }
   ],
   "schema_version": "1.0"

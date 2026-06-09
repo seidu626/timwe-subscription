@@ -178,15 +178,10 @@ func (c *NetworkResilientClient) doWithRetryInternal(ctx context.Context, req *f
 
 // executeWithCircuitBreaker executes request through circuit breaker
 func (c *NetworkResilientClient) executeWithCircuitBreaker(req *fasthttp.Request, res *fasthttp.Response) error {
-	result, err := c.circuitBreaker.Execute(func() (interface{}, error) {
+	_, err := c.circuitBreaker.Execute(func() (interface{}, error) {
 		return nil, c.client.Do(req, res)
 	})
-
-	if err != nil {
-		return err
-	}
-
-	return result.(error)
+	return err
 }
 
 // calculateRetryDelay calculates exponential backoff delay
