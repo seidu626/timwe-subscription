@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "work_order_id": "WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING",
+  "status": "done",
+  "changed_files": [
+    "services/acquisition-api/internal/repository/admin_management_schema.go",
+    "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+    "services/acquisition-api/migrations/seed_nrg_tenant_channel.sql",
+    "agent/state/goals/tenant-config-migration-20260609-080007.json",
+    "agent/state/goals/tenant-config-migration-corrected-20260609-080007.json",
+    "agent/state/hvc/tenant-config-migration-20260609-080007.hvc.json",
+    "agent/state/hvc/tenant-config-migration-corrected-20260609-080007.hvc.json",
+    "agent/state/work-orders/archive/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.json",
+    "agent/state/work-orders/blocked/WO-RUN-PENDING-MIGRATIONS-AND-PROCEED-WITH-MIGRATIN.json",
+    "agent/state/evidence/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.evidence.json",
+    "agent/state/capsules/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.result.json",
+    ".harness/runs/tenant-config-migration-20260609-080007/migration-plan.md",
+    ".harness/runs/tenant-config-migration-20260609-080007/migration-plan.json",
+    ".harness/runs/tenant-config-migration-20260609-080007/premortem/premortem.json",
+    ".harness/runs/tenant-config-migration-20260609-080007/dispatch-ready-final.json"
+  ],
+  "tests_run": [
+    {
+      "command": "psql live join across tenants, tenant_channels, and tenant_channel_credentials for nrg/web-gh-airteltigo/provider_api",
+      "result": "pass",
+      "evidence": "1 active nrg channel row with active env://NRG_TIMWE_API_SECRET provider_api credential reference"
+    },
+    {
+      "command": "just db-migrate-tenant-platform-dry-run",
+      "result": "pass",
+      "evidence": "eligible_rows_total=0; readiness=READY_FOR_APPLY"
+    },
+    {
+      "command": "GOCACHE=/tmp/timwe-go-cache go test ./internal/repository ./internal/service ./internal/handler",
+      "result": "pass",
+      "evidence": "acquisition-api repository, service, and handler focused tests passed"
+    },
+    {
+      "command": "GOCACHE=/tmp/timwe-go-cache go test ./internal/service -run TenantRouting",
+      "result": "pass",
+      "evidence": "subscription-external TenantRouting focused test passed"
+    },
+    {
+      "command": "agent-hub schema validate-all --root . --json",
+      "result": "pass",
+      "evidence": "126 schemas checked"
+    },
+    {
+      "command": "agent-hub schema validate --root . --schema work_order_v2 --file agent/state/work-orders/active/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.json --json",
+      "result": "pass",
+      "evidence": "active WorkOrder schema valid"
+    },
+    {
+      "command": "agent-hub reconcile --root . --check --json",
+      "result": "pass",
+      "evidence": "0 findings"
+    },
+    {
+      "command": "agent-hub dispatch ready --root . --out .harness/runs/tenant-config-migration-20260609-080007/dispatch-ready-final.json --json",
+      "result": "warn",
+      "evidence": "claimable 1 unrelated ready WorkOrder, errors 0, warnings 60 archive/blocked non-claimable state noise"
+    }
+  ],
+  "evidence_refs": [
+    "services/acquisition-api/migrations/seed_nrg_tenant_channel.sql",
+    "services/acquisition-api/internal/repository/admin_management_schema.go",
+    "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+    "agent/state/evidence/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.evidence.json",
+    ".harness/runs/tenant-config-migration-20260609-080007/migration-plan.json",
+    ".harness/runs/tenant-config-migration-20260609-080007/premortem/premortem.json",
+    ".harness/runs/tenant-config-migration-20260609-080007/dispatch-ready-final.json"
+  ],
+  "risks": [
+    "The database migration was applied to the configured live database and is forward-only; correction would be credential/channel deactivation or rotation through admin-management.",
+    "The credential secret value itself is not stored in the database; runtime provider calls still require deployment environment material at NRG_TIMWE_API_SECRET.",
+    "Dispatch-ready retains pre-existing archive/blocked warning noise and one unrelated ready WorkOrder."
+  ],
+  "followups": [],
+  "runtime": "codex",
+  "role": "supervisor-full",
+  "summary": "Seeded the canonical nrg tenant channel and provider credential reference, registered the migration in admin-management schema bootstrap, applied the seed to the configured live database, and verified tenant-platform readiness plus focused Go coverage."
+}

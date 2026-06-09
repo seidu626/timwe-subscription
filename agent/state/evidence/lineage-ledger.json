@@ -1223,6 +1223,87 @@
       "record_id": "lineage-0136-4eb00104",
       "rel": null,
       "skill": null
+    },
+    {
+      "artifact_ref": "services/acquisition-api/migrations/seed_nrg_tenant_channel.sql",
+      "created_at": "2026-06-09T09:17:37Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.result.json",
+      "record_id": "lineage-0137-e524253c",
+      "rel": "supports",
+      "skill": "migration-orchestrator"
+    },
+    {
+      "artifact_ref": "services/acquisition-api/internal/repository/admin_management_schema.go",
+      "created_at": "2026-06-09T09:17:37Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.result.json",
+      "record_id": "lineage-0138-c01159cb",
+      "rel": "supports",
+      "skill": "migration-orchestrator"
+    },
+    {
+      "artifact_ref": "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+      "created_at": "2026-06-09T09:17:37Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.result.json",
+      "record_id": "lineage-0139-15e0782e",
+      "rel": "supports",
+      "skill": "migration-orchestrator"
+    },
+    {
+      "artifact_ref": "agent/state/evidence/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.evidence.json",
+      "created_at": "2026-06-09T09:17:37Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.result.json",
+      "record_id": "lineage-0140-a552b78b",
+      "rel": "supports",
+      "skill": "migration-orchestrator"
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-config-migration-20260609-080007/migration-plan.json",
+      "created_at": "2026-06-09T09:17:38Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.result.json",
+      "record_id": "lineage-0141-5e14da73",
+      "rel": "supports",
+      "skill": "migration-orchestrator"
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-config-migration-20260609-080007/premortem/premortem.json",
+      "created_at": "2026-06-09T09:17:38Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.result.json",
+      "record_id": "lineage-0142-b3a296a3",
+      "rel": "supports",
+      "skill": "migration-orchestrator"
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-config-migration-20260609-080007/dispatch-ready-final.json",
+      "created_at": "2026-06-09T09:17:38Z",
+      "kind": "evidence_record",
+      "parent_id": "agent/state/capsules/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.result.json",
+      "record_id": "lineage-0143-4cb502ec",
+      "rel": "supports",
+      "skill": "migration-orchestrator"
+    },
+    {
+      "artifact_ref": "agent/state/capsules/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.result.json",
+      "created_at": "2026-06-09T09:17:38Z",
+      "kind": "result_capsule",
+      "parent_id": "agent/state/evidence/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.evidence.json",
+      "record_id": "lineage-0144-7cd5918d",
+      "rel": "summarizes",
+      "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/archive/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.json",
+      "created_at": "2026-06-09T09:19:16Z",
+      "kind": "work_order",
+      "parent_id": "agent/state/goals/tenant-config-migration-corrected-20260609-080007.json",
+      "record_id": "lineage-0145-b2fd3ccc",
+      "rel": "derives_from",
+      "skill": "hvc"
     }
   ],
   "schema_version": "1.0"

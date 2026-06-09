@@ -1,0 +1,75 @@
+{
+  "schema_version": "2.0",
+  "evidence_id": "evidence-WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING-20260609T091304Z",
+  "goal_id": "goal-20260609T080448Z-in-the-timwe-subscriptio",
+  "work_order_id": "WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING",
+  "run_id": "tenant-config-migration-20260609-080007",
+  "claims": [
+    {
+      "claim_id": "schema_validation",
+      "claim": "schema_validation verified for the tenant configuration migration WorkOrder and repository schemas",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub schema validate-all --root . --json; agent-hub schema validate --root . --schema work_order_v2 --file agent/state/work-orders/active/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.json --json; agent-hub reconcile --root . --check --json",
+      "artifact_ref": "agent/state/capsules/WO-IN-THE-TIMWE-SUBSCRIPTION-REPOSITORY-RUN-PENDING.result.json",
+      "result_summary": "Schema validation passed with 126 schemas checked, the active WorkOrder contract validated, and reconcile passed with 0 findings.",
+      "created_at": "2026-06-09T09:13:04Z"
+    },
+    {
+      "claim_id": "dispatch_ready_report",
+      "claim": "dispatch_ready_report captured after tenant configuration migration verification",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "agent-hub dispatch ready --root . --out .harness/runs/tenant-config-migration-20260609-080007/dispatch-ready-final.json --json",
+      "artifact_ref": ".harness/runs/tenant-config-migration-20260609-080007/dispatch-ready-final.json",
+      "result_summary": "Dispatch-ready reported claimable 1, errors 0, warnings 60. The claimable item is unrelated WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH; warnings are archive/blocked non-claimable state noise.",
+      "created_at": "2026-06-09T09:13:04Z"
+    },
+    {
+      "claim_id": "review_gate_result",
+      "claim": "review_gate_result accepted for the bounded tenant configuration migration",
+      "status": "proved",
+      "evidence_type": "manual_review",
+      "command": "Review of changed scope plus focused verification commands: migration seed, admin schema registration/test, live tenant/channel/credential join, tenant-platform dry-run, acquisition-api tests, subscription-external TenantRouting test, schema/reconcile gates.",
+      "artifact_ref": "services/acquisition-api/migrations/seed_nrg_tenant_channel.sql",
+      "result_summary": "Changed scope matches WorkOrder allowed files, stores only env:// credential reference material, and preserves tenant routing expectations.",
+      "created_at": "2026-06-09T09:13:04Z"
+    },
+    {
+      "claim_id": "live_db_join",
+      "claim": "nrg tenant has the expected active web-gh-airteltigo channel and active provider_api credential reference",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "psql live join across tenants, tenant_channels, and tenant_channel_credentials for tenant_key='nrg', channel_key='web-gh-airteltigo', purpose='provider_api'",
+      "artifact_ref": "services/acquisition-api/migrations/seed_nrg_tenant_channel.sql",
+      "result_summary": "Returned 1 row: nrg/web-gh-airteltigo/timwe/GH/AirtelTigo, channel ACTIVE, credential ACTIVE, secret_ref env://NRG_TIMWE_API_SECRET, display nrg-timwe-api.",
+      "created_at": "2026-06-09T09:13:04Z"
+    },
+    {
+      "claim_id": "tenant_platform_dry_run",
+      "claim": "tenant platform dry-run remains ready after the live seed migration",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "set -a; source /home/xper626/workspace/apps/timwe-subscription/.env; set +a; just db-migrate-tenant-platform-dry-run",
+      "artifact_ref": ".harness/runs/tenant-config-migration-20260609-080007/progress.log",
+      "result_summary": "All configured tables reported READY with eligible_rows_total=0 and readiness=READY_FOR_APPLY.",
+      "created_at": "2026-06-09T09:13:04Z"
+    },
+    {
+      "claim_id": "focused_go_tests",
+      "claim": "focused Go tests passed for acquisition API tenant config persistence and subscription-external tenant routing",
+      "status": "proved",
+      "evidence_type": "command",
+      "command": "GOCACHE=/tmp/timwe-go-cache go test ./internal/repository ./internal/service ./internal/handler; GOCACHE=/tmp/timwe-go-cache go test ./internal/service -run TenantRouting",
+      "artifact_ref": "services/acquisition-api/internal/repository/admin_management_schema_test.go",
+      "result_summary": "acquisition-api internal/repository, internal/service, internal/handler passed; subscription-external internal/service TenantRouting passed.",
+      "created_at": "2026-06-09T09:13:04Z"
+    }
+  ],
+  "unsupported_claims": [],
+  "review": {
+    "status": "accepted",
+    "reviewer": "codex-supervisor",
+    "reviewed_at": "2026-06-09T09:13:04Z"
+  }
+}
