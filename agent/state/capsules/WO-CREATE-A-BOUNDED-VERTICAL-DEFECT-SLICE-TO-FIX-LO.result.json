@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "work_order_id": "WO-CREATE-A-BOUNDED-VERTICAL-DEFECT-SLICE-TO-FIX-LO",
+  "status": "done",
+  "changed_files": [
+    "services/acquisition-api/cmd/main.go",
+    "services/acquisition-api/internal/transport/admin.go",
+    "services/acquisition-api/internal/transport/admin_test.go",
+    "services/notification/internal/config/config.go",
+    "services/notification/internal/config/config_test.go",
+    "services/notification/internal/middleware/cors_test.go",
+    "agent/state/goals/GOAL-FIX-ADMIN-CORS-PREFLIGHT-20260609.json",
+    "agent/state/hvc/GOAL-FIX-ADMIN-CORS-PREFLIGHT-20260609.hvc.json",
+    "agent/state/work-orders/review/WO-CREATE-A-BOUNDED-VERTICAL-DEFECT-SLICE-TO-FIX-LO.json",
+    "agent/state/capsules/WO-CREATE-A-BOUNDED-VERTICAL-DEFECT-SLICE-TO-FIX-LO.result.json"
+  ],
+  "tests_run": [
+    {
+      "command": "curl -sS -i -X OPTIONS 'http://localhost:8084/v1/admin/reports/kpis?startDate=2026-05-10&endDate=2026-06-09' -H 'Origin: http://localhost:4200' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: authorization,content-type'",
+      "result": "pass",
+      "evidence": "Returned 204 with Access-Control-Allow-Origin: http://localhost:4200 and GET/OPTIONS allowed."
+    },
+    {
+      "command": "curl -sS -i -X OPTIONS 'http://localhost:8082/api/v1/notification/list?page=1&pageSize=10&sort_by=createdAt&sort_dir=desc' -H 'Origin: http://localhost:4200' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: authorization,content-type'",
+      "result": "pass",
+      "evidence": "Returned 200 with Access-Control-Allow-Origin: http://localhost:4200, credentials allowed, and requested admin headers allowed."
+    },
+    {
+      "command": "ss -ltnp 'sport = :8084' && ss -ltnp 'sport = :8082'",
+      "result": "pass",
+      "evidence": "Port 8084 is owned by acquisition-api and port 8082 is owned by notification in the live local proof."
+    },
+    {
+      "command": "GOCACHE=/tmp/go-cache-timwe-acq go test ./internal/transport",
+      "result": "pass",
+      "evidence": "acquisition-api admin CORS and transport tests passed."
+    },
+    {
+      "command": "GOCACHE=/tmp/go-cache-timwe-notif go test ./internal/config ./internal/middleware ./internal/transport",
+      "result": "pass",
+      "evidence": "notification config loading, CORS middleware, and transport tests passed."
+    },
+    {
+      "command": "just build-local-acquisition-api && just build-local-notification",
+      "result": "pass",
+      "evidence": "Affected service binaries built successfully."
+    },
+    {
+      "command": "agent-hub schema validate-all --root . --json",
+      "result": "pass",
+      "evidence": "126 schemas checked with status pass before result capsule emission."
+    },
+    {
+      "command": "agent-hub reconcile --root . --check --json",
+      "result": "pass",
+      "evidence": "No reconcile findings before result capsule emission."
+    }
+  ],
+  "evidence_refs": [
+    "services/acquisition-api/internal/transport/admin.go",
+    "services/notification/internal/config/config.go",
+    "services/notification/internal/middleware/cors_test.go",
+    "agent/state/capsules/WO-CREATE-A-BOUNDED-VERTICAL-DEFECT-SLICE-TO-FIX-LO.result.json"
+  ],
+  "risks": [
+    "Raw GET requests without Auth0 credentials now return 401, which is expected for these protected admin routes.",
+    "The local proof required stopping the edp-server process that had been occupying notification's documented 8082 port."
+  ],
+  "followups": [],
+  "runtime": "codex",
+  "role": "supervisor-full",
+  "summary": "Fixed acquisition-api development CORS and notification config loading so local admin preflights from localhost:4200 succeed on the intended service ports."
+}

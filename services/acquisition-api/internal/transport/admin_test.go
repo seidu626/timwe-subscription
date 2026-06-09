@@ -3,6 +3,7 @@ package transport
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +12,45 @@ import (
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/valyala/fasthttp"
 )
+
+func TestAdminCORSKeepsLocalhostForDevelopmentEnv(t *testing.T) {
+	t.Setenv("ACQUISITION_ADMIN_CORS_ORIGINS", "https://admin.nouveauricheglobalgroup.com")
+	t.Setenv("ACQUISITION_API_ENVIRONMENT", "DEVELOPMENT")
+
+	access := newAdminAccess(nil)
+	var ctx fasthttp.RequestCtx
+	ctx.Request.Header.SetMethod(fasthttp.MethodOptions)
+	ctx.Request.Header.Set("Origin", "http://localhost:4200")
+	ctx.Request.Header.Set("Access-Control-Request-Method", "GET")
+
+	if !access.handlePreflight(&ctx) {
+		t.Fatal("expected preflight to be handled")
+	}
+	if got := string(ctx.Response.Header.Peek("Access-Control-Allow-Origin")); got != "http://localhost:4200" {
+		t.Fatalf("expected localhost CORS origin, got %q", got)
+	}
+	if methods := string(ctx.Response.Header.Peek("Access-Control-Allow-Methods")); !strings.Contains(methods, "GET") || !strings.Contains(methods, "OPTIONS") {
+		t.Fatalf("unexpected allow methods: %q", methods)
+	}
+}
+
+func TestAdminCORSDoesNotAddLocalhostForProductionEnv(t *testing.T) {
+	t.Setenv("ACQUISITION_ADMIN_CORS_ORIGINS", "https://admin.nouveauricheglobalgroup.com")
+	t.Setenv("ACQUISITION_API_ENVIRONMENT", "PRODUCTION")
+
+	access := newAdminAccess(nil)
+	var ctx fasthttp.RequestCtx
+	ctx.Request.Header.SetMethod(fasthttp.MethodOptions)
+	ctx.Request.Header.Set("Origin", "http://localhost:4200")
+	ctx.Request.Header.Set("Access-Control-Request-Method", "GET")
+
+	if !access.handlePreflight(&ctx) {
+		t.Fatal("expected preflight to be handled")
+	}
+	if got := string(ctx.Response.Header.Peek("Access-Control-Allow-Origin")); got != "" {
+		t.Fatalf("expected localhost to stay disallowed in production, got %q", got)
+	}
+}
 
 func TestAdminRequireStoresTenantIdentity(t *testing.T) {
 	privateKey := mustAdminRSAKey(t)

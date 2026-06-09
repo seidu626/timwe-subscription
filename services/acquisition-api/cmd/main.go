@@ -45,6 +45,9 @@ func main() {
 
 	// Load configuration
 	cfg := config.InitConfig(logger, ".", []string{"config.yaml"})
+	if os.Getenv("ACQUISITION_API_ENVIRONMENT") == "" {
+		_ = os.Setenv("ACQUISITION_API_ENVIRONMENT", string(cfg.Application.Environment))
+	}
 
 	// Connect to database
 	logger.Info("Connecting to database",

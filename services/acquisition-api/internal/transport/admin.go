@@ -31,6 +31,8 @@ type adminAccess struct {
 	memberLookup              MemberTenantLookup
 }
 
+const defaultLocalAdminOrigin = "http://localhost:4200"
+
 func newAdminAccess(memberLookup MemberTenantLookup) *adminAccess {
 	domain := os.Getenv("ADMIN_AUTH0_DOMAIN")
 	audience := os.Getenv("ADMIN_AUTH0_AUDIENCE")
@@ -42,7 +44,7 @@ func newAdminAccess(memberLookup MemberTenantLookup) *adminAccess {
 	}
 
 	originsEnv := os.Getenv("ACQUISITION_ADMIN_CORS_ORIGINS")
-	allowed := []string{"http://localhost:4200"}
+	allowed := []string{defaultLocalAdminOrigin}
 	if strings.TrimSpace(originsEnv) != "" {
 		parts := strings.Split(originsEnv, ",")
 		allowed = allowed[:0]
@@ -53,8 +55,11 @@ func newAdminAccess(memberLookup MemberTenantLookup) *adminAccess {
 			}
 		}
 		if len(allowed) == 0 {
-			allowed = []string{"http://localhost:4200"}
+			allowed = []string{defaultLocalAdminOrigin}
 		}
+	}
+	if shouldAllowLocalAdminOrigin() {
+		allowed = appendOriginIfMissing(allowed, defaultLocalAdminOrigin)
 	}
 
 	return &adminAccess{
@@ -64,6 +69,39 @@ func newAdminAccess(memberLookup MemberTenantLookup) *adminAccess {
 		bootstrapPlatformSubjects: bootstrapPlatformSubjectSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS")),
 		memberLookup:              memberLookup,
 	}
+}
+
+func shouldAllowLocalAdminOrigin() bool {
+	env := firstNonEmptyEnv(
+		"ACQUISITION_API_ENVIRONMENT",
+		"APP_APPLICATION_ENVIRONMENT",
+		"APPLICATION_ENVIRONMENT",
+		"ASPNETCORE_ENVIRONMENT",
+		"ENVIRONMENT",
+	)
+	if env == "" {
+		return true
+	}
+	env = strings.ToUpper(strings.TrimSpace(env))
+	return env == "DEVELOPMENT" || env == "DEV" || env == "LOCAL" || env == "TEST"
+}
+
+func firstNonEmptyEnv(names ...string) string {
+	for _, name := range names {
+		if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func appendOriginIfMissing(origins []string, origin string) []string {
+	for _, existing := range origins {
+		if existing == origin || existing == "*" {
+			return origins
+		}
+	}
+	return append(origins, origin)
 }
 
 func (a *adminAccess) setCORS(ctx *fasthttp.RequestCtx) {

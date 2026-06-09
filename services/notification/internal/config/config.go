@@ -76,9 +76,10 @@ type Config struct {
 }
 
 func InitConfig(logger *zap.Logger, path string, files []string) Config {
-	conf := viper.GetViper()
-	conf.SetDefault("ENVIRONMENT", "DEVELOPMENT")
+	conf := viper.New()
+	conf.SetDefault("APPLICATION.ENVIRONMENT", "DEVELOPMENT")
 	conf.SetDefault("APPLICATION.PORT", 8082)
+	conf.SetDefault("APPLICATION.ALLOWED_ORIGINS", []string{"http://localhost:4200"})
 	conf.SetDefault("CACHE.REDIS.HOST", "localhost")
 	conf.SetDefault("CACHE.REDIS.PORT", 6379)
 	conf.SetDefault("CACHE.REDIS.DB", 0)
@@ -94,7 +95,17 @@ func InitConfig(logger *zap.Logger, path string, files []string) Config {
 
 	conf.AddConfigPath(path)
 	for _, file := range files {
-		conf.SetConfigFile(file)
+		if strings.HasSuffix(file, ".env") {
+			continue
+		}
+		conf.SetConfigFile(filepath.Join(path, file))
+		if err := conf.MergeInConfig(); err != nil {
+			if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+				logger.Info("Using default settings, config file not found", zap.String("file", file), zap.Error(err))
+			} else {
+				logger.Info("Config file was found, but an error occurred", zap.String("file", file), zap.Error(err))
+			}
+		}
 	}
 
 	// Environment variable support
@@ -107,14 +118,6 @@ func InitConfig(logger *zap.Logger, path string, files []string) Config {
 	conf.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	bindEnv(logger, conf)
 	conf.AutomaticEnv()
-
-	if err := conf.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			logger.Info("Using default settings, config file not found", zap.Error(err))
-		} else {
-			logger.Info("Config file was found, but an error occurred", zap.Error(err))
-		}
-	}
 	doOnce.Do(func() {
 		err := conf.Unmarshal(&cfg)
 		if err != nil {

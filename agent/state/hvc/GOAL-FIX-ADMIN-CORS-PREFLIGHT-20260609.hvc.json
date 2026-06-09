@@ -1,0 +1,17 @@
+{
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "classification_id": "hvc-goal-20260609T025200Z-create-a-bounded-vertica",
+  "created_at": "2026-06-09T02:52:00Z",
+  "domains": [
+    "schemas",
+    "hvc",
+    "context"
+  ],
+  "goal_id": "goal-20260609T025200Z-create-a-bounded-vertica",
+  "schema_version": "1.0"
+}

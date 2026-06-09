@@ -1,0 +1,51 @@
+{
+  "classification_hints": {
+    "domains": [
+      "schemas",
+      "hvc",
+      "context"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Allowed scope: services/acquisition-api/**, services/notification/**, common/**, scripts/just/timwe.sh, docs/just-readme.md, frontend/webspa-admin/src/environments/**, frontend/webspa-admin/src/app/**, agent/state/goals/**, agent/state/hvc/**, agent/state/work-orders/**, agent/state/evidence/**, agent/state/capsules/**",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-09T02:52:00Z",
+  "goal_id": "goal-20260609T025200Z-create-a-bounded-vertica",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Create a bounded vertical_defect_slice to fix local admin SPA CORS/preflight failures. Actor: maintainer using http://localhost:4200 admin dashboard. Outcome: browser preflight from Origin http://localhost:4200 succeeds for acquisition-api report routes on localhost:8084 and notification list routes on localhost:8082, or the exact runtime port blocker is recorded with a helper-level prevention. Entrypoints: services/acquisition-api admin CORS middleware/config, services/notification HTTP/router CORS handling, root just service start/runtime helper and frontend webspa-admin endpoints as needed. Trigger: browser blocked fetch to http://localhost:8084/v1/admin/reports/kpis?startDate=2026-05-10&endDate=2026-06-09 because OPTIONS response has no Access-Control-Allow-Origin, and OPTIONS http://l",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "The requested outcome is implemented with evidence and tests."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Create a bounded vertical_defect_slice to fix local admin SPA CORS/preflight failures. Actor: maintainer using http://localhost:4200 admin dashboard. Outcome: browser preflight from Origin http://localhost:4200 succeeds for acquisition-api report routes on localhost:8084 and notification list routes on localhost:8082, or the exact runtime port blocker is recorded with a helper-level prevention. Entrypoints: services/acquisition-api admin CORS middleware/config, services/notification HTTP/router ",
+    "prompt_hash": "sha256:ab997cf12c1770a523e524bec883fdb9f6b95582698c118abac8e1b6d23c4d08",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "The requested outcome is implemented with evidence and tests."
+  ],
+  "title": "Create a bounded vertical_defect_slice to fix local admin SPA CORS/preflight failures"
+}
