@@ -22,6 +22,25 @@
   </div>
 
   <ng-container *ngIf="!loading && kpis">
+    <section class="dashboard-signal-strip" aria-label="Dashboard period summary">
+      <div>
+        <span>Period</span>
+        <strong>Last 30 days</strong>
+      </div>
+      <div>
+        <span>Revenue</span>
+        <strong>{{ formatCurrency(kpis.estimated_revenue) }}</strong>
+      </div>
+      <div>
+        <span>Charged</span>
+        <strong>{{ formatNumber(kpis.charged) }}</strong>
+      </div>
+      <div>
+        <span>Conversion</span>
+        <strong>{{ formatPercent(kpis.overall_conversion_rate) }}</strong>
+      </div>
+    </section>
+
     <section class="dashboard-grid">
       <article class="revenue-panel">
         <div class="panel-label">Estimated revenue</div>

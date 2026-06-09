@@ -55,6 +55,22 @@ export class TenantListComponent implements OnInit {
   pageSize = 20;
   pageSizes = [10, 20, 50, 100];
 
+  get activePageCount(): number {
+    return this.dataSource.data.filter((tenant) => tenant.status === 'ACTIVE').length;
+  }
+
+  get inactivePageCount(): number {
+    return this.dataSource.data.filter((tenant) => tenant.status === 'INACTIVE').length;
+  }
+
+  get selectedTenantLabel(): string {
+    if (!this.editingTenantId) {
+      return 'None selected';
+    }
+    const tenant = this.dataSource.data.find((item) => item.id === this.editingTenantId);
+    return tenant?.tenant_key || 'Tenant selected';
+  }
+
   filters: { q: string; status: TenantStatus | '' } = {
     q: '',
     status: ''

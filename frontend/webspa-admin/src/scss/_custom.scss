@@ -11,13 +11,13 @@
 // ============================================
 :root {
   // Primary palette
-  --admin-primary: #4f46e5;
-  --admin-primary-light: #6366f1;
-  --admin-primary-dark: #3730a3;
-  --admin-primary-rgb: 79, 70, 229;
-  --admin-accent: #14b8a6;
-  --admin-accent-dark: #0f766e;
-  --admin-accent-rgb: 20, 184, 166;
+  --admin-primary: #e60000;
+  --admin-primary-light: #ff4d40;
+  --admin-primary-dark: #a80000;
+  --admin-primary-rgb: 230, 0, 0;
+  --admin-accent: #f59e0b;
+  --admin-accent-dark: #92400e;
+  --admin-accent-rgb: 245, 158, 11;
 
   // Secondary palette
   --admin-secondary: #64748b;
@@ -43,8 +43,8 @@
   --admin-gray-500: #64748b;
   --admin-gray-600: #475569;
   --admin-gray-700: #334155;
-  --admin-gray-800: #1e293b;
-  --admin-gray-900: #0f172a;
+  --admin-gray-800: #25282b;
+  --admin-gray-900: #16191d;
 
   // Surface colors (light mode)
   --admin-bg: var(--admin-gray-50);
@@ -53,7 +53,7 @@
   --admin-border: var(--admin-gray-200);
   --admin-text: var(--admin-gray-800);
   --admin-text-muted: var(--admin-gray-500);
-  --admin-ink: #132238;
+  --admin-ink: #25282b;
 
   // Shadows
   --admin-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -64,8 +64,8 @@
   // Border radius
   --admin-radius-sm: 0.375rem;
   --admin-radius: 0.5rem;
-  --admin-radius-lg: 0.75rem;
-  --admin-radius-xl: 1rem;
+  --admin-radius-lg: 0.5rem;
+  --admin-radius-xl: 0.5rem;
 
   // Transitions
   --admin-transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -91,9 +91,9 @@
 // ============================================
 .admin-sidebar {
   background:
-    radial-gradient(circle at 18% 0%, rgba(var(--admin-accent-rgb), 0.16), transparent 24%),
-    linear-gradient(180deg, #132238 0%, #172033 48%, #101827 100%) !important;
-  border-right: 1px solid rgba(148, 163, 184, 0.16) !important;
+    linear-gradient(180deg, rgba(230, 0, 0, 0.18) 0%, transparent 24%),
+    linear-gradient(180deg, #25282b 0%, #1f2327 48%, #16191d 100%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
 
   .sidebar-header-custom {
     background: transparent !important;
@@ -118,13 +118,13 @@
 
     &:hover {
       color: var(--admin-gray-100) !important;
-      background: rgba(var(--admin-accent-rgb), 0.12) !important;
+      background: rgba(255, 255, 255, 0.08) !important;
     }
 
     &.active {
       color: #fff !important;
-      background: linear-gradient(90deg, var(--admin-accent-dark), var(--admin-primary)) !important;
-      box-shadow: 0 12px 24px -20px rgba(var(--admin-accent-rgb), 0.9);
+      background: linear-gradient(90deg, var(--admin-primary), var(--admin-primary-dark)) !important;
+      box-shadow: 0 12px 24px -20px rgba(var(--admin-primary-rgb), 0.9);
     }
   }
 

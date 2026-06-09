@@ -11,6 +11,25 @@
     </div>
   </section>
 
+  <section class="tenant-metrics" aria-label="Tenant catalog summary">
+    <div>
+      <span>Total records</span>
+      <strong>{{ totalCount || dataSource.data.length }}</strong>
+    </div>
+    <div>
+      <span>Active on page</span>
+      <strong>{{ activePageCount }}</strong>
+    </div>
+    <div>
+      <span>Inactive on page</span>
+      <strong>{{ inactivePageCount }}</strong>
+    </div>
+    <div>
+      <span>Selected</span>
+      <strong>{{ selectedTenantLabel }}</strong>
+    </div>
+  </section>
+
   <mat-card class="card tenant-editor-card">
     <div class="card-heading">
       <div>

@@ -7,8 +7,8 @@
 .tenant-hero,
 .card {
   border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 1rem;
-  box-shadow: 0 18px 48px -42px rgba(15, 23, 42, 0.56);
+  border-radius: 0.5rem;
+  box-shadow: 0 18px 46px -42px rgba(22, 25, 29, 0.56);
 }
 
 .tenant-hero {
@@ -18,7 +18,7 @@
   gap: 1rem;
   padding: 1.4rem;
   background:
-    radial-gradient(circle at 0% 0%, rgba(20, 184, 166, 0.16), transparent 30%),
+    linear-gradient(90deg, rgba(var(--admin-primary-rgb), 0.1), transparent 28%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.9));
 
   h1 {
@@ -32,7 +32,7 @@
 
 .eyebrow {
   margin: 0 0 0.45rem;
-  color: #0f766e;
+  color: var(--admin-primary);
   font-size: 0.72rem;
   font-weight: 850;
   letter-spacing: 0;
@@ -55,11 +55,48 @@
   span {
     padding: 0.42rem 0.7rem;
     border: 1px solid rgba(148, 163, 184, 0.28);
-    border-radius: 999px;
+    border-radius: 0.5rem;
     background: rgba(255, 255, 255, 0.74);
     color: var(--admin-text);
     font-size: 0.78rem;
     font-weight: 750;
+  }
+}
+
+.tenant-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+
+  div {
+    display: grid;
+    gap: 0.2rem;
+    min-height: 4.25rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-left: 4px solid var(--admin-primary);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 12px 30px -28px rgba(22, 25, 29, 0.42);
+  }
+
+  span {
+    color: var(--admin-text-muted);
+    font-size: 0.7rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  strong {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--admin-text);
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    font-weight: 900;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -87,9 +124,9 @@
   min-height: 1.8rem;
   padding: 0.3rem 0.65rem;
   border: 1px solid rgba(20, 184, 166, 0.24);
-  border-radius: 999px;
-  background: rgba(20, 184, 166, 0.1);
-  color: #0f766e;
+  border-radius: 0.5rem;
+  background: rgba(var(--admin-primary-rgb), 0.08);
+  color: var(--admin-primary-dark);
   font-size: 0.78rem;
   font-weight: 850;
 }
@@ -115,7 +152,7 @@
 
   button {
     min-height: 2.65rem;
-    border-radius: 999px;
+    border-radius: 0.5rem;
     font-weight: 750;
   }
 }
@@ -192,8 +229,8 @@
   align-items: center;
   padding: 0.25rem 0.5rem;
   border-radius: 0.5rem;
-  background: rgba(20, 184, 166, 0.1);
-  color: #0f766e;
+  background: rgba(var(--admin-primary-rgb), 0.08);
+  color: var(--admin-primary-dark);
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.82rem;
   font-weight: 850;
@@ -206,7 +243,7 @@
   min-width: 4.8rem;
   padding: 0.36rem 0.55rem;
   border: 1px solid rgba(16, 185, 129, 0.18);
-  border-radius: 999px;
+  border-radius: 0.5rem;
   background: rgba(16, 185, 129, 0.12);
   color: #047857;
   font-size: 0.74rem;
@@ -223,7 +260,7 @@
 .table-shell {
   overflow: auto;
   border: 1px solid var(--admin-border);
-  border-radius: 0.9rem;
+  border-radius: 0.5rem;
   background: var(--admin-surface);
 
   table {
@@ -257,8 +294,8 @@
 :host-context([data-coreui-theme='dark']) {
   .tenant-hero {
     background:
-      radial-gradient(circle at 0% 0%, rgba(20, 184, 166, 0.12), transparent 30%),
-      linear-gradient(135deg, rgba(30, 41, 59, 0.94), rgba(15, 23, 42, 0.9));
+      linear-gradient(90deg, rgba(230, 0, 0, 0.14), transparent 28%),
+      linear-gradient(135deg, rgba(37, 40, 43, 0.94), rgba(22, 25, 29, 0.92));
   }
 
   .tenant-hero,
@@ -268,8 +305,19 @@
   }
 
   .tenant-hero-meta span {
-    background: rgba(15, 23, 42, 0.54);
+    background: rgba(22, 25, 29, 0.54);
     border-color: rgba(71, 85, 105, 0.72);
+  }
+
+  .tenant-metrics div {
+    border-color: rgba(71, 85, 105, 0.72);
+    background: rgba(30, 41, 59, 0.86);
+  }
+}
+
+@media (max-width: 1199.98px) {
+  .tenant-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -282,5 +330,9 @@
 
   .tenant-hero-meta {
     justify-content: flex-start;
+  }
+
+  .tenant-metrics {
+    grid-template-columns: 1fr;
   }
 }

@@ -83,7 +83,7 @@ body {
 .mat-mdc-card {
   background: var(--admin-surface, #ffffff) !important;
   border: 1px solid var(--admin-border, #e2e8f0) !important;
-  border-radius: var(--admin-radius-lg, 0.75rem) !important;
+  border-radius: var(--admin-radius-lg, 0.5rem) !important;
   box-shadow: var(--admin-shadow) !important;
 
   .mat-mdc-card-header {
@@ -263,10 +263,10 @@ body {
   }
 
   &.mdc-list-item--selected:not(.mdc-list-item--disabled) {
-    background: rgba(79, 70, 229, 0.1) !important;
+    background: rgba(230, 0, 0, 0.1) !important;
 
     .mdc-list-item__primary-text {
-      color: #4f46e5 !important;
+      color: #e60000 !important;
     }
   }
 }
@@ -279,7 +279,7 @@ body {
     background: var(--admin-surface, #ffffff) !important;
     color: var(--admin-text, #1e293b) !important;
     border: 1px solid var(--admin-border, #e2e8f0) !important;
-    border-radius: var(--admin-radius-lg, 0.75rem) !important;
+    border-radius: var(--admin-radius-lg, 0.5rem) !important;
   }
 }
 
@@ -293,7 +293,7 @@ body {
 
 .mat-mdc-dialog-actions {
   .mat-mdc-button {
-    color: var(--admin-primary, #4f46e5) !important;
+    color: var(--admin-primary, #e60000) !important;
   }
 }
 
@@ -302,14 +302,14 @@ body {
 // ============================================
 .mat-mdc-raised-button {
   &.mat-primary {
-    --mdc-protected-button-container-color: #4f46e5;
+    --mdc-protected-button-container-color: #e60000;
     --mdc-protected-button-label-text-color: #ffffff;
     border-radius: 0.5rem !important;
     font-weight: 500;
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
 
     &:hover {
-      --mdc-protected-button-container-color: #3730a3;
+      --mdc-protected-button-container-color: #a80000;
     }
   }
 }
@@ -330,7 +330,7 @@ body {
 
 // Material spinner
 .mat-mdc-progress-spinner {
-  --mdc-circular-progress-active-indicator-color: #4f46e5;
+  --mdc-circular-progress-active-indicator-color: #e60000;
 }
 
 // ============================================
@@ -347,12 +347,12 @@ body {
     font-weight: 500;
 
     &.mdc-tab--active {
-      color: #4f46e5 !important;
+      color: #e60000 !important;
     }
   }
 
   .mdc-tab-indicator__content--underline {
-    border-color: #4f46e5 !important;
+    border-color: #e60000 !important;
   }
 
   .mat-mdc-tab-body-wrapper {
@@ -378,10 +378,10 @@ body {
     background: #f8fafc !important;
     font-weight: 600;
     text-transform: uppercase;
-    font-size: 0.75rem;
+    font-size: 0.5rem;
     letter-spacing: 0.05em;
     border-bottom: 2px solid #e2e8f0 !important;
-    padding: 1rem 0.75rem !important;
+    padding: 1rem 0.5rem !important;
   }
 
   // Data cells
@@ -389,7 +389,7 @@ body {
     color: #1e293b !important;
     background: #ffffff !important;
     border-bottom: 1px solid #e2e8f0 !important;
-    padding: 0.875rem 0.75rem !important;
+    padding: 0.875rem 0.5rem !important;
   }
 
   // Row hover
@@ -411,7 +411,7 @@ body {
 .mat-elevation-z4,
 .mat-elevation-z2 {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   overflow: hidden;
 }
 
@@ -453,7 +453,7 @@ body {
 // ============================================
 .mat-datepicker-content {
   background: #ffffff !important;
-  border-radius: 0.75rem !important;
+  border-radius: 0.5rem !important;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
 
   .mat-calendar {
@@ -478,12 +478,12 @@ body {
   }
 
   .mat-calendar-body-selected {
-    background: #4f46e5 !important;
+    background: #e60000 !important;
     color: #ffffff !important;
   }
 
   .mat-calendar-body-today:not(.mat-calendar-body-selected) {
-    border-color: #4f46e5 !important;
+    border-color: #e60000 !important;
   }
 }
 
@@ -541,10 +541,10 @@ body {
       .mdc-text-field--outlined {
         --mdc-outlined-text-field-outline-color: #475569;
         --mdc-outlined-text-field-hover-outline-color: #64748b;
-        --mdc-outlined-text-field-focus-outline-color: #6366f1;
+        --mdc-outlined-text-field-focus-outline-color: #ff5a52;
         --mdc-outlined-text-field-label-text-color: #94a3b8;
         --mdc-outlined-text-field-hover-label-text-color: #cbd5e1;
-        --mdc-outlined-text-field-focus-label-text-color: #6366f1;
+        --mdc-outlined-text-field-focus-label-text-color: #ff5a52;
         --mdc-outlined-text-field-input-text-color: #f1f5f9;
         --mdc-outlined-text-field-input-text-placeholder-color: #64748b;
       }
@@ -565,7 +565,7 @@ body {
       &.mat-focused {
         .mdc-floating-label,
         .mat-mdc-floating-label {
-          color: #6366f1 !important;
+          color: #ff5a52 !important;
         }
       }
 
@@ -587,7 +587,7 @@ body {
         .mdc-notched-outline__leading,
         .mdc-notched-outline__notch,
         .mdc-notched-outline__trailing {
-          border-color: #6366f1 !important;
+          border-color: #ff5a52 !important;
         }
       }
 
@@ -667,7 +667,7 @@ body {
         color: #94a3b8 !important;
 
         &.mdc-tab--active {
-          color: #6366f1 !important;
+          color: #ff5a52 !important;
         }
       }
 
@@ -766,7 +766,7 @@ body {
       }
 
       .mat-calendar-body-selected {
-        background: #6366f1 !important;
+        background: #ff5a52 !important;
         color: #ffffff !important;
       }
     }

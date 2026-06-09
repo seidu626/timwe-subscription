@@ -4,8 +4,7 @@
   min-height: 100vh;
   padding: 2rem;
   background:
-    radial-gradient(circle at 18% 16%, rgba(20, 184, 166, 0.16), transparent 28%),
-    radial-gradient(circle at 82% 20%, rgba(245, 158, 11, 0.14), transparent 26%),
+    linear-gradient(90deg, rgba(var(--admin-primary-rgb), 0.1), transparent 28%),
     linear-gradient(135deg, #f8fafc 0%, #eef3f8 100%);
 }
 
@@ -16,9 +15,9 @@
   width: min(960px, 100%);
   min-height: 28rem;
   border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 1.15rem;
+  border-radius: 0.5rem;
   background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 34px 90px -64px rgba(15, 23, 42, 0.72);
+  box-shadow: 0 34px 90px -64px rgba(22, 25, 29, 0.72);
 }
 
 .login-panel,
@@ -31,7 +30,7 @@
 
 .eyebrow {
   margin: 0 0 0.55rem;
-  color: #0f766e;
+  color: var(--admin-primary);
   font-size: 0.72rem;
   font-weight: 850;
   letter-spacing: 0;
@@ -46,7 +45,7 @@ h2 {
 }
 
 h1 {
-  color: var(--admin-text, #132238);
+  color: var(--admin-text, #25282b);
   font-size: clamp(2.4rem, 6vw, 4.4rem);
 }
 
@@ -68,7 +67,7 @@ h2 {
 
   button {
     min-height: 2.85rem;
-    border-radius: 999px;
+    border-radius: 0.5rem;
     padding-inline: 1.1rem;
     font-weight: 800;
   }
@@ -88,7 +87,7 @@ h2 {
   flex-direction: column;
   padding: 0.9rem 1rem;
   border: 1px solid rgba(239, 68, 68, 0.22);
-  border-radius: 0.85rem;
+  border-radius: 0.5rem;
   background: rgba(254, 242, 242, 0.96);
   color: #991b1b;
 }
@@ -96,11 +95,11 @@ h2 {
 .access-panel {
   justify-content: space-between;
   background:
-    radial-gradient(circle at 88% 12%, rgba(245, 158, 11, 0.24), transparent 24%),
-    linear-gradient(135deg, #132238, #26395b);
+    linear-gradient(90deg, rgba(230, 0, 0, 0.22), transparent 30%),
+    linear-gradient(135deg, #25282b, #16191d);
 
   .eyebrow {
-    color: #5eead4;
+    color: #ffb000;
   }
 }
 
@@ -113,7 +112,7 @@ h2 {
     max-width: 100%;
     padding: 0.42rem 0.7rem;
     border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 999px;
+    border-radius: 0.5rem;
     color: rgba(255, 255, 255, 0.84);
     font-size: 0.85rem;
     font-weight: 700;
