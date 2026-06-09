@@ -54,6 +54,7 @@ DB_HOST := env_var_or_default("DB_HOST", "139.59.135.253")
 DB_PORT := env_var_or_default("DB_PORT", "5432")
 DB_USER := env_var_or_default("DB_USER", "sm_admin")
 DB_NAME := env_var_or_default("DB_NAME", "subscription_manager")
+DB_PASSWORD := env_var_or_default("DB_PASSWORD", env_var_or_default("PG_PASSWORD", ""))
 
 DEPLOY_SSH_HOST := env_var_or_default("DEPLOY_SSH_HOST", "do-sa-user")
 DEPLOY_SCRIPT := env_var_or_default("DEPLOY_SCRIPT", "~/services/nouveauricheglobalgroup/deploy.sh")
