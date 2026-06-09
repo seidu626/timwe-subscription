@@ -1,0 +1,48 @@
+{
+  "classification_hints": {
+    "domains": [
+      "security"
+    ],
+    "likely_hvc_class": "bounded_enabler",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-09T08:04:48Z",
+  "goal_id": "goal-20260609T080448Z-in-the-timwe-subscriptio",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "In the timwe-subscription repository, run pending database migrations and migrate/move all tenant configuration settings into the canonical tenant configuration persistence path. Keep changes scoped to the app's migration/config/backend paths and tests; do not do unrelated UI refresh work.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "The requested outcome is implemented with evidence and tests."
+      ]
+    }
+  ],
+  "non_goals": [
+    "In the timwe-subscription repository, run pending database migrations and migrate/move all tenant configuration settings into the canonical tenant configuration persistence path. Keep changes scoped to the app's migration/config/backend paths and tests; do not do unrelated UI refresh work."
+  ],
+  "risk_level": "high",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "In the timwe-subscription repository, run pending database migrations and migrate/move all tenant configuration settings into the canonical tenant configuration persistence path. Keep changes scoped to the app's migration/config/backend paths and tests; do not do unrelated UI refresh work.",
+    "prompt_hash": "sha256:4fd3ce02b6b58fbe8feb774d7cba02c257477791ee912b973696bade61488e3b",
+    "repo_ref": "timwe-subscription"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "The requested outcome is implemented with evidence and tests."
+  ],
+  "title": "In the timwe-subscription repository, run pending database migrations and migrate/move all"
+}

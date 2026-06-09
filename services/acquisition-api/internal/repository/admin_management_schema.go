@@ -12,6 +12,7 @@ var defaultAdminManagementSchemaPaths = []string{
 	"migrations/add_admin_management_tables.sql",
 	"migrations/add_tenant_channels.sql",
 	"migrations/add_tenant_channel_credentials.sql",
+	"migrations/seed_nrg_tenant_channel.sql",
 	"migrations/add_tenant_z_campaign_binding.sql",
 	"migrations/add_tenant_zz_acquisition_flow.sql",
 	"migrations/remove_legacy_campaign_slug_index.sql",

@@ -1,0 +1,15 @@
+{
+  "assignment": {
+    "decision": "allow",
+    "reason": "Inferred bounded_enabler from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "bounded_enabler",
+  "classification_id": "hvc-goal-20260609T080448Z-in-the-timwe-subscriptio",
+  "created_at": "2026-06-09T08:05:03Z",
+  "domains": [
+    "security"
+  ],
+  "goal_id": "goal-20260609T080448Z-in-the-timwe-subscriptio",
+  "schema_version": "1.0"
+}
