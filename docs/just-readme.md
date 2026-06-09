@@ -43,3 +43,5 @@ just deploy-all
 ```
 
 Recipes are grouped in the justfile with `[group(...)]` attributes, so `just --list` is the canonical command catalog.
+
+Service start recipes use fixed ports because the web clients and gateway configs reference those ports directly. If a configured port is already in use, the recipe fails with the listener details instead of starting that service on a different port.

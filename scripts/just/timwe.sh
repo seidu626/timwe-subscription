@@ -17,12 +17,15 @@ port_in_use() {
   return 1
 }
 
-next_port() {
+port_owner() {
   local port="$1"
-  while port_in_use "$port"; do
-    port=$((port + 1))
-  done
-  printf '%s\n' "$port"
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltnp "sport = :${port}" 2>/dev/null | sed '1d'
+    return 0
+  fi
+  if command -v netstat >/dev/null 2>&1; then
+    netstat -ltnp 2>/dev/null | awk -v port="$port" '$4 ~ "(^|:)" port "$"'
+  fi
 }
 
 build_go() {
@@ -117,7 +120,13 @@ start_binary() {
     rm -f "$pid_path"
   fi
 
-  resolved_port="$(next_port "$port")"
+  if port_in_use "$port"; then
+    echo "${label} port ${port} is already in use; refusing to start on a different port."
+    port_owner "$port" || true
+    exit 1
+  fi
+
+  resolved_port="$port"
   echo "Starting ${label} on port ${resolved_port}..."
   cd "${ROOT}/${dir}"
   if [ "$env_name" = "CADENCE_ADMIN_HTTP_ADDR" ]; then

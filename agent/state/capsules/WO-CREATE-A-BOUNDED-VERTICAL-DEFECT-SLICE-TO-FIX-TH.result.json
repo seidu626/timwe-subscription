@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0",
+  "work_order_id": "WO-CREATE-A-BOUNDED-VERTICAL-DEFECT-SLICE-TO-FIX-TH",
+  "status": "done",
+  "changed_files": [
+    "scripts/just/timwe.sh",
+    "docs/just-readme.md",
+    "agent/state/goals/GOAL-FIX-ADMIN-WORKSPACE-404-20260609.json",
+    "agent/state/hvc/GOAL-FIX-ADMIN-WORKSPACE-404-20260609.hvc.json",
+    "agent/state/work-orders/review/WO-CREATE-A-BOUNDED-VERTICAL-DEFECT-SLICE-TO-FIX-TH.json",
+    "agent/state/capsules/WO-CREATE-A-BOUNDED-VERTICAL-DEFECT-SLICE-TO-FIX-TH.result.json"
+  ],
+  "tests_run": [
+    {
+      "command": "curl -sS -i http://localhost:8084/v1/admin/tenants/workspaces",
+      "result": "pass",
+      "evidence": "Before runtime repair, 8084 returned 404 from notification; after stopping notification and starting acquisition-api on 8084, the same route returned 401 Unauthorized from acquisition-api, proving the route is no longer missing."
+    },
+    {
+      "command": "ss -ltnp 'sport = :8084'",
+      "result": "pass",
+      "evidence": "Port 8084 is now owned by acquisition-api."
+    },
+    {
+      "command": "temporary occupied-port start-binary regression test",
+      "result": "pass",
+      "evidence": "start-binary refused an occupied fixed port and did not create a pid file or start on the next port."
+    },
+    {
+      "command": "bash -n scripts/just/timwe.sh",
+      "result": "pass",
+      "evidence": "Runtime helper shell syntax is valid."
+    },
+    {
+      "command": "just --fmt --check",
+      "result": "pass",
+      "evidence": "Justfile formatting check passed."
+    },
+    {
+      "command": "agent-hub schema validate-all --root . --json",
+      "result": "pass",
+      "evidence": "126 schemas checked with status pass."
+    },
+    {
+      "command": "agent-hub reconcile --root . --check --json",
+      "result": "pass",
+      "evidence": "No reconcile findings."
+    }
+  ],
+  "evidence_refs": [
+    "scripts/just/timwe.sh",
+    "docs/just-readme.md",
+    "agent/state/capsules/WO-CREATE-A-BOUNDED-VERTICAL-DEFECT-SLICE-TO-FIX-TH.result.json"
+  ],
+  "risks": [
+    "Raw curl without Auth0 credentials now returns 401 Unauthorized, which is expected for this protected admin route.",
+    "Notification is no longer running on 8084; because another local service is using 8082, notification must be started only after resolving its configured port conflict."
+  ],
+  "followups": [],
+  "runtime": "codex",
+  "role": "supervisor-full",
+  "summary": "Fixed the local start helper so services do not silently shift onto fixed API ports, then restored localhost:8084 to acquisition-api for the admin tenant workspace route."
+}

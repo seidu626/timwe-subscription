@@ -1,0 +1,52 @@
+{
+  "classification_hints": {
+    "domains": [
+      "schemas",
+      "hvc",
+      "context",
+      "security"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Allowed scope: scripts/just/timwe.sh, docs/just-readme.md, agent/state/goals/**, agent/state/hvc/**, agent/state/work-orders/**, agent/state/evidence/**, agent/state/capsules/**",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-09T02:22:15Z",
+  "goal_id": "goal-20260609T022215Z-create-a-bounded-vertica",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Create a bounded vertical_defect_slice to fix the local admin SPA tenant workspace request failing with GET http://localhost:8084/v1/admin/tenants/workspaces returning 404 because port 8084 is bound by the notification service instead of acquisition-api. Actor: maintainer running local dev stack. Outcome: the runtime helper refuses occupied fixed service ports instead of silently shifting notification onto the acquisition-api port, and the intended acquisition-api route is proven on localhost:8084 or the exact runtime blocker is recorded. Entrypoints: scripts/just/timwe.sh start-binary helper, root just dev/start recipes, frontend/webspa-admin tenant workspace flow. Trigger: browser network request GET /v1/admin/tenants/workspaces returned 404 on localhost:8084. Allowed files: scripts/just",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "The requested outcome is implemented with evidence and tests."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "high",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Create a bounded vertical_defect_slice to fix the local admin SPA tenant workspace request failing with GET http://localhost:8084/v1/admin/tenants/workspaces returning 404 because port 8084 is bound by the notification service instead of acquisition-api. Actor: maintainer running local dev stack. Outcome: the runtime helper refuses occupied fixed service ports instead of silently shifting notification onto the acquisition-api port, and the intended acquisition-api route is proven on localhost:80",
+    "prompt_hash": "sha256:c77e9d018b187b3af607d8410b308bdb43070ad3c0c1b75b7b5e0da44bac5653",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "The requested outcome is implemented with evidence and tests."
+  ],
+  "title": "Create a bounded vertical_defect_slice to fix the local admin SPA tenant workspace request"
+}
