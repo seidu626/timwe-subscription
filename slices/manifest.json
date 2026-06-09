@@ -1827,7 +1827,7 @@
         "tests",
         "evidence"
       ],
-      "state": "verifying",
+      "state": "done",
       "verification": {
         "automated": [
           "cd services/acquisition-api && go test ./internal/repository ./internal/service ./internal/handler",

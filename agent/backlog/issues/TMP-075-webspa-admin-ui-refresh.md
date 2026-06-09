@@ -1,5 +1,5 @@
 ---
-id: TMP-071
+id: TMP-075
 title: webspa-admin operator UI refresh
 class: vertical_slice
 status: ready
@@ -14,9 +14,9 @@ evidence_required:
   - "tenant catalog create/edit and member management preserve existing actions while improving hierarchy and scanability"
   - "global shell/header/sidebar polish keeps existing CoreUI and Angular Material dependencies"
   - "npm run build"
-  - "hvc check agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md --fail-on block"
+  - "hvc check agent/backlog/issues/TMP-075-webspa-admin-ui-refresh.md --fail-on block"
 acceptance_tests:
-  - "hvc check agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md --fail-on block"
+  - "hvc check agent/backlog/issues/TMP-075-webspa-admin-ui-refresh.md --fail-on block"
   - "cd frontend/webspa-admin && npm run build"
 actor: tenant operations admin
 outcome: "The admin user can scan acquisition health, tenant workspace state, and tenant catalog operations faster from the existing webspa-admin surfaces."
@@ -51,9 +51,9 @@ file_scope:
     - "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss"
     - "frontend/webspa-admin/src/scss/_custom.scss"
     - "frontend/webspa-admin/src/scss/_theme.scss"
-    - "agent/backlog/issues/TMP-071-webspa-admin-ui-refresh.md"
-    - "agent/state/TMP-071.work-order.json"
-    - "agent/state/TMP-071.handoff.json"
+    - "agent/backlog/issues/TMP-075-webspa-admin-ui-refresh.md"
+    - "agent/state/TMP-075.work-order.json"
+    - "agent/state/TMP-075.handoff.json"
     - ".agent/**"
     - ".harness/**"
     - ".agent-work/**"
@@ -66,7 +66,7 @@ file_scope:
     - "docker-compose*.yml"
 ---
 
-# TMP-071: webspa-admin operator UI refresh
+# TMP-075: webspa-admin operator UI refresh
 
 ## Actor / outcome
 

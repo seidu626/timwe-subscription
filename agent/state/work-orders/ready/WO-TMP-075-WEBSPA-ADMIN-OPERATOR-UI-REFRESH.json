@@ -1,0 +1,122 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "The requested outcome is implemented with evidence and tests.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "Inferred operational_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-09T06:52:51Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260609T065200Z-tmp-075-webspa-admin-ope",
+  "hashes": {
+    "classification_hash": "sha256:28625cae5f009013666b9e787eb856d0d6b8815017ac61706cfe8caecf425da0",
+    "contract_hash": "sha256:7bb860699b66f9b074e5647398b105ae6a4bda2727004dab141d9eed5cf5996a",
+    "issue_hash": "sha256:2d59a9a10fb106a9a00dc3b56e63f6450cf604b2f37976dd99aa4cfab7bd7852"
+  },
+  "issue_id": "TMP-075",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "TMP-075: webspa-admin operator UI refresh Actor / outcome: Tenant operations admins can scan acquisition performance and tenant catalog state quickly from the existing admin UI. Scope: Allowed: - frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.html - frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss - frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html - frontend/webspa-admin/src/app/layout/",
+    "trigger": "TMP-075: webspa-admin operator UI refresh\n\nActor / outcome:\nTenant operations admins can scan acquisition performance and tenant catalog state quickly from the existing admin UI.\n\nScope:\nAllowed:\n- frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.html\n- frontend/webspa-ad"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": "wave-001",
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "testing-quality",
+    "ai-change-control"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.scss",
+      "frontend/webspa-admin/src/app/layout/default-layout/_nav.ts",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.html",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.scss",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.ts",
+      "frontend/webspa-admin/src/app/views/pages/login/login.component.html",
+      "frontend/webspa-admin/src/app/views/pages/login/login.component.scss",
+      "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html",
+      "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss",
+      "frontend/webspa-admin/src/scss/_custom.scss",
+      "frontend/webspa-admin/src/scss/_theme.scss",
+      "agent/backlog/issues/TMP-075-webspa-admin-ui-refresh.md",
+      "agent/state/TMP-075.work-order.json",
+      "agent/state/TMP-075.handoff.json",
+      ".agent/**",
+      ".harness/**",
+      ".agent-work/**",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.html",
+      "frontend/webspa-admin/src/app/layou"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.scss",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.scss",
+      "frontend/webspa-admin/src/app/layout/default-layout/_nav.ts",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.html",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.scss",
+      "frontend/webspa-admin/src/app/views/dashboard/dashboard.component.ts",
+      "frontend/webspa-admin/src/app/views/pages/login/login.component.html",
+      "frontend/webspa-admin/src/app/views/pages/login/login.component.scss",
+      "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.html",
+      "frontend/webspa-admin/src/app/features/tenant/tenant-list/tenant-list.component.scss",
+      "frontend/webspa-admin/src/scss/_custom.scss",
+      "frontend/webspa-admin/src/scss/_theme.scss",
+      "agent/backlog/issues/TMP-075-webspa-admin-ui-refresh.md",
+      "agent/state/TMP-075.work-order.json",
+      "agent/state/TMP-075.handoff.json",
+      ".agent/**",
+      ".harness/**",
+      ".agent-work/**",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.html",
+      "frontend/webspa-admin/src/app/layou"
+    ]
+  },
+  "work_order_id": "WO-TMP-075-WEBSPA-ADMIN-OPERATOR-UI-REFRESH"
+}

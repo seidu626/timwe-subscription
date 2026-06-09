@@ -1,0 +1,17 @@
+{
+  "assignment": {
+    "decision": "allow",
+    "reason": "Inferred operational_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "classification_id": "hvc-goal-20260609T065200Z-tmp-075-webspa-admin-ope",
+  "created_at": "2026-06-09T06:52:43Z",
+  "domains": [
+    "schemas",
+    "hvc",
+    "security"
+  ],
+  "goal_id": "goal-20260609T065200Z-tmp-075-webspa-admin-ope",
+  "schema_version": "1.0"
+}
