@@ -119,7 +119,8 @@
           "skipped",
           "binary_missing",
           "script_missing",
-          "error"
+          "error",
+          "missing_backend"
         ]
       }
     },

@@ -184,12 +184,53 @@
         },
         "requires_human_review": {
           "type": "boolean"
+        },
+        "loop_mode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "open",
+            "closed",
+            null
+          ],
+          "description": "Explicit loop mode override. 'open' for exploratory/spike goals; 'closed' for bounded delivery."
+        },
+        "loop_budget_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "Max token budget for open-loop execution. Defaults to 80000 when loop_mode='open'."
+        },
+        "loop_quality_rubric": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Quality rubric for open-loop termination. Agent must satisfy this rubric to emit status='done'."
         }
       }
     },
     "created_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "ecosystem_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Path or id of an ecosystem_definition artifact that grounds this goal in a domain model."
+    },
+    "journey_nodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Ordered list of ecosystem_definition step IDs (e.g. 'checkout.add-to-cart') covered by this goal. Presence signals vertical-slice grounding."
     }
   }
 }

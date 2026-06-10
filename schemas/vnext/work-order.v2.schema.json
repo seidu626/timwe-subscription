@@ -105,6 +105,13 @@
         "trigger": {
           "type": "string",
           "minLength": 1
+        },
+        "journey_nodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ecosystem step IDs this work-order addresses, propagated from GoalSpec."
         }
       }
     },
@@ -281,6 +288,43 @@
     "created_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "loop_mode": {
+      "type": "string",
+      "enum": [
+        "closed",
+        "open"
+      ],
+      "default": "closed",
+      "description": "Controls whether the agent loop runs to a defined terminal state ('closed', default) or continues iterating until a quality rubric is satisfied ('open'). When 'open', a loop_budget specifying budget_tokens and quality_rubric is required. If the schema runtime cannot enforce the default, hvc must set loop_mode explicitly."
+    },
+    "loop_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "budget_tokens",
+        "quality_rubric"
+      ],
+      "description": "Required when loop_mode is 'open'. Defines the token budget and quality rubric for open-ended agent loops.",
+      "properties": {
+        "budget_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum token budget for the open loop before the agent must declare a terminal state."
+        },
+        "quality_rubric": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable rubric used to evaluate whether the loop has produced acceptable output."
+        }
+      }
+    },
+    "ecosystem_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Path or id of the ecosystem_definition artifact, propagated from GoalSpec."
     }
   }
 }
