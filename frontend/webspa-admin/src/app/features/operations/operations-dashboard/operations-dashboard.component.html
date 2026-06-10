@@ -1,8 +1,10 @@
 <div class="operations-page">
   <h2>Operations</h2>
-  <p class="subtitle">Audit trail and userbase import history.</p>
+  <p class="subtitle">Audit trail, userbase import history, batch operations, and renewal worker management.</p>
 
   <mat-tab-group>
+
+    <!-- ── Activity Logs ─────────────────────────────────────────────── -->
     <mat-tab label="Activity Logs">
       <mat-card class="card">
         <mat-card-content>
@@ -58,7 +60,6 @@
               <th mat-header-cell *matHeaderCellDef>Actor</th>
               <td mat-cell *matCellDef="let item">{{ item.actor || '-' }}</td>
             </ng-container>
-
             <tr mat-header-row *matHeaderRowDef="['created_at','entity_type','entity_id','action','actor']"></tr>
             <tr mat-row *matRowDef="let row; columns: ['created_at','entity_type','entity_id','action','actor'];"></tr>
           </table>
@@ -75,6 +76,7 @@
       </mat-card>
     </mat-tab>
 
+    <!-- ── Import History ────────────────────────────────────────────── -->
     <mat-tab label="Import History">
       <mat-card class="card">
         <mat-card-content>
@@ -109,7 +111,6 @@
                 </button>
               </td>
             </ng-container>
-
             <tr mat-header-row *matHeaderRowDef="['started_at','filename','status','summary','actions']"></tr>
             <tr mat-row *matRowDef="let row; columns: ['started_at','filename','status','summary','actions'];"></tr>
           </table>
@@ -134,7 +135,6 @@
             <div><strong>Status:</strong> {{ selectedImport.job.status }}</div>
             <div><strong>Total Errors:</strong> {{ selectedImport.total_errors }}</div>
           </div>
-
           <h4>Errors (first {{ selectedImport.errors.length }})</h4>
           <table mat-table [dataSource]="selectedImport.errors" [trackBy]="trackByRowNumber" class="mat-elevation-z1">
             <ng-container matColumnDef="row_number">
@@ -155,5 +155,130 @@
         </mat-card-content>
       </mat-card>
     </mat-tab>
+
+    <!-- ── Batch Optin ────────────────────────────────────────────────── -->
+    <mat-tab label="Batch Optin">
+      <mat-card class="card">
+        <mat-card-title>Trigger Batch Optin</mat-card-title>
+        <mat-card-subtitle>
+          Tenant context is attached automatically via the workspace interceptor (X-Tenant-Key header).
+        </mat-card-subtitle>
+        <mat-card-content>
+          <div class="batch-form">
+            <mat-form-field appearance="outline" class="field-full">
+              <mat-label>Product IDs (comma-separated)</mat-label>
+              <input matInput [(ngModel)]="batchProductIdsRaw" placeholder="PROD_001, PROD_002" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Telco</mat-label>
+              <input matInput [(ngModel)]="batchForm.telco" placeholder="MTN" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Entry Channel</mat-label>
+              <input matInput [(ngModel)]="batchForm.entry_channel" placeholder="API" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Generate Count (if no MSISDNs)</mat-label>
+              <input matInput type="number" [(ngModel)]="batchForm.count" min="0" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="field-full">
+              <mat-label>MSISDNs (one per line, leave empty to generate)</mat-label>
+              <textarea matInput [(ngModel)]="batchMsisdnsRaw" rows="5" placeholder="233200000001&#10;233200000002"></textarea>
+            </mat-form-field>
+
+            <div class="actions">
+              <button mat-raised-button color="primary"
+                      [disabled]="batchLoading || batchRunning"
+                      (click)="triggerBatch()">
+                <mat-icon>play_arrow</mat-icon> Trigger Batch
+              </button>
+              <button mat-stroked-button color="warn"
+                      [disabled]="!batchRunning"
+                      (click)="stopBatch()">
+                <mat-icon>stop</mat-icon> Stop
+              </button>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Live progress card -->
+      <mat-card class="card" *ngIf="batchJob">
+        <mat-card-title>
+          Job: {{ batchJobId }}
+          <mat-chip [color]="batchJob.state === 'completed' ? 'primary' : batchJob.state === 'failed' ? 'warn' : 'accent'" selected>
+            {{ batchJob.state }}
+          </mat-chip>
+        </mat-card-title>
+        <mat-card-content>
+          <div class="progress-grid">
+            <div><strong>Total:</strong> {{ batchJob.total }}</div>
+            <div><strong>Processed:</strong> {{ batchJob.processed }}</div>
+            <div><strong>Successful:</strong> {{ batchJob.successful }}</div>
+            <div><strong>Failed:</strong> {{ batchJob.failed }}</div>
+            <div><strong>Started:</strong> {{ batchJob.startedAt | date:'medium' }}</div>
+            <div *ngIf="batchJob.completedAt"><strong>Completed:</strong> {{ batchJob.completedAt | date:'medium' }}</div>
+          </div>
+          <mat-progress-bar
+            *ngIf="batchRunning && batchJob.total > 0"
+            mode="determinate"
+            [value]="(batchJob.processed / batchJob.total) * 100">
+          </mat-progress-bar>
+          <mat-progress-bar *ngIf="batchRunning && batchJob.total === 0" mode="indeterminate"></mat-progress-bar>
+          <div *ngIf="batchJob.errorDetails" class="error-details">
+            <strong>Error:</strong> {{ batchJob.errorDetails | json }}
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </mat-tab>
+
+    <!-- ── Renewal Worker ─────────────────────────────────────────────── -->
+    <mat-tab label="Renewal Worker">
+      <mat-card class="card">
+        <mat-card-title>Renewal Worker</mat-card-title>
+        <mat-card-content>
+          <div *ngIf="renewalLoading" class="loading">
+            <mat-spinner diameter="36"></mat-spinner>
+          </div>
+
+          <ng-container *ngIf="!renewalLoading && renewalStatus">
+            <p>
+              Status:
+              <mat-chip [color]="renewalStatus.running ? 'primary' : 'default'" selected>
+                {{ renewalStatus.running ? 'Running' : 'Stopped' }}
+              </mat-chip>
+            </p>
+
+            <div class="actions">
+              <button mat-raised-button color="primary"
+                      [disabled]="renewalStatus.running"
+                      (click)="startRenewal()">
+                <mat-icon>play_arrow</mat-icon> Start
+              </button>
+              <button mat-stroked-button color="warn"
+                      [disabled]="!renewalStatus.running"
+                      (click)="stopRenewal()">
+                <mat-icon>stop</mat-icon> Stop
+              </button>
+              <button mat-icon-button (click)="loadRenewalStatus()" matTooltip="Refresh status">
+                <mat-icon>refresh</mat-icon>
+              </button>
+            </div>
+
+            <ng-container *ngIf="renewalStatus.metrics">
+              <h4>Metrics</h4>
+              <pre class="metrics-pre">{{ renewalStatus.metrics | json }}</pre>
+            </ng-container>
+          </ng-container>
+
+          <p *ngIf="!renewalLoading && !renewalStatus">Unable to retrieve renewal worker status.</p>
+        </mat-card-content>
+      </mat-card>
+    </mat-tab>
+
   </mat-tab-group>
 </div>
