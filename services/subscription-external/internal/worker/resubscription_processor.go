@@ -12,7 +12,6 @@ import (
 
 	"bytes"
 
-	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/monitoring"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/service"
@@ -699,8 +698,17 @@ func (p *ResubscriptionProcessor) attemptResubscription(ctx context.Context, sub
 		zap.Int("product_id", subscription.ProductID),
 		zap.String("entry_channel", entryChannel))
 
+	// FIX 1: resolve tenant route from stored subscription before resubscribing.
+	tenantRoute, routeErr := p.service.TenantRouteForSubscription(subscription.MSISDN, subscription.ProductID)
+	if routeErr != nil {
+		p.logger.Warn("cannot resolve tenant route for resubscribe processor, skipping",
+			zap.String("msisdn", subscription.MSISDN),
+			zap.Int64("subscription_id", int64(subscription.ID)),
+			zap.Error(routeErr))
+		return false, fmt.Errorf("tenant route unavailable: %w", routeErr)
+	}
 	// Call ResubscribeUser which handles both unsubscribe and resubscribe internally
-	resubscribeErr := p.service.ResubscribeUser(subscription.MSISDN, entryChannel, []string{fmt.Sprintf("%d", subscription.ProductID)}, domain.TenantRouteContext{})
+	resubscribeErr := p.service.ResubscribeUser(subscription.MSISDN, entryChannel, []string{fmt.Sprintf("%d", subscription.ProductID)}, tenantRoute)
 	if resubscribeErr != nil {
 		// Categorize resubscribe error for better handling
 		errorType, shouldRetry := p.categorizeExternalAPIError(resubscribeErr)

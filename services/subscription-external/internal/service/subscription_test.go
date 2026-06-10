@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -114,6 +115,9 @@ func (m *MockSubscriptionRepository) FetchChargeSuccessNotifications(since time.
 
 func (m *MockSubscriptionRepository) GetSubscriptionByMSISDNAndProduct(msisdn string, productID int) (*domain.Subscription, error) {
 	return nil, nil
+}
+func (m *MockSubscriptionRepository) TenantRouteForSubscription(msisdn string, productID int) (domain.TenantRouteContext, error) {
+	return domain.TenantRouteContext{}, fmt.Errorf("TenantRouteForSubscription not implemented in mock")
 }
 
 func (m *MockSubscriptionRepository) GetLastOptinNotificationTime(msisdn string, productID int) (*time.Time, error) {

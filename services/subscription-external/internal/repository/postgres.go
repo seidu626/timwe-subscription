@@ -680,6 +680,34 @@ func (r *SubscriptionRepository) GetSubscriptionByMSISDNAndProduct(msisdn string
 	return &sub, nil
 }
 
+
+// TenantRouteForSubscription fetches the tenant_id and channel_id from the
+// subscriptions row for the given MSISDN + product, and returns a TenantRouteContext.
+// If the subscription exists but has no tenant_id/channel_id set (legacy row),
+// an error is returned so callers can fall back gracefully.
+func (r *SubscriptionRepository) TenantRouteForSubscription(msisdn string, productID int) (domain.TenantRouteContext, error) {
+	var tenantID, channelID sql.NullString
+	err := r.db.QueryRowContext(r.ctx, `
+		SELECT tenant_id::text, channel_id::text
+		FROM subscriptions
+		WHERE user_identifier = $1 AND product_id = $2
+		ORDER BY id DESC
+		LIMIT 1
+	`, msisdn, productID).Scan(&tenantID, &channelID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return domain.TenantRouteContext{}, fmt.Errorf("subscription not found for msisdn %s product %d", msisdn, productID)
+		}
+		return domain.TenantRouteContext{}, fmt.Errorf("fetch subscription tenant route: %w", err)
+	}
+	if !tenantID.Valid || strings.TrimSpace(tenantID.String) == "" {
+		return domain.TenantRouteContext{}, fmt.Errorf("subscription for msisdn %s product %d has no tenant context", msisdn, productID)
+	}
+	return domain.TenantRouteContext{
+		TenantID:  strings.TrimSpace(tenantID.String),
+		ChannelID: strings.TrimSpace(channelID.String),
+	}, nil
+}
 // GetLastOptinNotificationTime retrieves the timestamp of the last USER_OPTIN notification
 // for a specific MSISDN and product ID
 func (r *SubscriptionRepository) GetLastOptinNotificationTime(msisdn string, productID int) (*time.Time, error) {

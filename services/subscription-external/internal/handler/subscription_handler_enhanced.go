@@ -268,7 +268,21 @@ func (h *SubscriptionHandler) processWithWorkers(
 
 				// Process resubscription
 				entryChannel := req.GetNextEntryChannel()
-				err = h.service.ResubscribeUser(sub.MSISDN, entryChannel, []string{fmt.Sprintf("%d", sub.ProductID)}, domain.TenantRouteContext{})
+				// FIX 1: resolve tenant route from stored subscription before resubscribing.
+				tenantRoute, routeErr := h.service.TenantRouteForSubscription(sub.MSISDN, sub.ProductID)
+				if routeErr != nil {
+					h.logger.Warn("cannot resolve tenant route for resubscribe, skipping",
+						zap.String("msisdn", sub.MSISDN),
+						zap.Int("product_id", sub.ProductID),
+						zap.Error(routeErr))
+					tracker.UpdateResult(sub.MSISDN, sub.ProductID, false, routeErr.Error())
+					atomic.AddUint64(&errorCount, 1)
+					totalBatchRequestsFailed.Add(1)
+					status.incProcessed()
+					totalBatchRequestsProcessed.Add(1)
+					continue
+				}
+				err = h.service.ResubscribeUser(sub.MSISDN, entryChannel, []string{fmt.Sprintf("%d", sub.ProductID)}, tenantRoute)
 
 				// Update result
 				if err != nil {

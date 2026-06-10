@@ -1009,9 +1009,19 @@ func (m *NotificationMonitor) processRenewal() error {
 				continue
 			}
 
+			// FIX 1: resolve tenant route from stored subscription before resubscribing.
+			tenantRoute, routeErr := m.userSvc.TenantRouteForSubscription(sub.MSISDN, sub.ProductID)
+			if routeErr != nil {
+				m.logger.Warn("cannot resolve tenant route for notification monitor resubscribe, skipping",
+					zap.String("msisdn", sub.MSISDN),
+					zap.Int("productId", sub.ProductID),
+					zap.Error(routeErr))
+				incError("RENEWAL", "tenant_route")
+				continue
+			}
 			// Attempt resubscribe using the existing service
 			// This will trigger the opt-out/opt-in renewal cycle
-			if err := m.userSvc.ResubscribeUser(sub.MSISDN, sub.EntryChannel, []string{fmt.Sprintf("%d", sub.ProductID)}, domain.TenantRouteContext{}); err != nil {
+			if err := m.userSvc.ResubscribeUser(sub.MSISDN, sub.EntryChannel, []string{fmt.Sprintf("%d", sub.ProductID)}, tenantRoute); err != nil {
 				m.logger.Warn("resubscribe failed for renewal candidate",
 					zap.String("msisdn", sub.MSISDN),
 					zap.Int("productId", sub.ProductID),

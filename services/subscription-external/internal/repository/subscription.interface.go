@@ -40,6 +40,10 @@ type SubscriptionRepositoryInterface interface {
 	FetchUnprocessedOptoutNotifications(since time.Time, afterId int64, limit int) ([]NotificationRow, error)
 	// Enhanced: Get subscription by MSISDN and product ID
 	GetSubscriptionByMSISDNAndProduct(msisdn string, productID int) (*domain.Subscription, error)
+	// TenantRouteForSubscription fetches the tenant_id and channel_id stored on a
+	// subscription row (NOT NULL in tenant-aware rows) and returns a TenantRouteContext.
+	// Returns an error if the subscription row is not found or has no tenant context.
+	TenantRouteForSubscription(msisdn string, productID int) (domain.TenantRouteContext, error)
 	// Enhanced: Get last opt-in notification time for MSISDN + product
 	GetLastOptinNotificationTime(msisdn string, productID int) (*time.Time, error)
 	// Enhanced: Fetch ghost subscriptions (subscriptions without opt-in notifications)

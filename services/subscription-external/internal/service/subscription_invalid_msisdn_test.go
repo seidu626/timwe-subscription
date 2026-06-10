@@ -107,6 +107,10 @@ func (m *MockSubscriptionRepositoryForInvalidMSISDN) GetSubscriptionByMSISDNAndP
 	return args.Get(0).(*domain.Subscription), args.Error(1)
 }
 
+func (m *MockSubscriptionRepositoryForInvalidMSISDN) TenantRouteForSubscription(msisdn string, productID int) (domain.TenantRouteContext, error) {
+	return domain.TenantRouteContext{}, fmt.Errorf("TenantRouteForSubscription not implemented in mock")
+}
+
 func (m *MockSubscriptionRepositoryForInvalidMSISDN) GetLastOptinNotificationTime(msisdn string, productID int) (*time.Time, error) {
 	args := m.Called(msisdn, productID)
 	if args.Get(0) == nil {
