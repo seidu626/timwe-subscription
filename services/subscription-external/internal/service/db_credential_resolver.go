@@ -46,7 +46,7 @@ func (r *DBProviderCredentialResolver) ResolveProviderCredential(ctx context.Con
 			SELECT s.ciphertext
 			FROM tenant_channel_secrets s
 			JOIN tenant_channel_credentials cred
-				ON cred.secret_ref = $1
+				ON cred.secret_ref = 'secret://' || s.id::text
 				AND cred.tenant_id::text = $2
 				AND cred.channel_id::text = $3
 			WHERE s.id = $1::uuid
