@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // TestBatchOptinHandler_TenantRequired verifies that a batch request without
@@ -945,4 +947,142 @@ func makeHMACCtxGetStatus(secret, jobID string) *fasthttp.RequestCtx {
 	ctx.Request.Header.Set("X-Internal-Timestamp", ts)
 	ctx.Request.Header.Set("X-Internal-Signature", sig)
 	return ctx
+}
+
+// ── NF-NEW-1 residual fix tests: blank-TenantKey job ownership ─────────────
+
+// TestCheckTenantAccess_BlankJobKey_TenantScopedDenied verifies the NF-NEW-1
+// defence-in-depth rule: a tenant-scoped identity must NOT access a job whose
+// TenantKey is blank (platform/HMAC-created job).
+func TestCheckTenantAccess_BlankJobKey_TenantScopedDenied(t *testing.T) {
+	tenantID := tenantctx.Identity{TenantKey: "tenant-A", PlatformScoped: false}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("GET")
+
+	ok := checkTenantAccess(tenantID, "", ctx)
+	assert.False(t, ok, "tenant-scoped identity must be denied for blank-key jobs")
+	assert.Equal(t, fasthttp.StatusNotFound, ctx.Response.StatusCode(),
+		"denial must be 404 (do not reveal job existence)")
+}
+
+// TestCheckTenantAccess_BlankJobKey_PlatformScopedAllowed verifies platform-scoped
+// callers can still access blank-key jobs.
+func TestCheckTenantAccess_BlankJobKey_PlatformScopedAllowed(t *testing.T) {
+	platformID := tenantctx.Identity{PlatformScoped: true, TrustSource: tenantctx.TrustSourceTrustedService}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("GET")
+
+	ok := checkTenantAccess(platformID, "", ctx)
+	assert.True(t, ok, "platform-scoped identity must be allowed for blank-key jobs")
+}
+
+// TestCheckTenantAccess_MatchingTenantKey_Allowed verifies a tenant-scoped identity
+// can access its own named-key job.
+func TestCheckTenantAccess_MatchingTenantKey_Allowed(t *testing.T) {
+	tenantID := tenantctx.Identity{TenantKey: "tenant-A", PlatformScoped: false}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("GET")
+
+	ok := checkTenantAccess(tenantID, "tenant-A", ctx)
+	assert.True(t, ok, "tenant-scoped identity must be allowed for its own named-key job")
+}
+
+// TestCheckTenantAccess_MismatchedTenantKey_Denied verifies cross-tenant access is denied.
+func TestCheckTenantAccess_MismatchedTenantKey_Denied(t *testing.T) {
+	tenantID := tenantctx.Identity{TenantKey: "tenant-A", PlatformScoped: false}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("GET")
+
+	ok := checkTenantAccess(tenantID, "tenant-B", ctx)
+	assert.False(t, ok, "tenant-scoped identity must be denied for a different tenant's job")
+	assert.Equal(t, fasthttp.StatusNotFound, ctx.Response.StatusCode())
+}
+
+// TestEnhancedResubscribeHandler_JobStampedWithIdentityTenantKey verifies that
+// EnhancedResubscribeHandler calls CreateJobWithTenant (NF-NEW-1 fix).
+func TestEnhancedResubscribeHandler_JobStampedWithIdentityTenantKey(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
+	h := &SubscriptionHandler{
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"product_ids":           []string{"p1"},
+		"use_charging_failures": false,
+	})
+	ctx := makeHMACCtx(testHMACSecret, body)
+
+	h.EnhancedResubscribeHandler(ctx)
+	require.Equal(t, fasthttp.StatusAccepted, ctx.Response.StatusCode())
+
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(ctx.Response.Body(), &resp))
+	jobID, _ := resp["jobId"].(string)
+	require.NotEmpty(t, jobID)
+
+	st, ok := h.jobs.GetJob(jobID)
+	require.True(t, ok, "job must exist in manager")
+	// HMAC/platform caller has PlatformScoped=true and blank TenantKey in identity.
+	assert.Equal(t, "", st.TenantKey, "platform/HMAC caller job must have blank TenantKey (platform-owned)")
+}
+
+// ── NF2 + NF-NEW-3 residual fix tests: MSISDN PII masking in logs ────────────
+
+// TestMaskMSISDN_UsedInProcessWithWorkersErrorPath verifies NF2: the masked form
+// of an MSISDN does not contain the raw value and follows the expected pattern.
+func TestMaskMSISDN_UsedInProcessWithWorkersErrorPath(t *testing.T) {
+	rawMSISDN := "233241234567"
+	masked := maskMSISDN(rawMSISDN)
+
+	assert.NotEqual(t, rawMSISDN, masked, "maskMSISDN must change the value")
+	assert.Contains(t, masked, "*", "masked value must contain asterisks")
+	assert.True(t, strings.HasPrefix(masked, rawMSISDN[:5]), "masked value must keep first 5 digits")
+	assert.True(t, strings.HasSuffix(masked, rawMSISDN[len(rawMSISDN)-2:]), "masked value must keep last 2 digits")
+}
+
+// TestOptinHandler_ErrorLog_NoRawMSISDN verifies NF-NEW-3: the OptinHandler
+// error log must not emit the raw MSISDN; the masked value must appear instead.
+func TestOptinHandler_ErrorLog_NoRawMSISDN(t *testing.T) {
+	core, logs := observer.New(zapcore.ErrorLevel)
+	logger := zap.New(core)
+
+	rawMSISDN := "233241234567"
+
+	h := &SubscriptionHandler{
+		logger: logger,
+		jobs:   NewBatchJobManager(),
+		processOptinFn: func(req *domain.OptinRequest) error {
+			return assert.AnError
+		},
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"msisdn":        rawMSISDN,
+		"telco":         "MTN",
+		"entry_channel": "USSD",
+		"product_ids":   []string{"42"},
+	})
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetBody(body)
+	ctx.Request.Header.SetMethod("POST")
+
+	h.OptinHandler(ctx)
+
+	entries := logs.All()
+	require.NotEmpty(t, entries, "OptinHandler must log an error on failure")
+
+	for _, entry := range entries {
+		assert.NotContains(t, entry.Message, rawMSISDN,
+			"log message must not contain raw MSISDN")
+		for _, f := range entry.Context {
+			if f.Key == "msisdn" {
+				assert.NotEqual(t, rawMSISDN, f.String,
+					"log field 'msisdn' must be masked, not raw; got %q", f.String)
+				assert.Contains(t, f.String, "*",
+					"masked msisdn field must contain asterisks")
+			}
+		}
+	}
 }

@@ -74,9 +74,7 @@ func (g *batchAdminGuard) authorise(ctx *fasthttp.RequestCtx, requestedTenantKey
 			return identity, false
 		}
 		identity = claims.Identity()
-		if !identity.PlatformScoped && !matchesTenant(identity, requestedTenantKey) {
-			// Do not reveal job existence to wrong tenant.
-			ctx.Error("Not Found", fasthttp.StatusNotFound)
+		if !checkTenantAccess(identity, requestedTenantKey, ctx) {
 			return identity, false
 		}
 		return identity, true
@@ -136,6 +134,34 @@ func maskMSISDN(msisdn string) string {
 	}
 	masked += msisdn[n-keepSuffix:]
 	return masked
+}
+
+// checkTenantAccess enforces tenant ownership rules for a JWT-authenticated identity.
+// Returns true when access is permitted.  On denial it writes the appropriate
+// HTTP error to ctx.
+//
+// Rules:
+//  1. Platform-scoped identities may access any job (no further check needed).
+//  2. Tenant-scoped identities must match the job's TenantKey (case-insensitive).
+//  3. Defence-in-depth (NF-NEW-1): tenant-scoped JWTs are denied against jobs
+//     whose TenantKey is blank.  Blank-key jobs are created by platform/HMAC
+//     callers; treating them as ownerless would let any tenant-scoped JWT
+//     stop or read them.
+func checkTenantAccess(id tenantctx.Identity, requestedTenantKey string, ctx *fasthttp.RequestCtx) bool {
+	if id.PlatformScoped {
+		return true
+	}
+	// Blank job TenantKey → platform-owned; deny all tenant-scoped callers.
+	if strings.TrimSpace(requestedTenantKey) == "" {
+		ctx.Error("Not Found", fasthttp.StatusNotFound)
+		return false
+	}
+	// Named job TenantKey → must match the caller's tenant.
+	if !matchesTenant(id, requestedTenantKey) {
+		ctx.Error("Not Found", fasthttp.StatusNotFound)
+		return false
+	}
+	return true
 }
 
 // matchesTenant returns true when the identity's tenant key matches the

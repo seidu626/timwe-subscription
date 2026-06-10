@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/common/config"
 	"go.uber.org/zap"
-
-	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -123,12 +124,24 @@ func NewSubscriptionHandler(logger *zap.Logger, service *service.SubscriptionSer
 		maxConcurrent,
 	)
 
+	guard := newBatchAdminGuard()
+	// Warn (or error in production) when neither Auth0 nor HMAC is configured
+	// so batch endpoints will reject every request with 401 until one is set.
+	if guard.jwtValidator == nil && guard.internalSecret == "" {
+		if strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production") ||
+			strings.EqualFold(strings.TrimSpace(os.Getenv("ENVIRONMENT")), "production") {
+			logger.Error("batch admin auth is not configured: ADMIN_AUTH0_DOMAIN and INTERNAL_API_SECRET are both unset; all batch endpoints will return 401 until one is configured")
+		} else {
+			logger.Warn("batch admin auth is not configured: ADMIN_AUTH0_DOMAIN and INTERNAL_API_SECRET are both unset; all batch endpoints will return 401 until one is configured")
+		}
+	}
+
 	handler := &SubscriptionHandler{
 		logger:          logger,
 		service:         service,
 		config:          c,
 		jobs:            NewBatchJobManager(),
-		batchGuard:      newBatchAdminGuard(),
+		batchGuard:      guard,
 		msisdnGenerator: msisdnGenerator,
 		startTime:       time.Now(),
 	}
@@ -174,7 +187,12 @@ func (h *SubscriptionHandler) OptinHandler(ctx *fasthttp.RequestCtx) {
 	}
 	err := process(&req)
 	if err != nil {
-		h.logger.Error("Failed to subscribe user", zap.Any("request", req), zap.Error(err))
+		h.logger.Error("Failed to subscribe user",
+			zap.String("msisdn", maskMSISDN(req.Msisdn)),
+			zap.String("telco", req.Telco),
+			zap.String("entry_channel", req.EntryChannel),
+			zap.Strings("product_ids", req.ProductIds),
+			zap.Error(err))
 
 		// Check if it's an MTResponseError to provide specific error handling
 		if mtErr, ok := err.(*domain.MTResponseError); ok {

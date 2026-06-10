@@ -35,7 +35,8 @@ func (h *SubscriptionHandler) EnhancedResubscribeHandler(ctx *fasthttp.RequestCt
 	// pass empty requestedTenantKey so platform-scoped and internal-HMAC callers
 	// are accepted, and tenant-scoped JWTs are not rejected on tenant mismatch
 	// (tenant enforcement happens per-MSISDN inside processWithWorkers).
-	if _, authOK := h.batchGuard.authorise(ctx, ""); !authOK {
+	authorisedIdentity, authOK := h.batchGuard.authorise(ctx, "")
+	if !authOK {
 		return
 	}
 
@@ -97,9 +98,14 @@ func (h *SubscriptionHandler) EnhancedResubscribeHandler(ctx *fasthttp.RequestCt
 		return
 	}
 
-	// Create job
+	// Create job — stamp tenant ownership from the authorised identity so that
+	// BatchStatusHandler / StopBatchHandler ownership checks work correctly.
+	// Platform-scoped and HMAC callers have an empty TenantKey, which is stored
+	// as-is; the defence-in-depth guard in matchesTenant then requires a
+	// platform/HMAC caller to stop/query those jobs (tenant-scoped JWTs are
+	// denied against blank-TenantKey jobs).
 	jobID := uuid.New().String()
-	_, _ = h.jobs.CreateJob(jobID, 0) // Use underscores for unused variables
+	_, _ = h.jobs.CreateJobWithTenant(jobID, 0, authorisedIdentity.TenantKey, "")
 	totalBatchJobsCreated.Add(1)
 
 	// Start async processing
@@ -258,7 +264,7 @@ func (h *SubscriptionHandler) processWithWorkers(
 				processed, err := tracker.CheckIfProcessed(sub.MSISDN, sub.ProductID)
 				if err != nil {
 					h.logger.Error("Failed to check if processed",
-						zap.String("msisdn", sub.MSISDN),
+						zap.String("msisdn", maskMSISDN(sub.MSISDN)),
 						zap.Error(err))
 				}
 
@@ -271,7 +277,7 @@ func (h *SubscriptionHandler) processWithWorkers(
 				// Record attempt
 				if err := tracker.RecordAttempt(sub.MSISDN, sub.ProductID, sub.ID); err != nil {
 					h.logger.Error("Failed to record attempt",
-						zap.String("msisdn", sub.MSISDN),
+						zap.String("msisdn", maskMSISDN(sub.MSISDN)),
 						zap.Error(err))
 				}
 
@@ -281,7 +287,7 @@ func (h *SubscriptionHandler) processWithWorkers(
 				tenantRoute, routeErr := h.service.TenantRouteForSubscription(sub.MSISDN, sub.ProductID)
 				if routeErr != nil {
 					h.logger.Warn("cannot resolve tenant route for resubscribe, skipping",
-						zap.String("msisdn", sub.MSISDN),
+						zap.String("msisdn", maskMSISDN(sub.MSISDN)),
 						zap.Int("product_id", sub.ProductID),
 						zap.Error(routeErr))
 					tracker.UpdateResult(sub.MSISDN, sub.ProductID, false, routeErr.Error())
