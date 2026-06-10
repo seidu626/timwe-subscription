@@ -11,6 +11,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	cached "github.com/seidu626/subscription-manager/common/cache"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"go.uber.org/zap"
 )
@@ -198,7 +199,7 @@ func (repo *UserBaseRepository) FilterMSISDNS(msisdns []string) ([]string, error
 		if exclusionList != nil {
 			if _, ok := exclusionList[msisdn]; ok {
 				// Skip Premier/Staff from exclusion list
-				repo.logger.Debug("MSISDN excluded by exclusion list", zap.String("msisdn", msisdn))
+				repo.logger.Debug("MSISDN excluded by exclusion list", zap.String("msisdn", pii.MaskMSISDN(msisdn)))
 				continue
 			}
 		}
@@ -253,12 +254,12 @@ func (repo *UserBaseRepository) FilterMSISDNS(msisdns []string) ([]string, error
 				continue
 			default:
 				// Unknown marker, send to DB for verification
-				repo.logger.Debug("Unknown cache value, sending to DB", zap.String("msisdn", toCheck[i]), zap.String("value", s))
+				repo.logger.Debug("Unknown cache value, sending to DB", zap.String("msisdn", pii.MaskMSISDN(toCheck[i])), zap.String("value", s))
 				toDB = append(toDB, toCheck[i])
 			}
 		} else {
 			// Unexpected type from Redis, verify with DB
-			repo.logger.Debug("Unexpected Redis type, sending to DB", zap.String("msisdn", toCheck[i]), zap.Any("value", result))
+			repo.logger.Debug("Unexpected Redis type, sending to DB", zap.String("msisdn", pii.MaskMSISDN(toCheck[i])), zap.Any("value", result))
 			toDB = append(toDB, toCheck[i])
 		}
 	}
@@ -469,7 +470,7 @@ func (repo *UserBaseRepository) cacheInvalidMSISDN(ctx context.Context, msisdn s
 	err := repo.redis.Set(ctx, cacheKey, "1", 24*time.Hour)
 	if err != nil {
 		repo.logger.Warn("Failed to cache invalid MSISDN",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 	}
 }

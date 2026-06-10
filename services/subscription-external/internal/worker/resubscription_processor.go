@@ -16,6 +16,7 @@ import (
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/service"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/utils"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"go.uber.org/zap"
 )
 
@@ -523,7 +524,7 @@ func (p *ResubscriptionProcessor) processBatch(ctx context.Context, subscription
 					p.logger.Error("PANIC RECOVERED in subscription processing goroutine",
 						zap.Any("panic_value", r),
 						zap.String("panic_type", fmt.Sprintf("%T", r)),
-						zap.String("msisdn", sub.MSISDN),
+						zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 						zap.Int("product_id", sub.ProductID),
 						zap.Int("batch_num", batchNum),
 						zap.String("timestamp", time.Now().Format(time.RFC3339)),
@@ -564,7 +565,7 @@ func (p *ResubscriptionProcessor) processSubscription(ctx context.Context, subsc
 			p.logger.Error("PANIC RECOVERED in processSubscription",
 				zap.Any("panic_value", r),
 				zap.String("panic_type", fmt.Sprintf("%T", r)),
-				zap.String("msisdn", subscription.MSISDN),
+				zap.String("msisdn", pii.MaskMSISDN(subscription.MSISDN)),
 				zap.Int("product_id", subscription.ProductID),
 				zap.Int("batch_num", batchNum),
 				zap.String("timestamp", time.Now().Format(time.RFC3339)),
@@ -693,7 +694,7 @@ func (p *ResubscriptionProcessor) attemptResubscription(ctx context.Context, sub
 	entryChannel := "SMS" // Default entry channel, could be made configurable
 
 	p.logger.Info("Starting resubscription process",
-		zap.String("msisdn", subscription.MSISDN),
+		zap.String("msisdn", pii.MaskMSISDN(subscription.MSISDN)),
 		zap.Int64("subscription_id", int64(subscription.ID)),
 		zap.Int("product_id", subscription.ProductID),
 		zap.String("entry_channel", entryChannel))
@@ -702,7 +703,7 @@ func (p *ResubscriptionProcessor) attemptResubscription(ctx context.Context, sub
 	tenantRoute, routeErr := p.service.TenantRouteForSubscription(subscription.MSISDN, subscription.ProductID)
 	if routeErr != nil {
 		p.logger.Warn("cannot resolve tenant route for resubscribe processor, skipping",
-			zap.String("msisdn", subscription.MSISDN),
+			zap.String("msisdn", pii.MaskMSISDN(subscription.MSISDN)),
 			zap.Int64("subscription_id", int64(subscription.ID)),
 			zap.Error(routeErr))
 		return false, fmt.Errorf("tenant route unavailable: %w", routeErr)
@@ -714,7 +715,7 @@ func (p *ResubscriptionProcessor) attemptResubscription(ctx context.Context, sub
 		errorType, shouldRetry := p.categorizeExternalAPIError(resubscribeErr)
 
 		p.logger.Error("Resubscribe failed",
-			zap.String("msisdn", subscription.MSISDN),
+			zap.String("msisdn", pii.MaskMSISDN(subscription.MSISDN)),
 			zap.Int64("subscription_id", int64(subscription.ID)),
 			zap.String("error_type", errorType),
 			zap.Bool("should_retry", shouldRetry),
@@ -724,7 +725,7 @@ func (p *ResubscriptionProcessor) attemptResubscription(ctx context.Context, sub
 	}
 
 	p.logger.Info("Successfully completed resubscription process",
-		zap.String("msisdn", subscription.MSISDN),
+		zap.String("msisdn", pii.MaskMSISDN(subscription.MSISDN)),
 		zap.Int64("subscription_id", int64(subscription.ID)),
 		zap.Int("product_id", subscription.ProductID))
 

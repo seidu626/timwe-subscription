@@ -20,6 +20,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -931,7 +932,7 @@ func main() {
 		zap.String("entryChannel", config.EntryChannel),
 		zap.Strings("entryChannels", config.EntryChannels),
 		zap.Strings("productIds", config.ProductIds),
-		zap.Strings("msisdns", config.MSISDNS),
+		zap.Strings("msisdns", pii.MaskMSISDNs(config.MSISDNS)),
 		zap.Int("startIndex", config.StartIndex),
 		zap.Int("endIndex", config.EndIndex),
 		zap.Duration("waitBetweenCalls", config.GetWaitDuration()),

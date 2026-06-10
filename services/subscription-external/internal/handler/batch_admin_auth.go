@@ -121,25 +121,6 @@ func (g *batchAdminGuard) validateHMAC(sig, timestamp string, body []byte) bool 
 	return hmac.Equal([]byte(sig), []byte(expected))
 }
 
-// maskMSISDN returns a masked representation of an MSISDN for safe logging.
-// It keeps the first 5 and last 2 digits and replaces the middle with '*'.
-// E.g. "233241234567" → "23324****67".
-// If the MSISDN is too short to mask (≤7 chars) only a count is returned.
-func maskMSISDN(msisdn string) string {
-	const keepPrefix = 5
-	const keepSuffix = 2
-	n := len(msisdn)
-	if n <= keepPrefix+keepSuffix {
-		return "***"
-	}
-	masked := msisdn[:keepPrefix]
-	for i := keepPrefix; i < n-keepSuffix; i++ {
-		masked += "*"
-	}
-	masked += msisdn[n-keepSuffix:]
-	return masked
-}
-
 // checkTenantAccess enforces tenant ownership rules for a JWT-authenticated identity.
 // Returns true when access is permitted.  On denial it writes the appropriate
 // HTTP error to ctx.

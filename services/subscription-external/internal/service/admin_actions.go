@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/utils"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -457,7 +458,7 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 	s.logger.Info("Admin subscription action executed",
 		zap.String("actionId", logEntry.ID),
 		zap.String("operation", string(logEntry.Operation)),
-		zap.String("msisdn", logEntry.MSISDN),
+		zap.String("msisdn", pii.MaskMSISDN(logEntry.MSISDN)),
 		zap.Int("productId", logEntry.ProductID),
 		zap.String("externalTxId", logEntry.ExternalTxID),
 		zap.Any("requestHeaders", logEntry.RequestHeaders),

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"github.com/seidu626/subscription-manager/common/pii"
 )
 
 // AcquisitionClient handles internal calls to the acquisition-api service
@@ -144,7 +145,7 @@ func (c *AcquisitionClient) NotifyChargeSuccess(req *ChargeSuccessRequest) error
 
 	c.logger.Info("Charge success notification sent to acquisition-api",
 		zap.String("timwe_transaction_id", req.TimweTransactionID),
-		zap.String("msisdn", req.MSISDN))
+		zap.String("msisdn", pii.MaskMSISDN(req.MSISDN)))
 
 	return nil
 }

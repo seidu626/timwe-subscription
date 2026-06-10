@@ -9,6 +9,7 @@ import (
 	"time"
 
 	cached "github.com/seidu626/subscription-manager/common/cache"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"go.uber.org/zap"
 
 	"sync"
@@ -357,7 +358,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 			// Defensive validation
 			if n.MSISDN == "" || n.ProductID == 0 {
 				m.logger.Warn("skipping notification with empty MSISDN or ProductID",
-					zap.String("msisdn", n.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 					zap.Int("productId", n.ProductID),
 					zap.Int("notificationId", n.ID))
 				skippedCount++
@@ -369,7 +370,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 			productIDStr := fmt.Sprintf("%d", n.ProductID)
 			if !m.isProductConfigured(productIDStr) {
 				m.logger.Debug("skipping notification for unconfigured product",
-					zap.String("msisdn", n.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 					zap.Int("productId", n.ProductID),
 					zap.Strings("configuredProducts", m.cfg.ProductIds))
 				skippedCount++
@@ -380,7 +381,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 			// Enhanced: Check if the entry channel is valid for processing
 			if !m.isEntryChannelValid(n.EntryChannel) {
 				m.logger.Debug("skipping notification with invalid entry channel",
-					zap.String("msisdn", n.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 					zap.Int("productId", n.ProductID),
 					zap.String("invalidEntryChannel", n.EntryChannel),
 					zap.Strings("configuredEntryChannels", m.cfg.EntryChannels))
@@ -393,7 +394,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 			processingKey := m.generateOptoutProcessingKey(n.MSISDN, n.ProductID, n.CreatedAt)
 			if m.isOptoutAlreadyProcessed(processingKey) {
 				m.logger.Debug("skipping already processed opt-out",
-					zap.String("msisdn", n.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 					zap.Int("productId", n.ProductID),
 					zap.Time("createdAt", n.CreatedAt),
 					zap.String("processingKey", processingKey))
@@ -405,7 +406,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 			currentStatus, lastOptinTime, err := m.getCurrentSubscriptionState(n.MSISDN, n.ProductID)
 			if err != nil {
 				m.logger.Error("failed to get current subscription state",
-					zap.String("msisdn", n.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 					zap.Int("productId", n.ProductID),
 					zap.Error(err))
 				incError("USER_OPTOUT", "get_subscription_state")
@@ -417,7 +418,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 			// Enhanced: Skip processing if opt-out is older than the last opt-in
 			if lastOptinTime != nil && n.CreatedAt.Before(*lastOptinTime) {
 				m.logger.Info("skipping opt-out that occurred before last opt-in",
-					zap.String("msisdn", n.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 					zap.Int("productId", n.ProductID),
 					zap.Time("optoutTime", n.CreatedAt),
 					zap.Time("lastOptinTime", *lastOptinTime),
@@ -432,7 +433,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 			// Enhanced: Handle case where subscription is already inactive
 			if currentStatus == "inactive" {
 				m.logger.Debug("subscription already inactive, skipping opt-out processing",
-					zap.String("msisdn", n.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 					zap.Int("productId", n.ProductID),
 					zap.String("currentStatus", currentStatus))
 				// Mark as processed to avoid re-processing
@@ -445,7 +446,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 			// Mark as being processed to prevent race conditions
 			if !m.markOptoutAsProcessing(processingKey) {
 				m.logger.Debug("opt-out already being processed by another instance",
-					zap.String("msisdn", n.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 					zap.Int("productId", n.ProductID),
 					zap.String("processingKey", processingKey))
 				duplicateCount++
@@ -455,7 +456,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 			// 1) upsert subscription as inactive
 			if err := m.repo.UpsertSubscriptionStatus(n.MSISDN, n.ProductID, "inactive"); err != nil {
 				m.logger.Error("upsert inactive failed",
-					zap.String("msisdn", n.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 					zap.Int("productId", n.ProductID),
 					zap.Error(err))
 				incError("USER_OPTOUT", "upsert_inactive")
@@ -472,7 +473,7 @@ func (m *NotificationMonitor) processUserOptout() error {
 				// 3) mark active on success
 				if err := m.repo.UpsertSubscriptionStatus(n.MSISDN, n.ProductID, "active"); err != nil {
 					m.logger.Error("failed to mark subscription active after successful optin",
-						zap.String("msisdn", n.MSISDN),
+						zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 						zap.Int("productId", n.ProductID),
 						zap.Error(err))
 					incError("USER_OPTOUT", "mark_active_failed")
@@ -481,14 +482,14 @@ func (m *NotificationMonitor) processUserOptout() error {
 					incOptinSuccess()
 					successCount++
 					m.logger.Info("successfully processed opt-out notification with opt-in",
-						zap.String("msisdn", n.MSISDN),
+						zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 						zap.Int("productId", n.ProductID),
 						zap.String("notificationEntryChannel", n.EntryChannel),
 						zap.Strings("configuredEntryChannels", m.cfg.EntryChannels))
 				}
 			} else {
 				m.logger.Warn("optin attempt failed after optout",
-					zap.String("msisdn", n.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
 					zap.Int("productId", n.ProductID),
 					zap.String("notificationEntryChannel", n.EntryChannel),
 					zap.Strings("configuredEntryChannels", m.cfg.EntryChannels))
@@ -565,7 +566,7 @@ func (m *NotificationMonitor) attemptOptinWithConfiguredChannels(msisdn string, 
 	if originalEntryChannel != "" {
 		if m.isEntryChannelConfigured(originalEntryChannel) {
 			m.logger.Debug("original entry channel is configured, will try it first",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.String("productId", productIDStr),
 				zap.String("originalEntryChannel", originalEntryChannel))
 
@@ -575,14 +576,14 @@ func (m *NotificationMonitor) attemptOptinWithConfiguredChannels(msisdn string, 
 			channelsToTry = m.removeDuplicateChannels(channelsToTry)
 		} else {
 			m.logger.Debug("original entry channel is not configured, using only configured channels",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.String("productId", productIDStr),
 				zap.String("originalEntryChannel", originalEntryChannel),
 				zap.Strings("configuredChannels", m.cfg.EntryChannels))
 		}
 	} else {
 		m.logger.Debug("no original entry channel specified, using configured channels",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", productIDStr),
 			zap.Strings("configuredChannels", m.cfg.EntryChannels))
 	}
@@ -605,7 +606,7 @@ func (m *NotificationMonitor) attemptOptinWithResilience(msisdn, productIDStr, c
 	// Enhanced: Check circuit breaker state before attempting
 	if m.isCircuitBreakerOpen() {
 		m.logger.Debug("circuit breaker is OPEN, skipping opt-in attempt",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", productIDStr),
 			zap.String("entryChannel", channel))
 		return false
@@ -619,7 +620,7 @@ func (m *NotificationMonitor) attemptOptinWithResilience(msisdn, productIDStr, c
 		// Enhanced: Check if we should continue based on error patterns
 		if m.shouldSkipOptinAttempt(msisdn, productIDStr, channel) {
 			m.logger.Debug("skipping opt-in attempt due to recent failures",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.String("productId", productIDStr),
 				zap.String("entryChannel", channel),
 				zap.Int("attempt", attempt))
@@ -638,7 +639,7 @@ func (m *NotificationMonitor) attemptOptinWithResilience(msisdn, productIDStr, c
 		if err == nil {
 			// Success! Log and return
 			m.logger.Info("optin successful with configured channel",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.String("productId", productIDStr),
 				zap.String("entryChannel", channel),
 				zap.Int("attempt", attempt))
@@ -651,7 +652,7 @@ func (m *NotificationMonitor) attemptOptinWithResilience(msisdn, productIDStr, c
 		// Enhanced: Analyze error type and handle accordingly
 		errorType := m.classifyOptinError(err)
 		m.logger.Debug("optin attempt failed with channel",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", productIDStr),
 			zap.String("entryChannel", channel),
 			zap.Int("attempt", attempt),
@@ -664,7 +665,7 @@ func (m *NotificationMonitor) attemptOptinWithResilience(msisdn, productIDStr, c
 		// Enhanced: Check if this is a permanent failure that shouldn't be retried
 		if m.isPermanentOptinFailure(err) {
 			m.logger.Warn("permanent opt-in failure detected, not retrying",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.String("productId", productIDStr),
 				zap.String("entryChannel", channel),
 				zap.String("errorType", errorType),
@@ -683,7 +684,7 @@ func (m *NotificationMonitor) attemptOptinWithResilience(msisdn, productIDStr, c
 			}
 
 			m.logger.Debug("waiting before retry",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.String("productId", productIDStr),
 				zap.String("entryChannel", channel),
 				zap.Int("attempt", attempt),
@@ -701,7 +702,7 @@ func (m *NotificationMonitor) attemptOptinWithResilience(msisdn, productIDStr, c
 
 	// Enhanced: Log final failure with comprehensive details
 	m.logger.Warn("all opt-in attempts failed after retries",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", productIDStr),
 		zap.String("entryChannel", channel),
 		zap.Int("maxRetries", m.cfg.MaxRetries),
@@ -940,7 +941,7 @@ func (m *NotificationMonitor) getCurrentSubscriptionState(msisdn string, product
 	if err != nil {
 		// Log error but don't fail - we can still process without this info
 		m.logger.Warn("failed to get last opt-in time",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int("productId", productID),
 			zap.Error(err))
 	}
@@ -1002,7 +1003,7 @@ func (m *NotificationMonitor) processRenewal() error {
 			// Ensure subscription record exists and is active
 			if err := m.repo.UpsertSubscriptionStatus(sub.MSISDN, sub.ProductID, "active"); err != nil {
 				m.logger.Error("upsert active failed for renewal",
-					zap.String("msisdn", sub.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 					zap.Int("productId", sub.ProductID),
 					zap.Error(err))
 				incError("RENEWAL", "upsert_active")
@@ -1013,7 +1014,7 @@ func (m *NotificationMonitor) processRenewal() error {
 			tenantRoute, routeErr := m.userSvc.TenantRouteForSubscription(sub.MSISDN, sub.ProductID)
 			if routeErr != nil {
 				m.logger.Warn("cannot resolve tenant route for notification monitor resubscribe, skipping",
-					zap.String("msisdn", sub.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 					zap.Int("productId", sub.ProductID),
 					zap.Error(routeErr))
 				incError("RENEWAL", "tenant_route")
@@ -1023,7 +1024,7 @@ func (m *NotificationMonitor) processRenewal() error {
 			// This will trigger the opt-out/opt-in renewal cycle
 			if err := m.userSvc.ResubscribeUser(sub.MSISDN, sub.EntryChannel, []string{fmt.Sprintf("%d", sub.ProductID)}, tenantRoute); err != nil {
 				m.logger.Warn("resubscribe failed for renewal candidate",
-					zap.String("msisdn", sub.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 					zap.Int("productId", sub.ProductID),
 					zap.String("entryChannel", sub.EntryChannel),
 					zap.Error(err))
@@ -1031,7 +1032,7 @@ func (m *NotificationMonitor) processRenewal() error {
 			} else {
 				incResubscribeSuccess()
 				m.logger.Info("renewal resubscribe initiated",
-					zap.String("msisdn", sub.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 					zap.Int("productId", sub.ProductID))
 			}
 
@@ -1100,19 +1101,19 @@ func (m *NotificationMonitor) processGhostSubscriptions() error {
 				// Mark as active on success
 				if err := m.repo.UpsertSubscriptionStatus(sub.MSISDN, sub.ProductID, "active"); err != nil {
 					m.logger.Error("failed to mark ghost subscription active after re-optin",
-						zap.String("msisdn", sub.MSISDN),
+						zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 						zap.Int("productId", sub.ProductID),
 						zap.Error(err))
 					incError("GHOST_SUBS", "mark_active_failed")
 				} else {
 					incOptinSuccess()
 					m.logger.Info("successfully processed ghost subscription re-optin",
-						zap.String("msisdn", sub.MSISDN),
+						zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 						zap.Int("productId", sub.ProductID))
 				}
 			} else {
 				m.logger.Warn("re-optin attempt failed for ghost subscription",
-					zap.String("msisdn", sub.MSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 					zap.Int("productId", sub.ProductID),
 					zap.String("entryChannel", sub.EntryChannel))
 				incError("GHOST_SUBS", "re_optin_failed")

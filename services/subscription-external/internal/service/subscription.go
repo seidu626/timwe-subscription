@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/seidu626/subscription-manager/common/config"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"github.com/sony/gobreaker"
@@ -305,7 +306,7 @@ func (s *SubscriptionService) ProcessOptin(req *domain.OptinRequest) error {
 			s.logger.Error("PANIC RECOVERED in ProcessOptin",
 				zap.Any("panic_value", r),
 				zap.String("panic_type", fmt.Sprintf("%T", r)),
-				zap.String("msisdn", req.Msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 				zap.Strings("product_ids", req.ProductIds),
 				zap.String("entry_channel", req.EntryChannel),
 				zap.String("timestamp", time.Now().Format(time.RFC3339)),
@@ -324,13 +325,13 @@ func (s *SubscriptionService) ProcessOptin(req *domain.OptinRequest) error {
 	// Check if MSISDN is excluded (Staff, Premier, or Blacklisted) and exclude from processing
 	isExcluded, err := s.UserBaseRepository.IsExcludedUser(req.Msisdn)
 	if err != nil {
-		s.logger.Error("Failed to check MSISDN type", zap.String("msisdn", req.Msisdn), zap.Error(err))
+		s.logger.Error("Failed to check MSISDN type", zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)), zap.Error(err))
 		return fmt.Errorf("failed to check MSISDN type for %s: %w", req.Msisdn, err)
 	}
 
 	if isExcluded {
 		s.logger.Info("MSISDN is excluded type (Staff/Premier/Blacklisted), excluding from optin processing",
-			zap.String("msisdn", req.Msisdn))
+			zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)))
 		return fmt.Errorf("MSISDN %s is excluded type and cannot be processed for optin", req.Msisdn)
 	}
 
@@ -356,7 +357,7 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 			s.logger.Error("PANIC RECOVERED in processOptinForProduct",
 				zap.Any("panic_value", r),
 				zap.String("panic_type", fmt.Sprintf("%T", r)),
-				zap.String("msisdn", req.Msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 				zap.String("product_id", product.ProductId),
 				zap.String("product_name", product.Name),
 				zap.String("timestamp", time.Now().Format(time.RFC3339)),
@@ -373,14 +374,14 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 	// validationResult, err := s.msisdnValidator.ValidateMSISDN(context.Background(), req.Msisdn)
 	// if err != nil {
 	// 	s.logger.Error("MSISDN validation error",
-	// 		zap.String("msisdn", req.Msisdn),
+	// 		zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 	// 		zap.Error(err))
 	// 	return fmt.Errorf("MSISDN validation error: %w", err)
 	// }
 
 	// if !validationResult.IsValid {
 	// 	s.logger.Warn("INVALID_MSISDN detected before API call - preventing external request",
-	// 		zap.String("msisdn", req.Msisdn),
+	// 		zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 	// 		zap.String("reason", validationResult.ErrorReason),
 	// 		zap.String("operator", validationResult.Operator))
 
@@ -400,7 +401,7 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 	// req.Msisdn = validationResult.FormattedMSISDN
 
 	// s.logger.Info("MSISDN validation passed",
-	// 	zap.String("msisdn", req.Msisdn),
+	// 	zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 	// 	zap.String("operator", validationResult.Operator))
 
 	txId := uuid.New().String()
@@ -436,14 +437,14 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 	realm := s.config.Application.TIMWE.Realm
 	response, err := s.SendMT(mtReq, realm, req.EntryChannel)
 	if err != nil {
-		s.logger.Error("Error sending MT for msisdn", zap.String("msisdn", req.Msisdn), zap.Error(err))
+		s.logger.Error("Error sending MT for msisdn", zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)), zap.Error(err))
 		return err
 	}
 
 	// Check if we need to retry with SMS entry channel
 	if s.shouldRetryWithSMS(response) {
 		s.logger.Info("OPTIN_CONFIG_NOT_FOUND detected, retrying with SMS entry channel",
-			zap.String("msisdn", req.Msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 			zap.String("productId", product.ProductId),
 			zap.String("originalChannel", req.EntryChannel))
 
@@ -451,12 +452,12 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 		mtReq.EntryChannel = "SMS"
 		response, err = s.SendMT(mtReq, realm, "SMS")
 		if err != nil {
-			s.logger.Error("Error sending MT retry with SMS for msisdn", zap.String("msisdn", req.Msisdn), zap.Error(err))
+			s.logger.Error("Error sending MT retry with SMS for msisdn", zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)), zap.Error(err))
 			return err
 		}
 
 		s.logger.Info("Retry with SMS completed",
-			zap.String("msisdn", req.Msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 			zap.String("productId", product.ProductId),
 			zap.String("retryChannel", "SMS"),
 			zap.String("responseCode", response.Code))
@@ -465,7 +466,7 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 	// After retry (if any), check if we still have OPTIN_CONFIG_NOT_FOUND
 	if s.shouldRetryWithSMS(response) {
 		s.logger.Error("OPTIN_CONFIG_NOT_FOUND still present after SMS retry, cannot proceed",
-			zap.String("msisdn", req.Msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 			zap.String("productId", product.ProductId),
 			zap.String("finalChannel", mtReq.EntryChannel))
 		return fmt.Errorf("OPTIN_CONFIG_NOT_FOUND persists after SMS retry for msisdn %s, product %s", req.Msisdn, product.ProductId)
@@ -476,7 +477,7 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 		transactionIdStr, err := s.getTransactionID(response)
 		if err != nil {
 			s.logger.Error("Failed to get transaction ID",
-				zap.String("msisdn", req.Msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 				zap.Error(err),
 				zap.Any("responseData", response.ResponseData))
 			return fmt.Errorf("failed to get transaction ID for msisdn %s: %w", req.Msisdn, err)
@@ -484,10 +485,10 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 
 		if s.isSubscriptionAlreadyActive(response) {
 			s.logger.Info("User already has active subscription, skipping database save",
-				zap.String("msisdn", req.Msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 				zap.String("productId", product.ProductId))
 			if err := s.HandleAlreadyActiveSubscription(req.Msisdn, product, req.EntryChannel); err != nil {
-				s.logger.Error("Error handling already active subscription", zap.String("msisdn", req.Msisdn), zap.Error(err))
+				s.logger.Error("Error handling already active subscription", zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)), zap.Error(err))
 				return err
 			}
 			return nil
@@ -500,11 +501,11 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 
 		if s.isSubscriptionWaitingForCharging(response) {
 			s.logger.Info("User subscription is active and waiting for charging",
-				zap.String("msisdn", req.Msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 				zap.String("productId", product.ProductId))
 
 			if err := s.HandleWaitingForChargingSubscription(req.Msisdn, product, req.EntryChannel, transactionIdStr, partnerRoleId, mtReq); err != nil {
-				s.logger.Error("Error handling waiting for charging subscription", zap.String("msisdn", req.Msisdn), zap.Error(err))
+				s.logger.Error("Error handling waiting for charging subscription", zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)), zap.Error(err))
 				return err
 			}
 			return nil
@@ -518,12 +519,12 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 		}
 
 		s.logger.Info("Subscription saved successfully",
-			zap.String("msisdn", req.Msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 			zap.String("transactionId", transactionIdStr),
 			zap.String("productId", product.ProductId))
 	} else {
 		s.logger.Warn("MT request did not return SUCCESS code",
-			zap.String("msisdn", req.Msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 			zap.String("code", response.Code),
 			zap.String("requestId", response.RequestID))
 	}
@@ -701,7 +702,7 @@ func (s *SubscriptionService) ResubscribeUser(msisdn string, entryChannel string
 			CancelSource:          0,
 		}
 		if _, err := s.SendOptout(optoutReq, s.config.Application.TIMWE.Realm); err != nil {
-			s.logger.Error("Failed to optout before resubscribe", zap.String("msisdn", msisdn), zap.String("productId", product.ProductId), zap.Error(err))
+			s.logger.Error("Failed to optout before resubscribe", zap.String("msisdn", pii.MaskMSISDN(msisdn)), zap.String("productId", product.ProductId), zap.Error(err))
 			// continue to next product rather than aborting all
 			continue
 		}
@@ -715,7 +716,7 @@ func (s *SubscriptionService) ResubscribeUser(msisdn string, entryChannel string
 			TenantRoute:  tenantRoute,
 		}
 		if err := s.ProcessOptin(optinReq); err != nil {
-			s.logger.Error("Failed to optin after optout", zap.String("msisdn", msisdn), zap.String("productId", product.ProductId), zap.Error(err))
+			s.logger.Error("Failed to optin after optout", zap.String("msisdn", pii.MaskMSISDN(msisdn)), zap.String("productId", product.ProductId), zap.Error(err))
 			// continue to next product
 			continue
 		}
@@ -744,7 +745,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 			s.logger.Error("PANIC RECOVERED in SendMT",
 				zap.Any("panic_value", r),
 				zap.String("panic_type", fmt.Sprintf("%T", r)),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.Int("product_id", reqData.ProductID),
 				zap.String("realm", realm),
 				zap.String("channel", channel),
@@ -808,7 +809,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 	// Check if we need to retry with SMS entry channel for OPTIN_CONFIG_NOT_FOUND
 	if s.shouldRetryWithSMS(resp) {
 		s.logger.Info("OPTIN_CONFIG_NOT_FOUND detected in SendMT, retrying with SMS entry channel",
-			zap.String("msisdn", reqData.UserIdentifier),
+			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 			zap.String("originalChannel", channel))
 
 		// Retry with SMS entry channel
@@ -829,12 +830,12 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 
 		resp, callErr = s.sendMTWithRetry(mtReqCopy, url, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MTAPIKey }, providerCfg.APIKey), authKey, requestBody, 3)
 		if callErr != nil {
-			s.logger.Error("Error sending MT retry with SMS", zap.String("msisdn", reqData.UserIdentifier), zap.Error(callErr))
+			s.logger.Error("Error sending MT retry with SMS", zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)), zap.Error(callErr))
 			return nil, callErr
 		}
 
 		s.logger.Info("SendMT retry with SMS completed",
-			zap.String("msisdn", reqData.UserIdentifier),
+			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 			zap.String("retryChannel", "SMS"),
 			zap.String("responseCode", resp.Code))
 	}
@@ -868,7 +869,7 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 			s.logger.Error("PANIC RECOVERED in sendMTWithRetry",
 				zap.Any("panic_value", r),
 				zap.String("panic_type", fmt.Sprintf("%T", r)),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.Int("product_id", reqData.ProductID),
 				zap.String("url", url),
 				zap.Int("max_retries", maxRetries),
@@ -929,7 +930,7 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 			if err != nil {
 				s.logger.Warn("Failed to send request",
 					zap.Int("attempt", attempt),
-					zap.String("msisdn", reqData.UserIdentifier),
+					zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 					zap.Error(err))
 
 				if attempt == maxRetries {
@@ -951,7 +952,7 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 
 			s.logger.Warn("Request timeout, retrying",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.Error(ctx.Err()))
 
 			// Exponential backoff for timeout errors
@@ -969,7 +970,7 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 				zap.Int("attempt", attempt),
 				zap.Int("statusCode", res.StatusCode()),
 				zap.String("responseBody", string(res.Body())),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("url", url))
 
 			if attempt == maxRetries {
@@ -987,7 +988,7 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 		if err := json.Unmarshal(res.Body(), &mtResponse); err != nil {
 			s.logger.Error("Failed to parse response",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.Error(err))
 
 			if attempt == maxRetries {
@@ -1003,7 +1004,7 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 		// Log the raw response for debugging
 		s.logger.Info("MT API response received",
 			zap.Int("attempt", attempt),
-			zap.String("msisdn", reqData.UserIdentifier),
+			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 			zap.String("code", mtResponse.Code),
 			zap.Bool("inError", mtResponse.InError),
 			zap.String("requestId", mtResponse.RequestID),
@@ -1013,12 +1014,12 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 		if mtResponse.Code == ResponseCodeInternalError {
 			s.logger.Warn("MT request failed with internal error, retrying",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("requestId", mtResponse.RequestID))
 
 			if attempt == maxRetries {
 				s.logger.Error("MT request failed with internal error after all retries",
-					zap.String("msisdn", reqData.UserIdentifier),
+					zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 					zap.String("requestId", mtResponse.RequestID))
 				return nil, fmt.Errorf("MT request failed with internal error after %d attempts: requestId=%s", maxRetries, mtResponse.RequestID)
 			}
@@ -1028,7 +1029,7 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 			s.logger.Info("Retrying MT request after INTERNAL_ERROR",
 				zap.Int("attempt", attempt+1),
 				zap.Duration("delay", delay),
-				zap.String("msisdn", reqData.UserIdentifier))
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)))
 			time.Sleep(delay)
 			continue
 		}
@@ -1037,7 +1038,7 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 		if err := s.validateMTResponse(&mtResponse, reqData); err != nil {
 			s.logger.Error("MT response validation failed",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.Error(err))
 
 			return nil, err
@@ -1048,12 +1049,12 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 		case ResponseCodeSuccess:
 			s.logger.Info("MT request successful",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("requestId", mtResponse.RequestID))
 		default:
 			s.logger.Warn("MT request returned unexpected code",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("code", mtResponse.Code),
 				zap.String("requestId", mtResponse.RequestID))
 		}
@@ -1083,7 +1084,7 @@ func (s *SubscriptionService) validateMTResponse(response *domain.MTResponse, mt
 	// Handle BLACKLISTED responses by adding user to blacklist and removing subscriptions
 	if response.Code == ResponseCodeBlacklisted {
 		s.logger.Warn("BLACKLISTED response received, adding user to blacklist and removing subscriptions",
-			zap.String("msisdn", mtReq.UserIdentifier),
+			zap.String("msisdn", pii.MaskMSISDN(mtReq.UserIdentifier)),
 			zap.String("requestId", response.RequestID))
 
 		// Enhanced: Process blacklisted user handling asynchronously for better performance
@@ -1411,7 +1412,7 @@ func (s *SubscriptionService) detectAndLogInvalidMSISDN(response *domain.MTRespo
 	// If INVALID_MSISDN is detected, log it and clean up subscriptions
 	if isInvalidMSISDN {
 		s.logger.Warn("INVALID_MSISDN detected, logging for reference and cleaning up subscriptions",
-			zap.String("msisdn", mtReq.UserIdentifier),
+			zap.String("msisdn", pii.MaskMSISDN(mtReq.UserIdentifier)),
 			zap.String("responseCode", response.Code),
 			zap.String("subscriptionResult", subscriptionResult),
 			zap.String("subscriptionError", subscriptionError))
@@ -1435,7 +1436,7 @@ func (s *SubscriptionService) detectAndLogInvalidMSISDN(response *domain.MTRespo
 		// Save to database (non-blocking)
 		if err := s.repo.CreateInvalidMSISDNLog(logEntry); err != nil {
 			s.logger.Error("Failed to save invalid MSISDN log",
-				zap.String("msisdn", mtReq.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(mtReq.UserIdentifier)),
 				zap.Error(err))
 		}
 
@@ -1453,13 +1454,13 @@ func (s *SubscriptionService) handleInvalidMSISDNCleanup(msisdn string, productI
 		duration := time.Since(startTime)
 		if success {
 			s.logger.Info("Invalid MSISDN cleanup completed successfully",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("productId", productId),
 				zap.String("requestId", requestID),
 				zap.Duration("duration", duration))
 		} else {
 			s.logger.Error("Invalid MSISDN cleanup failed",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("productId", productId),
 				zap.String("requestId", requestID),
 				zap.Duration("duration", duration))
@@ -1470,14 +1471,14 @@ func (s *SubscriptionService) handleInvalidMSISDNCleanup(msisdn string, productI
 	hasSubscriptions, err := s.hasSubscription(msisdn)
 	if err != nil {
 		s.logger.Error("Failed to check subscription existence for cleanup",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		return
 	}
 
 	if !hasSubscriptions {
 		s.logger.Debug("No subscriptions found for invalid MSISDN, skipping cleanup",
-			zap.String("msisdn", msisdn))
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)))
 		success = true
 		return
 	}
@@ -1489,14 +1490,14 @@ func (s *SubscriptionService) handleInvalidMSISDNCleanup(msisdn string, productI
 		if err == nil {
 			success = true
 			s.logger.Info("Successfully deleted all subscription records for invalid MSISDN",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("attempt", attempt))
 			break
 		}
 
 		// Log retry attempt
 		s.logger.Warn("Failed to delete subscription records for invalid MSISDN, retrying",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int("attempt", attempt),
 			zap.Int("maxRetries", maxRetries),
 			zap.Error(err))
@@ -1511,7 +1512,7 @@ func (s *SubscriptionService) handleInvalidMSISDNCleanup(msisdn string, productI
 	// If all retries failed, log the final error
 	if !success {
 		s.logger.Error("Failed to delete subscription records for invalid MSISDN after all retries",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int("maxRetries", maxRetries),
 			zap.Error(err))
 	}
@@ -1597,7 +1598,7 @@ func (s *SubscriptionService) BatchHandleInvalidMSISDNs(responses []*domain.MTRe
 
 	s.logger.Info("Found INVALID_MSISDN responses in batch, processing cleanup",
 		zap.Int("invalidCount", len(invalidMSISDNs)),
-		zap.Strings("invalidMSISDNs", invalidMSISDNs))
+		zap.Strings("invalidMSISDNs", pii.MaskMSISDNs(invalidMSISDNs)))
 
 	// Step 1: Batch log all invalid MSISDNs
 	s.batchCreateInvalidMSISDNLogs(invalidMSISDNLogs)
@@ -1677,7 +1678,7 @@ func (s *SubscriptionService) batchCreateInvalidMSISDNLogs(logs []*domain.Invali
 				defer wg.Done()
 				if err := s.repo.CreateInvalidMSISDNLog(log); err != nil {
 					s.logger.Error("Failed to save invalid MSISDN log in batch",
-						zap.String("msisdn", log.MSISDN),
+						zap.String("msisdn", pii.MaskMSISDN(log.MSISDN)),
 						zap.Error(err))
 				}
 			}(logEntry)
@@ -1733,7 +1734,7 @@ func (s *SubscriptionService) batchCleanupInvalidMSISDNSubscriptions(cleanupTask
 // DEPRECATED: This method is kept for backward compatibility but now delegates to the renewal service
 func (s *SubscriptionService) SendRenewalRequest(msisdn string, product *domain.Product, entryChannel string) error {
 	s.logger.Warn("SendRenewalRequest is deprecated, use renewalService.SendRenewalRequest instead",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId))
 
 	// Use the new renewal system
@@ -1741,7 +1742,7 @@ func (s *SubscriptionService) SendRenewalRequest(msisdn string, product *domain.
 	response, err := s.renewalService.SendRenewalRequest(ctx, msisdn, product, entryChannel)
 	if err != nil {
 		s.logger.Error("Error sending renewal request via renewal service",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId),
 			zap.Error(err))
 		return fmt.Errorf("error sending renewal request via renewal service: %w", err)
@@ -1749,7 +1750,7 @@ func (s *SubscriptionService) SendRenewalRequest(msisdn string, product *domain.
 
 	// Log the renewal response
 	s.logger.Info("Renewal request processed successfully via renewal service",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId),
 		zap.String("status", response.Status),
 		zap.Bool("success", response.Success))
@@ -1760,7 +1761,7 @@ func (s *SubscriptionService) SendRenewalRequest(msisdn string, product *domain.
 // HandleAlreadyActiveSubscription handles the case when a subscription is already active
 func (s *SubscriptionService) HandleAlreadyActiveSubscription(msisdn string, product *domain.Product, entryChannel string) error {
 	s.logger.Info("Handling already active subscription",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId))
 
 	// Check if subscription exists in our database
@@ -1779,7 +1780,7 @@ func (s *SubscriptionService) HandleAlreadyActiveSubscription(msisdn string, pro
 	// If subscription doesn't exist in our database, insert it
 	if !subscriptionExists {
 		s.logger.Info("Subscription not found in database, inserting",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId))
 
 		// Create a dummy transaction ID for existing subscription
@@ -1814,7 +1815,7 @@ func (s *SubscriptionService) HandleAlreadyActiveSubscription(msisdn string, pro
 		}
 
 		s.logger.Info("Existing subscription saved to database",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId))
 	}
 
@@ -1828,7 +1829,7 @@ func (s *SubscriptionService) HandleAlreadyActiveSubscription(msisdn string, pro
 	// If no renewal notification was sent this month, send one
 	if !renewalNotificationExists {
 		s.logger.Info("No renewal notification found for current month, sending renewal request",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId))
 
 		if err := s.SendRenewalRequest(msisdn, product, entryChannel); err != nil {
@@ -1837,11 +1838,11 @@ func (s *SubscriptionService) HandleAlreadyActiveSubscription(msisdn string, pro
 		}
 
 		s.logger.Info("Renewal request sent successfully",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId))
 	} else {
 		s.logger.Info("Renewal notification already sent this month, skipping",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId))
 	}
 
@@ -1853,7 +1854,7 @@ func (s *SubscriptionService) HandleWaitingForChargingSubscription(msisdn string
 	ctx := context.Background()
 
 	s.logger.Info("Handling waiting for charging subscription",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId))
 
 	// Check if subscription exists in our database with retry logic
@@ -1887,7 +1888,7 @@ func (s *SubscriptionService) HandleWaitingForChargingSubscription(msisdn string
 	go s.scheduleChargingStatusMonitoring(ctx, msisdn, product, transactionIdStr)
 
 	s.logger.Info("Successfully handled waiting for charging subscription",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId))
 
 	return nil
@@ -1896,7 +1897,7 @@ func (s *SubscriptionService) HandleWaitingForChargingSubscription(msisdn string
 // CheckChargingStatus checks the charging status for a subscription that is waiting for charging
 func (s *SubscriptionService) CheckChargingStatus(msisdn string, product *domain.Product, transactionId string) error {
 	s.logger.Info("Checking charging status for subscription",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId),
 		zap.String("transactionId", transactionId))
 
@@ -1926,19 +1927,19 @@ func (s *SubscriptionService) CheckChargingStatus(msisdn string, product *domain
 	realm := s.config.Application.TIMWE.Realm
 	statusResponse, err := s.SendStatusCheck(statusReq, realm)
 	if err != nil {
-		s.logger.Error("Error checking charging status", zap.String("msisdn", msisdn), zap.Error(err))
+		s.logger.Error("Error checking charging status", zap.String("msisdn", pii.MaskMSISDN(msisdn)), zap.Error(err))
 		return fmt.Errorf("error checking charging status for msisdn %s: %w", msisdn, err)
 	}
 
 	// Log the status response
 	s.logger.Info("Charging status response received",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("code", statusResponse.Code),
 		zap.String("requestId", statusResponse.RequestID),
 		zap.Any("responseData", statusResponse.ResponseData))
 
 	s.logger.Info("Charging status check completed",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId),
 		zap.String("status", statusResponse.Code))
 
@@ -2110,7 +2111,7 @@ func (s *SubscriptionService) checkSubscriptionExistsWithRetry(msisdn string, pr
 
 		if attempt == maxRetries {
 			s.logger.Error("Failed to check subscription existence after all retries",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Error(err))
 			return false, fmt.Errorf("failed to check subscription existence: %w", err)
 		}
@@ -2129,7 +2130,7 @@ func (s *SubscriptionService) checkSubscriptionExistsWithRetry(msisdn string, pr
 // createSubscriptionForChargingStatus creates a subscription for charging status handling
 func (s *SubscriptionService) createSubscriptionForChargingStatus(msisdn string, product *domain.Product, entryChannel string, partnerRoleId int) error {
 	s.logger.Info("Subscription not found in database, inserting",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId))
 
 	// Create a dummy transaction ID for existing subscription
@@ -2176,7 +2177,7 @@ func (s *SubscriptionService) createSubscriptionForChargingStatus(msisdn string,
 	}
 
 	s.logger.Info("Existing subscription saved to database",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId))
 
 	return nil
@@ -2194,7 +2195,7 @@ func (s *SubscriptionService) handleChargingStatusWithRenewalSystem(ctx context.
 	switch churnAction {
 	case domain.ActionGracePeriod:
 		s.logger.Info("Subscription in grace period, scheduling renewal",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId))
 
 		// Schedule renewal via renewal service
@@ -2205,7 +2206,7 @@ func (s *SubscriptionService) handleChargingStatusWithRenewalSystem(ctx context.
 
 	case domain.ActionChurn:
 		s.logger.Warn("Subscription marked for churn due to charging issues",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId))
 
 		// Process churn via renewal service
@@ -2216,12 +2217,12 @@ func (s *SubscriptionService) handleChargingStatusWithRenewalSystem(ctx context.
 
 	case domain.ActionNoAction:
 		s.logger.Info("Subscription in normal state, no renewal action needed",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId))
 
 	default:
 		s.logger.Info("Unknown churn action, treating as normal",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId),
 			zap.String("action", string(churnAction)))
 	}
@@ -2244,12 +2245,12 @@ func (s *SubscriptionService) scheduleRenewalForChargingStatus(msisdn string, pr
 		}
 
 		s.logger.Info("Renewal scheduled for charging status subscription via renewal service",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId),
 			zap.String("status", response.Status))
 	} else {
 		s.logger.Warn("Renewal service not available, skipping renewal scheduling",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", product.ProductId))
 	}
 
@@ -2272,28 +2273,28 @@ func (s *SubscriptionService) scheduleChargingStatusMonitoring(ctx context.Conte
 		select {
 		case <-ctx.Done():
 			s.logger.Info("Charging status monitoring stopped due to context cancellation",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.String("productId", product.ProductId))
 			return
 		case <-ticker.C:
 			checkCount++
 
 			s.logger.Info("Performing periodic charging status check",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.String("productId", product.ProductId),
 				zap.Int("checkCount", checkCount),
 				zap.Int("maxChecks", maxChecks))
 
 			if err := s.CheckChargingStatus(msisdn, product, transactionIdStr); err != nil {
 				s.logger.Error("Periodic charging status check failed",
-					zap.String("msisdn", msisdn),
+					zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 					zap.Error(err))
 			}
 
 			// Stop monitoring after max checks
 			if checkCount >= maxChecks {
 				s.logger.Info("Charging status monitoring completed",
-					zap.String("msisdn", msisdn),
+					zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 					zap.String("productId", product.ProductId),
 					zap.Int("totalChecks", checkCount))
 				return
@@ -2331,7 +2332,7 @@ func (s *SubscriptionService) SendStatusCheck(reqData domain.GetStatusRequest, r
 		}
 
 		s.logger.Info("OPTIN_CONFIG_NOT_FOUND detected in SendStatusCheck, retrying with SMS entry channel",
-			zap.String("msisdn", reqData.UserIdentifier),
+			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 			zap.String("originalChannel", entryChannel))
 
 		// Retry with SMS entry channel
@@ -2339,12 +2340,12 @@ func (s *SubscriptionService) SendStatusCheck(reqData domain.GetStatusRequest, r
 		statusReqCopy.EntryChannel = stringPtr("SMS")
 		result, callErr = s.sendStatusCheckWithRetry(statusReqCopy, realm)
 		if callErr != nil {
-			s.logger.Error("Error sending status check retry with SMS", zap.String("msisdn", reqData.UserIdentifier), zap.Error(callErr))
+			s.logger.Error("Error sending status check retry with SMS", zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)), zap.Error(callErr))
 			return nil, callErr
 		}
 
 		s.logger.Info("SendStatusCheck retry with SMS completed",
-			zap.String("msisdn", reqData.UserIdentifier),
+			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 			zap.String("retryChannel", "SMS"),
 			zap.String("responseCode", result.Code))
 	}
@@ -2412,7 +2413,7 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 		if err = s.client.Do(req, res); err != nil {
 			s.logger.Warn("Failed to send status check request",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.Error(err))
 
 			fasthttp.ReleaseRequest(req)
@@ -2434,7 +2435,7 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 				zap.Int("attempt", attempt),
 				zap.Int("statusCode", res.StatusCode()),
 				zap.String("responseBody", string(res.Body())),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("url", url))
 
 			fasthttp.ReleaseRequest(req)
@@ -2455,7 +2456,7 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 		if err := json.Unmarshal(res.Body(), &mtResponse); err != nil {
 			s.logger.Error("Failed to parse status check response",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.Error(err))
 
 			fasthttp.ReleaseRequest(req)
@@ -2474,7 +2475,7 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 		// Log the status check response for debugging
 		s.logger.Info("Status check API response received",
 			zap.Int("attempt", attempt),
-			zap.String("msisdn", reqData.UserIdentifier),
+			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 			zap.String("code", mtResponse.Code),
 			zap.Bool("inError", mtResponse.InError),
 			zap.String("requestId", mtResponse.RequestID),
@@ -2484,7 +2485,7 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 		if mtResponse.Code == ResponseCodeInternalError {
 			s.logger.Warn("Status check request failed with internal error, retrying",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("requestId", mtResponse.RequestID))
 
 			fasthttp.ReleaseRequest(req)
@@ -2492,7 +2493,7 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 
 			if attempt == maxRetries {
 				s.logger.Error("Status check request failed with internal error after all retries",
-					zap.String("msisdn", reqData.UserIdentifier),
+					zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 					zap.String("requestId", mtResponse.RequestID))
 				return nil, fmt.Errorf("status check request failed with internal error after %d attempts: requestId=%s", maxRetries, mtResponse.RequestID)
 			}
@@ -2502,7 +2503,7 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 			s.logger.Info("Retrying status check request after INTERNAL_ERROR",
 				zap.Int("attempt", attempt+1),
 				zap.Duration("delay", delay),
-				zap.String("msisdn", reqData.UserIdentifier))
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)))
 			time.Sleep(delay)
 			continue
 		}
@@ -2544,7 +2545,7 @@ func (s *SubscriptionService) SendOptout(reqData domain.UnsubscriptionRequest, r
 		}
 
 		s.logger.Info("OPTIN_CONFIG_NOT_FOUND detected in SendOptout, retrying with SMS entry channel",
-			zap.String("msisdn", reqData.UserIdentifier),
+			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 			zap.String("originalChannel", entryChannel))
 
 		// Retry with SMS entry channel
@@ -2552,12 +2553,12 @@ func (s *SubscriptionService) SendOptout(reqData domain.UnsubscriptionRequest, r
 		optoutReqCopy.EntryChannel = stringPtr("SMS")
 		resp, callErr = s.sendOptoutWithRetry(optoutReqCopy, realm)
 		if callErr != nil {
-			s.logger.Error("Error sending optout retry with SMS", zap.String("msisdn", reqData.UserIdentifier), zap.Error(callErr))
+			s.logger.Error("Error sending optout retry with SMS", zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)), zap.Error(callErr))
 			return nil, callErr
 		}
 
 		s.logger.Info("SendOptout retry with SMS completed",
-			zap.String("msisdn", reqData.UserIdentifier),
+			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 			zap.String("retryChannel", "SMS"),
 			zap.String("responseCode", resp.Code))
 	}
@@ -2617,7 +2618,7 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 		if err = s.client.Do(req, res); err != nil {
 			s.logger.Warn("Failed to send optout request",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.Error(err))
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(res)
@@ -2635,7 +2636,7 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 				zap.Int("attempt", attempt),
 				zap.Int("statusCode", res.StatusCode()),
 				zap.String("responseBody", string(res.Body())),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("url", url))
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(res)
@@ -2652,7 +2653,7 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 		if err := json.Unmarshal(res.Body(), &mtResponse); err != nil {
 			s.logger.Error("Failed to parse optout response",
 				zap.Int("attempt", attempt),
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.Error(err))
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(res)
@@ -2675,7 +2676,7 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 			}
 
 			s.logger.Info("OPTIN_CONFIG_NOT_FOUND detected in SendOptout, retrying with SMS entry channel",
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("originalChannel", entryChannel))
 
 			// Retry with SMS entry channel
@@ -2683,12 +2684,12 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 			optoutReqCopy.EntryChannel = stringPtr("SMS")
 			result, callErr := s.sendOptoutWithRetry(optoutReqCopy, realm)
 			if callErr != nil {
-				s.logger.Error("Error sending optout retry with SMS", zap.String("msisdn", reqData.UserIdentifier), zap.Error(callErr))
+				s.logger.Error("Error sending optout retry with SMS", zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)), zap.Error(callErr))
 				return nil, callErr
 			}
 
 			s.logger.Info("SendOptout retry with SMS completed",
-				zap.String("msisdn", reqData.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("retryChannel", "SMS"),
 				zap.String("responseCode", result.Code))
 		}
@@ -2963,13 +2964,13 @@ func (s *SubscriptionService) GetRepository() repository.SubscriptionRepositoryI
 // handleBlacklistedUser adds a user to the blacklist and removes their subscriptions
 func (s *SubscriptionService) handleBlacklistedUser(msisdn string, response *domain.MTResponse) error {
 	s.logger.Info("Processing BLACKLISTED user",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("requestId", response.RequestID))
 
 	// Add user to blacklist in userbase
 	if err := s.addUserToBlacklist(msisdn); err != nil {
 		s.logger.Error("Failed to add user to blacklist",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		return fmt.Errorf("failed to add user to blacklist: %w", err)
 	}
@@ -2977,13 +2978,13 @@ func (s *SubscriptionService) handleBlacklistedUser(msisdn string, response *dom
 	// Remove user's subscriptions
 	if err := s.removeUserSubscriptions(msisdn); err != nil {
 		s.logger.Error("Failed to remove user subscriptions",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		return fmt.Errorf("failed to remove user subscriptions: %w", err)
 	}
 
 	s.logger.Info("Successfully processed BLACKLISTED user",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("requestId", response.RequestID))
 
 	return nil
@@ -3003,7 +3004,7 @@ func (s *SubscriptionService) addUserToBlacklist(msisdn string) error {
 	}
 
 	s.logger.Info("Successfully added user to blacklist",
-		zap.String("msisdn", msisdn))
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)))
 
 	return nil
 }
@@ -3016,7 +3017,7 @@ func (s *SubscriptionService) removeUserSubscriptions(msisdn string) error {
 	}
 
 	s.logger.Info("Successfully removed all subscriptions for blacklisted user",
-		zap.String("msisdn", msisdn))
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)))
 
 	return nil
 }
@@ -3050,13 +3051,13 @@ func (s *SubscriptionService) handleBlacklistedUserEnhanced(msisdn string, produ
 		duration := time.Since(startTime)
 		if success {
 			s.logger.Info("Enhanced BLACKLISTED user processing completed successfully",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("productId", productId),
 				zap.String("requestId", requestID),
 				zap.Duration("duration", duration))
 		} else {
 			s.logger.Error("Enhanced BLACKLISTED user processing failed",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("productId", productId),
 				zap.String("requestId", requestID),
 				zap.Duration("duration", duration))
@@ -3066,7 +3067,7 @@ func (s *SubscriptionService) handleBlacklistedUserEnhanced(msisdn string, produ
 	// Step 1: Add user to blacklist in userbase with retry logic
 	if err := s.addUserToBlacklistWithRetry(msisdn, productId, requestID, partnerId, response); err != nil {
 		s.logger.Error("Failed to add user to blacklist with retry",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		return
 	}
@@ -3074,7 +3075,7 @@ func (s *SubscriptionService) handleBlacklistedUserEnhanced(msisdn string, produ
 	// Step 2: Check if user has subscriptions and remove them with retry logic
 	if err := s.removeUserSubscriptionsWithRetry(msisdn); err != nil {
 		s.logger.Error("Failed to remove user subscriptions with retry",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		return
 	}
@@ -3082,14 +3083,14 @@ func (s *SubscriptionService) handleBlacklistedUserEnhanced(msisdn string, produ
 	// Step 3: Create audit log entry
 	if err := s.createBlacklistedUserAuditLog(msisdn, productId, requestID, partnerId, response); err != nil {
 		s.logger.Warn("Failed to create audit log entry",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		// Don't fail the entire operation for audit log failure
 	}
 
 	success = true
 	s.logger.Info("Successfully processed enhanced BLACKLISTED user",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("requestId", requestID))
 }
 
@@ -3099,13 +3100,13 @@ func (s *SubscriptionService) addUserToBlacklistWithRetry(msisdn string, product
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		if err := s.addUserToBlacklistEnhanced(msisdn, productId, requestID, partnerId, response); err == nil {
 			s.logger.Info("Successfully added user to blacklist",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("attempt", attempt))
 			return nil
 		} else {
 			// Log retry attempt
 			s.logger.Warn("Failed to add user to blacklist, retrying",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("attempt", attempt),
 				zap.Int("maxRetries", maxRetries),
 				zap.Error(err))
@@ -3135,7 +3136,7 @@ func (s *SubscriptionService) addUserToBlacklistEnhanced(msisdn string, productI
 	}
 
 	s.logger.Info("Successfully added user to blacklist (enhanced)",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.Int("productId", productId),
 		zap.String("requestId", requestID),
 		zap.Int("partnerId", partnerId))
@@ -3149,13 +3150,13 @@ func (s *SubscriptionService) removeUserSubscriptionsWithRetry(msisdn string) er
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		if err := s.repo.DeleteSubscriptionRecord(msisdn); err == nil {
 			s.logger.Info("Successfully removed user subscriptions",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("attempt", attempt))
 			return nil
 		} else {
 			// Log retry attempt
 			s.logger.Warn("Failed to remove user subscriptions, retrying",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("attempt", attempt),
 				zap.Int("maxRetries", maxRetries),
 				zap.Error(err))
@@ -3189,7 +3190,7 @@ func (s *SubscriptionService) createBlacklistedUserAuditLog(msisdn string, produ
 
 	// For now, just log the audit entry since we don't have the repository method yet
 	s.logger.Info("Blacklisted user audit log entry created",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("action", auditLog.Action),
 		zap.String("reason", auditLog.Reason),
 		zap.String("metadata", auditLog.Metadata))

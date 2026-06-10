@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"go.uber.org/zap"
 )
@@ -41,7 +42,7 @@ func NewRenewalService(
 // SendRenewalRequest performs the opt-out/opt-in renewal cycle
 func (r *RenewalService) SendRenewalRequest(ctx context.Context, msisdn string, product *domain.Product, channel string) (*domain.RenewalResponse, error) {
 	r.logger.Info("Starting opt-out/opt-in renewal cycle",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId))
 
 	// Check if opt-out/opt-in strategy is enabled
@@ -61,7 +62,7 @@ func (r *RenewalService) SendRenewalRequest(ctx context.Context, msisdn string, 
 	optOutErr := r.OptOutForRenewal(ctx, msisdn, product, cycle)
 	if optOutErr != nil {
 		r.logger.Error("Opt-out failed during renewal",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(optOutErr))
 		cycle.OptOutStatus = "FAILED"
 		r.SaveRenewalCycle(ctx, cycle)
@@ -89,7 +90,7 @@ func (r *RenewalService) SendRenewalRequest(ctx context.Context, msisdn string, 
 	optInErr := r.OptInForRenewal(ctx, msisdn, product, channel, cycle)
 	if optInErr != nil {
 		r.logger.Error("Opt-in failed during renewal",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(optInErr))
 		cycle.OptInStatus = "FAILED"
 		r.SaveRenewalCycle(ctx, cycle)
@@ -119,7 +120,7 @@ func (r *RenewalService) SendRenewalRequest(ctx context.Context, msisdn string, 
 	}
 
 	r.logger.Info("Renewal cycle completed successfully",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId),
 		zap.Duration("totalTime", time.Since(cycle.CreatedAt)))
 
@@ -163,7 +164,7 @@ func (r *RenewalService) OptOutForRenewal(ctx context.Context, msisdn string, pr
 	}
 
 	r.logger.Debug("Sending opt-out request",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("transactionId", txId))
 
 	// Use the subscription service to send the MT request
@@ -212,7 +213,7 @@ func (r *RenewalService) OptInForRenewal(ctx context.Context, msisdn string, pro
 	}
 
 	r.logger.Debug("Sending opt-in request",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("transactionId", txId))
 
 	response, err := r.subscriptionService.SendMT(mtReq, r.subscriptionService.config.Application.TIMWE.Realm, entryChannel)
@@ -223,14 +224,14 @@ func (r *RenewalService) OptInForRenewal(ctx context.Context, msisdn string, pro
 	// Handle different response scenarios
 	if r.isSubscriptionAlreadyActive(response) {
 		r.logger.Warn("Subscription already active after opt-out",
-			zap.String("msisdn", msisdn))
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)))
 		// This shouldn't happen but handle gracefully
 		return nil
 	}
 
 	if r.isSubscriptionWaitingForCharging(response) {
 		r.logger.Info("Resubscription successful, waiting for charging",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("transactionId", txId))
 
 		// Update subscription record
@@ -290,7 +291,7 @@ func (r *RenewalService) EvaluateChurnPolicy(ctx context.Context, msisdn string,
 
 	// Evaluation logic
 	r.logger.Debug("Evaluating churn policy",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.Float64("hoursSincePayment", hoursSincePayment),
 		zap.Int("renewalAttempts", renewalAttempts))
 
@@ -309,7 +310,7 @@ func (r *RenewalService) EvaluateChurnPolicy(ctx context.Context, msisdn string,
 		// Check if we've exhausted renewal attempts
 		if renewalAttempts >= r.config.ChurnPolicy.MaxRenewalAttempts {
 			r.logger.Info("Subscription should be churned",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.String("reason", "max_attempts_exceeded"))
 			return domain.ActionChurn
 		}
@@ -338,7 +339,7 @@ func (r *RenewalService) EvaluateChurnPolicy(ctx context.Context, msisdn string,
 // ChurnSubscription permanently unsubscribes a user
 func (r *RenewalService) ChurnSubscription(ctx context.Context, msisdn string, productID string, reason string) error {
 	r.logger.Info("Churning subscription",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", productID),
 		zap.String("reason", reason))
 
@@ -414,7 +415,7 @@ func (r *RenewalService) ChurnSubscription(ctx context.Context, msisdn string, p
 
 func (r *RenewalService) HandleFailedOptIn(ctx context.Context, msisdn string, product *domain.Product, cycle *domain.RenewalCycle) {
 	r.logger.Error("CRITICAL: User unsubscribed but resubscription failed",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId))
 
 	// Add to priority retry queue
@@ -450,7 +451,7 @@ func (r *RenewalService) SaveRenewalCycle(ctx context.Context, cycle *domain.Ren
 func (r *RenewalService) UpdateSubscriptionStatus(ctx context.Context, msisdn string, productID string, status string) {
 	if err := r.repo.UpdateSubscriptionStatus(msisdn, productID, status); err != nil {
 		r.logger.Error("Failed to update subscription status",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("status", status),
 			zap.Error(err))
 	}

@@ -13,6 +13,7 @@ import (
 
 	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/common/config"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"go.uber.org/zap"
 
 	"github.com/google/uuid"
@@ -188,7 +189,7 @@ func (h *SubscriptionHandler) OptinHandler(ctx *fasthttp.RequestCtx) {
 	err := process(&req)
 	if err != nil {
 		h.logger.Error("Failed to subscribe user",
-			zap.String("msisdn", maskMSISDN(req.Msisdn)),
+			zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)),
 			zap.String("telco", req.Telco),
 			zap.String("entry_channel", req.EntryChannel),
 			zap.Strings("product_ids", req.ProductIds),
@@ -491,7 +492,7 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 			}
 			// Log every 100th request to avoid excessive logging; mask MSISDN (NF2).
 			if len(msisdns) > 100 && len(msisdns)%100 == 0 {
-				h.logger.Debug("Created optin request", zap.String("msisdn", maskMSISDN(msisdn)), zap.String("entryChannel", entryChannel))
+				h.logger.Debug("Created optin request", zap.String("msisdn", pii.MaskMSISDN(msisdn)), zap.String("entryChannel", entryChannel))
 			}
 		}
 		close(optinRequestChan)
@@ -676,7 +677,7 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 			entryChannelChan <- entryChannel
 			// Log every 100th request to avoid excessive logging; mask MSISDN (NF2).
 			if len(msisdns) > 100 && len(msisdns)%100 == 0 {
-				h.logger.Debug("Created resubscribe request", zap.String("msisdn", maskMSISDN(msisdn)), zap.String("entryChannel", entryChannel))
+				h.logger.Debug("Created resubscribe request", zap.String("msisdn", pii.MaskMSISDN(msisdn)), zap.String("entryChannel", entryChannel))
 			}
 		}
 		close(msisdnChan)
@@ -872,7 +873,7 @@ func (h *SubscriptionHandler) GetChargingFailureByMSISDNHandler(ctx *fasthttp.Re
 	// Get charging failure by MSISDN
 	chargingFailure, err := repo.GetChargingFailureByMSISDN(msisdn, productID)
 	if err != nil {
-		h.logger.Error("Failed to get charging failure by MSISDN", zap.String("msisdn", maskMSISDN(msisdn)), zap.Error(err))
+		h.logger.Error("Failed to get charging failure by MSISDN", zap.String("msisdn", pii.MaskMSISDN(msisdn)), zap.Error(err))
 		ctx.Error("Failed to get charging failure by MSISDN", fasthttp.StatusInternalServerError)
 		return
 	}

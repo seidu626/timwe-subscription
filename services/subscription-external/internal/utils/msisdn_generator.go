@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/seidu626/subscription-manager/common/config"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"go.uber.org/zap"
 )
@@ -329,7 +330,7 @@ func GenerateRandomMSISDNWithContext(ctx context.Context, telco string, config *
 			// Log error but continue trying
 			if globalMSISDNCache.logger != nil {
 				globalMSISDNCache.logger.Warn("Error validating MSISDN, retrying",
-					zap.String("msisdn", msisdn),
+					zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 					zap.Error(err))
 			}
 			continue

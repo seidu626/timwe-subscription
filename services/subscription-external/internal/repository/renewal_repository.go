@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"go.uber.org/zap"
 )
 
@@ -76,7 +77,7 @@ func (r *RenewalRepository) CreateRenewalCycle(ctx context.Context, cycle *domai
 	cycle.UpdatedAt = now
 
 	r.logger.Debug("Creating renewal cycle",
-		zap.String("msisdn", cycle.MSISDN),
+		zap.String("msisdn", pii.MaskMSISDN(cycle.MSISDN)),
 		zap.String("product_id", cycle.ProductID),
 		zap.Int64("subscription_id", cycle.SubscriptionID),
 		zap.Int("cycle_number", cycle.CycleNumber))
@@ -90,14 +91,14 @@ func (r *RenewalRepository) CreateRenewalCycle(ctx context.Context, cycle *domai
 
 	if err != nil {
 		r.logger.Error("Failed to create renewal cycle",
-			zap.String("msisdn", cycle.MSISDN),
+			zap.String("msisdn", pii.MaskMSISDN(cycle.MSISDN)),
 			zap.String("product_id", cycle.ProductID),
 			zap.Error(err))
 		return fmt.Errorf("failed to create renewal cycle: %w", err)
 	}
 
 	r.logger.Info("Successfully created renewal cycle",
-		zap.String("msisdn", cycle.MSISDN),
+		zap.String("msisdn", pii.MaskMSISDN(cycle.MSISDN)),
 		zap.String("product_id", cycle.ProductID),
 		zap.Int64("cycle_id", cycle.ID))
 
@@ -166,7 +167,7 @@ func (r *RenewalRepository) GetRenewalCycle(ctx context.Context, msisdn, product
 			return nil, nil
 		}
 		r.logger.Error("Failed to get renewal cycle",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("product_id", productID),
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to get renewal cycle: %w", err)
@@ -234,7 +235,7 @@ func (r *RenewalRepository) CreateChurnRecord(ctx context.Context, record *domai
 
 	if err != nil {
 		r.logger.Error("Failed to create churn record",
-			zap.String("msisdn", record.MSISDN),
+			zap.String("msisdn", pii.MaskMSISDN(record.MSISDN)),
 			zap.Error(err))
 		return fmt.Errorf("failed to create churn record: %w", err)
 	}
@@ -280,7 +281,7 @@ func (r *RenewalRepository) AddToPriorityRetryQueue(ctx context.Context, item *d
 
 	if err != nil {
 		r.logger.Error("Failed to add to priority retry queue",
-			zap.String("msisdn", item.MSISDN),
+			zap.String("msisdn", pii.MaskMSISDN(item.MSISDN)),
 			zap.Error(err))
 		return fmt.Errorf("failed to add to priority retry queue: %w", err)
 	}
@@ -352,7 +353,7 @@ func (r *RenewalRepository) GetSubscriptionsNeedingRenewal(ctx context.Context, 
 		sub, err := r.GetSubscriptionWithRenewalInfo(ctx, msisdn, productID)
 		if err != nil {
 			r.logger.Error("Failed to get subscription details",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Error(err))
 			continue
 		}
@@ -370,7 +371,7 @@ func (r *RenewalRepository) IncrementRenewalAttempt(ctx context.Context, msisdn,
 	_, err := r.db.ExecContext(ctx, query, msisdn, productID)
 	if err != nil {
 		r.logger.Error("Failed to increment renewal attempt",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("product_id", productID),
 			zap.Error(err))
 		return fmt.Errorf("failed to increment renewal attempt: %w", err)
@@ -389,7 +390,7 @@ func (r *RenewalRepository) UpdateSubscriptionRenewalStatus(ctx context.Context,
 	result, err := r.db.ExecContext(ctx, query, status, msisdn, productID)
 	if err != nil {
 		r.logger.Error("Failed to update subscription renewal status",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("status", status),
 			zap.Error(err))
 		return fmt.Errorf("failed to update subscription renewal status: %w", err)
@@ -398,7 +399,7 @@ func (r *RenewalRepository) UpdateSubscriptionRenewalStatus(ctx context.Context,
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		r.logger.Warn("No subscription found to update renewal status",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("product_id", productID))
 	}
 
@@ -419,7 +420,7 @@ func (r *RenewalRepository) GetLastSuccessfulPayment(ctx context.Context, msisdn
 			return nil, nil
 		}
 		r.logger.Error("Failed to get last successful payment",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to get last successful payment: %w", err)
 	}
@@ -437,7 +438,7 @@ func (r *RenewalRepository) GetRenewalAttemptsCount(ctx context.Context, msisdn,
 	err := r.db.QueryRowContext(ctx, query, msisdn, productID, since).Scan(&count)
 	if err != nil {
 		r.logger.Error("Failed to get renewal attempts count",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		return 0, fmt.Errorf("failed to get renewal attempts count: %w", err)
 	}
@@ -459,7 +460,7 @@ func (r *RenewalRepository) GetLastRenewalAttempt(ctx context.Context, msisdn, p
 			return nil, nil
 		}
 		r.logger.Error("Failed to get last renewal attempt",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to get last renewal attempt: %w", err)
 	}
@@ -529,7 +530,7 @@ func (r *RenewalRepository) GetChurnCandidates(ctx context.Context, maxDays, max
 		sub, err := r.GetSubscriptionWithRenewalInfo(ctx, msisdn, productID)
 		if err != nil {
 			r.logger.Error("Failed to get subscription details for churn candidate",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Error(err))
 			continue
 		}
@@ -547,7 +548,7 @@ func (r *RenewalRepository) ChurnSubscription(ctx context.Context, msisdn, produ
 	_, err := r.db.ExecContext(ctx, query, msisdn, productID, reason)
 	if err != nil {
 		r.logger.Error("Failed to churn subscription",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("product_id", productID),
 			zap.String("reason", reason),
 			zap.Error(err))
@@ -588,7 +589,7 @@ func (r *RenewalRepository) GetSubscriptionWithRenewalInfo(ctx context.Context, 
 			return nil, nil
 		}
 		r.logger.Error("Failed to get subscription with renewal info",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to get subscription with renewal info: %w", err)
 	}
@@ -658,7 +659,7 @@ func (r *RenewalRepository) GetChurnRecords(ctx context.Context, msisdn, product
 	rows, err := r.db.QueryContext(ctx, query, msisdn, productID)
 	if err != nil {
 		r.logger.Error("Failed to get churn records",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to get churn records: %w", err)
 	}

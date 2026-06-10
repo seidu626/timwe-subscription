@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -923,7 +924,7 @@ func TestMaskMSISDN(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		masked := maskMSISDN(tc.input)
+		masked := pii.MaskMSISDN(tc.input)
 		if tc.expectStars {
 			assert.NotEqual(t, tc.input, masked, "masked output must differ from raw MSISDN")
 			assert.Contains(t, masked, "*", "masked output must contain asterisks")
@@ -1034,7 +1035,7 @@ func TestEnhancedResubscribeHandler_JobStampedWithIdentityTenantKey(t *testing.T
 // of an MSISDN does not contain the raw value and follows the expected pattern.
 func TestMaskMSISDN_UsedInProcessWithWorkersErrorPath(t *testing.T) {
 	rawMSISDN := "233241234567"
-	masked := maskMSISDN(rawMSISDN)
+	masked := pii.MaskMSISDN(rawMSISDN)
 
 	assert.NotEqual(t, rawMSISDN, masked, "maskMSISDN must change the value")
 	assert.Contains(t, masked, "*", "masked value must contain asterisks")

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 
@@ -264,7 +265,7 @@ func (h *SubscriptionHandler) processWithWorkers(
 				processed, err := tracker.CheckIfProcessed(sub.MSISDN, sub.ProductID)
 				if err != nil {
 					h.logger.Error("Failed to check if processed",
-						zap.String("msisdn", maskMSISDN(sub.MSISDN)),
+						zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 						zap.Error(err))
 				}
 
@@ -277,7 +278,7 @@ func (h *SubscriptionHandler) processWithWorkers(
 				// Record attempt
 				if err := tracker.RecordAttempt(sub.MSISDN, sub.ProductID, sub.ID); err != nil {
 					h.logger.Error("Failed to record attempt",
-						zap.String("msisdn", maskMSISDN(sub.MSISDN)),
+						zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 						zap.Error(err))
 				}
 
@@ -287,7 +288,7 @@ func (h *SubscriptionHandler) processWithWorkers(
 				tenantRoute, routeErr := h.service.TenantRouteForSubscription(sub.MSISDN, sub.ProductID)
 				if routeErr != nil {
 					h.logger.Warn("cannot resolve tenant route for resubscribe, skipping",
-						zap.String("msisdn", maskMSISDN(sub.MSISDN)),
+						zap.String("msisdn", pii.MaskMSISDN(sub.MSISDN)),
 						zap.Int("product_id", sub.ProductID),
 						zap.Error(routeErr))
 					tracker.UpdateResult(sub.MSISDN, sub.ProductID, false, routeErr.Error())
