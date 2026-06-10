@@ -4693,6 +4693,364 @@
           ]
         }
       ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/batch",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/batch",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Channel-Key"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/batch/progress",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "input_query_strings": [
+        "*"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/batch/progress",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Channel-Key"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/batch/stop",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/batch/stop",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Channel-Key"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/backfill",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/backfill",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Channel-Key"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/subscription-external/resubscribe",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/resubscribe",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Channel-Key"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/renewal/worker/start",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/renewal/worker/start",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Channel-Key"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/renewal/worker/stop",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/renewal/worker/stop",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Channel-Key"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/renewal/worker/status",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
+      ],
+      "input_query_strings": [
+        "*"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/renewal/worker/status",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "X-Tenant-Key",
+            "X-Channel-Key"
+          ]
+        }
+      ]
     }
   ]
 }
