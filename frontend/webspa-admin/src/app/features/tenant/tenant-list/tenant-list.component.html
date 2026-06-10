@@ -228,11 +228,51 @@
                 <button mat-icon-button color="primary" (click)="setChannelEnabled(row, row.status === 'INACTIVE')" [disabled]="channelSaving" [matTooltip]="row.status === 'ACTIVE' ? 'Disable' : 'Enable'">
                   <mat-icon>{{ row.status === 'ACTIVE' ? 'toggle_on' : 'toggle_off' }}</mat-icon>
                 </button>
+                <button mat-icon-button (click)="editChannel(row)" [disabled]="channelSaving" matTooltip="Edit channel">
+                  <mat-icon>edit</mat-icon>
+                </button>
               </td>
             </ng-container>
             <tr mat-header-row *matHeaderRowDef="channelDisplayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: channelDisplayedColumns;"></tr>
           </table>
+        </div>
+
+        <div *ngIf="editingChannelId" class="channel-edit-panel">
+          <div class="section-title">
+            <div>
+              <p class="eyebrow">Edit channel</p>
+              <h4>Update catalog fields</h4>
+            </div>
+          </div>
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Provider</mat-label>
+              <input matInput [(ngModel)]="channelEditForm.provider" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Country</mat-label>
+              <input matInput maxlength="2" [(ngModel)]="channelEditForm.country" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Operator</mat-label>
+              <input matInput [(ngModel)]="channelEditForm.operator" placeholder="Leave blank to clear" />
+            </mat-form-field>
+          </div>
+          <div class="capability-grid">
+            <mat-checkbox
+              *ngFor="let capability of capabilityOptions"
+              [checked]="editCapabilitySelected(capability)"
+              (change)="toggleEditCapability(capability, $event.checked)">
+              {{ capability }}
+            </mat-checkbox>
+          </div>
+          <div class="actions">
+            <button mat-raised-button color="primary" (click)="saveChannelUpdate()" [disabled]="channelSaving">
+              {{ channelSaving ? 'Saving...' : 'Save Changes' }}
+            </button>
+            <button mat-stroked-button (click)="cancelChannelEdit()" [disabled]="channelSaving">Cancel</button>
+          </div>
         </div>
       </section>
 

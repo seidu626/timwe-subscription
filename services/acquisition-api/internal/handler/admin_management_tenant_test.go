@@ -370,3 +370,143 @@ func newTenantTestHandler(db *sql.DB) *AdminManagementHandler {
 	repo := repository.NewAdminManagementRepository(db, zap.NewNop())
 	return NewAdminManagementHandler(service.NewAdminManagementService(repo, zap.NewNop()), zap.NewNop())
 }
+
+func TestUpdateChannelReturns400OnEmptyBody(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs("tenant-a").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow("22222222-2222-2222-2222-222222222222", "tenant-a", "Tenant A", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "tenant-a",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetRequestURI("/v1/admin/channels/33333333-3333-3333-3333-333333333333")
+	ctx.Request.SetBodyString(``)
+	h.UpdateChannel(&ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+}
+
+func TestUpdateChannelReturns400OnNoFields(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs("tenant-a").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow("22222222-2222-2222-2222-222222222222", "tenant-a", "Tenant A", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "tenant-a",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetRequestURI("/v1/admin/channels/33333333-3333-3333-3333-333333333333")
+	ctx.Request.SetBodyString(`{"performed_by":"ops"}`)
+	h.UpdateChannel(&ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+}
+
+func TestUpdateChannelReturns404OnUnknownID(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	channelID := "99999999-9999-9999-9999-999999999999"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs("tenant-a").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "tenant-a", "Tenant A", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
+	mock.ExpectBegin()
+	mock.ExpectQuery(`UPDATE tenant_channels`).WillReturnError(sql.ErrNoRows)
+	mock.ExpectRollback()
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "tenant-a",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetRequestURI("/v1/admin/channels/" + channelID)
+	ctx.Request.SetBodyString(`{"provider":"timwe"}`)
+	h.UpdateChannel(&ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusNotFound {
+		t.Fatalf("expected 404, got %d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateChannelPartialUpdateLeavesOtherFieldsIntact(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	channelID := "33333333-3333-3333-3333-333333333333"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs("tenant-a").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "tenant-a", "Tenant A", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
+	channelCols := []string{"id", "tenant_id", "channel_key", "provider", "country", "operator", "capabilities", "status", "created_at", "updated_at"}
+	mock.ExpectBegin()
+	mock.ExpectQuery(`UPDATE tenant_channels`).
+		WillReturnRows(sqlmock.NewRows(channelCols).
+			AddRow(channelID, tenantID, "timwe-ci", "timwe", "CI", nil, `{"optin","confirm"}`, domain.ChannelStatusActive, now, now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "tenant-a",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetRequestURI("/v1/admin/channels/" + channelID)
+	ctx.Request.SetBodyString(`{"country":"CI"}`)
+	h.UpdateChannel(&ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("expected 200, got %d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(ctx.Response.Body(), &body); err != nil {
+		t.Fatalf("invalid response json: %v", err)
+	}
+	if body["country"] != "CI" {
+		t.Fatalf("unexpected country in response: %v", body["country"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}

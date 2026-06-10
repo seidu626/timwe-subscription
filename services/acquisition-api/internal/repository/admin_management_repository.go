@@ -838,6 +838,80 @@ func (r *AdminManagementRepository) SetChannelStatusWithActivityLog(tenantID, id
 	return channel, nil
 }
 
+func (r *AdminManagementRepository) UpdateChannelWithActivityLog(tenantID, id string, input *domain.ChannelUpdateInput, entry *domain.AdminActivityLog) (*domain.AdminChannel, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin channel update tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Build dynamic SET clause from non-nil fields.
+	setClauses := []string{"updated_at = NOW()"}
+	args := []any{tenantID, id}
+	argN := 3
+
+	if input.Provider != nil {
+		setClauses = append(setClauses, fmt.Sprintf("provider = $%d", argN))
+		args = append(args, *input.Provider)
+		argN++
+	}
+	if input.Country != nil {
+		setClauses = append(setClauses, fmt.Sprintf("country = $%d", argN))
+		args = append(args, *input.Country)
+		argN++
+	}
+	if input.Operator != nil {
+		if *input.Operator == "" {
+			setClauses = append(setClauses, fmt.Sprintf("operator = $%d", argN))
+			args = append(args, nil)
+		} else {
+			setClauses = append(setClauses, fmt.Sprintf("operator = $%d", argN))
+			args = append(args, *input.Operator)
+		}
+		argN++
+	}
+	if input.Capabilities != nil {
+		setClauses = append(setClauses, fmt.Sprintf("capabilities = $%d", argN))
+		args = append(args, pq.StringArray(input.Capabilities))
+		argN++
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE tenant_channels
+		SET %s
+		WHERE tenant_id = $1 AND id = $2
+		RETURNING id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at
+	`, strings.Join(setClauses, ", "))
+
+	channel, err := scanChannel(tx.QueryRow(query, args...))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, fmt.Errorf("failed to update tenant channel: %w", err)
+	}
+
+	if entry != nil {
+		entry.TenantID = channel.TenantID
+		entry.EntityType = "tenant_channel"
+		entry.EntityID = channel.ID
+		if err := createActivityLog(tx, entry); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit channel update tx: %w", err)
+	}
+	committed = true
+	return channel, nil
+}
+
 func (r *AdminManagementRepository) ListChannelCredentials(filter *domain.ChannelCredentialListFilter) ([]*domain.AdminChannelCredential, int, error) {
 	if filter == nil {
 		filter = &domain.ChannelCredentialListFilter{Limit: 20}

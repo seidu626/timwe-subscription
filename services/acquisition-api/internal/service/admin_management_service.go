@@ -574,6 +574,72 @@ func (s *AdminManagementService) SetChannelEnabled(tenantID, channelID string, e
 	return channel, nil
 }
 
+func (s *AdminManagementService) UpdateChannel(tenantID, channelID string, input *domain.ChannelUpdateInput, actor, requestID *string) (*domain.AdminChannel, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	channelID = strings.TrimSpace(channelID)
+	if tenantID == "" {
+		return nil, ErrTenantContextMissing
+	}
+	if channelID == "" {
+		return nil, fmt.Errorf("%w: channel id is required", ErrInvalidInput)
+	}
+	if input == nil {
+		return nil, fmt.Errorf("%w: update payload is required", ErrInvalidInput)
+	}
+
+	// Normalize mutable fields when provided.
+	if input.Provider != nil {
+		p := strings.ToLower(strings.TrimSpace(*input.Provider))
+		if p == "" {
+			return nil, fmt.Errorf("%w: provider must not be empty", ErrInvalidInput)
+		}
+		input.Provider = &p
+	}
+	if input.Country != nil {
+		c := strings.ToUpper(strings.TrimSpace(*input.Country))
+		if !tenantCountryRe.MatchString(c) {
+			return nil, fmt.Errorf("%w: country must be an ISO 3166-1 alpha-2 code", ErrInvalidInput)
+		}
+		input.Country = &c
+	}
+	if input.Operator != nil {
+		op := strings.TrimSpace(*input.Operator)
+		input.Operator = &op
+	}
+	if input.Capabilities != nil {
+		caps, err := normalizeChannelCapabilities(input.Capabilities)
+		if err != nil {
+			return nil, err
+		}
+		input.Capabilities = caps
+	}
+
+	// At least one field must be set.
+	if input.Provider == nil && input.Country == nil && input.Operator == nil && input.Capabilities == nil {
+		return nil, fmt.Errorf("%w: no updatable fields provided", ErrInvalidInput)
+	}
+
+	entry := &domain.AdminActivityLog{
+		ID:        uuid.NewString(),
+		TenantID:  tenantID,
+		Action:    "update",
+		Actor:     actor,
+		RequestID: requestID,
+		AfterJSON: mustJSON(input),
+		Metadata:  mustJSON(map[string]any{"channel_id": channelID}),
+		CreatedAt: time.Now().UTC(),
+	}
+
+	channel, err := s.repo.UpdateChannelWithActivityLog(tenantID, channelID, input, entry)
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, err
+	}
+	return channel, nil
+}
+
 func (s *AdminManagementService) ListChannelCredentials(filter *domain.ChannelCredentialListFilter) ([]*domain.AdminChannelCredential, int, error) {
 	if filter == nil {
 		filter = &domain.ChannelCredentialListFilter{Limit: 20}
