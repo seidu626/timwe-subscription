@@ -602,6 +602,25 @@ func TestAdminRequireRejectsAudienceMismatchBeforeIdentity(t *testing.T) {
 	}
 }
 
+func TestAdminCORSAllowsDELETE(t *testing.T) {
+	t.Setenv("ACQUISITION_ADMIN_CORS_ORIGINS", "https://admin.example.com")
+	t.Setenv("ACQUISITION_API_ENVIRONMENT", "PRODUCTION")
+
+	access := newAdminAccess(nil)
+	var ctx fasthttp.RequestCtx
+	ctx.Request.Header.SetMethod(fasthttp.MethodOptions)
+	ctx.Request.Header.Set("Origin", "https://admin.example.com")
+	ctx.Request.Header.Set("Access-Control-Request-Method", "DELETE")
+
+	if !access.handlePreflight(&ctx) {
+		t.Fatal("expected preflight to be handled")
+	}
+	methods := string(ctx.Response.Header.Peek("Access-Control-Allow-Methods"))
+	if !strings.Contains(methods, "DELETE") {
+		t.Fatalf("Access-Control-Allow-Methods must include DELETE for revoke flow, got %q", methods)
+	}
+}
+
 func TestIsTenantCampaignPathRequiresTenantAndSlug(t *testing.T) {
 	if !isTenantCampaignPath("/v1/campaigns/tenant-a/daily") {
 		t.Fatal("expected tenant campaign path to match")

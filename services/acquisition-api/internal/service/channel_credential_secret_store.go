@@ -63,12 +63,22 @@ func (s *DBChannelCredentialSecretStore) PutChannelCredential(ctx context.Contex
 }
 
 // GetChannelCredentialSecret looks up and decrypts the secret for the given id (UUID).
+// tenantID and channelID are required scoping predicates: a mismatch returns
+// sql.ErrNoRows (secret not found) rather than a cross-tenant plaintext read.
 // Returns the plaintext JSON blob.
-func GetChannelCredentialSecret(ctx context.Context, db *sql.DB, id string) ([]byte, error) {
+func GetChannelCredentialSecret(ctx context.Context, db *sql.DB, id, tenantID, channelID string) ([]byte, error) {
 	var ciphertext []byte
 	err := db.QueryRowContext(ctx, `
-		SELECT ciphertext FROM tenant_channel_secrets WHERE id = $1::uuid
-	`, id).Scan(&ciphertext)
+		SELECT s.ciphertext
+		FROM tenant_channel_secrets s
+		JOIN tenant_channel_credentials c
+		  ON c.secret_ref = $4
+		 AND c.tenant_id  = s.tenant_id
+		 AND c.channel_id = s.channel_id
+		WHERE s.id        = $1::uuid
+		  AND s.tenant_id = $2::uuid
+		  AND s.channel_id = $3::uuid
+	`, id, tenantID, channelID, "secret://"+id).Scan(&ciphertext)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("secret not found: %s", id)
@@ -124,7 +134,7 @@ func GetChannelAccountConfig(ctx context.Context, db *sql.DB, tenantID, channelI
 	}
 	secretID := strings.TrimPrefix(secretRef, secretScheme)
 
-	plaintext, err := GetChannelCredentialSecret(ctx, db, secretID)
+	plaintext, err := GetChannelCredentialSecret(ctx, db, secretID, tenantID, channelID)
 	if err != nil {
 		return ChannelAccountConfig{}, fmt.Errorf("decrypt channel credential: %w", err)
 	}

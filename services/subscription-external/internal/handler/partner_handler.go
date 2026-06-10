@@ -78,6 +78,9 @@ type partnerMtRequest struct {
 // @Failure 401 {object} map[string]interface{}
 // @Router /api/external/v1/{channel}/mt [post]
 func (h *PartnerHandler) PartnerMTHandler(ctx *fasthttp.RequestCtx, channel string) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 	// Parse body
 	var req partnerMtRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
@@ -132,6 +135,9 @@ func (h *PartnerHandler) PartnerMTHandler(ctx *fasthttp.RequestCtx, channel stri
 // @Failure 401 {object} map[string]interface{}
 // @Router /api/external/v1/charge/dob [post]
 func (h *PartnerHandler) PartnerChargeHandler(ctx *fasthttp.RequestCtx) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 
 	var req domain.ChargeRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
@@ -172,6 +178,9 @@ func (h *PartnerHandler) PartnerChargeHandler(ctx *fasthttp.RequestCtx) {
 // @Failure 401 {object} map[string]interface{}
 // @Router /api/external/v1/subscription/status [post]
 func (h *PartnerHandler) PartnerStatusHandler(ctx *fasthttp.RequestCtx) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 
 	// Parse body
 	var req domain.GetStatusRequest
@@ -210,6 +219,9 @@ func (h *PartnerHandler) PartnerStatusHandler(ctx *fasthttp.RequestCtx) {
 // @Failure 401 {object} map[string]interface{}
 // @Router /api/external/v1/subscription/optout [post]
 func (h *PartnerHandler) PartnerOptoutHandler(ctx *fasthttp.RequestCtx) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 	var req domain.UnsubscriptionRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
 		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
@@ -244,6 +256,9 @@ func (h *PartnerHandler) PartnerOptoutHandler(ctx *fasthttp.RequestCtx) {
 // @Failure 401 {object} map[string]interface{}
 // @Router /api/external/v1/subscription/optin/confirm [post]
 func (h *PartnerHandler) PartnerOptinConfirmHandler(ctx *fasthttp.RequestCtx) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 	var req domain.SubscriptionConfirmationRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
 		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
