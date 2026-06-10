@@ -233,7 +233,12 @@ func NewSubscriptionService(logger *zap.Logger, repo repository.SubscriptionRepo
 		msisdnValidator:    msisdnValidator,
 	}
 	if dbGetter, ok := repo.(repository.DBGetter); ok {
-		s.tenantRouter = NewTenantProviderRouter(dbGetter.GetDB(), cfg, nil)
+		db := dbGetter.GetDB()
+		compositeResolver := NewCompositeProviderCredentialResolver(map[string]ProviderCredentialResolver{
+			"env":    EnvProviderCredentialResolver{},
+			"secret": NewDBProviderCredentialResolver(db),
+		})
+		s.tenantRouter = NewTenantProviderRouter(db, cfg, compositeResolver)
 	}
 
 	// Initialize bulkhead limiter for external calls

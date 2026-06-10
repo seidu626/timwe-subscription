@@ -142,6 +142,11 @@ func main() {
 	)
 	adminManagementService := service.NewAdminManagementService(adminManagementRepo, logger)
 
+	// Wire per-tenant credential secret store so BindChannelCredential can accept
+	// raw secret_value payloads (encrypted → stored → returned as secret:// ref).
+	credentialSecretStore := service.NewDBChannelCredentialSecretStore(db)
+	adminManagementService.SetChannelCredentialSecretStore(credentialSecretStore)
+
 	// Initialize handlers
 	campaignHandler := handler.NewCampaignHandler(campaignService, campaignAssetService, logger)
 	campaignHandler.SetTenantResolver(adminManagementService)
