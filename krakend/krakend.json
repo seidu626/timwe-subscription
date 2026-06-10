@@ -9,7 +9,9 @@
   "max_header_bytes": 10485760,
   "extra_config": {
     "security/cors": {
-      "allow_headers": ["*"],
+      "allow_headers": [
+        "*"
+      ],
       "allow_methods": [
         "POST",
         "GET",
@@ -715,6 +717,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -1127,6 +1157,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -1137,6 +1195,10 @@
             "external-tx-id"
           ]
         }
+      ],
+      "input_query_strings": [
+        "tenant_key",
+        "channel_key"
       ]
     },
     {
@@ -1292,6 +1354,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -1302,6 +1392,10 @@
             "external-tx-id"
           ]
         }
+      ],
+      "input_query_strings": [
+        "tenant_key",
+        "channel_key"
       ]
     },
     {
@@ -1347,6 +1441,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -1357,6 +1479,10 @@
             "external-tx-id"
           ]
         }
+      ],
+      "input_query_strings": [
+        "tenant_key",
+        "channel_key"
       ]
     },
     {
@@ -1402,6 +1528,34 @@
                 "PUT"
               ],
               "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
             }
           },
           "host": [
@@ -1412,6 +1566,10 @@
             "external-tx-id"
           ]
         }
+      ],
+      "input_query_strings": [
+        "tenant_key",
+        "channel_key"
       ]
     },
     {
@@ -3991,6 +4149,11 @@
       "extra_config": {
         "github.com/devopsfaith/krakend/http": {
           "return_error_details": true
+        },
+        "qos/ratelimit/router": {
+          "client_max_rate": 60,
+          "strategy": "header",
+          "key": "X-Tenant-Key"
         }
       },
       "headers_to_pass": [
@@ -4078,6 +4241,11 @@
       "extra_config": {
         "github.com/devopsfaith/krakend/http": {
           "return_error_details": true
+        },
+        "qos/ratelimit/router": {
+          "client_max_rate": 60,
+          "strategy": "header",
+          "key": "X-Tenant-Key"
         }
       },
       "headers_to_pass": [
@@ -4165,6 +4333,11 @@
       "extra_config": {
         "github.com/devopsfaith/krakend/http": {
           "return_error_details": true
+        },
+        "qos/ratelimit/router": {
+          "client_max_rate": 60,
+          "strategy": "header",
+          "key": "X-Tenant-Key"
         }
       },
       "headers_to_pass": [
@@ -4252,6 +4425,11 @@
       "extra_config": {
         "github.com/devopsfaith/krakend/http": {
           "return_error_details": true
+        },
+        "qos/ratelimit/router": {
+          "client_max_rate": 60,
+          "strategy": "header",
+          "key": "X-Tenant-Key"
         }
       },
       "headers_to_pass": [
@@ -4262,6 +4440,190 @@
       "backend": [
         {
           "url_pattern": "/api/v1/subscription-external/partners/status",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id",
+            "x-admin-request-id",
+            "x-requestid"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/external/v1/{tenant_key}/{channel_key}/mt",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        },
+        "qos/ratelimit/router": {
+          "client_max_rate": 60,
+          "strategy": "header",
+          "key": "X-Tenant-Key"
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id",
+        "x-admin-request-id",
+        "x-requestid"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/partners/mt",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 10,
+              "capacity": 20,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[API Gateway]",
+              "stdout": true
+            },
+            "github.com/devopsfaith/krakend-cors": {
+              "allow_origins": [
+                "*"
+              ],
+              "allow_methods": [
+                "GET",
+                "POST",
+                "DELETE",
+                "PUT"
+              ],
+              "max_age": "12h"
+            },
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": [
+                  "request"
+                ],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Tenant-Key",
+                      "value": "{tenant_key}"
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": [
+                        "request"
+                      ],
+                      "name": "X-Channel-Key",
+                      "value": "{channel_key}"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "host": [
+            "http://127.0.0.1:8083"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "external-tx-id",
+            "x-admin-request-id",
+            "x-requestid"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/external/v1/{tenant_key}/{channel_key}/charges",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        },
+        "qos/ratelimit/router": {
+          "client_max_rate": 60,
+          "strategy": "header",
+          "key": "X-Tenant-Key"
+        }
+      },
+      "headers_to_pass": [
+        "external-tx-id",
+        "x-admin-request-id",
+        "x-requestid"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/subscription-external/partners/charge",
           "encoding": "json",
           "sd": "static",
           "method": "POST",

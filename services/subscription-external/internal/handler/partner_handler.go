@@ -349,6 +349,115 @@ func gatewayRouteStatus(err error) (int, string) {
 	}
 }
 
+// GatewayPartnerMTHandler handles POST /api/v1/subscription-external/partners/mt.
+//
+// Tenant context is resolved from KrakenD-forwarded X-Tenant-Key/X-Channel-Key headers
+// (martian modifier injects them from the public path captures of
+// /api/external/v1/{tenant_key}/{channel_key}/mt).
+//
+// Deprecated legacy path: /api/external/v1/{channel}/mt — still routed to PartnerMTHandler.
+// This gateway-trust handler is the canonical replacement.
+func (h *PartnerHandler) GatewayPartnerMTHandler(ctx *fasthttp.RequestCtx) {
+	if h.tenantRepo == nil {
+		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
+		return
+	}
+	route, err := tenantRouteFromGatewayHeaders(ctx, h.tenantRepo)
+	if err != nil {
+		status, code := gatewayRouteStatus(err)
+		writeError(ctx, status, code, err.Error())
+		return
+	}
+	h.logger.Info("gateway partner MT",
+		zap.String("tenant_id", route.TenantID),
+		zap.String("channel_id", route.ChannelID),
+	)
+
+	var req partnerMtRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
+		return
+	}
+
+	// channel_key from resolved route is the canonical channel; allow override via query.
+	channel := route.ChannelKey
+	if ch := strings.TrimSpace(string(ctx.QueryArgs().Peek("channel"))); ch != "" {
+		channel = ch
+	}
+
+	mtReq := domain.MTRequest{
+		ProductID:          req.ProductID,
+		PricepointID:       req.PricepointID,
+		MCC:                req.MCC,
+		MNC:                req.MNC,
+		UserIdentifier:     req.MSISDN,
+		UserIdentifierType: "MSISDN",
+		EntryChannel:       channel,
+		LargeAccount:       req.LargeAccount,
+		SendDate:           req.SendDate,
+		Priority:           req.Priority,
+		Timezone:           req.Timezone,
+		Context:            req.Context,
+		MoTransactionUUID:  req.MoTransaction,
+		TenantRoute:        route,
+	}
+
+	resp, err := h.svc.SendMT(mtReq, h.cfg.Application.TIMWE.Realm, channel)
+	if err != nil {
+		h.logger.Error("Gateway partner MT failed", zap.Error(err))
+		writeError(ctx, serviceErrorStatus(err), serviceErrorCode(err), err.Error())
+		return
+	}
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(resp)
+}
+
+// GatewayPartnerChargeHandler handles POST /api/v1/subscription-external/partners/charge.
+//
+// Tenant context is resolved from KrakenD-forwarded X-Tenant-Key/X-Channel-Key headers
+// (martian modifier injects them from the public path captures of
+// /api/external/v1/{tenant_key}/{channel_key}/charges).
+//
+// Deprecated legacy path: /api/external/v1/charge/dob — still routed to PartnerChargeHandler.
+// This gateway-trust handler is the canonical replacement.
+func (h *PartnerHandler) GatewayPartnerChargeHandler(ctx *fasthttp.RequestCtx) {
+	if h.tenantRepo == nil {
+		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
+		return
+	}
+	route, err := tenantRouteFromGatewayHeaders(ctx, h.tenantRepo)
+	if err != nil {
+		status, code := gatewayRouteStatus(err)
+		writeError(ctx, status, code, err.Error())
+		return
+	}
+	h.logger.Info("gateway partner charge",
+		zap.String("tenant_id", route.TenantID),
+		zap.String("channel_id", route.ChannelID),
+	)
+
+	var req domain.ChargeRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
+		return
+	}
+	req.TenantRoute = route
+	if strings.TrimSpace(req.IdempotencyKey) == "" {
+		req.IdempotencyKey = strings.TrimSpace(string(ctx.Request.Header.Peek("external-tx-id")))
+	}
+
+	resp, err := h.svc.RequestCharge(req)
+	if err != nil {
+		h.logger.Error("Gateway partner charge failed", zap.Error(err))
+		writeError(ctx, serviceErrorStatus(err), serviceErrorCode(err), err.Error())
+		return
+	}
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(resp)
+}
+
 // PartnerSubscriptionOptin handles POST /api/v1/subscription-external/partners/optin.
 // Tenant context is resolved from KrakenD-injected headers (no trusted-service HMAC required).
 func (h *PartnerHandler) PartnerSubscriptionOptin(ctx *fasthttp.RequestCtx) {
