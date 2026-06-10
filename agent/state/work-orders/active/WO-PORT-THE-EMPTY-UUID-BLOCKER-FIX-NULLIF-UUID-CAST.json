@@ -1,0 +1,84 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "The requested outcome is implemented with evidence and tests.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-10T04:36:00Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260610T043420Z-port-the-empty-uuid-bloc",
+  "hashes": {
+    "classification_hash": "sha256:426f14d6b664b9da63f266bc9e81abb924e9b36738a4005ae715556203aa00a2",
+    "contract_hash": "sha256:67bb890b46630de12142a1fa91db3af8a924ca000603c9cc1a96d637f3853d41",
+    "issue_hash": "sha256:6a00a7d64bc6280b8de524278a454f1f75b56d8651cee00dfc45a19ec2210b0e"
+  },
+  "issue_id": "ISSUE-PORT-THE-EMPTY-UUID-BLOCKER-FIX-NULLIF-U",
+  "loop_mode": "closed",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Port the empty-UUID blocker fix (NULLIF uuid casts and tenant emptiness guards) from fixer branch onto current main in services/subscription-partner. Fix CreateSubscription, CreateNotification, OptOutSubscription, GetSubscriptionStatus postgres queries, add service-layer guards, and port tests.",
+    "trigger": "Port the empty-UUID blocker fix (NULLIF uuid casts and tenant emptiness guards) from fixer branch onto current main in services/subscription-partner. Fix CreateSubscription, CreateNotification, OptOutSubscription, GetSubscriptionStatus postgres queries, add service-layer guards, and port tests."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": "wave-001",
+    "parallel_safe": true,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "data-governance"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "policies/security/**",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "policies/security/**"
+    ]
+  },
+  "work_order_id": "WO-PORT-THE-EMPTY-UUID-BLOCKER-FIX-NULLIF-UUID-CAST"
+}

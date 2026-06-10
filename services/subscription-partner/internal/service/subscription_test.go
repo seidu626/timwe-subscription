@@ -119,13 +119,81 @@ func TestProcessNotification_ValidatesAndPersists(t *testing.T) {
 	}
 
 	req := &domain.NotificationRequest{
-		Type:   "CHARGE",
-		MSISDN: "233241234567",
+		Type:        "CHARGE",
+		MSISDN:      "233241234567",
+		TenantRoute: domain.TenantRouteContext{TenantID: "tenant-uuid-1", ChannelID: "channel-uuid-1"},
 	}
 	if err := svc.ProcessNotification(req); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if captured == nil || captured.Type != "CHARGE" {
 		t.Fatalf("expected notification to be persisted, got %+v", captured)
+	}
+}
+
+// TestProcessOptin_ZeroTenantRoute verifies that a zero-value TenantRoute returns a
+// TENANT_CONTEXT_REQUIRED error before hitting the repository.
+func TestProcessOptin_ZeroTenantRoute(t *testing.T) {
+	svc := NewSubscriptionService(&serviceRepoStub{}, nil)
+	req := &domain.SubscriptionRequest{
+		PartnerRoleId:  2117,
+		UserIdentifier: "233241234567",
+		// TenantRoute is zero-valued (empty TenantID)
+	}
+	err := svc.ProcessOptin(req)
+	if err == nil {
+		t.Fatal("expected error for zero tenant route")
+	}
+	if !strings.Contains(err.Error(), "TENANT_CONTEXT_REQUIRED") {
+		t.Fatalf("expected TENANT_CONTEXT_REQUIRED error, got: %v", err)
+	}
+}
+
+// TestProcessOptout_ZeroTenantRoute verifies zero-value route returns 422-class error.
+func TestProcessOptout_ZeroTenantRoute(t *testing.T) {
+	svc := NewSubscriptionService(&serviceRepoStub{}, nil)
+	req := &domain.UnsubscriptionRequest{
+		PartnerRoleId:  2117,
+		UserIdentifier: "233241234567",
+	}
+	err := svc.ProcessOptout(req)
+	if err == nil {
+		t.Fatal("expected error for zero tenant route")
+	}
+	if !strings.Contains(err.Error(), "TENANT_CONTEXT_REQUIRED") {
+		t.Fatalf("expected TENANT_CONTEXT_REQUIRED error, got: %v", err)
+	}
+}
+
+// TestProcessStatus_ZeroTenantRoute verifies zero-value route returns 422-class error.
+func TestProcessStatus_ZeroTenantRoute(t *testing.T) {
+	svc := NewSubscriptionService(&serviceRepoStub{}, nil)
+	req := &domain.GetStatusRequest{
+		PartnerRoleId:  2117,
+		UserIdentifier: "233241234567",
+	}
+	_, err := svc.ProcessStatus(req)
+	if err == nil {
+		t.Fatal("expected error for zero tenant route")
+	}
+	if !strings.Contains(err.Error(), "TENANT_CONTEXT_REQUIRED") {
+		t.Fatalf("expected TENANT_CONTEXT_REQUIRED error, got: %v", err)
+	}
+}
+
+// TestProcessNotification_ZeroTenantRoute verifies zero-value route returns 422-class error.
+func TestProcessNotification_ZeroTenantRoute(t *testing.T) {
+	svc := NewSubscriptionService(&serviceRepoStub{}, nil)
+	req := &domain.NotificationRequest{
+		Type:   "CHARGE",
+		MSISDN: "233241234567",
+		// TenantRoute is zero-valued
+	}
+	err := svc.ProcessNotification(req)
+	if err == nil {
+		t.Fatal("expected error for zero tenant route")
+	}
+	if !strings.Contains(err.Error(), "TENANT_CONTEXT_REQUIRED") {
+		t.Fatalf("expected TENANT_CONTEXT_REQUIRED error, got: %v", err)
 	}
 }

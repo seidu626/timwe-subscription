@@ -1,0 +1,48 @@
+{
+  "classification_hints": {
+    "domains": [
+      "security"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-10T04:34:20Z",
+  "goal_id": "goal-20260610T043420Z-port-the-empty-uuid-bloc",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Port the empty-UUID blocker fix (NULLIF uuid casts and tenant emptiness guards) from fixer branch onto current main in services/subscription-partner. Fix CreateSubscription, CreateNotification, OptOutSubscription, GetSubscriptionStatus postgres queries, add service-layer guards, and port tests.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "The requested outcome is implemented with evidence and tests."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "high",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Port the empty-UUID blocker fix (NULLIF uuid casts and tenant emptiness guards) from fixer branch onto current main in services/subscription-partner. Fix CreateSubscription, CreateNotification, OptOutSubscription, GetSubscriptionStatus postgres queries, add service-layer guards, and port tests.",
+    "prompt_hash": "sha256:e15db6c7702e85661b241fca6f7d39b9be073e64deb3af6f532b4c713919abfb",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "The requested outcome is implemented with evidence and tests."
+  ],
+  "title": "Port the empty-UUID blocker fix (NULLIF uuid casts and tenant emptiness guards) from fixer"
+}

@@ -235,6 +235,40 @@ func TestOptinHandler_WithTenantKeyHeader(t *testing.T) {
 	}
 }
 
+// TestOptoutHandler_TenantlessRejects verifies that optout without tenant context → 422.
+func TestOptoutHandler_TenantlessRejects(t *testing.T) {
+	svc := service.NewSubscriptionService(&handlerRepoStub{}, &config.Config{})
+	h := NewSubscriptionHandler(svc, &config.Config{}).WithTenantRepo(resolvedTenantRepo())
+
+	ctx := newPostRequestContext(
+		"/api/v1/subscription/optout/2117",
+		`{"userIdentifier":"233241234567","productId":8509}`,
+	)
+	ctx.SetUserValue("partnerRoleId", "2117")
+	h.OptoutHandler(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 for tenantless optout, got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+}
+
+// TestStatusHandler_TenantlessRejects verifies that status without tenant context → 422.
+func TestStatusHandler_TenantlessRejects(t *testing.T) {
+	svc := service.NewSubscriptionService(&handlerRepoStub{}, &config.Config{})
+	h := NewSubscriptionHandler(svc, &config.Config{}).WithTenantRepo(resolvedTenantRepo())
+
+	ctx := newPostRequestContext(
+		"/api/v1/subscription/status/2117",
+		`{"userIdentifier":"233241234567","productId":8509}`,
+	)
+	ctx.SetUserValue("partnerRoleId", "2117")
+	h.StatusHandler(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 for tenantless status, got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+}
+
 // TestConfirmHandler_ReturnsNotImplemented verifies the confirm path is still 501.
 // Confirm check occurs after tenant resolution — requires valid tenant context.
 func TestConfirmHandler_ReturnsNotImplemented(t *testing.T) {
