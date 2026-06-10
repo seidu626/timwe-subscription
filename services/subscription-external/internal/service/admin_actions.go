@@ -309,7 +309,7 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 			MoTransactionUUID:  req.TrackingID,
 			CampaignUrl:        req.CampaignURL,
 		}
-		payload, err = s.buildTIMWEOptinPayload(mtReq)
+		payload, err = s.buildTIMWEOptinPayload(mtReq, providerCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -340,7 +340,7 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 			CancelReason:          req.CancelReason,
 			CancelSource:          req.CancelSource,
 		}
-		payload, err = s.buildTIMWEOptoutPayload(optoutReq)
+		payload, err = s.buildTIMWEOptoutPayload(optoutReq, providerCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -356,7 +356,7 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 			ClientIp:            ptrFromString(req.ClientIP),
 			TransactionAuthCode: req.TransactionAuthCode,
 		}
-		payload, err = s.buildTIMWEOptinConfirmPayload(confirmReq)
+		payload, err = s.buildTIMWEOptinConfirmPayload(confirmReq, providerCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -374,7 +374,7 @@ func (s *SubscriptionService) ExecuteAdminSubscriptionAction(operation domain.Ad
 			ControlServiceKeyword: req.ControlServiceKeyword,
 			SubId:                 req.SubID,
 		}
-		payload, err = s.buildTIMWEStatusPayload(statusReq)
+		payload, err = s.buildTIMWEStatusPayload(statusReq, providerCfg)
 		if err != nil {
 			return nil, err
 		}

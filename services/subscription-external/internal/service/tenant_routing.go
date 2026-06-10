@@ -56,6 +56,17 @@ type TenantProviderConfig struct {
 	PartnerRoleID    string
 	Realm            string
 	SecretRefDisplay string
+	// Extended per-tenant account config. Empty string means "not set by tenant";
+	// callers use the global config / hardcoded defaults as fallback.
+	MTAPIKey             string
+	MCC                  string
+	MNC                  string
+	LargeAccount         string
+	ServiceName          string          // store-through only — TODO: wire to request building
+	FreeMTPricepointID   string          // store-through only — TODO: wire to request building
+	MOPricepointIDs      string          // store-through only — TODO: wire to request building
+	BillingPricepointIDs string          // store-through only — TODO: wire to request building
+	HEIVParamSpecKey     string          // store-through only — TODO: wire to request building
 }
 
 func (c TenantProviderConfig) AuthKey() (string, error) {
@@ -81,13 +92,23 @@ func (c TenantProviderConfig) PartnerRoleInt() (int, error) {
 }
 
 type ProviderCredentialSecret struct {
-	BaseURL           string `json:"base_url"`
-	APIKey            string `json:"api_key"`
-	AuthenticationKey string `json:"authentication_key"`
-	PartnerServiceID  string `json:"partner_service_id"`
-	PSK               string `json:"psk"`
-	PartnerRoleID     string `json:"partner_role_id"`
-	Realm             string `json:"realm"`
+	BaseURL              string `json:"base_url"`
+	APIKey               string `json:"api_key"`
+	AuthenticationKey    string `json:"authentication_key"`
+	PartnerServiceID     string `json:"partner_service_id"`
+	PSK                  string `json:"psk"`
+	PartnerRoleID        string `json:"partner_role_id"`
+	Realm                string `json:"realm"`
+	// Extended per-tenant account config (all optional; zero value = absent).
+	MTAPIKey              string `json:"mt_api_key"`
+	MCC                   string `json:"mcc"`
+	MNC                   string `json:"mnc"`
+	LargeAccount          string `json:"large_account"`
+	ServiceName           string `json:"service_name"`
+	FreeMTPricepointID    string `json:"free_mt_pricepoint_id"`
+	MOPricepointIDs       string `json:"mo_pricepoint_ids"`
+	BillingPricepointIDs  string `json:"billing_pricepoint_ids"`
+	HEIVParamSpecKey      string `json:"he_iv_param_spec_key"`
 }
 
 type ProviderCredentialResolver interface {
@@ -260,6 +281,17 @@ func (r *TenantProviderRouter) Resolve(ctx context.Context, operation ChannelOpe
 		PSK:              tenantProviderCredentialValue(secret.PSK, r.cfg.Application.TIMWE.Psk, allowSharedCredentialFallback),
 		PartnerRoleID:    firstNonEmpty(secret.PartnerRoleID, r.cfg.Application.TIMWE.PartnerRoleID),
 		Realm:            firstNonEmpty(secret.Realm, r.cfg.Application.TIMWE.Realm),
+		// Extended fields: mcc/mnc/mt_api_key fall back to global config; the rest are
+		// tenant-specific only (empty when absent — callers apply their own defaults).
+		MTAPIKey:             firstNonEmpty(secret.MTAPIKey, r.cfg.Application.TIMWE.MTAPIKey),
+		MCC:                  firstNonEmpty(secret.MCC, r.cfg.Application.TIMWE.MCC),
+		MNC:                  firstNonEmpty(secret.MNC, r.cfg.Application.TIMWE.MNC),
+		LargeAccount:         secret.LargeAccount,
+		ServiceName:          secret.ServiceName,
+		FreeMTPricepointID:   secret.FreeMTPricepointID,
+		MOPricepointIDs:      secret.MOPricepointIDs,
+		BillingPricepointIDs: secret.BillingPricepointIDs,
+		HEIVParamSpecKey:     secret.HEIVParamSpecKey,
 	}
 	if secretRefDisplay.Valid {
 		cfg.SecretRefDisplay = secretRefDisplay.String

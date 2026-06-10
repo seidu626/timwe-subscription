@@ -774,7 +774,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 
 	// Build URL and request body
 	url := fmt.Sprintf("%s/subscription/optin/%s", providerCfg.BaseURL, providerCfg.PartnerRoleID)
-	payload, err := s.buildTIMWEOptinPayload(reqData)
+	payload, err := s.buildTIMWEOptinPayload(reqData, providerCfg)
 	if err != nil {
 		s.logger.Error("Failed to normalize optin payload", zap.Error(err))
 		return nil, err
@@ -793,7 +793,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 		return nil, err
 	}
 
-	resp, callErr := s.sendMTWithRetry(reqData, url, providerCfg.APIKey, authKey, requestBody, 3)
+	resp, callErr := s.sendMTWithRetry(reqData, url, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MTAPIKey }, providerCfg.APIKey), authKey, requestBody, 3)
 	success := callErr == nil || s.isNonBreakerError(callErr)
 	done(success)
 	if callErr != nil {
@@ -814,7 +814,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 		// Retry with SMS entry channel
 		mtReqCopy := reqData
 		mtReqCopy.EntryChannel = "SMS"
-		payload, err = s.buildTIMWEOptinPayload(mtReqCopy)
+		payload, err = s.buildTIMWEOptinPayload(mtReqCopy, providerCfg)
 		if err != nil {
 			s.logger.Error("Failed to normalize retry optin payload", zap.Error(err))
 			return nil, err
@@ -827,7 +827,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 			return nil, fmt.Errorf("failed to marshal retry request data: %v", err)
 		}
 
-		resp, callErr = s.sendMTWithRetry(mtReqCopy, url, providerCfg.APIKey, authKey, requestBody, 3)
+		resp, callErr = s.sendMTWithRetry(mtReqCopy, url, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MTAPIKey }, providerCfg.APIKey), authKey, requestBody, 3)
 		if callErr != nil {
 			s.logger.Error("Error sending MT retry with SMS", zap.String("msisdn", reqData.UserIdentifier), zap.Error(callErr))
 			return nil, callErr
@@ -1945,7 +1945,7 @@ func (s *SubscriptionService) CheckChargingStatus(msisdn string, product *domain
 	return nil
 }
 
-func (s *SubscriptionService) buildTIMWEOptinPayload(reqData domain.MTRequest) (timweOptinPayload, error) {
+func (s *SubscriptionService) buildTIMWEOptinPayload(reqData domain.MTRequest, providerCfg *TenantProviderConfig) (timweOptinPayload, error) {
 	userIdentifier := strings.TrimSpace(reqData.UserIdentifier)
 	if userIdentifier == "" {
 		return timweOptinPayload{}, fmt.Errorf("invalid optin payload: userIdentifier is required")
@@ -1954,15 +1954,18 @@ func (s *SubscriptionService) buildTIMWEOptinPayload(reqData domain.MTRequest) (
 		return timweOptinPayload{}, fmt.Errorf("invalid optin payload: productId must be greater than zero")
 	}
 
+	mcc := defaultIfBlank(reqData.MCC, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MCC }, s.getMCC()))
+	mnc := defaultIfBlank(reqData.MNC, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MNC }, s.getMNC()))
+	largeAccount := defaultIfBlank(reqData.LargeAccount, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.LargeAccount }, ""))
 	trackingID := defaultIfBlank(reqData.MoTransactionUUID, uuid.New().String())
 	payload := timweOptinPayload{
 		UserIdentifier:     userIdentifier,
 		UserIdentifierType: defaultIfBlank(reqData.UserIdentifierType, timweDefaultMSISDNType),
 		ProductID:          reqData.ProductID,
-		MCC:                defaultIfBlank(reqData.MCC, s.getMCC()),
-		MNC:                defaultIfBlank(reqData.MNC, s.getMNC()),
+		MCC:                mcc,
+		MNC:                mnc,
 		EntryChannel:       defaultIfBlank(reqData.EntryChannel, timweDefaultEntryChannel),
-		LargeAccount:       defaultIfBlank(reqData.LargeAccount, ""),
+		LargeAccount:       largeAccount,
 		SubKeyword:         defaultIfBlank(reqData.SubKeyword, ""),
 		TrackingID:         trackingID,
 		ClientIP:           timweDefaultClientIP,
@@ -1971,7 +1974,7 @@ func (s *SubscriptionService) buildTIMWEOptinPayload(reqData domain.MTRequest) (
 	return payload, nil
 }
 
-func (s *SubscriptionService) buildTIMWEOptinConfirmPayload(reqData domain.SubscriptionConfirmationRequest) (timweOptinConfirmPayload, error) {
+func (s *SubscriptionService) buildTIMWEOptinConfirmPayload(reqData domain.SubscriptionConfirmationRequest, providerCfg *TenantProviderConfig) (timweOptinConfirmPayload, error) {
 	userIdentifier := strings.TrimSpace(reqData.UserIdentifier)
 	if userIdentifier == "" {
 		return timweOptinConfirmPayload{}, fmt.Errorf("invalid optin confirm payload: userIdentifier is required")
@@ -1989,8 +1992,8 @@ func (s *SubscriptionService) buildTIMWEOptinConfirmPayload(reqData domain.Subsc
 		UserIdentifier:      userIdentifier,
 		UserIdentifierType:  defaultIfBlank(reqData.UserIdentifierType, timweDefaultMSISDNType),
 		ProductID:           reqData.ProductId,
-		MCC:                 defaultFromPointer(reqData.Mcc, s.getMCC()),
-		MNC:                 defaultFromPointer(reqData.Mnc, s.getMNC()),
+		MCC:                 defaultFromPointer(reqData.Mcc, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MCC }, s.getMCC())),
+		MNC:                 defaultFromPointer(reqData.Mnc, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MNC }, s.getMNC())),
 		EntryChannel:        defaultFromPointer(reqData.EntryChannel, timweDefaultEntryChannel),
 		ClientIP:            defaultFromPointer(reqData.ClientIp, timweDefaultClientIP),
 		TransactionAuthCode: transactionAuthCode,
@@ -1998,7 +2001,7 @@ func (s *SubscriptionService) buildTIMWEOptinConfirmPayload(reqData domain.Subsc
 	return payload, nil
 }
 
-func (s *SubscriptionService) buildTIMWEOptoutPayload(reqData domain.UnsubscriptionRequest) (timweOptoutPayload, error) {
+func (s *SubscriptionService) buildTIMWEOptoutPayload(reqData domain.UnsubscriptionRequest, providerCfg *TenantProviderConfig) (timweOptoutPayload, error) {
 	userIdentifier := strings.TrimSpace(reqData.UserIdentifier)
 	if userIdentifier == "" {
 		return timweOptoutPayload{}, fmt.Errorf("invalid optout payload: userIdentifier is required")
@@ -2011,10 +2014,10 @@ func (s *SubscriptionService) buildTIMWEOptoutPayload(reqData domain.Unsubscript
 		UserIdentifier:        userIdentifier,
 		UserIdentifierType:    defaultIfBlank(reqData.UserIdentifierType, timweDefaultMSISDNType),
 		ProductID:             reqData.ProductId,
-		MCC:                   defaultFromPointer(reqData.Mcc, s.getMCC()),
-		MNC:                   defaultFromPointer(reqData.Mnc, s.getMNC()),
+		MCC:                   defaultFromPointer(reqData.Mcc, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MCC }, s.getMCC())),
+		MNC:                   defaultFromPointer(reqData.Mnc, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MNC }, s.getMNC())),
 		EntryChannel:          defaultFromPointer(reqData.EntryChannel, timweDefaultEntryChannel),
-		LargeAccount:          defaultFromPointer(reqData.LargeAccount, ""),
+		LargeAccount:          defaultFromPointer(reqData.LargeAccount, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.LargeAccount }, "")),
 		SubKeyword:            defaultFromPointer(reqData.SubKeyword, ""),
 		TrackingID:            defaultFromPointer(reqData.TrackingId, uuid.New().String()),
 		ClientIP:              defaultFromPointer(reqData.ClientIp, timweDefaultClientIP),
@@ -2027,7 +2030,7 @@ func (s *SubscriptionService) buildTIMWEOptoutPayload(reqData domain.Unsubscript
 	return payload, nil
 }
 
-func (s *SubscriptionService) buildTIMWEStatusPayload(reqData domain.GetStatusRequest) (timweStatusPayload, error) {
+func (s *SubscriptionService) buildTIMWEStatusPayload(reqData domain.GetStatusRequest, providerCfg *TenantProviderConfig) (timweStatusPayload, error) {
 	userIdentifier := strings.TrimSpace(reqData.UserIdentifier)
 	if userIdentifier == "" {
 		return timweStatusPayload{}, fmt.Errorf("invalid status payload: userIdentifier is required")
@@ -2040,8 +2043,8 @@ func (s *SubscriptionService) buildTIMWEStatusPayload(reqData domain.GetStatusRe
 		UserIdentifier:        userIdentifier,
 		UserIdentifierType:    defaultIfBlank(reqData.UserIdentifierType, timweDefaultMSISDNType),
 		ProductID:             reqData.ProductId,
-		MCC:                   defaultFromPointer(reqData.Mcc, s.getMCC()),
-		MNC:                   defaultFromPointer(reqData.Mnc, s.getMNC()),
+		MCC:                   defaultFromPointer(reqData.Mcc, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MCC }, s.getMCC())),
+		MNC:                   defaultFromPointer(reqData.Mnc, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MNC }, s.getMNC())),
 		EntryChannel:          defaultFromPointer(reqData.EntryChannel, timweDefaultEntryChannel),
 		ClientIP:              defaultFromPointer(reqData.ClientIp, timweDefaultClientIP),
 		ControlKeyword:        defaultIfBlank(reqData.ControlKeyword, ""),
@@ -2056,6 +2059,17 @@ func defaultFromPointer(value *string, fallback string) string {
 		return fallback
 	}
 	return defaultIfBlank(*value, fallback)
+}
+
+// tenantOrGlobal returns the value extracted from cfg when cfg is non-nil and
+// the extracted value is non-empty; otherwise it returns globalFallback.
+func tenantOrGlobal(cfg *TenantProviderConfig, extract func(*TenantProviderConfig) string, globalFallback string) string {
+	if cfg != nil {
+		if v := extract(cfg); v != "" {
+			return v
+		}
+	}
+	return globalFallback
 }
 
 func defaultIfBlank(value string, fallback string) string {
@@ -2357,7 +2371,7 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 	}
 
 	url := fmt.Sprintf("%s/subscription/status/%d", providerCfg.BaseURL, partnerRoleID)
-	payload, err := s.buildTIMWEStatusPayload(reqData)
+	payload, err := s.buildTIMWEStatusPayload(reqData, providerCfg)
 	if err != nil {
 		s.logger.Error("Failed to normalize status payload", zap.Error(err))
 		return nil, err
@@ -2570,7 +2584,7 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 	}
 
 	url := fmt.Sprintf("%s/subscription/optout/%d", providerCfg.BaseURL, partnerRoleID)
-	payload, err := s.buildTIMWEOptoutPayload(reqData)
+	payload, err := s.buildTIMWEOptoutPayload(reqData, providerCfg)
 	if err != nil {
 		s.logger.Error("Failed to normalize optout payload", zap.Error(err))
 		return nil, err
@@ -2764,7 +2778,7 @@ func (s *SubscriptionService) sendOptinConfirmWithRetry(reqData domain.Subscript
 	}
 
 	url := fmt.Sprintf("%s/subscription/optin/confirm/%d", providerCfg.BaseURL, partnerRoleID)
-	payload, err := s.buildTIMWEOptinConfirmPayload(reqData)
+	payload, err := s.buildTIMWEOptinConfirmPayload(reqData, providerCfg)
 	if err != nil {
 		s.logger.Error("Failed to normalize optin confirm payload", zap.Error(err))
 		return nil, err
