@@ -79,6 +79,9 @@ type timweOptinPayload struct {
 	UserIdentifier     string `json:"userIdentifier"`
 	UserIdentifierType string `json:"userIdentifierType"`
 	ProductID          int    `json:"productId"`
+	// PricepointID carries the resolved free/zero-rated MT pricepoint when non-zero.
+	// Omitted from the outbound JSON when zero (omitempty) so legacy requests are unchanged.
+	PricepointID       int    `json:"pricepointId,omitempty"`
 	MCC                string `json:"mcc"`
 	MNC                string `json:"mnc"`
 	EntryChannel       string `json:"entryChannel"`
@@ -1190,6 +1193,22 @@ func (s *SubscriptionService) RequestCharge(reqData domain.ChargeRequest) (*doma
 		return nil, err
 	}
 	reqData.TenantRoute = canonicalTenantRoute(reqData.TenantRoute, providerCfg)
+
+	// Precedence: product-level PricepointID (non-zero) wins; tenant BillingPricepointIDs
+	// first entry is the fallback; MOPricepointIDs is secondary (MO-billed charges);
+	// absent-all keeps the caller-supplied value unchanged.
+	billingCSV := tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.BillingPricepointIDs }, "")
+	moCSV := tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MOPricepointIDs }, "")
+	effectivePricepointCSV := firstNonEmpty(billingCSV, moCSV)
+	reqData.PricepointID = tenantPricepointFallback(reqData.PricepointID, effectivePricepointCSV)
+
+	// Precedence: product-level ShortCode wins; tenant LargeAccount is the fallback.
+	// firstNonEmpty trims whitespace, so an all-whitespace tenant value is treated as absent.
+	reqData.ShortCode = firstNonEmpty(
+		reqData.ShortCode,
+		tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.LargeAccount }, ""),
+	)
+
 	if strings.TrimSpace(reqData.IdempotencyKey) == "" {
 		reqData.IdempotencyKey = chargeIdempotencyKey(reqData, providerCfg, time.Now().UTC())
 	}
@@ -1959,10 +1978,17 @@ func (s *SubscriptionService) buildTIMWEOptinPayload(reqData domain.MTRequest, p
 	mnc := defaultIfBlank(reqData.MNC, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MNC }, s.getMNC()))
 	largeAccount := defaultIfBlank(reqData.LargeAccount, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.LargeAccount }, ""))
 	trackingID := defaultIfBlank(reqData.MoTransactionUUID, uuid.New().String())
+
+	// Precedence: product-level PricepointID (non-zero) wins; tenant FreeMTPricepointID
+	// is the fallback for free/zero-rated MT sends; absent-both keeps existing value.
+	freeMTPricepointCSV := tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.FreeMTPricepointID }, "")
+	resolvedPricepointID := tenantPricepointFallback(reqData.PricepointID, freeMTPricepointCSV)
+
 	payload := timweOptinPayload{
 		UserIdentifier:     userIdentifier,
 		UserIdentifierType: defaultIfBlank(reqData.UserIdentifierType, timweDefaultMSISDNType),
 		ProductID:          reqData.ProductID,
+		PricepointID:       resolvedPricepointID,
 		MCC:                mcc,
 		MNC:                mnc,
 		EntryChannel:       defaultIfBlank(reqData.EntryChannel, timweDefaultEntryChannel),
@@ -2071,6 +2097,29 @@ func tenantOrGlobal(cfg *TenantProviderConfig, extract func(*TenantProviderConfi
 		}
 	}
 	return globalFallback
+}
+
+// tenantPricepointFallback implements the pricepoint precedence rule:
+// an explicitly-set product-level value (non-zero) wins; the first entry from
+// the tenant providerCfg comma-separated list is the fallback; if neither is
+// set the current productValue is returned unchanged (preserving legacy behaviour).
+func tenantPricepointFallback(productValue int, tenantCSV string) int {
+	if productValue != 0 {
+		// Product-level value wins.
+		return productValue
+	}
+	if strings.TrimSpace(tenantCSV) == "" {
+		return productValue
+	}
+	first := strings.TrimSpace(strings.SplitN(tenantCSV, ",", 2)[0])
+	if first == "" {
+		return productValue
+	}
+	v, err := strconv.Atoi(first)
+	if err != nil || v == 0 {
+		return productValue
+	}
+	return v
 }
 
 func defaultIfBlank(value string, fallback string) string {

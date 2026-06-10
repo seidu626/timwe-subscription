@@ -61,12 +61,20 @@ type TenantProviderConfig struct {
 	MTAPIKey             string
 	MCC                  string
 	MNC                  string
+	// LargeAccount overrides the outbound TIMWE largeAccount/shortCode sender field.
+	// Precedence: request-level value wins; this tenant value is the fallback; empty = use legacy default.
 	LargeAccount         string
-	ServiceName          string          // store-through only — TODO: wire to request building
-	FreeMTPricepointID   string          // store-through only — TODO: wire to request building
-	MOPricepointIDs      string          // store-through only — TODO: wire to request building
-	BillingPricepointIDs string          // store-through only — TODO: wire to request building
-	HEIVParamSpecKey     string          // store-through only — TODO: wire to request building
+	ServiceName          string // store-through only — TODO: wire to request building
+	// FreeMTPricepointID is the pricepoint to use for free/zero-rated MT sends.
+	// Precedence: product-level PricepointID (non-zero) wins; this value is the fallback.
+	FreeMTPricepointID   string
+	// MOPricepointIDs is a comma-separated list of valid MO pricepoint IDs for this tenant channel.
+	// Precedence: request-level PricepointID (non-zero) wins; first entry here is the fallback.
+	MOPricepointIDs      string
+	// BillingPricepointIDs is a comma-separated list of billing/DOB pricepoint IDs for this tenant channel.
+	// Precedence: request-level PricepointID (non-zero) wins; first entry here is the fallback.
+	BillingPricepointIDs string
+	HEIVParamSpecKey     string // store-through only — TODO: wire to request building
 }
 
 func (c TenantProviderConfig) AuthKey() (string, error) {
