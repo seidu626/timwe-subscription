@@ -128,6 +128,10 @@ func firstHeader(ctx *fasthttp.RequestCtx, names ...string) string {
 func (h *SubscriptionHandler) handleSubscription(ctx *fasthttp.RequestCtx, subscriptionType string) {
 	log.Printf("Processing subscription request: %s", ctx.Request.String())
 
+	if !checkGatewayTrust(ctx, h.config) {
+		return
+	}
+
 	// Extract partnerRoleId from the context
 	partnerRoleIdStr := ctx.UserValue("partnerRoleId").(string)
 	partnerRoleId, err := strconv.Atoi(partnerRoleIdStr)

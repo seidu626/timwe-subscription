@@ -366,6 +366,9 @@ func gatewayRouteStatus(err error) (int, string) {
 // Deprecated legacy path: /api/external/v1/{channel}/mt — still routed to PartnerMTHandler.
 // This gateway-trust handler is the canonical replacement.
 func (h *PartnerHandler) GatewayPartnerMTHandler(ctx *fasthttp.RequestCtx) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 	if h.tenantRepo == nil {
 		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
 		return
@@ -430,6 +433,9 @@ func (h *PartnerHandler) GatewayPartnerMTHandler(ctx *fasthttp.RequestCtx) {
 // Deprecated legacy path: /api/external/v1/charge/dob — still routed to PartnerChargeHandler.
 // This gateway-trust handler is the canonical replacement.
 func (h *PartnerHandler) GatewayPartnerChargeHandler(ctx *fasthttp.RequestCtx) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 	if h.tenantRepo == nil {
 		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
 		return
@@ -469,6 +475,9 @@ func (h *PartnerHandler) GatewayPartnerChargeHandler(ctx *fasthttp.RequestCtx) {
 // PartnerSubscriptionOptin handles POST /api/v1/subscription-external/partners/optin.
 // Tenant context is resolved from KrakenD-injected headers (no trusted-service HMAC required).
 func (h *PartnerHandler) PartnerSubscriptionOptin(ctx *fasthttp.RequestCtx) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 	if h.tenantRepo == nil {
 		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
 		return
@@ -504,6 +513,9 @@ func (h *PartnerHandler) PartnerSubscriptionOptin(ctx *fasthttp.RequestCtx) {
 
 // PartnerSubscriptionConfirm handles POST /api/v1/subscription-external/partners/confirm.
 func (h *PartnerHandler) PartnerSubscriptionConfirm(ctx *fasthttp.RequestCtx) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 	if h.tenantRepo == nil {
 		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
 		return
@@ -539,6 +551,9 @@ func (h *PartnerHandler) PartnerSubscriptionConfirm(ctx *fasthttp.RequestCtx) {
 
 // PartnerSubscriptionOptout handles POST /api/v1/subscription-external/partners/optout.
 func (h *PartnerHandler) PartnerSubscriptionOptout(ctx *fasthttp.RequestCtx) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 	if h.tenantRepo == nil {
 		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
 		return
@@ -574,6 +589,9 @@ func (h *PartnerHandler) PartnerSubscriptionOptout(ctx *fasthttp.RequestCtx) {
 
 // PartnerSubscriptionStatus handles POST /api/v1/subscription-external/partners/status.
 func (h *PartnerHandler) PartnerSubscriptionStatus(ctx *fasthttp.RequestCtx) {
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 	if h.tenantRepo == nil {
 		writeError(ctx, fasthttp.StatusInternalServerError, "INTERNAL_ERROR", "tenant repository not configured")
 		return
@@ -605,6 +623,40 @@ func (h *PartnerHandler) PartnerSubscriptionStatus(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	_ = json.NewEncoder(ctx).Encode(resp)
+}
+
+// checkGatewayTrust verifies the X-Gateway-Trust header injected by KrakenD.
+//
+// When GATEWAY_TRUST_REQUIRED=false (default), a missing or invalid header only
+// logs a structured warning — no request is rejected. This allows services to be
+// deployed before the KrakenD configuration change without breaking live traffic.
+//
+// Set GATEWAY_TRUST_REQUIRED=true after KrakenD is confirmed to be injecting the
+// header on all gateway-routed requests.
+//
+// Returns true when the caller should proceed (either trust verified, or
+// enforcement is off). Returns false and writes a 403 response when enforcement
+// is on and the header is missing or invalid.
+func (h *PartnerHandler) checkGatewayTrust(ctx *fasthttp.RequestCtx) bool {
+	if h.cfg == nil {
+		return true
+	}
+	secret := strings.TrimSpace(h.cfg.Auth.GatewayTrust.Secret)
+	required := h.cfg.Auth.GatewayTrust.Required
+
+	err := tenantctx.VerifyGatewayTrust(fastHTTPHeaderGetter{ctx: ctx}, tenantctx.GatewayTrustOptions{Secret: secret})
+	if err == nil {
+		return true
+	}
+	if !required {
+		h.logger.Warn("gateway trust marker missing or invalid (enforcement disabled)",
+			zap.String("error", err.Error()),
+			zap.String("path", string(ctx.Path())),
+		)
+		return true
+	}
+	writeError(ctx, fasthttp.StatusForbidden, "GATEWAY_TRUST_REQUIRED", "request must originate from the API gateway")
+	return false
 }
 
 type fastHTTPHeaderGetter struct {

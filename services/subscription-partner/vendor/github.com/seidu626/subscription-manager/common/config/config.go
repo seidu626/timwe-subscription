@@ -151,6 +151,18 @@ type Config struct {
 			Secret         string `mapstructure:"SECRET"`
 			RefreshExpired string `mapstructure:"REFRESH_EXPIRED"`
 		} `mapstructure:"JWT_TOKEN"`
+		// GatewayTrust configures the KrakenD gateway trust marker.
+		//
+		// ⚠ MECHANISM DOWNGRADE: the KrakenD build in this deployment does NOT
+		// support Lua scripting or a custom HMAC plugin, so per-request HMAC is
+		// not possible. The X-Gateway-Trust header is a static HMAC-SHA256 token
+		// derived from GATEWAY_TRUST_SECRET (see tenantctx.GatewayTrustToken).
+		// Enforcement is flag-gated: set GATEWAY_TRUST_REQUIRED=true only AFTER
+		// the KrakenD configuration is deployed with the header injection.
+		GatewayTrust struct {
+			Secret   string `mapstructure:"SECRET"`
+			Required bool   `mapstructure:"REQUIRED"`
+		} `mapstructure:"GATEWAY_TRUST"`
 	} `mapstructure:"AUTH"`
 	Database struct {
 		Postgresql struct {
@@ -252,6 +264,10 @@ func InitConfig(logger *zap.Logger, path string, files []string) *Config {
 
 	// Bind auth environment variables
 	_ = v.BindEnv("AUTH.JWT_TOKEN.SECRET", "JWT_SECRET")
+
+	// Bind gateway trust variables.
+	_ = v.BindEnv("AUTH.GATEWAY_TRUST.SECRET", "GATEWAY_TRUST_SECRET")
+	_ = v.BindEnv("AUTH.GATEWAY_TRUST.REQUIRED", "GATEWAY_TRUST_REQUIRED")
 
 	// Bind TIMWE environment variables for backward compatibility across services.
 	_ = v.BindEnv("APPLICATION.TIMWE_MA.API_KEY", "APP_APPLICATION_TIMWE_MA_API_KEY", "TIMWE_API_KEY")

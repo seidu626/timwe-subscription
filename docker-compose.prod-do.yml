@@ -13,6 +13,12 @@
 #   JWT_SECRET, TIMWE_API_KEY, TIMWE_PSK
 #   ADMIN_AUTH0_DOMAIN, ADMIN_AUTH0_AUDIENCE
 #   NOTIFICATION_WORKER_MT_BASE_URL, NOTIFICATION_WORKER_MT_CHANNEL
+#   GATEWAY_TRUST_SECRET  — shared secret for X-Gateway-Trust header verification
+#   GATEWAY_TRUST_REQUIRED — set to "true" AFTER KrakenD is deployed with the header
+#     Default: false (log-only). Services MUST be deployed BEFORE KrakenD change.
+#   GATEWAY_TRUST_TOKEN — pre-computed HMAC token injected by KrakenD (static, from secret).
+#     Compute: GATEWAY_TRUST_SECRET=<secret> go run ./tools/gateway-trust-token/main.go
+#     Then set in krakend/krakend.json (replace __REPLACE_WITH_GATEWAY_TRUST_TOKEN__)
 
 services:
   # ============================================
@@ -73,6 +79,8 @@ services:
       - APP_CACHE_REDIS_HOST=${REDIS_HOST:-host.docker.internal}
       - APP_CACHE_REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET}
+      - GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
+      - GATEWAY_TRUST_REQUIRED=${GATEWAY_TRUST_REQUIRED:-false}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/health"]
       interval: 30s
@@ -107,6 +115,8 @@ services:
       - APP_APPLICATION_TIMWE_MA_API_KEY=${TIMWE_API_KEY}
       - APP_APPLICATION_TIMWE_MA_PSK=${TIMWE_PSK}
       - ACQUISITION_API_URL=http://acquisition-api:8084
+      - GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
+      - GATEWAY_TRUST_REQUIRED=${GATEWAY_TRUST_REQUIRED:-false}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8083/health"]
       interval: 30s
@@ -167,6 +177,8 @@ services:
       - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
       - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
       - ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS=${ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS:-}
+      - GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
+      - GATEWAY_TRUST_REQUIRED=${GATEWAY_TRUST_REQUIRED:-false}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/health"]
       interval: 30s

@@ -52,6 +52,13 @@ type Config struct {
 			Secret         string `mapstructure:"SECRET"`
 			RefreshExpired string `mapstructure:"REFRESH_EXPIRED"`
 		} `mapstructure:"JWT_TOKEN"`
+		// GatewayTrust configures the KrakenD gateway trust marker verification.
+		// See common/auth/tenantctx.VerifyGatewayTrust for mechanism notes.
+		// SECURITY NOTE: requires GATEWAY_TRUST_REQUIRED=true to enforce.
+		GatewayTrust struct {
+			Secret   string
+			Required bool
+		}
 	} `mapstructure:"AUTH"`
 
 	DB struct {
@@ -140,6 +147,15 @@ func InitConfig(logger *zap.Logger, path string, files []string) Config {
 		cfg.Notification.RequireTenantContext = parseTenantContextFlag(
 			os.Getenv("NOTIFICATION_REQUIRE_TENANT_CONTEXT"),
 		)
+		// Gateway trust secret: read directly from env (sensitive value, not from viper).
+		if secret := strings.TrimSpace(os.Getenv("GATEWAY_TRUST_SECRET")); secret != "" {
+			cfg.Auth.GatewayTrust.Secret = secret
+		}
+		// Gateway trust enforcement: fail-open default (false) mirrors the existing
+		// NOTIFICATION_REQUIRE_TENANT_CONTEXT pattern.
+		cfg.Auth.GatewayTrust.Required = parseGatewayTrustRequired(
+			os.Getenv("GATEWAY_TRUST_REQUIRED"),
+		)
 	})
 
 	conf.OnConfigChange(func(e fsnotify.Event) {
@@ -169,6 +185,9 @@ func bindEnv(logger *zap.Logger, conf *viper.Viper) {
 
 	// Tenant-context enforcement flag (set NOTIFICATION_REQUIRE_TENANT_CONTEXT=false to disable).
 	mustBindEnv(logger, conf, "NOTIFICATION.REQUIRE_TENANT_CONTEXT", "NOTIFICATION_REQUIRE_TENANT_CONTEXT")
+
+	// Gateway trust marker — GATEWAY_TRUST_REQUIRED=true enforces after KrakenD is deployed.
+	mustBindEnv(logger, conf, "AUTH.GATEWAY_TRUST.SECRET", "GATEWAY_TRUST_SECRET")
 }
 
 func loadDotEnv(logger *zap.Logger, path string) {
@@ -216,6 +235,18 @@ func parseTenantContextFlag(raw string) bool {
 		return false
 	default:
 		return true
+	}
+}
+
+// parseGatewayTrustRequired resolves the GATEWAY_TRUST_REQUIRED env var with
+// fail-OPEN semantics: only an explicit truthy value ("true", "1", "yes")
+// enables enforcement. Default is false (log-only) until KrakenD is deployed.
+func parseGatewayTrustRequired(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "true", "1", "yes":
+		return true
+	default:
+		return false
 	}
 }
 

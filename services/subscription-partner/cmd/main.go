@@ -62,7 +62,7 @@ func main() {
 	svc := service.NewSubscriptionService(repo, cfg)
 	h := handler.NewSubscriptionHandler(svc, cfg).WithTenantRepo(repo)
 	acquisitionClient := service.NewAcquisitionClient(logger)
-	notificationWebhookHandler := handler.NewNotificationWebhookHandler(logger, svc, acquisitionClient).WithTenantRepo(repo)
+	notificationWebhookHandler := handler.NewNotificationWebhookHandler(logger, svc, acquisitionClient).WithTenantRepo(repo).WithConfig(cfg)
 
 	productRepo := repository.NewProductRepository(db, redisClient)
 	productService := service.NewProductService(productRepo)

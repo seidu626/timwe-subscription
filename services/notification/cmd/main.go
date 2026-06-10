@@ -59,7 +59,9 @@ func main() {
 
 	repo := repository.NewNotificationRepository(db, redisClient)
 	svc := service.NewNotificationService(repo)
-	h := handler.NewNotificationHandler(svc).WithRequireTenantContext(cfg.Notification.RequireTenantContext)
+	h := handler.NewNotificationHandler(svc).
+		WithRequireTenantContext(cfg.Notification.RequireTenantContext).
+		WithGatewayTrust(cfg.Auth.GatewayTrust.Secret, cfg.Auth.GatewayTrust.Required)
 
 	memberTenantLookup := func(auth0Subject, email string) ([]transport.MemberTenant, error) {
 		tenants, err := repo.ListActiveTenantsForMember(auth0Subject, email)
