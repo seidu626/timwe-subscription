@@ -365,10 +365,10 @@ func nullTimePtr(val sql.NullTime) *time.Time {
 // CreateSubscription inserts a new subscription record into the database.
 func (r *SubscriptionRepository) CreateSubscription(request *domain.SubscriptionRequest) error {
 	query := `
-        INSERT INTO subscriptions (partner_role_id, user_identifier, user_identifier_type, product_id, mcc, mnc, entry_channel, large_account, sub_keyword, tracking_id, client_ip, campaign_url)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        INSERT INTO subscriptions (partner_role_id, user_identifier, user_identifier_type, product_id, mcc, mnc, entry_channel, large_account, sub_keyword, tracking_id, client_ip, campaign_url, tenant_id, channel_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::uuid, $14::uuid)
     `
-	_, err := r.db.Exec(query, request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl)
+	_, err := r.db.Exec(query, request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TenantRoute.TenantID, request.TenantRoute.ChannelID)
 	if err != nil {
 		return fmt.Errorf("failed to create subscription: %w", err)
 	}
@@ -380,10 +380,10 @@ func (r *SubscriptionRepository) CreateNotification(notification *domain.Notific
 	query := `
         INSERT INTO notifications (
             partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn, large_account, transaction_uuid,
-            entry_channel, message_type, message, mno_delivery_code, tags, type
+            entry_channel, message_type, message, mno_delivery_code, tags, type, tenant_id, channel_id
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9,
-            $10, $11, $12, $13, $14, $15
+            $10, $11, $12, $13, $14, $15, $16::uuid, $17::uuid
         )
     `
 	_, err := r.db.Exec(
@@ -403,6 +403,8 @@ func (r *SubscriptionRepository) CreateNotification(notification *domain.Notific
 		notification.MnoDeliveryCode,
 		pq.Array(notification.Tags),
 		notification.Type,
+		notification.TenantRoute.TenantID,
+		notification.TenantRoute.ChannelID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create notification: %w", err)
@@ -437,8 +439,9 @@ func (r *SubscriptionRepository) OptOutSubscription(request *domain.Unsubscripti
         UPDATE subscriptions 
         SET status = 'inactive', cancel_reason = $1, cancel_source = $2
         WHERE partner_role_id = $3 AND user_identifier = $4 AND product_id = $5
+          AND tenant_id = $6::uuid
     `
-	_, err := r.db.Exec(query, request.CancelReason, request.CancelSource, request.PartnerRoleId, request.UserIdentifier, request.ProductId)
+	_, err := r.db.Exec(query, request.CancelReason, request.CancelSource, request.PartnerRoleId, request.UserIdentifier, request.ProductId, request.TenantRoute.TenantID)
 	if err != nil {
 		return fmt.Errorf("failed to opt out subscription: %w", err)
 	}
@@ -451,8 +454,9 @@ func (r *SubscriptionRepository) GetSubscriptionStatus(request *domain.GetStatus
         SELECT product_id, user_identifier, status, start_date, end_date
         FROM subscriptions
         WHERE partner_role_id = $1 AND user_identifier = $2 AND product_id = $3
+          AND tenant_id = $4::uuid
     `
-	row := r.db.QueryRow(query, request.PartnerRoleId, request.UserIdentifier, request.ProductId)
+	row := r.db.QueryRow(query, request.PartnerRoleId, request.UserIdentifier, request.ProductId, request.TenantRoute.TenantID)
 
 	var status domain.SubscriptionStatus
 	if err := row.Scan(&status.ProductId, &status.UserIdentifier, &status.Status, &status.StartDate, &status.EndDate); err != nil {

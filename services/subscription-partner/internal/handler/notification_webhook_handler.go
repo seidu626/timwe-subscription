@@ -15,6 +15,7 @@ type NotificationWebhookHandler struct {
 	logger            *zap.Logger
 	svc               *service.SubscriptionService
 	acquisitionClient *service.AcquisitionClient
+	tenantRepo        gatewayTenantLookup
 }
 
 // NewNotificationWebhookHandler creates a new notification webhook handler.
@@ -28,6 +29,12 @@ func NewNotificationWebhookHandler(
 		svc:               svc,
 		acquisitionClient: acquisitionClient,
 	}
+}
+
+// WithTenantRepo sets the repository used for gateway-trust tenant resolution.
+func (h *NotificationWebhookHandler) WithTenantRepo(repo gatewayTenantLookup) *NotificationWebhookHandler {
+	h.tenantRepo = repo
+	return h
 }
 
 // TimweNotificationRequest represents the webhook payload from TIMWE.
@@ -59,6 +66,24 @@ func (h *NotificationWebhookHandler) HandleNotificationWebhook(ctx *fasthttp.Req
 		return
 	}
 
+	// Resolve tenant context when tenantRepo is configured.
+	// Tenantless webhook requests are rejected with 422.
+	var tenantRoute domain.TenantRouteContext
+	if h.tenantRepo != nil {
+		var routeErr error
+		tenantRoute, routeErr = tenantRouteFromGatewayHeaders(ctx, h.tenantRepo)
+		if routeErr != nil {
+			statusCode, errCode := gatewayRouteStatus(routeErr)
+			h.logger.Warn("Webhook rejected: missing tenant context", zap.Error(routeErr))
+			writeJSONResponse(ctx, statusCode, map[string]interface{}{
+				"message": routeErr.Error(),
+				"code":    errCode,
+				"inError": true,
+			})
+			return
+		}
+	}
+
 	notification := &domain.NotificationRequest{
 		PartnerRole:     req.PartnerRole,
 		ExternalTxID:    req.ExternalTxID,
@@ -75,6 +100,7 @@ func (h *NotificationWebhookHandler) HandleNotificationWebhook(ctx *fasthttp.Req
 		MnoDeliveryCode: req.MnoDeliveryCode,
 		Tags:            req.Tags,
 		Type:            req.Type,
+		TenantRoute:     tenantRoute,
 	}
 
 	if err := h.svc.ProcessNotification(notification); err != nil {

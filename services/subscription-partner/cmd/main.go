@@ -60,9 +60,9 @@ func main() {
 
 	repo := repository.NewSubscriptionRepository(db, redisClient)
 	svc := service.NewSubscriptionService(repo, cfg)
-	h := handler.NewSubscriptionHandler(svc, cfg)
+	h := handler.NewSubscriptionHandler(svc, cfg).WithTenantRepo(repo)
 	acquisitionClient := service.NewAcquisitionClient(logger)
-	notificationWebhookHandler := handler.NewNotificationWebhookHandler(logger, svc, acquisitionClient)
+	notificationWebhookHandler := handler.NewNotificationWebhookHandler(logger, svc, acquisitionClient).WithTenantRepo(repo)
 
 	productRepo := repository.NewProductRepository(db, redisClient)
 	productService := service.NewProductService(productRepo)
