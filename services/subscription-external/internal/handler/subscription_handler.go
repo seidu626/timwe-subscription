@@ -428,6 +428,10 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 			}(i)
 		}
 
+		backfillRoute := domain.TenantRouteContext{
+			TenantKey:  r.TenantKey,
+			ChannelKey: r.ChannelKey,
+		}
 		for _, msisdn := range msisdns {
 			entryChannel := r.GetNextEntryChannel()
 			optinRequestChan <- &domain.OptinRequest{
@@ -435,6 +439,7 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 				Msisdn:       msisdn,
 				EntryChannel: entryChannel,
 				ProductIds:   r.ProductIds,
+				TenantRoute:  backfillRoute,
 			}
 			// Log every 100th request to avoid excessive logging
 			if len(msisdns) > 100 && len(msisdns)%100 == 0 {
@@ -576,13 +581,17 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 		var successCount uint64
 		var errorCount uint64
 
+		resubRoute := domain.TenantRouteContext{
+			TenantKey:  r.TenantKey,
+			ChannelKey: r.ChannelKey,
+		}
 		for i := 0; i < maxWorkers; i++ {
 			wg.Add(1)
 			go func(workerID int) {
 				defer wg.Done()
 				for msisdn := range msisdnChan {
 					entryChannel := <-entryChannelChan
-					if err := h.service.ResubscribeUser(msisdn, entryChannel, r.ProductIds); err != nil {
+					if err := h.service.ResubscribeUser(msisdn, entryChannel, r.ProductIds, resubRoute); err != nil {
 						firstErrorMutex.Lock()
 						if firstErrorDetails == nil {
 							firstErrorDetails = map[string]interface{}{"error": err.Error()}
@@ -1058,6 +1067,14 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	workerCtx, workerCancel := context.WithCancel(ctx)
 	defer workerCancel()
 
+	// Resolve the optin function once; tests may inject processOptinFn to capture the route.
+	var batchProcessOptin func(*domain.OptinRequest) error
+	if h.processOptinFn != nil {
+		batchProcessOptin = h.processOptinFn
+	} else {
+		batchProcessOptin = h.service.ProcessOptin
+	}
+
 	for i := 0; i < maxWorkers; i++ {
 		wg.Add(1)
 		go func(workerID int) {
@@ -1077,7 +1094,7 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 					}
 
 					// Process request with context timeout
-					if err := h.service.ProcessOptin(request); err != nil {
+					if err := batchProcessOptin(request); err != nil {
 						firstErrorMutex.Lock()
 						if firstErrorDetails == nil {
 							if mtErr, ok := err.(*domain.MTResponseError); ok {
@@ -1124,6 +1141,10 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	}
 
 	h.logger.Info("Starting to feed requests", zap.String("jobId", jobID), zap.Int("totalRequests", len(msisdns)))
+	tenantRoute := domain.TenantRouteContext{
+		TenantKey:  req.TenantKey,
+		ChannelKey: req.ChannelKey,
+	}
 	go func() {
 		for i, msisdn := range msisdns {
 			optinRequestChan <- &domain.OptinRequest{
@@ -1131,6 +1152,7 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 				Msisdn:       msisdn,
 				EntryChannel: req.EntryChannel,
 				ProductIds:   req.ProductIds,
+				TenantRoute:  tenantRoute,
 			}
 			if i%1000 == 0 {
 				h.logger.Debug("Fed requests", zap.String("jobId", jobID), zap.Int("fed", i+1))

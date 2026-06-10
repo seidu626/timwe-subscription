@@ -30,6 +30,8 @@ type ResubscribeRequest struct {
 	MSISDNS       []string `json:"msisdns,omitempty"`
 	StartIndex    int      `json:"start_index,omitempty"`
 	EndIndex      int      `json:"end_index,omitempty"`
+	TenantKey     string   `json:"tenant_key,omitempty"`
+	ChannelKey    string   `json:"channel_key,omitempty"`
 }
 
 // ResubscribeResponse represents the response structure
@@ -104,6 +106,10 @@ type ProcessorConfig struct {
 
 	// Safety: max time to poll a single job before failing
 	MaxPollingDuration string `json:"max_polling_duration,omitempty"`
+
+	// Tenant routing — required for per-tenant TIMWE credential resolution
+	TenantKey  string `json:"tenant_key,omitempty"`
+	ChannelKey string `json:"channel_key,omitempty"`
 
 	// Parsed durations (not exported)
 	waitDuration  time.Duration
@@ -325,6 +331,8 @@ func (rp *ResubscribeProcessor) processResubscribe() {
 		MSISDNS:       rp.config.MSISDNS,
 		StartIndex:    rp.config.StartIndex,
 		EndIndex:      rp.config.EndIndex,
+		TenantKey:     rp.config.TenantKey,
+		ChannelKey:    rp.config.ChannelKey,
 	}
 
 	// Marshal request to JSON

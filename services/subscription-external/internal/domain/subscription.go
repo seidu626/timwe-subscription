@@ -52,10 +52,11 @@ type BatchOptinResponse struct {
 }
 
 type OptinRequest struct {
-	Telco        string   `json:"telco"`
-	EntryChannel string   `json:"entry_channel"`
-	Msisdn       string   `json:"msisdn"`
-	ProductIds   []string `json:"product_ids"`
+	Telco        string             `json:"telco"`
+	EntryChannel string             `json:"entry_channel"`
+	Msisdn       string             `json:"msisdn"`
+	ProductIds   []string           `json:"product_ids"`
+	TenantRoute  TenantRouteContext `json:"-"`
 }
 
 type MTRequest struct {

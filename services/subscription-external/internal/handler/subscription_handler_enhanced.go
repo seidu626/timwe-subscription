@@ -268,7 +268,7 @@ func (h *SubscriptionHandler) processWithWorkers(
 
 				// Process resubscription
 				entryChannel := req.GetNextEntryChannel()
-				err = h.service.ResubscribeUser(sub.MSISDN, entryChannel, []string{fmt.Sprintf("%d", sub.ProductID)})
+				err = h.service.ResubscribeUser(sub.MSISDN, entryChannel, []string{fmt.Sprintf("%d", sub.ProductID)}, domain.TenantRouteContext{})
 
 				// Update result
 				if err != nil {

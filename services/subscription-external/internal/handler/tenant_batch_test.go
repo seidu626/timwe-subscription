@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -252,4 +253,49 @@ func TestResubscribeHandler_TenantRequired(t *testing.T) {
 
 	h.ResubscribeHandler(ctx)
 	assert.Equal(t, fasthttp.StatusUnprocessableEntity, ctx.Response.StatusCode())
+}
+
+// TestBatchJob_TenantRouteReachesProcessOptin verifies that tenant_key/channel_key stored
+// on a batch job are propagated into every OptinRequest fed to the ProcessOptin call path.
+// A fake processOptinFn records the first TenantRoute it sees; the test asserts it matches
+// the keys supplied to BatchOptinHandler.
+func TestBatchJob_TenantRouteReachesProcessOptin(t *testing.T) {
+	// Channel to receive the first captured route.
+	routeCh := make(chan domain.TenantRouteContext, 1)
+
+	h := &SubscriptionHandler{
+		logger: zap.NewNop(),
+		jobs:   NewBatchJobManager(),
+		// Inject a fake processOptinFn that records the TenantRoute.
+		processOptinFn: func(req *domain.OptinRequest) error {
+			select {
+			case routeCh <- req.TenantRoute:
+			default: // only capture the first one
+			}
+			return nil
+		},
+	}
+
+	// Send one MSISDN so the job processes at least one request.
+	body, _ := json.Marshal(map[string]interface{}{
+		"telco":       "MTN",
+		"msisdns":     []string{"233241234567"},
+		"tenant_key":  "nrg",
+		"channel_key": "ch1",
+	})
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetBody(body)
+	ctx.Request.Header.SetMethod("POST")
+
+	h.BatchOptinHandler(ctx)
+	assert.Equal(t, fasthttp.StatusAccepted, ctx.Response.StatusCode())
+
+	// Wait for the background goroutine to call processOptinFn.
+	select {
+	case route := <-routeCh:
+		assert.Equal(t, "nrg", route.TenantKey, "tenant_key must reach ProcessOptin")
+		assert.Equal(t, "ch1", route.ChannelKey, "channel_key must reach ProcessOptin")
+	case <-time.After(2 * time.Second):
+		t.Fatal("processOptinFn was not called within 2s — tenant route did not propagate")
+	}
 }

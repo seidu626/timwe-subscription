@@ -2,8 +2,13 @@
   "base_url": "http://localhost:8083",
   "telco": "AirtelTigo",
   "entry_channel": "SMS",
-  "entry_channels": ["USSD", "SMS"],
-  "product_ids": ["8509"],
+  "entry_channels": [
+    "USSD",
+    "SMS"
+  ],
+  "product_ids": [
+    "8509"
+  ],
   "msisdns": [],
   "start_index": 1,
   "end_index": 5,
@@ -15,7 +20,12 @@
   "metrics_addr": ":9102",
   "timezone": "Africa/Accra",
   "pause_windows": [
-    { "start": "22:00", "end": "06:00" }
+    {
+      "start": "22:00",
+      "end": "06:00"
+    }
   ],
-  "max_polling_duration": "15m"
+  "max_polling_duration": "15m",
+  "tenant_key": "",
+  "channel_key": ""
 }

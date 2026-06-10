@@ -12,6 +12,7 @@ import (
 
 	"bytes"
 
+	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/monitoring"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/service"
@@ -699,7 +700,7 @@ func (p *ResubscriptionProcessor) attemptResubscription(ctx context.Context, sub
 		zap.String("entry_channel", entryChannel))
 
 	// Call ResubscribeUser which handles both unsubscribe and resubscribe internally
-	resubscribeErr := p.service.ResubscribeUser(subscription.MSISDN, entryChannel, []string{fmt.Sprintf("%d", subscription.ProductID)})
+	resubscribeErr := p.service.ResubscribeUser(subscription.MSISDN, entryChannel, []string{fmt.Sprintf("%d", subscription.ProductID)}, domain.TenantRouteContext{})
 	if resubscribeErr != nil {
 		// Categorize resubscribe error for better handling
 		errorType, shouldRetry := p.categorizeExternalAPIError(resubscribeErr)

@@ -426,6 +426,7 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 		CampaignUrl:        "INTERNAL",
 		Priority:           "NORMAL",
 		Timezone:           "UTC",
+		TenantRoute:        req.TenantRoute,
 	}
 
 	realm := s.config.Application.TIMWE.Realm
@@ -664,7 +665,8 @@ func (s *SubscriptionService) BackfillMsisdnsWithProducts(productIds []string, s
 }
 
 // ResubscribeUser performs unsubscribe then re-subscribe for the provided MSISDN across given products.
-func (s *SubscriptionService) ResubscribeUser(msisdn string, entryChannel string, productIds []string) error {
+// tenantRoute carries the per-tenant credential context for all TIMWE calls made during this operation.
+func (s *SubscriptionService) ResubscribeUser(msisdn string, entryChannel string, productIds []string, tenantRoute domain.TenantRouteContext) error {
 	// Build an opt-out request for each product, then re-opt-in using ProcessOptin
 	products, err := s.getProductsCached(productIds)
 	if err != nil {
@@ -700,12 +702,13 @@ func (s *SubscriptionService) ResubscribeUser(msisdn string, entryChannel string
 			continue
 		}
 
-		// Now opt-in again for this single product
+		// Now opt-in again for this single product, forwarding the tenant route.
 		optinReq := &domain.OptinRequest{
 			Telco:        "",
 			EntryChannel: entryChannel,
 			Msisdn:       msisdn,
 			ProductIds:   []string{product.ProductId},
+			TenantRoute:  tenantRoute,
 		}
 		if err := s.ProcessOptin(optinReq); err != nil {
 			s.logger.Error("Failed to optin after optout", zap.String("msisdn", msisdn), zap.String("productId", product.ProductId), zap.Error(err))

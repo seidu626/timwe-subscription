@@ -32,6 +32,8 @@ type BatchOptinRequest struct {
 	MSISDNS      []string `json:"msisdns"`
 	ProductIds   []string `json:"product_ids"`
 	Telco        string   `json:"telco"`
+	TenantKey    string   `json:"tenant_key,omitempty"`
+	ChannelKey   string   `json:"channel_key,omitempty"`
 }
 
 // BatchOptinResponse represents the response structure
@@ -110,6 +112,10 @@ type ProcessorConfig struct {
 	// Progress tracking
 	SaveProgressInterval string `json:"save_progress_interval,omitempty"` // How often to save progress
 	ResumeFromProgress   bool   `json:"resume_from_progress,omitempty"`   // Resume from last saved progress
+
+	// Tenant routing — required for per-tenant TIMWE credential resolution
+	TenantKey  string `json:"tenant_key,omitempty"`
+	ChannelKey string `json:"channel_key,omitempty"`
 
 	// Continuous processing
 	ContinuousMode bool   `json:"continuous_mode,omitempty"` // Restart from start after completion
@@ -809,6 +815,8 @@ func (bp *BatchProcessor) processBatch(count int) {
 		EntryChannel: currentChannel,
 		ProductIds:   config.ProductIds,
 		Telco:        config.Telco,
+		TenantKey:    config.TenantKey,
+		ChannelKey:   config.ChannelKey,
 	}
 
 	// Marshal request to JSON
