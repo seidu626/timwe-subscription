@@ -253,15 +253,20 @@ func (h *SubscriptionHandler) BatchOptinHandler(ctx *fasthttp.RequestCtx) {
 	req.TenantKey = tenantKey
 	req.ChannelKey = channelKey
 
-	// Create job immediately and return
+	// S7: Authenticate caller before creating the job.
+	// Platform-scoped and internal-HMAC callers may act on any tenant_key.
+	// Tenant-scoped JWT callers may only act on their own tenant.
+	if _, authOK := h.batchGuard.authorise(ctx, tenantKey); !authOK {
+		return
+	}
+
+	// Create job with tenant ownership stamped atomically.
 	jobID := uuid.New().String()
 	initialTotal := len(req.MSISDNS)
 	if initialTotal == 0 && req.Count > 0 {
 		initialTotal = req.Count
 	}
-	status, jobCtx := h.jobs.CreateJob(jobID, initialTotal)
-	status.TenantKey = tenantKey
-	status.ChannelKey = channelKey
+	status, jobCtx := h.jobs.CreateJobWithTenant(jobID, initialTotal, tenantKey, channelKey)
 	totalBatchJobsCreated.Add(1)
 
 	// Start background processing (generation/filtering happens inside)
@@ -272,20 +277,30 @@ func (h *SubscriptionHandler) BatchOptinHandler(ctx *fasthttp.RequestCtx) {
 	_ = json.NewEncoder(ctx).Encode(map[string]string{"jobId": jobID})
 }
 
-// Batch status endpoint
+// BatchStatusHandler returns status for a batch job.
+// NF1: apply the same auth + tenant ownership check as GetBatchProgressHandler.
 func (h *SubscriptionHandler) BatchStatusHandler(ctx *fasthttp.RequestCtx) {
 	jobID := string(ctx.QueryArgs().Peek("jobId"))
 	if jobID == "" {
 		ctx.Error("jobId is required", fasthttp.StatusBadRequest)
 		return
 	}
-	if st, ok := h.jobs.GetJob(jobID); ok {
-		ctx.SetContentType("application/json")
-		ctx.SetStatusCode(fasthttp.StatusOK)
-		_ = json.NewEncoder(ctx).Encode(st)
+
+	// Lookup first; return 404 before auth to avoid leaking job existence.
+	st, ok := h.jobs.GetJob(jobID)
+	if !ok {
+		ctx.Error("Not Found", fasthttp.StatusNotFound)
 		return
 	}
-	ctx.Error("job not found", fasthttp.StatusNotFound)
+
+	// Authenticate and enforce tenant ownership (404 on mismatch mirrors GetBatchProgressHandler).
+	if _, authOK := h.batchGuard.authorise(ctx, st.TenantKey); !authOK {
+		return
+	}
+
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	_ = json.NewEncoder(ctx).Encode(st)
 }
 
 // BackfillOptinHandler godoc
@@ -342,10 +357,15 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 	req.TenantKey = tenantKeyBF
 	req.ChannelKey = channelKeyBF
 
+	// S7: Authenticate caller before creating the job.
+	if _, authOK := h.batchGuard.authorise(ctx, tenantKeyBF); !authOK {
+		return
+	}
+
 	jobID := uuid.New().String()
 	initialTotal := len(req.MSISDNS)
-	// FIX 2: stamp tenant ownership atomically inside the manager lock.
-	// FIX 1: capture jobCtx so worker goroutines can be cancelled by StopBatchHandler.
+	// Stamp tenant ownership atomically inside the manager lock so the stored
+	// TenantKey is trustworthy (identity already verified above).
 	status, jobCtx := h.jobs.CreateJobWithTenant(jobID, initialTotal, tenantKeyBF, channelKeyBF)
 	totalBatchJobsCreated.Add(1)
 
@@ -451,9 +471,9 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 				ProductIds:   r.ProductIds,
 				TenantRoute:  backfillRoute,
 			}
-			// Log every 100th request to avoid excessive logging
+			// Log every 100th request to avoid excessive logging; mask MSISDN (NF2).
 			if len(msisdns) > 100 && len(msisdns)%100 == 0 {
-				h.logger.Debug("Created optin request", zap.String("msisdn", msisdn), zap.String("entryChannel", entryChannel))
+				h.logger.Debug("Created optin request", zap.String("msisdn", maskMSISDN(msisdn)), zap.String("entryChannel", entryChannel))
 			}
 		}
 		close(optinRequestChan)
@@ -529,9 +549,14 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 	req.TenantKey = tenantKeyRS
 	req.ChannelKey = channelKeyRS
 
+	// S7: Authenticate caller before creating the job.
+	if _, authOK := h.batchGuard.authorise(ctx, tenantKeyRS); !authOK {
+		return
+	}
+
 	jobID := uuid.New().String()
-	// FIX 2: stamp tenant ownership atomically inside the manager lock.
-	// FIX 1: capture jobCtx so worker goroutines can be cancelled by StopBatchHandler.
+	// Stamp tenant ownership atomically inside the manager lock so the stored
+	// TenantKey is trustworthy (identity already verified above).
 	status, jobCtx := h.jobs.CreateJobWithTenant(jobID, 0, tenantKeyRS, channelKeyRS)
 	totalBatchJobsCreated.Add(1)
 
@@ -631,9 +656,9 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 			entryChannel := r.GetNextEntryChannel()
 			msisdnChan <- msisdn
 			entryChannelChan <- entryChannel
-			// Log every 100th request to avoid excessive logging
+			// Log every 100th request to avoid excessive logging; mask MSISDN (NF2).
 			if len(msisdns) > 100 && len(msisdns)%100 == 0 {
-				h.logger.Debug("Created resubscribe request", zap.String("msisdn", msisdn), zap.String("entryChannel", entryChannel))
+				h.logger.Debug("Created resubscribe request", zap.String("msisdn", maskMSISDN(msisdn)), zap.String("entryChannel", entryChannel))
 			}
 		}
 		close(msisdnChan)

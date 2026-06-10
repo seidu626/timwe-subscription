@@ -119,13 +119,41 @@ func (g *batchAdminGuard) validateHMAC(sig, timestamp string, body []byte) bool 
 	return hmac.Equal([]byte(sig), []byte(expected))
 }
 
+// maskMSISDN returns a masked representation of an MSISDN for safe logging.
+// It keeps the first 5 and last 2 digits and replaces the middle with '*'.
+// E.g. "233241234567" → "23324****67".
+// If the MSISDN is too short to mask (≤7 chars) only a count is returned.
+func maskMSISDN(msisdn string) string {
+	const keepPrefix = 5
+	const keepSuffix = 2
+	n := len(msisdn)
+	if n <= keepPrefix+keepSuffix {
+		return "***"
+	}
+	masked := msisdn[:keepPrefix]
+	for i := keepPrefix; i < n-keepSuffix; i++ {
+		masked += "*"
+	}
+	masked += msisdn[n-keepSuffix:]
+	return masked
+}
+
 // matchesTenant returns true when the identity's tenant key matches the
-// requested tenant key (case-insensitive).  Empty requestedTenantKey passes.
+// requested tenant key (case-insensitive).
+//
+// Fail-closed (NF3 / S2 residual): a non-platform, non-internal identity with
+// a blank TenantKey is DENIED.  An empty requestedTenantKey is always allowed
+// (the job has no tenant stamp yet).
 func matchesTenant(id tenantctx.Identity, requestedTenantKey string) bool {
 	rk := strings.TrimSpace(requestedTenantKey)
 	ik := strings.TrimSpace(id.TenantKey)
-	if rk == "" || ik == "" {
-		return true // cannot assert — allow; downstream can re-check
+	// Blank requested key means the caller is not asserting tenant ownership; allow.
+	if rk == "" {
+		return true
+	}
+	// Blank identity key for a non-platform, non-internal identity is never allowed.
+	if ik == "" {
+		return false
 	}
 	return strings.EqualFold(ik, rk)
 }

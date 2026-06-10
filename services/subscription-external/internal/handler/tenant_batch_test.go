@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -21,11 +20,15 @@ import (
 )
 
 // TestBatchOptinHandler_TenantRequired verifies that a batch request without
-// tenant_key/channel_key is rejected with 422.
+// tenant_key/channel_key is rejected with 422, and that unauthenticated requests
+// with valid tenant context are rejected with 401 (S7 fix).
 func TestBatchOptinHandler_TenantRequired(t *testing.T) {
+	// batchGuard must be non-nil; use a guard with only internal HMAC enabled.
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
 	h := &SubscriptionHandler{
-		logger: zap.NewNop(),
-		jobs:   NewBatchJobManager(),
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
 	}
 
 	t.Run("missing tenant and channel", func(t *testing.T) {
@@ -57,14 +60,27 @@ func TestBatchOptinHandler_TenantRequired(t *testing.T) {
 		assert.Equal(t, fasthttp.StatusUnprocessableEntity, ctx.Response.StatusCode())
 	})
 
-	t.Run("via headers accepted", func(t *testing.T) {
+	t.Run("unauthenticated with valid tenant → 401", func(t *testing.T) {
 		body, _ := json.Marshal(map[string]interface{}{
-			"telco": "MTN",
-			// Use empty msisdns but count=0 so no real work happens.
+			"telco":       "MTN",
+			"tenant_key":  "nrg",
+			"channel_key": "ch1",
 		})
 		ctx := &fasthttp.RequestCtx{}
 		ctx.Request.SetBody(body)
 		ctx.Request.Header.SetMethod("POST")
+		// No auth headers.
+
+		h.BatchOptinHandler(ctx)
+		assert.Equal(t, fasthttp.StatusUnauthorized, ctx.Response.StatusCode())
+	})
+
+	t.Run("via headers with valid HMAC → 202 accepted", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]interface{}{
+			"telco": "MTN",
+			// Use empty msisdns but count=0 so no real work happens.
+		})
+		ctx := makeHMACCtx(testHMACSecret, body)
 		ctx.Request.Header.Set("X-Tenant-Key", "nrg")
 		ctx.Request.Header.Set("X-Channel-Key", "ch1")
 
@@ -238,10 +254,14 @@ func TestContextCancellation_PropagatedToJob(t *testing.T) {
 }
 
 // TestBackfillOptinHandler_TenantRequired verifies 422 on missing tenant.
+// The 422 is returned before auth, so no batchGuard is needed for this path;
+// we still set one to be safe.
 func TestBackfillOptinHandler_TenantRequired(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
 	h := &SubscriptionHandler{
-		logger: zap.NewNop(),
-		jobs:   NewBatchJobManager(),
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
 	}
 
 	body := []byte(`{"product_ids":["p1"]}`)
@@ -257,9 +277,11 @@ func TestBackfillOptinHandler_TenantRequired(t *testing.T) {
 
 // TestResubscribeHandler_TenantRequired verifies 422 on missing tenant.
 func TestResubscribeHandler_TenantRequired(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
 	h := &SubscriptionHandler{
-		logger: zap.NewNop(),
-		jobs:   NewBatchJobManager(),
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
 	}
 
 	body := []byte(`{"product_ids":["p1"]}`)
@@ -274,14 +296,17 @@ func TestResubscribeHandler_TenantRequired(t *testing.T) {
 // TestBatchJob_TenantRouteReachesProcessOptin verifies that tenant_key/channel_key stored
 // on a batch job are propagated into every OptinRequest fed to the ProcessOptin call path.
 // A fake processOptinFn records the first TenantRoute it sees; the test asserts it matches
-// the keys supplied to BatchOptinHandler.
+// the keys supplied to BatchOptinHandler.  The caller presents a valid internal HMAC so
+// the new auth gate is satisfied.
 func TestBatchJob_TenantRouteReachesProcessOptin(t *testing.T) {
 	// Channel to receive the first captured route.
 	routeCh := make(chan domain.TenantRouteContext, 1)
 
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
 	h := &SubscriptionHandler{
-		logger: zap.NewNop(),
-		jobs:   NewBatchJobManager(),
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
 		// Inject a fake processOptinFn that records the TenantRoute.
 		processOptinFn: func(req *domain.OptinRequest) error {
 			select {
@@ -299,9 +324,8 @@ func TestBatchJob_TenantRouteReachesProcessOptin(t *testing.T) {
 		"tenant_key":  "nrg",
 		"channel_key": "ch1",
 	})
-	ctx := &fasthttp.RequestCtx{}
-	ctx.Request.SetBody(body)
-	ctx.Request.Header.SetMethod("POST")
+	// Use internal HMAC to pass the new auth gate.
+	ctx := makeHMACCtx(testHMACSecret, body)
 
 	h.BatchOptinHandler(ctx)
 	assert.Equal(t, fasthttp.StatusAccepted, ctx.Response.StatusCode())
@@ -483,8 +507,19 @@ func TestMatchesTenant_DifferentTenant(t *testing.T) {
 	assert.False(t, matchesTenant(tenantctx.Identity{TenantKey: "Tenant-A"}, "tenant-b"))
 }
 
-func TestMatchesTenant_EmptyJobTenantKey(t *testing.T) {
-	assert.True(t, matchesTenant(tenantctx.Identity{TenantKey: ""}, "tenant-a"))
+// TestMatchesTenant_EmptyIdentityKey_FailClosed verifies NF3/S2 fix: a
+// non-platform identity with a blank TenantKey is DENIED when the caller
+// requests a specific tenant (fail-closed).
+func TestMatchesTenant_EmptyIdentityKey_FailClosed(t *testing.T) {
+	// Blank identity key against a named tenant → denied (fail-closed, NF3).
+	assert.False(t, matchesTenant(tenantctx.Identity{TenantKey: ""}, "tenant-a"))
+}
+
+// TestMatchesTenant_EmptyRequestedKey_Allow verifies that an empty
+// requestedTenantKey always passes (job has no tenant stamp yet).
+func TestMatchesTenant_EmptyRequestedKey_Allow(t *testing.T) {
+	assert.True(t, matchesTenant(tenantctx.Identity{TenantKey: ""}, ""))
+	assert.True(t, matchesTenant(tenantctx.Identity{TenantKey: "any-tenant"}, ""))
 }
 
 // ── StopBatchHandler cancels the context (FIX 1) ────────────────────────────
@@ -679,8 +714,235 @@ func TestResubscribeWorker_ExitsOnCancel(t *testing.T) {
 	}
 }
 
-// ── compile-time helpers ─────────────────────────────────────────────────────
 
-var _ = fmt.Sprintf
-var _ = uuid.New
-var _ tenantctx.Identity
+// ── New security gap closure tests ───────────────────────────────────────────
+
+// TestBatchOptinHandler_UnauthenticatedReject verifies S7: unauthenticated
+// submit → 401 (fail-before).
+func TestBatchOptinHandler_UnauthenticatedReject(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
+	h := &SubscriptionHandler{
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"telco":       "MTN",
+		"tenant_key":  "nrg",
+		"channel_key": "ch1",
+		"msisdns":     []string{"233241234567"},
+	})
+	ctx := makeUnauthCtx()
+	ctx.Request.SetBody(body)
+
+	h.BatchOptinHandler(ctx)
+	assert.Equal(t, fasthttp.StatusUnauthorized, ctx.Response.StatusCode())
+}
+
+// TestBackfillOptinHandler_UnauthenticatedReject verifies S7: unauthenticated
+// submit to backfill → 401.
+func TestBackfillOptinHandler_UnauthenticatedReject(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
+	h := &SubscriptionHandler{
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"product_ids": []string{"p1"},
+		"tenant_key":  "nrg",
+		"channel_key": "ch1",
+	})
+	ctx := makeUnauthCtx()
+	ctx.Request.SetBody(body)
+
+	h.BackfillOptinHandler(ctx)
+	assert.Equal(t, fasthttp.StatusUnauthorized, ctx.Response.StatusCode())
+}
+
+// TestResubscribeHandler_UnauthenticatedReject verifies S7: unauthenticated
+// submit to resubscribe → 401.
+func TestResubscribeHandler_UnauthenticatedReject(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
+	h := &SubscriptionHandler{
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"product_ids": []string{"p1"},
+		"tenant_key":  "nrg",
+		"channel_key": "ch1",
+	})
+	ctx := makeUnauthCtx()
+	ctx.Request.SetBody(body)
+
+	h.ResubscribeHandler(ctx)
+	assert.Equal(t, fasthttp.StatusUnauthorized, ctx.Response.StatusCode())
+}
+
+// TestEnhancedResubscribeHandler_UnauthenticatedReject verifies S7: unauthenticated
+// submit to enhanced resubscribe → 401.
+func TestEnhancedResubscribeHandler_UnauthenticatedReject(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
+	h := &SubscriptionHandler{
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"product_ids": []string{"p1"},
+	})
+	ctx := makeUnauthCtx()
+	ctx.Request.SetBody(body)
+
+	h.EnhancedResubscribeHandler(ctx)
+	assert.Equal(t, fasthttp.StatusUnauthorized, ctx.Response.StatusCode())
+}
+
+// TestEnhancedResubscribeHandler_InternalHMACAccepted verifies S7: valid HMAC
+// allows the enhanced resubscribe to proceed (pass-after).
+func TestEnhancedResubscribeHandler_InternalHMACAccepted(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
+	h := &SubscriptionHandler{
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"product_ids":          []string{"p1"},
+		"use_charging_failures": false,
+	})
+	ctx := makeHMACCtx(testHMACSecret, body)
+
+	h.EnhancedResubscribeHandler(ctx)
+	assert.Equal(t, fasthttp.StatusAccepted, ctx.Response.StatusCode())
+}
+
+// TestBatchStatusHandler_UnauthenticatedReject verifies NF1: unauthenticated
+// GET batch status → 401 (instead of leaking job data).
+func TestBatchStatusHandler_UnauthenticatedReject(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
+	h := &SubscriptionHandler{
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
+	}
+
+	jobID := uuid.New().String()
+	h.jobs.CreateJobWithTenant(jobID, 5, "nrg", "ch1")
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("GET")
+	ctx.Request.SetRequestURI("/api/v1/subscription-external/batch?jobId=" + jobID)
+
+	h.BatchStatusHandler(ctx)
+	assert.Equal(t, fasthttp.StatusUnauthorized, ctx.Response.StatusCode())
+}
+
+// TestBatchStatusHandler_InternalHMACAccepted verifies NF1: a valid internal
+// HMAC caller can retrieve job status (pass-after).
+func TestBatchStatusHandler_InternalHMACAccepted(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
+	h := &SubscriptionHandler{
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
+	}
+
+	jobID := uuid.New().String()
+	h.jobs.CreateJobWithTenant(jobID, 10, "nrg", "ch1")
+
+	ctx := makeHMACCtxGetStatus(testHMACSecret, jobID)
+
+	h.BatchStatusHandler(ctx)
+	assert.Equal(t, fasthttp.StatusOK, ctx.Response.StatusCode())
+
+	var resp BatchJobStatus
+	require.NoError(t, json.Unmarshal(ctx.Response.Body(), &resp))
+	assert.Equal(t, jobID, resp.ID)
+}
+
+// TestBatchSubmit_InternalHMACAccepted_TenantStamped verifies S7 pass-after:
+// a valid HMAC submit enqueues the job with the correct TenantKey stored.
+func TestBatchSubmit_InternalHMACAccepted_TenantStamped(t *testing.T) {
+	guard := &batchAdminGuard{internalSecret: testHMACSecret}
+	h := &SubscriptionHandler{
+		logger:     zap.NewNop(),
+		jobs:       NewBatchJobManager(),
+		batchGuard: guard,
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"telco":       "MTN",
+		"tenant_key":  "nrg",
+		"channel_key": "ch1",
+		"count":       0,
+	})
+	ctx := makeHMACCtx(testHMACSecret, body)
+
+	h.BatchOptinHandler(ctx)
+	require.Equal(t, fasthttp.StatusAccepted, ctx.Response.StatusCode())
+
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(ctx.Response.Body(), &resp))
+	jobID := resp["jobId"]
+	require.NotEmpty(t, jobID)
+
+	st, ok := h.jobs.GetJob(jobID)
+	require.True(t, ok)
+	assert.Equal(t, "nrg", st.TenantKey, "job TenantKey must match the authenticated request")
+}
+
+// TestBlankTenantIdentity_Denied verifies NF3: a non-platform identity with
+// a blank TenantKey is denied (fail-closed).
+func TestBlankTenantIdentity_Denied(t *testing.T) {
+	id := tenantctx.Identity{TenantKey: "", PlatformScoped: false}
+	assert.False(t, matchesTenant(id, "some-tenant"),
+		"blank identity key must be denied when requested tenant is non-empty (NF3)")
+}
+
+// TestMaskMSISDN verifies that maskMSISDN produces a masked output that does
+// not expose the full MSISDN value.
+func TestMaskMSISDN(t *testing.T) {
+	cases := []struct {
+		input       string
+		expectStars bool
+		expectLen   bool
+	}{
+		{"233241234567", true, true},
+		{"123", false, false}, // too short → returns "***"
+		{"", false, false},
+	}
+
+	for _, tc := range cases {
+		masked := maskMSISDN(tc.input)
+		if tc.expectStars {
+			assert.NotEqual(t, tc.input, masked, "masked output must differ from raw MSISDN")
+			assert.Contains(t, masked, "*", "masked output must contain asterisks")
+			assert.True(t, strings.HasPrefix(masked, tc.input[:5]),
+				"masked MSISDN must preserve first 5 digits")
+		}
+	}
+}
+
+// makeHMACCtxGetStatus creates a GET request with HMAC headers and a jobId query param.
+func makeHMACCtxGetStatus(secret, jobID string) *fasthttp.RequestCtx {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("GET")
+	if jobID != "" {
+		ctx.Request.SetRequestURI("/api/v1/subscription-external/batch?jobId=" + jobID)
+	} else {
+		ctx.Request.SetRequestURI("/api/v1/subscription-external/batch")
+	}
+	ts := time.Now().UTC().Format(time.RFC3339)
+	sig := computeTestHMAC(secret, ts, []byte{})
+	ctx.Request.Header.Set("X-Internal-Timestamp", ts)
+	ctx.Request.Header.Set("X-Internal-Signature", sig)
+	return ctx
+}

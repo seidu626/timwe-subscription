@@ -30,6 +30,15 @@ import (
 // @Failure 400 {string} string "Invalid request payload"
 // @Router /api/v1/subscription-external/resubscribe/enhanced [post]
 func (h *SubscriptionHandler) EnhancedResubscribeHandler(ctx *fasthttp.RequestCtx) {
+	// S7: Authenticate caller before processing.
+	// EnhancedResubscribeHandler does not carry a tenant_key in the request body;
+	// pass empty requestedTenantKey so platform-scoped and internal-HMAC callers
+	// are accepted, and tenant-scoped JWTs are not rejected on tenant mismatch
+	// (tenant enforcement happens per-MSISDN inside processWithWorkers).
+	if _, authOK := h.batchGuard.authorise(ctx, ""); !authOK {
+		return
+	}
+
 	var req domain.EnhancedBackfillRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
 		ctx.Error("Invalid request payload", fasthttp.StatusBadRequest)
