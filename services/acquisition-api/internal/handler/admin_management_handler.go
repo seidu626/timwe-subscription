@@ -738,6 +738,43 @@ func (h *AdminManagementHandler) ListChannelCredentials(ctx *fasthttp.RequestCtx
 	})
 }
 
+type revokeCredentialResponse struct {
+	Credential    *domain.AdminChannelCredential `json:"credential"`
+	WasOnlyActive bool                           `json:"was_only_active"`
+}
+
+func (h *AdminManagementHandler) RevokeChannelCredential(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	channelID, credentialID, err := parseChannelCredentialIDFromPath(string(ctx.Path()))
+	if err != nil {
+		ctx.Error("Invalid channel or credential id", fasthttp.StatusBadRequest)
+		return
+	}
+
+	actor := actorFromPayloadIdentityOrRequest("", identity, ctx)
+	requestID := requestIDFromHeader(ctx)
+	result, err := h.service.RevokeChannelCredential(tenant.ID, channelID, credentialID, actor, requestID)
+	if err != nil {
+		if errors.Is(err, service.ErrAdminInvalidState) {
+			writeJSON(ctx, fasthttp.StatusConflict, revokeCredentialResponse{
+				Credential:    result.Credential,
+				WasOnlyActive: result.WasOnlyActive,
+			})
+			return
+		}
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, revokeCredentialResponse{
+		Credential:    result.Credential,
+		WasOnlyActive: result.WasOnlyActive,
+	})
+}
+
 type listUserbaseResponse struct {
 	Records    []*domain.UserbaseRecord `json:"records"`
 	TotalCount int                      `json:"total_count"`
@@ -1113,6 +1150,21 @@ func parseChannelIDFromEnabledPath(path string) (string, error) {
 		return "", errors.New("missing channel id")
 	}
 	return id, nil
+}
+
+// parseChannelCredentialIDFromPath parses /v1/admin/channels/{channelID}/credentials/{credentialID}.
+// Parts after splitting: [v1, admin, channels, <channelID>, credentials, <credentialID>]
+func parseChannelCredentialIDFromPath(path string) (string, string, error) {
+	parts := splitPathParts(path)
+	if len(parts) < 6 || parts[0] != "v1" || parts[1] != "admin" || parts[2] != "channels" || parts[4] != "credentials" {
+		return "", "", errors.New("invalid path")
+	}
+	channelID := strings.TrimSpace(parts[3])
+	credentialID := strings.TrimSpace(parts[5])
+	if channelID == "" || credentialID == "" {
+		return "", "", errors.New("missing channel or credential id")
+	}
+	return channelID, credentialID, nil
 }
 
 func parseChannelIDFromCredentialsPath(path string) (string, error) {

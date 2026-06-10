@@ -2,7 +2,7 @@ export type TenantStatus = 'ACTIVE' | 'INACTIVE';
 export type TenantMemberStatus = 'ACTIVE' | 'INACTIVE';
 export type TenantMemberRole = 'TENANT_ADMIN' | 'TENANT_VIEWER';
 export type ChannelStatus = 'ACTIVE' | 'INACTIVE';
-export type ChannelCredentialStatus = 'ACTIVE' | 'INACTIVE';
+export type ChannelCredentialStatus = 'ACTIVE' | 'INACTIVE' | 'REVOKED';
 
 export interface AdminTenant {
   id: string;
@@ -172,4 +172,9 @@ export interface CredentialSecretValue {
   mo_pricepoint_ids?: string[];
   billing_pricepoint_ids?: string[];
   he_iv_param_spec_key?: string;
+}
+
+export interface RevokeCredentialResponse {
+  credential: AdminChannelCredential;
+  was_only_active: boolean;
 }

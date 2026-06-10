@@ -946,7 +946,7 @@ func (r *AdminManagementRepository) ListChannelCredentials(filter *domain.Channe
 	args = append(args, filter.Limit, filter.Offset)
 	rows, err := r.db.Query(fmt.Sprintf(`
 		SELECT id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,
-		       secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at
+		       secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at, purged_at
 		FROM tenant_channel_credentials
 		WHERE %s
 		ORDER BY version DESC, created_at DESC
@@ -1001,7 +1001,7 @@ func (r *AdminManagementRepository) RotateChannelCredentialWithActivityLog(crede
 
 	existing, err := scanChannelCredential(tx.QueryRow(`
 		SELECT id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,
-		       secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at
+		       secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at, purged_at
 		FROM tenant_channel_credentials
 		WHERE tenant_id = $1 AND channel_id = $2 AND purpose = $3 AND secret_fingerprint = $4 AND status = 'ACTIVE'
 	`, credential.TenantID, credential.ChannelID, credential.Purpose, credential.SecretFingerprint))
@@ -1042,7 +1042,7 @@ func (r *AdminManagementRepository) RotateChannelCredentialWithActivityLog(crede
 		)
 		VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, $7, $8, $9, $10)
 		RETURNING id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,
-		          secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at
+		          secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at, purged_at
 	`, credential.ID, credential.TenantID, credential.ChannelID, credential.Purpose, nextVersion, credential.SecretRef,
 		credential.SecretRefDisplay, credential.SecretFingerprint, credential.CreatedBy, now))
 	if err != nil {
@@ -1660,6 +1660,7 @@ func scanChannelCredential(row rowScanner) (*domain.AdminChannelCredential, erro
 		createdBy   sql.NullString
 		activated   sql.NullTime
 		deactivated sql.NullTime
+		purged      sql.NullTime
 	)
 	if err := row.Scan(
 		&credential.ID,
@@ -1676,6 +1677,7 @@ func scanChannelCredential(row rowScanner) (*domain.AdminChannelCredential, erro
 		&credential.UpdatedAt,
 		&activated,
 		&deactivated,
+		&purged,
 	); err != nil {
 		return nil, err
 	}
@@ -1690,6 +1692,10 @@ func scanChannelCredential(row rowScanner) (*domain.AdminChannelCredential, erro
 		t := deactivated.Time
 		credential.DeactivatedAt = &t
 	}
+	if purged.Valid {
+		t := purged.Time
+		credential.PurgedAt = &t
+	}
 	return &credential, nil
 }
 
@@ -1699,4 +1705,135 @@ func isUniqueViolation(err error) bool {
 		return true
 	}
 	return strings.Contains(strings.ToLower(err.Error()), "duplicate key value")
+}
+
+// GetChannelCredentialByID fetches a single credential by (tenantID, channelID, credentialID).
+// Returns ErrAdminNotFound when the row does not exist or does not belong to the channel.
+func (r *AdminManagementRepository) GetChannelCredentialByID(tenantID, channelID, credentialID string) (*domain.AdminChannelCredential, error) {
+	query := `
+		SELECT id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,
+		       secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at, purged_at
+		FROM tenant_channel_credentials
+		WHERE tenant_id = $1 AND channel_id = $2 AND id = $3
+	`
+	credential, err := scanChannelCredential(r.db.QueryRow(query, tenantID, channelID, credentialID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, fmt.Errorf("failed to get channel credential: %w", err)
+	}
+	return credential, nil
+}
+
+// RevokeChannelCredentialWithActivityLog marks the credential REVOKED, records purged_at,
+// deletes the ciphertext row from tenant_channel_secrets (if a secret:// ref), and writes
+// an activity-log entry — all in one transaction.
+// Returns (credential, wasOnlyActive, ErrAdminInvalidState) when credential is already REVOKED.
+// Returns (nil, false, ErrAdminNotFound) when credential does not exist under the channel.
+func (r *AdminManagementRepository) RevokeChannelCredentialWithActivityLog(tenantID, channelID, credentialID string, entry *domain.AdminActivityLog) (*domain.AdminChannelCredential, bool, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to begin revoke tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var (
+		cred        domain.AdminChannelCredential
+		createdBy   sql.NullString
+		activated   sql.NullTime
+		deactivated sql.NullTime
+		purged      sql.NullTime
+	)
+	err = tx.QueryRow(`
+		SELECT id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,
+		       secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at, purged_at
+		FROM tenant_channel_credentials
+		WHERE tenant_id = $1 AND channel_id = $2 AND id = $3
+		FOR UPDATE
+	`, tenantID, channelID, credentialID).Scan(
+		&cred.ID, &cred.TenantID, &cred.ChannelID, &cred.Purpose, &cred.Version,
+		&cred.Status, &cred.SecretRef, &cred.SecretRefDisplay, &cred.SecretFingerprint,
+		&createdBy, &cred.CreatedAt, &cred.UpdatedAt, &activated, &deactivated, &purged,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, false, ErrAdminNotFound
+		}
+		return nil, false, fmt.Errorf("failed to lock channel credential: %w", err)
+	}
+	if createdBy.Valid {
+		cred.CreatedBy = &createdBy.String
+	}
+	if activated.Valid {
+		t := activated.Time
+		cred.ActivatedAt = &t
+	}
+	if deactivated.Valid {
+		t := deactivated.Time
+		cred.DeactivatedAt = &t
+	}
+	if purged.Valid {
+		t := purged.Time
+		cred.PurgedAt = &t
+	}
+
+	if cred.Status == domain.ChannelCredentialStatusRevoked {
+		if err := tx.Commit(); err != nil {
+			return nil, false, fmt.Errorf("failed to commit idempotent revoke read tx: %w", err)
+		}
+		committed = true
+		return &cred, false, ErrAdminInvalidState
+	}
+
+	var activeCount int
+	if err := tx.QueryRow(`
+		SELECT COUNT(*)
+		FROM tenant_channel_credentials
+		WHERE tenant_id = $1 AND channel_id = $2 AND purpose = $3 AND status = 'ACTIVE'
+	`, tenantID, channelID, cred.Purpose).Scan(&activeCount); err != nil {
+		return nil, false, fmt.Errorf("failed to count active credentials: %w", err)
+	}
+	wasOnlyActive := cred.Status == domain.ChannelCredentialStatusActive && activeCount == 1
+
+	now := time.Now().UTC()
+	updated, err := scanChannelCredential(tx.QueryRow(`
+		UPDATE tenant_channel_credentials
+		SET status = 'REVOKED', updated_at = $4,
+		    deactivated_at = COALESCE(deactivated_at, $4), purged_at = $4
+		WHERE tenant_id = $1 AND channel_id = $2 AND id = $3
+		RETURNING id, tenant_id, channel_id, purpose, version, status, secret_ref, secret_ref_display,
+		          secret_fingerprint, created_by, created_at, updated_at, activated_at, deactivated_at, purged_at
+	`, tenantID, channelID, credentialID, now))
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to mark credential revoked: %w", err)
+	}
+
+	const secretScheme = "secret://"
+	if strings.HasPrefix(cred.SecretRef, secretScheme) {
+		secretID := strings.TrimPrefix(cred.SecretRef, secretScheme)
+		if _, err := tx.Exec(`DELETE FROM tenant_channel_secrets WHERE id = $1::uuid`, secretID); err != nil {
+			return nil, false, fmt.Errorf("failed to purge ciphertext: %w", err)
+		}
+	}
+
+	if entry != nil {
+		entry.TenantID = tenantID
+		entry.EntityType = "tenant_channel_credential"
+		entry.EntityID = credentialID
+		if err := createActivityLog(tx, entry); err != nil {
+			return nil, false, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, false, fmt.Errorf("failed to commit revoke tx: %w", err)
+	}
+	committed = true
+	return updated, wasOnlyActive, nil
 }

@@ -18,6 +18,8 @@ var defaultAdminManagementSchemaPaths = []string{
 	"migrations/create_postback_tables.sql",
 	"migrations/add_tenant_postback_routing.sql",
 	"migrations/add_tenant_admin_memberships.sql",
+	"migrations/add_tenant_channel_secrets.sql",
+	"migrations/revoke_channel_credential.sql",
 }
 
 var requiredAdminManagementRelations = []string{
@@ -27,6 +29,7 @@ var requiredAdminManagementRelations = []string{
 	"public.userbase_import_errors",
 	"public.tenant_channels",
 	"public.tenant_channel_credentials",
+	"public.tenant_channel_secrets",
 	"public.tenant_admin_memberships",
 }
 

@@ -10,6 +10,7 @@ import {
   ChannelListResponse,
   ChannelUpdatePayload,
   CredentialSecretValue,
+  RevokeCredentialResponse,
   TenantMemberListResponse,
   TenantMemberMutationResponse,
   TenantMemberPayload,
@@ -151,5 +152,11 @@ export class TenantService {
       secret_value: JSON.stringify(value)
     };
     return this.bindChannelCredential(channelId, payload);
+  }
+
+  revokeChannelCredential(channelId: string, credentialId: string): Observable<RevokeCredentialResponse> {
+    return this.http.delete<RevokeCredentialResponse>(
+      `${this.channelsUrl}/${encodeURIComponent(channelId)}/credentials/${encodeURIComponent(credentialId)}`
+    );
   }
 }

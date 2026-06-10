@@ -329,8 +329,8 @@ func TestRotateChannelCredentialWithActivityLogInactivatesOldAndInsertsNextVersi
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO tenant_channel_credentials")).
 		WithArgs(sqlmock.AnyArg(), tenantID, channelID, "provider_api", 2, "vault://tenant/channel/provider", "vault://[REDACTED]", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "channel_id", "purpose", "version", "status", "secret_ref", "secret_ref_display", "secret_fingerprint", "created_by", "created_at", "updated_at", "activated_at", "deactivated_at"}).
-			AddRow("44444444-4444-4444-4444-444444444444", tenantID, channelID, "provider_api", 2, domain.ChannelCredentialStatusActive, "vault://tenant/channel/provider", "vault://[REDACTED]", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", nil, now, now, now, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "channel_id", "purpose", "version", "status", "secret_ref", "secret_ref_display", "secret_fingerprint", "created_by", "created_at", "updated_at", "activated_at", "deactivated_at", "purged_at"}).
+			AddRow("44444444-4444-4444-4444-444444444444", tenantID, channelID, "provider_api", 2, domain.ChannelCredentialStatusActive, "vault://tenant/channel/provider", "vault://[REDACTED]", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", nil, now, now, now, nil, nil))
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()

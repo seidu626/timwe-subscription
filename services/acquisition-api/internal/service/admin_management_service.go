@@ -725,6 +725,68 @@ func (s *AdminManagementService) BindChannelCredential(ctx context.Context, tena
 	return created, nil
 }
 
+// RevokeChannelCredential revokes a credential and purges its ciphertext.
+// The credential row is marked REVOKED; secret:// ciphertext is deleted from tenant_channel_secrets.
+// A double-revoke returns (result, ErrAdminInvalidState) — caller decides HTTP status.
+// wasOnlyActive indicates the channel now has no ACTIVE credential for that purpose.
+func (s *AdminManagementService) RevokeChannelCredential(tenantID, channelID, credentialID string, actor, requestID *string) (*domain.CredentialRevokeResult, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	channelID = strings.TrimSpace(channelID)
+	credentialID = strings.TrimSpace(credentialID)
+	if tenantID == "" {
+		return nil, ErrTenantContextMissing
+	}
+	if channelID == "" {
+		return nil, fmt.Errorf("%w: channel id is required", ErrInvalidInput)
+	}
+	if credentialID == "" {
+		return nil, fmt.Errorf("%w: credential id is required", ErrInvalidInput)
+	}
+
+	before, err := s.repo.GetChannelCredentialByID(tenantID, channelID, credentialID)
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, err
+	}
+
+	entry := &domain.AdminActivityLog{
+		ID:        uuid.NewString(),
+		TenantID:  tenantID,
+		Action:    "revoke",
+		Actor:     actor,
+		RequestID: requestID,
+		BeforeJSON: mustJSON(map[string]any{
+			"credential_id":    credentialID,
+			"channel_id":       channelID,
+			"purpose":          before.Purpose,
+			"version":          before.Version,
+			"status":           before.Status,
+			"redacted_display": before.SecretRefDisplay,
+		}),
+		Metadata: mustJSON(map[string]any{
+			"channel_id":    channelID,
+			"credential_id": credentialID,
+			"purpose":       before.Purpose,
+		}),
+		CreatedAt: time.Now().UTC(),
+	}
+
+	updated, wasOnlyActive, err := s.repo.RevokeChannelCredentialWithActivityLog(tenantID, channelID, credentialID, entry)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrAdminNotFound):
+			return nil, ErrAdminNotFound
+		case errors.Is(err, repository.ErrAdminInvalidState):
+			return &domain.CredentialRevokeResult{Credential: updated, WasOnlyActive: false}, ErrAdminInvalidState
+		default:
+			return nil, err
+		}
+	}
+	return &domain.CredentialRevokeResult{Credential: updated, WasOnlyActive: wasOnlyActive}, nil
+}
+
 func (s *AdminManagementService) ListUserbase(filter *domain.UserbaseListFilter) ([]*domain.UserbaseRecord, int, error) {
 	return s.repo.ListUserbase(filter)
 }

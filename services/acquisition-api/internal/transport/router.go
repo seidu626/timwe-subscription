@@ -269,6 +269,16 @@ func NewRouter(
 			}
 			return
 
+		// DELETE /v1/admin/channels/{channelID}/credentials/{credentialID}
+		// Must precede the HasSuffix("/credentials") case.
+		case strings.HasPrefix(path, "/v1/admin/channels/") && strings.Contains(path, "/credentials/"):
+			if method == fasthttp.MethodDelete {
+				adminManagementHandler.RevokeChannelCredential(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		case strings.HasPrefix(path, "/v1/admin/channels/") && strings.HasSuffix(path, "/credentials"):
 			switch method {
 			case fasthttp.MethodGet:
