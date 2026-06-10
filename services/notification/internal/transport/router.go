@@ -120,6 +120,7 @@ type adminAccess struct {
 func newAdminAccess(memberLookup MemberTenantLookup) *adminAccess {
 	validator, err := auth0jwt.New(os.Getenv("ADMIN_AUTH0_DOMAIN"), os.Getenv("ADMIN_AUTH0_AUDIENCE"))
 	if err != nil {
+		log.Printf("admin auth not configured (notification): %v", err)
 		validator = nil
 	}
 	return &adminAccess{

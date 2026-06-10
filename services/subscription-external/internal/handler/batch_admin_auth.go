@@ -16,6 +16,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -41,7 +42,10 @@ func newBatchAdminGuard() *batchAdminGuard {
 		var err error
 		v, err = auth0jwt.New(domain, audience)
 		if err != nil {
-			v = nil // misconfigured; fall through to HMAC only
+			// Only ErrInvalidConfig reaches here (transient JWKS failures are
+			// tolerated by New and healed in the background).
+			log.Printf("admin auth not configured (subscription-external): %v", err)
+			v = nil // fall through to HMAC only
 		}
 	}
 

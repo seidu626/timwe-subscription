@@ -4,7 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -82,4 +86,89 @@ func mustToken(t *testing.T, privateKey *rsa.PrivateKey, claims jwt.MapClaims) s
 		t.Fatalf("sign token: %v", err)
 	}
 	return token
+}
+
+// TestNewEmptyConfigErrors confirms that empty domain or audience still returns
+// ErrInvalidConfig immediately (config validation is not lazy).
+func TestNewEmptyConfigErrors(t *testing.T) {
+	if _, err := New("", "audience"); !errors.Is(err, ErrInvalidConfig) {
+		t.Fatalf("expected ErrInvalidConfig for empty domain, got %v", err)
+	}
+	if _, err := New("example.auth0.com", ""); !errors.Is(err, ErrInvalidConfig) {
+		t.Fatalf("expected ErrInvalidConfig for empty audience, got %v", err)
+	}
+}
+
+// TestNewUnreachableJWKSDoesNotErrorButFailsClosed verifies that New succeeds
+// even when the JWKS endpoint is unreachable, and that ValidateBearer returns
+// a non-nil, non-ErrInvalidConfig error (fails closed).
+func TestNewUnreachableJWKSDoesNotErrorButFailsClosed(t *testing.T) {
+	// Use a long retry so the goroutine doesn't interfere during the test.
+	v, err := New("localhost:1", "test-audience", withRetryInterval(10*time.Second))
+	if err != nil {
+		t.Fatalf("New must not return an error for an unreachable JWKS: %v", err)
+	}
+	if v == nil {
+		t.Fatal("New must return a non-nil Validator")
+	}
+
+	_, berr := v.ValidateBearer(context.Background(), "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ.e30.x")
+	if berr == nil {
+		t.Fatal("ValidateBearer must fail when JWKS is unavailable")
+	}
+	if errors.Is(berr, ErrInvalidConfig) {
+		t.Fatalf("ValidateBearer must not return ErrInvalidConfig when JWKS is temporarily unavailable: %v", berr)
+	}
+}
+
+// TestValidatorSelfHealsAfterJWKSBecomesAvailable verifies that a validator
+// created when the JWKS endpoint is down starts accepting requests once the
+// endpoint comes up, without any restart.
+func TestValidatorSelfHealsAfterJWKSBecomesAvailable(t *testing.T) {
+	var serveCount atomic.Int32
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if serveCount.Load() == 0 {
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		// Serve an empty-but-valid JWKS (no keys needed for this test — we
+		// only need to confirm the unavailable state clears).
+		w.Write([]byte(`{"keys":[]}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	domain := strings.TrimPrefix(srv.URL, "http://")
+	v, err := New(domain, "test-audience", withRetryInterval(50*time.Millisecond))
+	if err != nil {
+		t.Fatalf("New must not fail: %v", err)
+	}
+
+	// Before the server comes up, confirm we fail closed (not ErrInvalidConfig).
+	_, berr := v.ValidateBearer(context.Background(), "Bearer x.y.z")
+	if berr == nil {
+		t.Fatal("expected error before JWKS is available")
+	}
+	if errors.Is(berr, ErrInvalidConfig) {
+		t.Fatalf("must not be ErrInvalidConfig before JWKS loads: %v", berr)
+	}
+
+	// Bring the server up.
+	serveCount.Store(1)
+
+	// Wait for the retry goroutine to load the (empty) JWKS. Once it does,
+	// ValidateBearer will no longer return ErrJWKSUnavailable — it will fail
+	// for a different reason (bad token / no matching key), confirming recovery.
+	deadline := time.Now().Add(2 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		_, lastErr = v.ValidateBearer(context.Background(), "Bearer x.y.z")
+		if lastErr != nil && !errors.Is(lastErr, ErrJWKSUnavailable) {
+			// Error is now about token format/signature, not availability — healed.
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("validator did not self-heal within 2s; last err: %v", lastErr)
 }

@@ -27,6 +27,7 @@ func newAccess() *access {
 
 	validator, err := auth0jwt.New(domain, audience)
 	if err != nil {
+		log.Printf("admin auth not configured (cadence-engine): %v", err)
 		validator = nil
 	}
 

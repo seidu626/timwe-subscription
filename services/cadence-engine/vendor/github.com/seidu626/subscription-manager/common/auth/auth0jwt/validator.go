@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/MicahParks/keyfunc/v2"
@@ -13,10 +15,11 @@ import (
 )
 
 var (
-	ErrInvalidConfig  = errors.New("auth0 jwt validator not configured")
-	ErrInvalidToken   = errors.New("invalid token")
-	ErrMissingToken   = errors.New("missing token")
-	ErrUnsupportedAlg = errors.New("unsupported token signing algorithm")
+	ErrInvalidConfig   = errors.New("auth0 jwt validator not configured")
+	ErrInvalidToken    = errors.New("invalid token")
+	ErrJWKSUnavailable = errors.New("jwks unavailable: keys not yet loaded")
+	ErrMissingToken    = errors.New("missing token")
+	ErrUnsupportedAlg  = errors.New("unsupported token signing algorithm")
 )
 
 type Validator struct {
@@ -24,9 +27,28 @@ type Validator struct {
 	issuer    string
 	audiences map[string]struct{}
 	parser    *jwt.Parser
+	jwksReady *atomic.Bool // nil for NewWithKeyfunc validators (always ready)
 }
 
-func New(domain, audience string) (*Validator, error) {
+// defaultRetryInterval is used for the background JWKS refresh when the initial
+// fetch fails. Tests may inject a shorter interval via withRetryInterval.
+const defaultRetryInterval = 30 * time.Second
+
+// newOptions holds injectable parameters for New; used only by tests.
+type newOptions struct {
+	retryInterval time.Duration // overrides defaultRetryInterval when non-zero
+}
+
+// Option is a functional option for New.
+type Option func(*newOptions)
+
+// withRetryInterval overrides the background-retry interval used when the
+// initial JWKS fetch fails. Intentionally unexported — only for testing.
+func withRetryInterval(d time.Duration) Option {
+	return func(o *newOptions) { o.retryInterval = d }
+}
+
+func New(domain, audience string, opts ...Option) (*Validator, error) {
 	domain = strings.TrimSpace(domain)
 	audience = strings.TrimSpace(audience)
 	if domain == "" || audience == "" {
@@ -47,6 +69,11 @@ func New(domain, audience string) (*Validator, error) {
 		return nil, ErrInvalidConfig
 	}
 
+	cfg := &newOptions{retryInterval: defaultRetryInterval}
+	for _, o := range opts {
+		o(cfg)
+	}
+
 	issuer := fmt.Sprintf("https://%s/", domain)
 	jwksURL := fmt.Sprintf("https://%s/.well-known/jwks.json", domain)
 
@@ -54,21 +81,72 @@ func New(domain, audience string) (*Validator, error) {
 		Timeout: 5 * time.Second,
 	}
 
+	// jwksReady is set to true once keyfunc has successfully loaded at least
+	// one key set from the remote JWKS endpoint.
+	ready := &atomic.Bool{}
+
 	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{
-		Client:            httpClient,
-		RefreshInterval:   12 * time.Hour,
-		RefreshRateLimit:  5 * time.Minute,
-		RefreshTimeout:    10 * time.Second,
+		Client:           httpClient,
+		RefreshInterval:  12 * time.Hour,
+		RefreshRateLimit: 5 * time.Minute,
+		RefreshTimeout:   10 * time.Second,
+		// Tolerate a failed initial fetch: New succeeds and the background
+		// goroutine (from RefreshInterval) will heal the key set automatically.
+		TolerateInitialJWKHTTPError: true,
+		RefreshErrorHandler: func(err error) {
+			log.Printf("auth0jwt: jwks refresh error (url=%s): %v", jwksURL, err)
+		},
 		RefreshUnknownKID: true,
 	})
 	if err != nil {
+		// keyfunc.Get only errors here when TolerateInitialJWKHTTPError is
+		// false or when the URL itself is structurally invalid.
 		return nil, fmt.Errorf("init jwks: %w", err)
 	}
 
+	// Wrap the keyfunc to (a) track first successful key load and (b) surface
+	// ErrJWKSUnavailable while the cache is still empty.
+	rawKeyfunc := jwks.Keyfunc
+	wrappedKeyfunc := func(token *jwt.Token) (any, error) {
+		key, err := rawKeyfunc(token)
+		if err == nil {
+			ready.Store(true)
+			return key, nil
+		}
+		// If we have never successfully loaded any keys, translate the error to
+		// ErrJWKSUnavailable so callers can respond with 503.
+		if !ready.Load() {
+			return nil, fmt.Errorf("%w: %v", ErrJWKSUnavailable, err)
+		}
+		return nil, err
+	}
+
+	// If the initial fetch failed, the keyfunc's refresh ticker only fires every
+	// 12 h. To recover quickly after a transient startup failure, launch a
+	// short-interval retry goroutine that stops once keys are available.
+	retryInterval := cfg.retryInterval
+	go func() {
+		for {
+			time.Sleep(retryInterval)
+			if ready.Load() {
+				return
+			}
+			if rerr := jwks.Refresh(context.Background(), keyfunc.RefreshOptions{IgnoreRateLimit: true}); rerr != nil {
+				log.Printf("auth0jwt: jwks retry failed (url=%s): %v", jwksURL, rerr)
+			} else {
+				// Successful refresh; mark ready and stop.
+				ready.Store(true)
+				log.Printf("auth0jwt: jwks loaded after retry (url=%s)", jwksURL)
+				return
+			}
+		}
+	}()
+
 	return &Validator{
-		keyFunc:   jwks.Keyfunc,
+		keyFunc:   wrappedKeyfunc,
 		issuer:    issuer,
 		audiences: audiences,
+		jwksReady: ready,
 		parser: jwt.NewParser(
 			jwt.WithValidMethods([]string{"RS256"}),
 			jwt.WithIssuedAt(),
@@ -99,6 +177,9 @@ func NewWithKeyfunc(domain, audience string, keyFunc jwt.Keyfunc) (*Validator, e
 		keyFunc:   keyFunc,
 		issuer:    fmt.Sprintf("https://%s/", domain),
 		audiences: audiences,
+		// jwksReady is nil: NewWithKeyfunc callers supply their own keyfunc
+		// and are always considered ready.
+		jwksReady: nil,
 		parser: jwt.NewParser(
 			jwt.WithValidMethods([]string{"RS256"}),
 			jwt.WithIssuedAt(),

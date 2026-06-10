@@ -59,6 +59,10 @@ func (i Identity) HasTenant() bool {
 	return strings.TrimSpace(i.TenantID) != "" || strings.TrimSpace(i.TenantKey) != ""
 }
 
+func (i Identity) HasExplicitlyUnverifiedEmail() bool {
+	return i.EmailVerifiedSet && !i.EmailVerified
+}
+
 type contextKey struct{}
 
 func WithIdentity(ctx context.Context, identity Identity) context.Context {

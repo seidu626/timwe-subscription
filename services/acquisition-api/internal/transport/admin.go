@@ -40,6 +40,7 @@ func newAdminAccess(memberLookup MemberTenantLookup) *adminAccess {
 	// If empty, admin endpoints should refuse access.
 	validator, err := auth0jwt.New(domain, audience)
 	if err != nil {
+		log.Printf("admin auth not configured (acquisition-api): %v", err)
 		validator = nil
 	}
 
