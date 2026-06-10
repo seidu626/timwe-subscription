@@ -239,11 +239,16 @@
       <section *ngIf="editingTenantId" class="tenant-onboarding">
         <div class="section-title">
           <div>
-            <p class="eyebrow">Credential reference</p>
+            <p class="eyebrow">Credential binding</p>
             <h3>Provider API secret</h3>
           </div>
+          <mat-button-toggle-group [(ngModel)]="credentialMode" aria-label="Credential mode">
+            <mat-button-toggle value="ref">Reference</mat-button-toggle>
+            <mat-button-toggle value="value">Direct value</mat-button-toggle>
+          </mat-button-toggle-group>
         </div>
 
+        <!-- Shared: channel selector -->
         <div class="row">
           <mat-form-field appearance="outline">
             <mat-label>Channel</mat-label>
@@ -253,22 +258,129 @@
               </mat-option>
             </mat-select>
           </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Purpose</mat-label>
-            <input matInput [(ngModel)]="credentialForm.purpose" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Secret Reference</mat-label>
-            <input matInput [(ngModel)]="credentialForm.secret_ref" placeholder="vault://tenant/channel/provider-api" />
-          </mat-form-field>
         </div>
 
-        <div class="actions">
-          <button mat-raised-button color="primary" (click)="saveCredentialReference()" [disabled]="credentialSaving || !selectedChannelId">
-            {{ credentialSaving ? 'Binding...' : 'Bind Credential Reference' }}
-          </button>
-        </div>
+        <!-- Mode: reference -->
+        <ng-container *ngIf="credentialMode === 'ref'">
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Purpose</mat-label>
+              <input matInput [(ngModel)]="credentialForm.purpose" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Secret Reference</mat-label>
+              <input matInput [(ngModel)]="credentialForm.secret_ref" placeholder="vault://tenant/channel/provider-api" />
+            </mat-form-field>
+          </div>
+          <div class="actions">
+            <button mat-raised-button color="primary" (click)="saveCredentialReference()" [disabled]="credentialSaving || !selectedChannelId">
+              {{ credentialSaving ? 'Binding...' : 'Bind Credential Reference' }}
+            </button>
+          </div>
+        </ng-container>
 
+        <!-- Mode: direct value (per-field) -->
+        <ng-container *ngIf="credentialMode === 'value'">
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Purpose</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.purpose" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Base URL</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.base_url" placeholder="https://api.provider.example" />
+            </mat-form-field>
+          </div>
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>API Key</mat-label>
+              <input matInput [type]="showApiKey ? 'text' : 'password'" [(ngModel)]="credentialValueForm.api_key" autocomplete="new-password" />
+              <button mat-icon-button matSuffix type="button" (click)="showApiKey = !showApiKey" [attr.aria-label]="showApiKey ? 'Hide API key' : 'Show API key'">
+                <mat-icon>{{ showApiKey ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>MT API Key</mat-label>
+              <input matInput [type]="showMtApiKey ? 'text' : 'password'" [(ngModel)]="credentialValueForm.mt_api_key" autocomplete="new-password" />
+              <button mat-icon-button matSuffix type="button" (click)="showMtApiKey = !showMtApiKey" [attr.aria-label]="showMtApiKey ? 'Hide MT API key' : 'Show MT API key'">
+                <mat-icon>{{ showMtApiKey ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>PSK</mat-label>
+              <input matInput [type]="showPsk ? 'text' : 'password'" [(ngModel)]="credentialValueForm.psk" autocomplete="new-password" />
+              <button mat-icon-button matSuffix type="button" (click)="showPsk = !showPsk" [attr.aria-label]="showPsk ? 'Hide PSK' : 'Show PSK'">
+                <mat-icon>{{ showPsk ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+            </mat-form-field>
+          </div>
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Partner Service ID</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.partner_service_id" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Partner Role ID</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.partner_role_id" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Realm</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.realm" />
+            </mat-form-field>
+          </div>
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>MCC</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.mcc" placeholder="e.g. 620" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>MNC</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.mnc" placeholder="e.g. 01" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Large Account</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.large_account" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Service Name</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.service_name" />
+            </mat-form-field>
+          </div>
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Free MT Pricepoint ID</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.free_mt_pricepoint_id" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>HE IV Param Spec Key</mat-label>
+              <input matInput [(ngModel)]="credentialValueForm.he_iv_param_spec_key" />
+            </mat-form-field>
+          </div>
+          <div class="row">
+            <mat-form-field appearance="outline" class="metadata-field">
+              <mat-label>MO Pricepoint IDs (one per line or comma-separated)</mat-label>
+              <textarea matInput rows="3" [(ngModel)]="credentialValueForm.mo_pricepoint_ids_text" placeholder="ppid-mo-1&#10;ppid-mo-2"></textarea>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="metadata-field">
+              <mat-label>Billing Pricepoint IDs (one per line or comma-separated)</mat-label>
+              <textarea matInput rows="3" [(ngModel)]="credentialValueForm.billing_pricepoint_ids_text" placeholder="ppid-bill-1&#10;ppid-bill-2"></textarea>
+            </mat-form-field>
+          </div>
+          <p class="cred-hint">Sensitive fields (API Key, MT API Key, PSK) are masked. Values are encrypted server-side and never returned.</p>
+          <div class="actions">
+            <button mat-raised-button color="primary" (click)="saveCredentialValue()" [disabled]="credentialSaving || !selectedChannelId">
+              {{ credentialSaving ? 'Binding...' : 'Bind Credential Value' }}
+            </button>
+          </div>
+        </ng-container>
+
+        <!-- Credential version history -->
+        <div class="section-title cred-history-title">
+          <div>
+            <p class="eyebrow">Version history</p>
+            <h4>Bound credentials</h4>
+          </div>
+        </div>
         <div *ngIf="credentialLoading" class="loading">
           <mat-spinner diameter="28"></mat-spinner>
         </div>
@@ -283,8 +395,8 @@
               <td mat-cell *matCellDef="let row">{{ row.version }}</td>
             </ng-container>
             <ng-container matColumnDef="redacted_display">
-              <th mat-header-cell *matHeaderCellDef>Reference</th>
-              <td mat-cell *matCellDef="let row">{{ row.redacted_display }}</td>
+              <th mat-header-cell *matHeaderCellDef>Reference / Display</th>
+              <td mat-cell *matCellDef="let row">{{ row.redacted_display || '-' }}</td>
             </ng-container>
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef>Status</th>
@@ -295,6 +407,10 @@
             <ng-container matColumnDef="updated_at">
               <th mat-header-cell *matHeaderCellDef>Updated</th>
               <td mat-cell *matCellDef="let row">{{ row.updated_at | date:'short' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="created_at">
+              <th mat-header-cell *matHeaderCellDef>Bound at</th>
+              <td mat-cell *matCellDef="let row">{{ row.created_at | date:'short' }}</td>
             </ng-container>
             <tr mat-header-row *matHeaderRowDef="credentialDisplayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: credentialDisplayedColumns;"></tr>
