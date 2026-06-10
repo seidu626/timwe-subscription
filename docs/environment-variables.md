@@ -98,6 +98,12 @@ MinIO API is exposed on `http://localhost:9100` and MinIO Console on `http://loc
 
 > These MinIO defaults are for local development only. Override them before any shared or production-like deployment.
 
+## Notification Service
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NOTIFICATION_REQUIRE_TENANT_CONTEXT` | When `true`, callback routes (MO/MT_DN/USER_OPTIN/USER_RENEWED/USER_OPTOUT/CHARGE) reject requests with no resolvable tenant_key+channel_key with HTTP 422. Set to `false` to restore the legacy tenantless passthrough. | `true` |
+
 ## Notification Worker
 
 | Variable | Description | Default |

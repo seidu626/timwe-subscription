@@ -61,6 +61,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
       - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
+      - NOTIFICATION_REQUIRE_TENANT_CONTEXT=${NOTIFICATION_REQUIRE_TENANT_CONTEXT:-true}
     depends_on:
       database:
         condition: service_healthy

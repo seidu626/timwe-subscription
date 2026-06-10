@@ -18,11 +18,19 @@ import (
 const tenantIDHeader = "X-Tenant-Id"
 
 type NotificationHandler struct {
-	service *service.NotificationService
+	service              *service.NotificationService
+	requireTenantContext bool // when true, callbacks without resolvable tenant context → 422
 }
 
 func NewNotificationHandler(service *service.NotificationService) *NotificationHandler {
-	return &NotificationHandler{service: service}
+	return &NotificationHandler{service: service, requireTenantContext: true}
+}
+
+// WithRequireTenantContext sets the tenant-context enforcement flag and returns the handler
+// for optional chaining. The default is true (enforcement on).
+func (h *NotificationHandler) WithRequireTenantContext(v bool) *NotificationHandler {
+	h.requireTenantContext = v
+	return h
 }
 
 func (h *NotificationHandler) ListNotifications(ctx *fasthttp.RequestCtx) {
@@ -325,6 +333,11 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 			status = fasthttp.StatusConflict
 		}
 		ctx.Error(body, status)
+		return
+	}
+	if !res.ContextGiven && h.requireTenantContext {
+		body := `{"message":"tenant context is required: supply tenant_key and channel_key query parameters","code":"TENANT_CONTEXT_REQUIRED","inError":"true"}`
+		ctx.Error(body, fasthttp.StatusUnprocessableEntity)
 		return
 	}
 

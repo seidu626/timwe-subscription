@@ -286,12 +286,13 @@ func TestHandleNotification_TenantEnforcement(t *testing.T) {
 			wantBodySubstr: "CHANNEL_REQUIRED",
 		},
 		{
-			name:          "(d) no tenant context at all (legacy)",
-			uri:           "/api/v1/notification/mo/2117",
-			tenantIDByKey: map[string]string{},
-			wantStatus:    fasthttp.StatusOK,
-			wantTenantID:  nil,
-			wantChannelID: nil,
+			// With enforcement on (default), a callback with no tenant context → 422.
+			// Flag-disabled (legacy) behaviour is covered by TestHandleNotification_TenantContextEnforcement.
+			name:           "(d) no tenant context at all → 422 when enforced",
+			uri:            "/api/v1/notification/mo/2117",
+			tenantIDByKey:  map[string]string{},
+			wantStatus:     fasthttp.StatusUnprocessableEntity,
+			wantBodySubstr: "TENANT_CONTEXT_REQUIRED",
 		},
 		{
 			name: "(e) X-Tenant-Id (UUID, legacy admin path) only",
@@ -407,4 +408,103 @@ func newListRequestContext(uri string) *fasthttp.RequestCtx {
 
 func setTenantIdentity(ctx *fasthttp.RequestCtx, tenantID string) {
 	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{TenantID: tenantID})
+}
+
+// TestHandleNotification_TenantContextEnforcement tests the NOTIFICATION_REQUIRE_TENANT_CONTEXT flag.
+func TestHandleNotification_TenantContextEnforcement(t *testing.T) {
+	const (
+		careerifyTenantID  = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+		careerifyChannelID = "00000000-0000-0000-0000-000000000002"
+	)
+	ptr := func(s string) *string { return &s }
+
+	makeCtx := func(uri string, headers map[string]string) *fasthttp.RequestCtx {
+		ctx := &fasthttp.RequestCtx{}
+		ctx.Request.SetRequestURI(uri)
+		ctx.Request.Header.SetMethod(fasthttp.MethodPost)
+		ctx.SetUserValue("partnerRole", "2117")
+		ctx.Request.SetBodyString(`{"msisdn":"233241234567","productId":8509,"message":"ok"}`)
+		for k, v := range headers {
+			ctx.Request.Header.Set(k, v)
+		}
+		return ctx
+	}
+
+	t.Run("enforced: no tenant context → 422", func(t *testing.T) {
+		repo := &handlerRepoStub{tenantIDByKey: map[string]string{}}
+		svc := service.NewNotificationService(repo)
+		// Default (requireTenantContext=true)
+		h := NewNotificationHandler(svc)
+
+		ctx := makeCtx("/api/v1/notification/mo/2117", nil)
+		h.MOHandler(ctx)
+
+		if ctx.Response.StatusCode() != fasthttp.StatusUnprocessableEntity {
+			t.Fatalf("expected 422 with enforcement on, got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+		}
+		if !strings.Contains(string(ctx.Response.Body()), "TENANT_CONTEXT_REQUIRED") {
+			t.Fatalf("expected TENANT_CONTEXT_REQUIRED in body, got: %s", ctx.Response.Body())
+		}
+	})
+
+	t.Run("enforced: tenant_key+channel_key → 200 with stamped tenant", func(t *testing.T) {
+		repo := &handlerRepoStub{
+			tenantIDByKey:   map[string]string{"careerify": careerifyTenantID},
+			channelIDByKeys: map[string]string{careerifyTenantID + "|web-gh-airteltigo": careerifyChannelID},
+		}
+		svc := service.NewNotificationService(repo)
+		h := NewNotificationHandler(svc)
+
+		ctx := makeCtx("/api/v1/notification/mo/2117?tenant_key=careerify&channel_key=web-gh-airteltigo", nil)
+		h.MOHandler(ctx)
+
+		if ctx.Response.StatusCode() != fasthttp.StatusOK {
+			t.Fatalf("expected 200, got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+		}
+		if repo.saved == nil || repo.saved.TenantID == nil || *repo.saved.TenantID != careerifyTenantID {
+			t.Fatalf("expected TenantID=%q, got %#v", careerifyTenantID, repo.saved)
+		}
+		if repo.saved.ChannelID == nil || *repo.saved.ChannelID != careerifyChannelID {
+			t.Fatalf("expected ChannelID=%q, got %#v", careerifyChannelID, repo.saved.ChannelID)
+		}
+	})
+
+	t.Run("disabled: no tenant context → 200 legacy path", func(t *testing.T) {
+		repo := &handlerRepoStub{tenantIDByKey: map[string]string{}}
+		svc := service.NewNotificationService(repo)
+		h := NewNotificationHandler(svc).WithRequireTenantContext(false)
+
+		ctx := makeCtx("/api/v1/notification/mo/2117", nil)
+		h.MOHandler(ctx)
+
+		if ctx.Response.StatusCode() != fasthttp.StatusOK {
+			t.Fatalf("expected 200 with enforcement off (legacy), got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+		}
+		if repo.saved != nil && repo.saved.TenantID != nil {
+			t.Fatalf("expected TenantID nil on legacy path, got %q", *repo.saved.TenantID)
+		}
+	})
+
+	t.Run("enforced: tenant_key+channel_key via headers → 200 stamped", func(t *testing.T) {
+		repo := &handlerRepoStub{
+			tenantIDByKey:   map[string]string{"careerify": careerifyTenantID},
+			channelIDByKeys: map[string]string{careerifyTenantID + "|web-gh-airteltigo": careerifyChannelID},
+		}
+		svc := service.NewNotificationService(repo)
+		h := NewNotificationHandler(svc)
+		_ = ptr
+
+		ctx := makeCtx("/api/v1/notification/mo/2117", map[string]string{
+			"X-Tenant-Key":  "careerify",
+			"X-Channel-Key": "web-gh-airteltigo",
+		})
+		h.MOHandler(ctx)
+
+		if ctx.Response.StatusCode() != fasthttp.StatusOK {
+			t.Fatalf("expected 200, got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+		}
+		if repo.saved == nil || repo.saved.TenantID == nil || *repo.saved.TenantID != careerifyTenantID {
+			t.Fatalf("expected tenant stamped, got %#v", repo.saved)
+		}
+	})
 }
