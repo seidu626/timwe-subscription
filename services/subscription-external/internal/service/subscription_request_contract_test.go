@@ -77,6 +77,7 @@ func TestSendMT_UsesPostmanOptinContract(t *testing.T) {
 		"largeAccount",
 		"mcc",
 		"mnc",
+		"pricepointId",
 		"productId",
 		"subKeyword",
 		"trackingId",
@@ -88,6 +89,7 @@ func TestSendMT_UsesPostmanOptinContract(t *testing.T) {
 	assertStringField(t, capturedBody, "userIdentifier", "233572503330")
 	assertStringField(t, capturedBody, "userIdentifierType", "MSISDN")
 	assertNumberField(t, capturedBody, "productId", 14397)
+	assertNumberField(t, capturedBody, "pricepointId", 999)
 	assertStringField(t, capturedBody, "mcc", "620")
 	assertStringField(t, capturedBody, "mnc", "03")
 	assertStringField(t, capturedBody, "entryChannel", "INTERNAL")
