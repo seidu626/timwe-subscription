@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/seidu626/subscription-manager/common/config"
 	"github.com/seidu626/subscription-manager/subscription/internal/domain"
 	"github.com/seidu626/subscription-manager/subscription/internal/service"
 	"github.com/valyala/fasthttp"
@@ -16,6 +17,7 @@ type NotificationWebhookHandler struct {
 	svc               *service.SubscriptionService
 	acquisitionClient *service.AcquisitionClient
 	tenantRepo        gatewayTenantLookup
+	cfg               *config.Config
 }
 
 // NewNotificationWebhookHandler creates a new notification webhook handler.
@@ -34,6 +36,12 @@ func NewNotificationWebhookHandler(
 // WithTenantRepo sets the repository used for gateway-trust tenant resolution.
 func (h *NotificationWebhookHandler) WithTenantRepo(repo gatewayTenantLookup) *NotificationWebhookHandler {
 	h.tenantRepo = repo
+	return h
+}
+
+// WithConfig sets the shared config (needed for gateway trust verification).
+func (h *NotificationWebhookHandler) WithConfig(cfg *config.Config) *NotificationWebhookHandler {
+	h.cfg = cfg
 	return h
 }
 
@@ -59,6 +67,9 @@ type TimweNotificationRequest struct {
 
 // HandleNotificationWebhook processes incoming TIMWE notification webhooks.
 func (h *NotificationWebhookHandler) HandleNotificationWebhook(ctx *fasthttp.RequestCtx) {
+	if !checkGatewayTrust(ctx, h.cfg) {
+		return
+	}
 	var req TimweNotificationRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
 		h.logger.Error("Failed to parse notification webhook", zap.Error(err))

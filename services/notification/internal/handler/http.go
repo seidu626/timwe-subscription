@@ -19,7 +19,9 @@ const tenantIDHeader = "X-Tenant-Id"
 
 type NotificationHandler struct {
 	service              *service.NotificationService
-	requireTenantContext bool // when true, callbacks without resolvable tenant context → 422
+	requireTenantContext bool   // when true, callbacks without resolvable tenant context → 422
+	gatewayTrustSecret   string // GATEWAY_TRUST_SECRET for X-Gateway-Trust verification
+	gatewayTrustRequired bool   // when true, missing/invalid header → 403 (default: false = log-only)
 }
 
 func NewNotificationHandler(service *service.NotificationService) *NotificationHandler {
@@ -31,6 +33,33 @@ func NewNotificationHandler(service *service.NotificationService) *NotificationH
 func (h *NotificationHandler) WithRequireTenantContext(v bool) *NotificationHandler {
 	h.requireTenantContext = v
 	return h
+}
+
+// WithGatewayTrust configures X-Gateway-Trust header verification.
+// When required=false (default), a missing/invalid header only logs a warning.
+// Set required=true after KrakenD is deployed with the header injection.
+func (h *NotificationHandler) WithGatewayTrust(secret string, required bool) *NotificationHandler {
+	h.gatewayTrustSecret = secret
+	h.gatewayTrustRequired = required
+	return h
+}
+
+// checkGatewayTrust verifies the X-Gateway-Trust header.
+// Returns true when the caller should proceed. When enforcement is on and
+// the header is missing/invalid, writes a 403 and returns false.
+func (h *NotificationHandler) checkGatewayTrust(ctx *fasthttp.RequestCtx) bool {
+	err := tenantctx.VerifyGatewayTrust(fasthttpHeaderGetter{ctx: ctx}, tenantctx.GatewayTrustOptions{Secret: h.gatewayTrustSecret})
+	if err == nil {
+		return true
+	}
+	if !h.gatewayTrustRequired {
+		log.Printf("[WARN] gateway trust marker missing or invalid (enforcement disabled): %v path=%s", err, string(ctx.Path()))
+		return true
+	}
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusForbidden)
+	ctx.SetBody([]byte(`{"message":"request must originate from the API gateway","code":"GATEWAY_TRUST_REQUIRED","inError":"true"}`))
+	return false
 }
 
 func (h *NotificationHandler) ListNotifications(ctx *fasthttp.RequestCtx) {
@@ -300,6 +329,10 @@ func firstQuery(ctx *fasthttp.RequestCtx, keys ...string) string {
 
 func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notificationType string) {
 	log.Printf("Processing notification request: method=%s path=%s type=%s", ctx.Method(), ctx.Path(), notificationType)
+
+	if !h.checkGatewayTrust(ctx) {
+		return
+	}
 
 	if notificationType == "DEFAULT" {
 		ctx.SetStatusCode(fasthttp.StatusOK)
