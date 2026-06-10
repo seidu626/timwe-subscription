@@ -872,7 +872,7 @@ func (h *SubscriptionHandler) GetChargingFailureByMSISDNHandler(ctx *fasthttp.Re
 	// Get charging failure by MSISDN
 	chargingFailure, err := repo.GetChargingFailureByMSISDN(msisdn, productID)
 	if err != nil {
-		h.logger.Error("Failed to get charging failure by MSISDN", zap.String("msisdn", msisdn), zap.Error(err))
+		h.logger.Error("Failed to get charging failure by MSISDN", zap.String("msisdn", maskMSISDN(msisdn)), zap.Error(err))
 		ctx.Error("Failed to get charging failure by MSISDN", fasthttp.StatusInternalServerError)
 		return
 	}
