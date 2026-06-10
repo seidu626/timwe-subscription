@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schemas/lineage-record.schema.json",
+  "title": "Agent-Hub Lineage Record",
+  "description": "A single artifact-lineage record. Extracted from the evidence-lineage-ledger schema for per-record validation in JSONL mode.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_id",
+    "kind",
+    "artifact_ref",
+    "created_at"
+  ],
+  "properties": {
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "goal_spec",
+        "work_order",
+        "dispatch_plan",
+        "context_pack",
+        "agent_capsule",
+        "evidence_record",
+        "review_record",
+        "adversarial_capsule",
+        "peer_grill_capsule",
+        "slice_spec",
+        "result_capsule",
+        "ecosystem_definition",
+        "unit_contract",
+        "intent_linkage_report",
+        "rewrite_decision",
+        "journey_regression_suite"
+      ]
+    },
+    "artifact_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_id": {
+      "type": ["string", "null"]
+    },
+    "rel": {
+      "type": ["string", "null"]
+    },
+    "skill": {
+      "type": ["string", "null"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
