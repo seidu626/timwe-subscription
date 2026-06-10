@@ -28,6 +28,7 @@ type SubscriptionHandler struct {
 	config          *config.Config
 	logger          *zap.Logger
 	jobs            *BatchJobManager
+	batchGuard      *batchAdminGuard
 	processOptinFn  func(*domain.OptinRequest) error // optional override for tests
 	msisdnGenerator *utils.OptimizedMSISDNGenerator  // optimized MSISDN generator
 	startTime       time.Time
@@ -127,6 +128,7 @@ func NewSubscriptionHandler(logger *zap.Logger, service *service.SubscriptionSer
 		service:         service,
 		config:          c,
 		jobs:            NewBatchJobManager(),
+		batchGuard:      newBatchAdminGuard(),
 		msisdnGenerator: msisdnGenerator,
 		startTime:       time.Now(),
 	}
@@ -342,12 +344,12 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 
 	jobID := uuid.New().String()
 	initialTotal := len(req.MSISDNS)
-	status, _ := h.jobs.CreateJob(jobID, initialTotal)
-	status.TenantKey = tenantKeyBF
-	status.ChannelKey = channelKeyBF
+	// FIX 2: stamp tenant ownership atomically inside the manager lock.
+	// FIX 1: capture jobCtx so worker goroutines can be cancelled by StopBatchHandler.
+	status, jobCtx := h.jobs.CreateJobWithTenant(jobID, initialTotal, tenantKeyBF, channelKeyBF)
 	totalBatchJobsCreated.Add(1)
 
-	go func(job string, st *BatchJobStatus, r domain.BackfillRequest) {
+	go func(job string, st *BatchJobStatus, r domain.BackfillRequest, gCtx context.Context) {
 		h.jobs.setRunning(job)
 		msisdns := r.MSISDNS
 		if len(msisdns) == 0 {
@@ -405,25 +407,33 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 			wg.Add(1)
 			go func(workerID int) {
 				defer wg.Done()
-				for request := range optinRequestChan {
-					if err := h.service.ProcessOptin(request); err != nil {
-						firstErrorMutex.Lock()
-						if firstErrorDetails == nil {
-							if mtErr, ok := err.(*domain.MTResponseError); ok {
-								firstErrorDetails = mtErr.Details
-							} else {
-								firstErrorDetails = map[string]interface{}{"error": err.Error()}
-							}
+				for {
+					select {
+					case <-gCtx.Done():
+						return
+					case request, ok := <-optinRequestChan:
+						if !ok {
+							return
 						}
-						firstErrorMutex.Unlock()
-						atomic.AddUint64(&errorCount, 1)
-						totalBatchRequestsFailed.Add(1)
-					} else {
-						atomic.AddUint64(&successCount, 1)
-						totalBatchRequestsSucceeded.Add(1)
+						if err := h.service.ProcessOptin(request); err != nil {
+							firstErrorMutex.Lock()
+							if firstErrorDetails == nil {
+								if mtErr, ok := err.(*domain.MTResponseError); ok {
+									firstErrorDetails = mtErr.Details
+								} else {
+									firstErrorDetails = map[string]interface{}{"error": err.Error()}
+								}
+							}
+							firstErrorMutex.Unlock()
+							atomic.AddUint64(&errorCount, 1)
+							totalBatchRequestsFailed.Add(1)
+						} else {
+							atomic.AddUint64(&successCount, 1)
+							totalBatchRequestsSucceeded.Add(1)
+						}
+						st.incProcessed()
+						totalBatchRequestsProcessed.Add(1)
 					}
-					st.incProcessed()
-					totalBatchRequestsProcessed.Add(1)
 				}
 			}(i)
 		}
@@ -458,7 +468,7 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 			h.jobs.setCompleted(job, false)
 		}
 		totalBatchJobsCompleted.Add(1)
-	}(jobID, status, req)
+	}(jobID, status, req, jobCtx)
 
 	ctx.SetStatusCode(fasthttp.StatusAccepted)
 	ctx.SetContentType("application/json")
@@ -520,12 +530,12 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 	req.ChannelKey = channelKeyRS
 
 	jobID := uuid.New().String()
-	status, _ := h.jobs.CreateJob(jobID, 0)
-	status.TenantKey = tenantKeyRS
-	status.ChannelKey = channelKeyRS
+	// FIX 2: stamp tenant ownership atomically inside the manager lock.
+	// FIX 1: capture jobCtx so worker goroutines can be cancelled by StopBatchHandler.
+	status, jobCtx := h.jobs.CreateJobWithTenant(jobID, 0, tenantKeyRS, channelKeyRS)
 	totalBatchJobsCreated.Add(1)
 
-	go func(job string, st *BatchJobStatus, r domain.BackfillRequest) {
+	go func(job string, st *BatchJobStatus, r domain.BackfillRequest, gCtx context.Context) {
 		h.jobs.setRunning(job)
 		msisdns := r.MSISDNS
 		if len(msisdns) == 0 {
@@ -589,22 +599,30 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 			wg.Add(1)
 			go func(workerID int) {
 				defer wg.Done()
-				for msisdn := range msisdnChan {
-					entryChannel := <-entryChannelChan
-					if err := h.service.ResubscribeUser(msisdn, entryChannel, r.ProductIds, resubRoute); err != nil {
-						firstErrorMutex.Lock()
-						if firstErrorDetails == nil {
-							firstErrorDetails = map[string]interface{}{"error": err.Error()}
+				for {
+					select {
+					case <-gCtx.Done():
+						return
+					case msisdn, ok := <-msisdnChan:
+						if !ok {
+							return
 						}
-						firstErrorMutex.Unlock()
-						atomic.AddUint64(&errorCount, 1)
-						totalBatchRequestsFailed.Add(1)
-					} else {
-						atomic.AddUint64(&successCount, 1)
-						totalBatchRequestsSucceeded.Add(1)
+						entryChannel := <-entryChannelChan
+						if err := h.service.ResubscribeUser(msisdn, entryChannel, r.ProductIds, resubRoute); err != nil {
+							firstErrorMutex.Lock()
+							if firstErrorDetails == nil {
+								firstErrorDetails = map[string]interface{}{"error": err.Error()}
+							}
+							firstErrorMutex.Unlock()
+							atomic.AddUint64(&errorCount, 1)
+							totalBatchRequestsFailed.Add(1)
+						} else {
+							atomic.AddUint64(&successCount, 1)
+							totalBatchRequestsSucceeded.Add(1)
+						}
+						st.incProcessed()
+						totalBatchRequestsProcessed.Add(1)
 					}
-					st.incProcessed()
-					totalBatchRequestsProcessed.Add(1)
 				}
 			}(i)
 		}
@@ -631,7 +649,7 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 			h.jobs.setCompleted(job, false)
 		}
 		totalBatchJobsCompleted.Add(1)
-	}(jobID, status, req)
+	}(jobID, status, req, jobCtx)
 
 	ctx.SetStatusCode(fasthttp.StatusAccepted)
 	ctx.SetContentType("application/json")
@@ -932,7 +950,8 @@ func (h *SubscriptionHandler) MarkChargingFailureAsProcessedHandler(ctx *fasthtt
 	_ = json.NewEncoder(ctx).Encode(response)
 }
 
-// GetBatchProgressHandler returns progress for a specific batch
+// GetBatchProgressHandler returns progress for a specific batch.
+// FIX 3: tenant ownership check — callers can only query their own tenant's job.
 func (h *SubscriptionHandler) GetBatchProgressHandler(ctx *fasthttp.RequestCtx) {
 	args := ctx.QueryArgs()
 	batchID := string(args.Peek("batch_id"))
@@ -942,9 +961,16 @@ func (h *SubscriptionHandler) GetBatchProgressHandler(ctx *fasthttp.RequestCtx) 
 		return
 	}
 
+	// Lookup the job first so we know the owning tenant before auth.
 	st, ok := h.jobs.GetJob(batchID)
 	if !ok {
-		ctx.Error("batch not found", fasthttp.StatusNotFound)
+		// Return 404 regardless of auth so we don't reveal existence.
+		ctx.Error("Not Found", fasthttp.StatusNotFound)
+		return
+	}
+
+	// Validate caller identity; pass the job's tenant key for tenant-scope check.
+	if _, authOK := h.batchGuard.authorise(ctx, st.TenantKey); !authOK {
 		return
 	}
 
@@ -954,6 +980,7 @@ func (h *SubscriptionHandler) GetBatchProgressHandler(ctx *fasthttp.RequestCtx) 
 }
 
 // StopBatchHandler cancels a running batch job.
+// FIX 3: tenant ownership check — callers can only stop their own tenant's job.
 func (h *SubscriptionHandler) StopBatchHandler(ctx *fasthttp.RequestCtx) {
 	var req struct {
 		BatchID string `json:"batch_id"`
@@ -970,11 +997,20 @@ func (h *SubscriptionHandler) StopBatchHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	if _, ok := h.jobs.GetJob(req.BatchID); !ok {
-		ctx.Error("batch not found", fasthttp.StatusNotFound)
+	// Lookup the job first; return 404 before auth to avoid leaking existence.
+	st, ok := h.jobs.GetJob(req.BatchID)
+	if !ok {
+		ctx.Error("Not Found", fasthttp.StatusNotFound)
 		return
 	}
 
+	// Validate caller identity against the job's owning tenant.
+	if _, authOK := h.batchGuard.authorise(ctx, st.TenantKey); !authOK {
+		return
+	}
+
+	// FIX 1: cancel the job context so BackfillOptinHandler / ResubscribeHandler
+	// goroutines exit on their next select iteration.
 	cancelled := h.jobs.CancelJob(req.BatchID)
 	if !cancelled {
 		ctx.SetStatusCode(fasthttp.StatusConflict)

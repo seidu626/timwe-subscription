@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -927,6 +930,22 @@ func (bp *BatchProcessor) processBatch(count int) {
 	}
 }
 
+// internalHMACSign returns X-Internal-Signature and X-Internal-Timestamp headers
+// using the acquisition-api HMAC scheme.
+// Secret read from INTERNAL_API_SECRET env var; empty disables signing.
+func internalHMACSign(body []byte) (sig, ts string) {
+	secret := strings.TrimSpace(os.Getenv("INTERNAL_API_SECRET"))
+	if secret == "" {
+		return "", ""
+	}
+	ts = time.Now().UTC().Format(time.RFC3339)
+	message := ts + string(body)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(message))
+	sig = hex.EncodeToString(mac.Sum(nil))
+	return sig, ts
+}
+
 // enqueueAndPollBatch posts the batch request, receives a jobId, and polls until completion
 func (bp *BatchProcessor) enqueueAndPollBatch(requestBody []byte) (*BatchOptinResponse, error) {
 	config := bp.GetConfig()
@@ -937,6 +956,11 @@ func (bp *BatchProcessor) enqueueAndPollBatch(requestBody []byte) (*BatchOptinRe
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	// Add internal HMAC auth so the service accepts CLI-originated batch requests.
+	if sig, ts := internalHMACSign(requestBody); sig != "" {
+		req.Header.Set("X-Internal-Signature", sig)
+		req.Header.Set("X-Internal-Timestamp", ts)
+	}
 
 	bp.logger.Info("Sending batch request",
 		zap.String("url", enqueueURL),

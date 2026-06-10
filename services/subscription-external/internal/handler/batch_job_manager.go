@@ -61,6 +61,27 @@ func (m *BatchJobManager) CreateJob(id string, total int) (*BatchJobStatus, cont
 	return st, ctx
 }
 
+// CreateJobWithTenant registers a new job and stamps tenant ownership atomically
+// inside the manager lock (FIX 2), returning both the status record and a
+// cancellable context (FIX 1).  The context is cancelled by CancelJob /
+// StopBatchHandler so that BackfillOptinHandler / ResubscribeHandler goroutines
+// exit on their next select iteration.
+func (m *BatchJobManager) CreateJobWithTenant(id string, total int, tenantKey, channelKey string) (*BatchJobStatus, context.Context) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ctx, cancel := context.WithCancel(context.Background())
+	st := &BatchJobStatus{
+		ID:         id,
+		State:      BatchJobPending,
+		Total:      total,
+		StartedAt:  time.Now(),
+		TenantKey:  tenantKey,
+		ChannelKey: channelKey,
+	}
+	m.jobs[id] = &batchJobEntry{status: st, cancel: cancel}
+	return st, ctx
+}
+
 func (m *BatchJobManager) GetJob(id string) (*BatchJobStatus, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
