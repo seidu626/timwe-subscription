@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -89,12 +91,16 @@ type ProviderCredentialSecret struct {
 }
 
 type ProviderCredentialResolver interface {
-	ResolveProviderCredential(ctx context.Context, secretRef string) (ProviderCredentialSecret, error)
+	// ResolveProviderCredential decrypts/fetches credentials for the given secret ref.
+	// tenantID and channelID are used by the DB resolver to scope the lookup to the
+	// owning tenant/channel (defence-in-depth against cross-tenant access). Resolvers
+	// that do not perform a DB lookup (e.g. env://) may ignore them.
+	ResolveProviderCredential(ctx context.Context, secretRef, tenantID, channelID string) (ProviderCredentialSecret, error)
 }
 
 type EnvProviderCredentialResolver struct{}
 
-func (EnvProviderCredentialResolver) ResolveProviderCredential(ctx context.Context, secretRef string) (ProviderCredentialSecret, error) {
+func (EnvProviderCredentialResolver) ResolveProviderCredential(ctx context.Context, secretRef, _, _ string) (ProviderCredentialSecret, error) {
 	_ = ctx
 	const prefix = "env://"
 	if !strings.HasPrefix(secretRef, prefix) {
@@ -231,7 +237,7 @@ func (r *TenantProviderRouter) Resolve(ctx context.Context, operation ChannelOpe
 		return nil, ErrTenantCredentialMissing
 	}
 
-	secret, err := r.credentialResolver.ResolveProviderCredential(ctx, secretRef.String)
+	secret, err := r.credentialResolver.ResolveProviderCredential(ctx, secretRef.String, tenantID, channelID)
 	if err != nil {
 		return nil, err
 	}
@@ -239,11 +245,15 @@ func (r *TenantProviderRouter) Resolve(ctx context.Context, operation ChannelOpe
 		return nil, fmt.Errorf("%w: provider %s", ErrUnsupportedChannelOperation, provider)
 	}
 	allowSharedCredentialFallback := tenantProviderSharedCredentialFallbackEnabled(r.cfg)
+	rawBaseURL := firstNonEmpty(secret.BaseURL, r.cfg.Application.TIMWE.BaseURL)
+	if err := validateProviderBaseURL(rawBaseURL, r.cfg); err != nil {
+		return nil, fmt.Errorf("%w: base_url validation: %s", ErrTenantCredentialInvalid, err.Error())
+	}
 	cfg := &TenantProviderConfig{
 		TenantID:         tenantID,
 		ChannelID:        channelID,
 		Provider:         provider,
-		BaseURL:          strings.TrimRight(firstNonEmpty(secret.BaseURL, r.cfg.Application.TIMWE.BaseURL), "/"),
+		BaseURL:          strings.TrimRight(rawBaseURL, "/"),
 		APIKey:           tenantProviderCredentialValue(secret.APIKey, r.cfg.Application.TIMWE.APIKey, allowSharedCredentialFallback),
 		Authentication:   tenantProviderCredentialValue(secret.AuthenticationKey, r.cfg.Application.TIMWE.AuthenticationKey, allowSharedCredentialFallback),
 		PartnerServiceID: tenantProviderCredentialValue(secret.PartnerServiceID, r.cfg.Application.TIMWE.PartnerServiceID, allowSharedCredentialFallback),
@@ -324,3 +334,75 @@ func firstNonEmpty(values ...string) string {
 	}
 	return ""
 }
+// validateProviderBaseURL performs SSRF defence on a BaseURL loaded from tenant
+// secrets before it is used to build HTTP requests. It enforces HTTPS (relaxed
+// to HTTP in DEVELOPMENT), rejects userinfo, and rejects literal IP addresses in
+// private/loopback/link-local/metadata ranges.
+func validateProviderBaseURL(rawURL string, cfg *config.Config) error {
+	if strings.TrimSpace(rawURL) == "" {
+		return fmt.Errorf("base_url is empty")
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("base_url is not a valid URL: %w", err)
+	}
+	scheme := strings.ToLower(u.Scheme)
+	isDevelopment := cfg != nil && cfg.Application.Environment == config.DEVELOPMENT
+	switch scheme {
+	case "https":
+		// always allowed
+	case "http":
+		if !isDevelopment {
+			return fmt.Errorf("base_url must use HTTPS (got http:// in non-development environment)")
+		}
+	default:
+		return fmt.Errorf("base_url has unsupported scheme %q; only https is allowed", scheme)
+	}
+	if u.User != nil && u.User.String() != "" {
+		return fmt.Errorf("base_url must not contain userinfo credentials")
+	}
+	host := u.Hostname()
+	if strings.TrimSpace(host) == "" {
+		return fmt.Errorf("base_url has no host")
+	}
+	ip := net.ParseIP(host)
+	if ip != nil {
+		if err := rejectPrivateIP(ip); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// rejectPrivateIP returns an error if ip falls within a private/loopback/
+// link-local/metadata range that must not be reachable via tenant-supplied URLs.
+func rejectPrivateIP(ip net.IP) error {
+	for _, cidr := range blockedCIDRs {
+		if cidr.Contains(ip) {
+			return fmt.Errorf("base_url resolves to a disallowed IP range (%s)", cidr.String())
+		}
+	}
+	return nil
+}
+
+// blockedCIDRs is the set of IP ranges that are never allowed in tenant BaseURLs.
+var blockedCIDRs = func() []*net.IPNet {
+	ranges := []string{
+		"10.0.0.0/8",       // RFC1918
+		"172.16.0.0/12",    // RFC1918
+		"192.168.0.0/16",   // RFC1918
+		"127.0.0.0/8",      // loopback v4
+		"169.254.0.0/16",   // link-local / AWS metadata v4
+		"::1/128",          // loopback v6
+		"fc00::/7",         // unique-local v6
+		"fe80::/10",        // link-local v6
+	}
+	out := make([]*net.IPNet, 0, len(ranges))
+	for _, r := range ranges {
+		_, ipnet, err := net.ParseCIDR(r)
+		if err == nil {
+			out = append(out, ipnet)
+		}
+	}
+	return out
+}()

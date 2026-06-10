@@ -186,7 +186,7 @@ func TestTenantRoutingOperationAllowedRequiresExplicitCapability(t *testing.T) {
 
 func TestEnvProviderCredentialResolver(t *testing.T) {
 	t.Setenv("TMP007_TIMWE_CREDENTIAL", `{"base_url":"http://timwe.test","api_key":"api","authentication_key":"auth","partner_role_id":"2117","realm":"realm"}`)
-	secret, err := (EnvProviderCredentialResolver{}).ResolveProviderCredential(context.Background(), "env://TMP007_TIMWE_CREDENTIAL")
+	secret, err := (EnvProviderCredentialResolver{}).ResolveProviderCredential(context.Background(), "env://TMP007_TIMWE_CREDENTIAL", "", "")
 	if err != nil {
 		t.Fatalf("expected env credential to resolve: %v", err)
 	}
@@ -194,18 +194,18 @@ func TestEnvProviderCredentialResolver(t *testing.T) {
 		t.Fatalf("unexpected secret: %+v", secret)
 	}
 
-	_, err = (EnvProviderCredentialResolver{}).ResolveProviderCredential(context.Background(), "env://TMP007_MISSING")
+	_, err = (EnvProviderCredentialResolver{}).ResolveProviderCredential(context.Background(), "env://TMP007_MISSING", "", "")
 	if !errors.Is(err, ErrTenantCredentialMissing) {
 		t.Fatalf("expected missing credential error, got %v", err)
 	}
 
-	_, err = (EnvProviderCredentialResolver{}).ResolveProviderCredential(context.Background(), "vault://TMP007_TIMWE_CREDENTIAL")
+	_, err = (EnvProviderCredentialResolver{}).ResolveProviderCredential(context.Background(), "vault://TMP007_TIMWE_CREDENTIAL", "", "")
 	if !errors.Is(err, ErrTenantCredentialInvalid) {
 		t.Fatalf("expected unsupported reference error, got %v", err)
 	}
 
 	t.Setenv("TMP007_BAD_JSON", `{`)
-	_, err = (EnvProviderCredentialResolver{}).ResolveProviderCredential(context.Background(), "env://TMP007_BAD_JSON")
+	_, err = (EnvProviderCredentialResolver{}).ResolveProviderCredential(context.Background(), "env://TMP007_BAD_JSON", "", "")
 	if !errors.Is(err, ErrTenantCredentialInvalid) {
 		t.Fatalf("expected invalid json credential error, got %v", err)
 	}

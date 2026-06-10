@@ -23,10 +23,18 @@ type PartnerHandler struct {
 	svc        *service.SubscriptionService
 	cfg        *config.Config
 	tenantRepo gatewayTenantLookup
+	// nonceStore is a process-lifetime in-memory nonce store that prevents
+	// HMAC signature replay within the 5-minute trusted-service skew window (FIX 4).
+	nonceStore tenantctx.NonceStore
 }
 
 func NewPartnerHandler(logger *zap.Logger, svc *service.SubscriptionService, cfg *config.Config) *PartnerHandler {
-	return &PartnerHandler{logger: logger, svc: svc, cfg: cfg}
+	return &PartnerHandler{
+		logger:     logger,
+		svc:        svc,
+		cfg:        cfg,
+		nonceStore: tenantctx.NewMemoryNonceStore(),
+	}
 }
 
 // WithTenantRepo sets the repository used by gateway-trust partner subscription handlers.
@@ -76,7 +84,7 @@ func (h *PartnerHandler) PartnerMTHandler(ctx *fasthttp.RequestCtx, channel stri
 		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
 		return
 	}
-	route, err := tenantRouteFromRequest(ctx, h.cfg, true, req.ChannelID, req.ChannelKey)
+	route, err := tenantRouteFromRequestWithNonce(ctx, h.cfg, true, req.ChannelID, req.ChannelKey, h.nonceStore)
 	if err != nil {
 		writeError(ctx, tenantRouteStatus(err), "TENANT_CONTEXT_REQUIRED", err.Error())
 		return
@@ -130,7 +138,7 @@ func (h *PartnerHandler) PartnerChargeHandler(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
 		return
 	}
-	route, err := tenantRouteFromRequest(ctx, h.cfg, true, "", "")
+	route, err := tenantRouteFromRequestWithNonce(ctx, h.cfg, true, "", "", h.nonceStore)
 	if err != nil {
 		writeError(ctx, tenantRouteStatus(err), "TENANT_CONTEXT_REQUIRED", err.Error())
 		return
@@ -171,7 +179,7 @@ func (h *PartnerHandler) PartnerStatusHandler(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
 		return
 	}
-	route, err := tenantRouteFromRequest(ctx, h.cfg, true, "", "")
+	route, err := tenantRouteFromRequestWithNonce(ctx, h.cfg, true, "", "", h.nonceStore)
 	if err != nil {
 		writeError(ctx, tenantRouteStatus(err), "TENANT_CONTEXT_REQUIRED", err.Error())
 		return
@@ -207,7 +215,7 @@ func (h *PartnerHandler) PartnerOptoutHandler(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
 		return
 	}
-	route, err := tenantRouteFromRequest(ctx, h.cfg, true, "", "")
+	route, err := tenantRouteFromRequestWithNonce(ctx, h.cfg, true, "", "", h.nonceStore)
 	if err != nil {
 		writeError(ctx, tenantRouteStatus(err), "TENANT_CONTEXT_REQUIRED", err.Error())
 		return
@@ -241,7 +249,7 @@ func (h *PartnerHandler) PartnerOptinConfirmHandler(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, fasthttp.StatusBadRequest, "INVALID_REQUEST", "Invalid request payload")
 		return
 	}
-	route, err := tenantRouteFromRequest(ctx, h.cfg, true, "", "")
+	route, err := tenantRouteFromRequestWithNonce(ctx, h.cfg, true, "", "", h.nonceStore)
 	if err != nil {
 		writeError(ctx, tenantRouteStatus(err), "TENANT_CONTEXT_REQUIRED", err.Error())
 		return
@@ -608,6 +616,10 @@ func (g fastHTTPHeaderGetter) Get(name string) string {
 }
 
 func tenantRouteFromRequest(ctx *fasthttp.RequestCtx, cfg *config.Config, required bool, bodyChannelID, bodyChannelKey string) (domain.TenantRouteContext, error) {
+	return tenantRouteFromRequestWithNonce(ctx, cfg, required, bodyChannelID, bodyChannelKey, nil)
+}
+
+func tenantRouteFromRequestWithNonce(ctx *fasthttp.RequestCtx, cfg *config.Config, required bool, bodyChannelID, bodyChannelKey string, nonceStore tenantctx.NonceStore) (domain.TenantRouteContext, error) {
 	if !required && firstHeader(ctx, "X-Tenant-Channel-Id", "X-Channel-Id") == "" &&
 		firstHeader(ctx, "X-Tenant-Channel-Key", "X-Channel-Key") == "" &&
 		firstHeader(ctx, tenantctx.HeaderTenantID, tenantctx.HeaderTenantKey) == "" {
@@ -621,8 +633,9 @@ func tenantRouteFromRequest(ctx *fasthttp.RequestCtx, cfg *config.Config, requir
 		string(ctx.Path()),
 		fastHTTPHeaderGetter{ctx: ctx},
 		tenantctx.TrustedHeaderOptions{
-			Secret:  cfg.Auth.JwtToken.Secret,
-			MaxSkew: 5 * time.Minute,
+			Secret:     cfg.Auth.JwtToken.Secret,
+			MaxSkew:    5 * time.Minute,
+			NonceStore: nonceStore, // FIX 4: prevent replay within skew window
 		},
 	)
 	if err != nil {
