@@ -73,6 +73,14 @@ type Config struct {
 			Pass string `mapstructure:"PASS"`
 		} `mapstructure:"REDIS"`
 	} `mapstructure:"CACHE"`
+
+	Notification struct {
+		// RequireTenantContext controls whether callback handlers (MO, MT_DN,
+		// USER_OPTIN, USER_RENEWED, USER_OPTOUT, CHARGE) reject requests that
+		// carry no resolvable tenant context with HTTP 422. Defaults to true.
+		// Set NOTIFICATION_REQUIRE_TENANT_CONTEXT=false to preserve legacy behaviour.
+		RequireTenantContext bool `mapstructure:"REQUIRE_TENANT_CONTEXT"`
+	} `mapstructure:"NOTIFICATION"`
 }
 
 func InitConfig(logger *zap.Logger, path string, files []string) Config {
@@ -85,6 +93,7 @@ func InitConfig(logger *zap.Logger, path string, files []string) Config {
 	conf.SetDefault("DB.POSTGRESQL.HOST", "localhost")
 	conf.SetDefault("DB.POSTGRESQL.PORT", "5432")
 	conf.SetDefault("DB.POSTGRESQL.SSL_MODE", "disable")
+	conf.SetDefault("NOTIFICATION.REQUIRE_TENANT_CONTEXT", true)
 
 	for _, file := range files {
 		if strings.HasSuffix(file, ".env") {
@@ -146,6 +155,9 @@ func bindEnv(logger *zap.Logger, conf *viper.Viper) {
 
 	// JWT secret is provided via env var `JWT_SECRET` (documented in config.yaml and compose files).
 	mustBindEnv(logger, conf, "AUTH.JWT_TOKEN.SECRET", "JWT_SECRET", "AUTH_JWT_TOKEN_SECRET", "AUTH.JWT_TOKEN.SECRET")
+
+	// Tenant-context enforcement flag (set NOTIFICATION_REQUIRE_TENANT_CONTEXT=false to disable).
+	mustBindEnv(logger, conf, "NOTIFICATION.REQUIRE_TENANT_CONTEXT", "NOTIFICATION_REQUIRE_TENANT_CONTEXT")
 }
 
 func loadDotEnv(logger *zap.Logger, path string) {
