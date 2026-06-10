@@ -73,6 +73,18 @@ type Config struct {
 			Pass string `mapstructure:"PASS"`
 		} `mapstructure:"REDIS"`
 	} `mapstructure:"CACHE"`
+
+	Notification struct {
+		// RequireTenantContext controls whether callback handlers (MO, MT_DN,
+		// USER_OPTIN, USER_RENEWED, USER_OPTOUT, CHARGE) reject requests that
+		// carry no resolvable tenant context with HTTP 422. Defaults to true.
+		// Set NOTIFICATION_REQUIRE_TENANT_CONTEXT=false to preserve legacy behaviour.
+		//
+		// SECURITY: this field is set by parseTenantContextFlag rather than by
+		// viper's bool decoder so that unset, empty, or unparseable values
+		// fail CLOSED (true) rather than open (false).
+		RequireTenantContext bool
+	} `mapstructure:"NOTIFICATION"`
 }
 
 func InitConfig(logger *zap.Logger, path string, files []string) Config {
@@ -120,6 +132,10 @@ func InitConfig(logger *zap.Logger, path string, files []string) Config {
 		if err != nil {
 			log.Fatalln("cannot unmarshalling config")
 		}
+		// Apply fail-closed semantics: unset, empty, or unparseable values → true.
+		cfg.Notification.RequireTenantContext = parseTenantContextFlag(
+			os.Getenv("NOTIFICATION_REQUIRE_TENANT_CONTEXT"),
+		)
 	})
 
 	conf.OnConfigChange(func(e fsnotify.Event) {
@@ -146,6 +162,11 @@ func bindEnv(logger *zap.Logger, conf *viper.Viper) {
 
 	// JWT secret is provided via env var `JWT_SECRET` (documented in config.yaml and compose files).
 	mustBindEnv(logger, conf, "AUTH.JWT_TOKEN.SECRET", "JWT_SECRET", "AUTH_JWT_TOKEN_SECRET", "AUTH.JWT_TOKEN.SECRET")
+
+	// Tenant-context enforcement flag (set NOTIFICATION_REQUIRE_TENANT_CONTEXT=false to disable).
+	// NOTE: do NOT rely on viper's bool decoder for this flag; parseTenantContextFlag applies
+	// fail-closed semantics after Unmarshal so that empty/garbage values resolve to true.
+	mustBindEnv(logger, conf, "NOTIFICATION.REQUIRE_TENANT_CONTEXT", "NOTIFICATION_REQUIRE_TENANT_CONTEXT")
 }
 
 func loadDotEnv(logger *zap.Logger, path string) {
@@ -181,6 +202,18 @@ func mustBindEnv(logger *zap.Logger, conf *viper.Viper, key string, envs ...stri
 	if err := conf.BindEnv(args...); err != nil {
 		// Do not fail hard; keep defaults/config file behavior.
 		logger.Warn("failed to bind env var", zap.String("key", key), zap.Error(err))
+	}
+}
+
+// parseTenantContextFlag resolves the NOTIFICATION_REQUIRE_TENANT_CONTEXT env var
+// with fail-CLOSED semantics: only an explicit falsy value ("false", "0", "no",
+// case-insensitive) disables the check. Unset, empty, or any other value → true.
+func parseTenantContextFlag(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "false", "0", "no":
+		return false
+	default:
+		return true
 	}
 }
 
