@@ -239,6 +239,10 @@ func NewSubscriptionService(logger *zap.Logger, repo repository.SubscriptionRepo
 			"secret": NewDBProviderCredentialResolver(db),
 		})
 		s.tenantRouter = NewTenantProviderRouter(db, cfg, compositeResolver)
+	} else {
+		// FIX 5: repo does not implement DBGetter; tenantRouter will be nil and all
+		// per-tenant operations will fail with ErrTenantRoutingNotConfigured.
+		logger.Warn("tenant router not configured: repository does not implement DBGetter; per-tenant credential routing will be unavailable")
 	}
 
 	// Initialize bulkhead limiter for external calls
@@ -717,6 +721,20 @@ func (s *SubscriptionService) ResubscribeUser(msisdn string, entryChannel string
 		}
 	}
 	return nil
+}
+
+// TenantRouteForSubscription looks up the tenant_id/channel_id stored on the
+// subscription row and returns a populated TenantRouteContext for use in calls
+// that require per-tenant credentials (e.g. ResubscribeUser from background workers).
+// Returns an error when the subscription has no tenant context (legacy rows).
+func (s *SubscriptionService) TenantRouteForSubscription(msisdn string, productID int) (domain.TenantRouteContext, error) {
+	return s.repo.TenantRouteForSubscription(msisdn, productID)
+}
+
+// IsTenantRouterConfigured returns true when the tenant router was successfully
+// wired at construction time. Used by startup checks (FIX 5).
+func (s *SubscriptionService) IsTenantRouterConfigured() bool {
+	return s.tenantRouter != nil
 }
 
 // SendMT sends the MT request guarded by circuit breaker (acquire bulkhead)

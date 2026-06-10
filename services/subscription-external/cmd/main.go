@@ -486,6 +486,15 @@ func main() {
 	// Create subscription service with renewal service dependency
 	svc := service.NewSubscriptionService(logger, repo, productRepo, userBaseRepo, cfg, renewalService)
 	userBaseSvc := service.NewUserBaseService(logger, userBaseRepo, cfg)
+
+	// FIX 5: warn (or fail hard in PRODUCTION) when tenant router is not wired.
+	if !svc.IsTenantRouterConfigured() {
+		if cfg.Application.Environment == config.PRODUCTION {
+			logger.Fatal("tenant router is not configured: per-tenant credential routing is required in PRODUCTION")
+		}
+		logger.Warn("tenant router is not configured: per-tenant credential routing is unavailable; all tenant-scoped operations will fail")
+	}
+
 	subscriptionHandler := handler.NewSubscriptionHandler(logger, svc, cfg)
 	userBaseHandler := handler.NewUserBaseHandler(logger, userBaseSvc, cfg)
 	partnerHandler := handler.NewPartnerHandler(logger, svc, cfg).WithTenantRepo(repo)
