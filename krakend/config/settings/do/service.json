@@ -45,7 +45,14 @@
         "OPTIONS"
       ],
       "allow_headers": [
-        "*"
+        "Authorization",
+        "Content-Type",
+        "X-Tenant-Key",
+        "X-Tenant-Id",
+        "X-Channel-Key",
+        "X-Admin-Token",
+        "X-HE-Bootstrap-Token",
+        "x-requestid"
       ],
       "expose_headers": [
         "Content-Length",
