@@ -43,6 +43,15 @@ For services using `APP_` prefix (subscription-partner, notification, cadence-en
 | `TIMWE_API_KEY` | TimWe partner API key | Yes |
 | `TIMWE_PSK` | TimWe pre-shared key | Yes |
 
+## Tenant Credential Secret Store
+
+Both `acquisition-api` (write) and `subscription-external` (read) use a shared
+AES-256-GCM encrypted secret store backed by the `tenant_channel_secrets` table.
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `TENANT_SECRET_MASTER_KEY` | Base64-encoded 32-byte AES-256 master key for per-tenant credential encryption. Generate with `openssl rand -base64 32`. Required when using `secret_value` in credential bind requests or when any active credential uses a `secret://` ref. | Yes (for secret store) |
+
 ## Acquisition API
 
 | Variable | Description | Default | Required |
