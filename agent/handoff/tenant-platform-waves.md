@@ -97,5 +97,28 @@ Wave 0 (gated deploy) -> Wave 1 (portal) and Wave 3 (hardening) overlap -> Wave 
 
 **REMAINING:** Wave 0 (gated deploy, unchanged — operator must confirm TIMWE callback URLs carry tenant_key+channel_key before 0.2/0.3); Wave 4 (operator data + key management; 4.3 rotation code implementable but secret-handling gated); Wave 5 minus the lineage-record schema item (done).
 
+## Wave 0 deploy executed — 2026-06-10 (gate cleared by operator)
+
+Operator confirmed nrg callback URLs carry tenant_key+channel_key. Deployed current main to the four Go services on droplet do-sa and verified.
+
+**Registry blocker (important):** Docker Hub auth on the build host is expired — push/pull AND base-image pulls fail (`unable to retrieve auth token ... must log in with a Personal Access Token`). Worked around by building locally (offline, cached golang:1.24-alpine + alpine bases) and transferring via `docker save | ssh do-sa-user docker load`. subscription-partner's Dockerfile uses golang:1.24 (non-alpine, not cached); built it with a throwaway golang:1.24-alpine builder (CGO_ENABLED=0 → byte-identical static binary), no repo change. **Refresh Docker Hub creds (PAT) before the next normal `just deploy-*`.**
+
+**DONE + verified (all /health 200, 0 422s, gateway routes match pre-deploy baseline):**
+- 0.1 JWKS self-heal — all 4 services rebuilt from main (incl e4c5323). Confirmed live: notification logged `auth0jwt: jwks loaded after retry`.
+- 0.2 notification tenant-enforcement — `NOTIFICATION_REQUIRE_TENANT_CONTEXT=true`; no 422s on live nrg callbacks.
+- 0.3 subscription-partner tenancy — deployed, healthy, 0 422s.
+- 0.5 JWT_SECRET on subscription-external — wired into droplet .env + compose; deployed.
+- Rode along (reviewed/tested this session): CORS DELETE fix (verified live: `Access-Control-Allow-Methods: ...,DELETE,...`), MSISDN masking, pricepoint/MCC-MNC wiring, gateway-trust verifier (present, enforcement OFF), resolver tests.
+- Droplet wiring: `GATEWAY_TRUST_SECRET` (random) + `GATEWAY_TRUST_REQUIRED=false` added to .env and to subscription-external/notification/subscription-partner compose stanzas. `.env` and `docker-compose.yml` backed up as `*.bak-wave0-20260610`. Per-service rollback image tags `:rollback-20260610-wave0`.
+
+**NOT deployed — 0.4 krakend (blocked, two reasons):**
+1. **Pre-existing config debt:** `check-krakend-query-forwarding.py` FAILS on main — `TenantPathApiEndpoint` forwards tenant_key/channel_key as static Martian header values (`{tenant_key}`/`{channel_key}`, which KrakenD does not interpolate). Commit a3eff70 regressed 265a8aa's `url_pattern?tenant_key={tenant_key}&channel_key={channel_key}` query-param forwarding. This gates `just krakend-sync`. Fix = re-apply 265a8aa's pattern (append query params to backend url_pattern, drop the Martian static headers) AND verify subscription-external partner_handler reads them from query params; then smoke the tenant-path routes. Needs its own reviewed change. (sia bug recorded.)
+2. **Trust token needs root:** `GATEWAY_TRUST_TOKEN` must live in krakend's systemd environment; the host only grants NOPASSWD sudo for `systemctl restart/status krakend`, not for writing a drop-in. Operator step: `printf '[Service]\nEnvironment=GATEWAY_TRUST_TOKEN=%s\n' "$(GATEWAY_TRUST_SECRET=<.env value> go run ./tools/gateway-trust-token)" | sudo tee /etc/systemd/system/krakend.service.d/gateway-trust.conf && sudo systemctl daemon-reload`.
+My wave0 krakend template port added a redundant/wrong Martian group to TenantApiEndpoint (which already forwards via input_query_strings); fixed in 50dbe86 (kept only the static X-Gateway-Trust token). krakend.json placeholder mechanism changed to `__env:GATEWAY_TRUST_TOKEN__`.
+
+**Enabling trust enforcement later (after 0.4 is fixed + krakend deployed with the token):** flip `GATEWAY_TRUST_REQUIRED=true` per service and recreate. Do NOT flip before krakend injects a matching token or all gateway traffic 403s.
+
+**Not deployed:** webspa-admin portal (Wave 1 UI — credential form/channel-edit/revoke). Backend endpoints are live; the UI image needs a build+deploy (blocked by the same Docker Hub creds). Recommended next once creds refreshed.
+
 ## Done = whole effort
 All tenant config add/update/delete portal-managed; per-tenant credentials drive every TIMWE request field for every tenant; notification+partner+krakend tenant code deployed and nrg verified intact; gateway trust marker live; PII masked; master key backed up + rotatable; careerify on real keys.
