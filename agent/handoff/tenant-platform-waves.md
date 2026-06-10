@@ -86,5 +86,16 @@ From `sia list`: vnext schemas fail-open on loop_mode/loop_budget + no ceiling (
 ## Order
 Wave 0 (gated deploy) -> Wave 1 (portal) and Wave 3 (hardening) overlap -> Wave 2 (field wiring, needs 0.4) -> Wave 4 (operator/keys) -> Wave 5 (anytime).
 
+## Status update — 2026-06-10 (second session)
+
+**DONE on main (code-complete, NOT deployed):** Waves 1 (1.1/1.2/1.3), 2 (2.1/2.2), 3 (3.1/3.2/3.3/3.4), plus an independent Opus review of the whole range and a fix branch for its findings (CORS DELETE method, legacy partner handlers wired into checkGatewayTrust, tenant/channel-scoped ciphertext reads). All module suites green: acquisition-api 275, subscription-external 310, notification 75, subscription-partner 24, common 52. WO-CRYPTOGRAPHIC-GATEWAY-TRUST-MARKER advanced to review with evidence recorded; lineage-record schema synced (evidence ledger unblocked).
+
+**Trust-marker deploy notes (now part of Wave 0):**
+- KrakenD CE martian can only inject a STATIC X-Gateway-Trust token (no per-request HMAC). Replace `__REPLACE_WITH_GATEWAY_TRUST_TOKEN__` in krakend.json using `tools/gateway-trust-token` before krakend deploy.
+- `GATEWAY_TRUST_SECRET` + `GATEWAY_TRUST_REQUIRED` env stanzas added to docker-compose.prod-do.yml for the 3 services; enforcement defaults OFF (permissive, log-only). Flip per service only after krakend injects the header.
+- Notification per-IP callback limiter is OFF by default (`CALLBACK_RATE_LIMIT_PER_MIN=0`).
+
+**REMAINING:** Wave 0 (gated deploy, unchanged — operator must confirm TIMWE callback URLs carry tenant_key+channel_key before 0.2/0.3); Wave 4 (operator data + key management; 4.3 rotation code implementable but secret-handling gated); Wave 5 minus the lineage-record schema item (done).
+
 ## Done = whole effort
 All tenant config add/update/delete portal-managed; per-tenant credentials drive every TIMWE request field for every tenant; notification+partner+krakend tenant code deployed and nrg verified intact; gateway trust marker live; PII masked; master key backed up + rotatable; careerify on real keys.
