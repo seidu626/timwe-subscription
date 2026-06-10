@@ -426,3 +426,235 @@ func TestExtractUpstreamErrorDetails(t *testing.T) {
 		})
 	}
 }
+
+func TestTIMWEClient_OptInWithTenantUsesTenantMCCMNC(t *testing.T) {
+	var capturedPayload map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&capturedPayload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{"transactionId": "tx-mccmnc"},
+			"message":      "ok",
+			"inError":      false,
+			"requestId":    "req-mccmnc",
+			"code":         "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	client.config.MCC = "global-mcc"
+	client.config.MNC = "global-mnc"
+	client.config.TrustedServiceSecret = "test-secret"
+	client.config.ServiceID = "acquisition-api"
+
+	_, err := client.OptInWithTenant(
+		"233241234567",
+		8509,
+		"WEB",
+		nil,
+		"",
+		TenantSubscriptionContext{
+			TenantID:  "11111111-1111-1111-1111-111111111111",
+			ChannelID: "22222222-2222-2222-2222-222222222222",
+			MCC:       "tenant-mcc",
+			MNC:       "tenant-mnc",
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if capturedPayload["mcc"] != "tenant-mcc" {
+		t.Fatalf("expected tenant MCC in payload, got %+v", capturedPayload)
+	}
+	if capturedPayload["mnc"] != "tenant-mnc" {
+		t.Fatalf("expected tenant MNC in payload, got %+v", capturedPayload)
+	}
+	if _, has := capturedPayload["largeAccount"]; has {
+		t.Fatalf("expected largeAccount absent when unset, got %+v", capturedPayload)
+	}
+}
+
+func TestTIMWEClient_OptInWithTenantFallsBackToGlobalMCCMNCWhenTenantEmpty(t *testing.T) {
+	var capturedPayload map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&capturedPayload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{"transactionId": "tx-fallback"},
+			"message":      "ok",
+			"inError":      false,
+			"requestId":    "req-fallback",
+			"code":         "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	client.config.MCC = "global-mcc"
+	client.config.MNC = "global-mnc"
+	client.config.TrustedServiceSecret = "test-secret"
+	client.config.ServiceID = "acquisition-api"
+
+	_, err := client.OptInWithTenant(
+		"233241234567",
+		8509,
+		"WEB",
+		nil,
+		"",
+		TenantSubscriptionContext{
+			TenantID:  "11111111-1111-1111-1111-111111111111",
+			ChannelID: "22222222-2222-2222-2222-222222222222",
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if capturedPayload["mcc"] != "global-mcc" {
+		t.Fatalf("expected global MCC fallback, got %+v", capturedPayload)
+	}
+	if capturedPayload["mnc"] != "global-mnc" {
+		t.Fatalf("expected global MNC fallback, got %+v", capturedPayload)
+	}
+}
+
+func TestTIMWEClient_OptInWithTenantEmptyStringMCCFallsBackToGlobal(t *testing.T) {
+	var capturedPayload map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&capturedPayload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{"transactionId": "tx-empty"},
+			"message":      "ok",
+			"inError":      false,
+			"requestId":    "req-empty",
+			"code":         "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	client.config.MCC = "global-mcc"
+	client.config.MNC = "global-mnc"
+	client.config.TrustedServiceSecret = "test-secret"
+	client.config.ServiceID = "acquisition-api"
+
+	_, err := client.OptInWithTenant(
+		"233241234567",
+		8509,
+		"WEB",
+		nil,
+		"",
+		TenantSubscriptionContext{
+			TenantID:  "11111111-1111-1111-1111-111111111111",
+			ChannelID: "22222222-2222-2222-2222-222222222222",
+			MCC:       "",
+			MNC:       "",
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if capturedPayload["mcc"] != "global-mcc" {
+		t.Fatalf("expected global MCC fallback when tenant MCC is empty string, got %+v", capturedPayload)
+	}
+	if capturedPayload["mnc"] != "global-mnc" {
+		t.Fatalf("expected global MNC fallback when tenant MNC is empty string, got %+v", capturedPayload)
+	}
+}
+
+func TestTIMWEClient_OptInWithTenantSetsLargeAccountWhenPresent(t *testing.T) {
+	var capturedPayload map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&capturedPayload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{"transactionId": "tx-large"},
+			"message":      "ok",
+			"inError":      false,
+			"requestId":    "req-large",
+			"code":         "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	client.config.TrustedServiceSecret = "test-secret"
+	client.config.ServiceID = "acquisition-api"
+
+	_, err := client.OptInWithTenant(
+		"233241234567",
+		8509,
+		"WEB",
+		nil,
+		"",
+		TenantSubscriptionContext{
+			TenantID:     "11111111-1111-1111-1111-111111111111",
+			ChannelID:    "22222222-2222-2222-2222-222222222222",
+			MCC:          "620",
+			MNC:          "01",
+			LargeAccount: "ACCT-007",
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if capturedPayload["largeAccount"] != "ACCT-007" {
+		t.Fatalf("expected largeAccount=ACCT-007 in payload, got %+v", capturedPayload)
+	}
+}
+
+func TestTIMWEClient_OptInWithTenantOmitsLargeAccountWhenAbsent(t *testing.T) {
+	var capturedPayload map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&capturedPayload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{"transactionId": "tx-no-large"},
+			"message":      "ok",
+			"inError":      false,
+			"requestId":    "req-no-large",
+			"code":         "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	client.config.TrustedServiceSecret = "test-secret"
+	client.config.ServiceID = "acquisition-api"
+
+	_, err := client.OptInWithTenant(
+		"233241234567",
+		8509,
+		"WEB",
+		nil,
+		"",
+		TenantSubscriptionContext{
+			TenantID:  "11111111-1111-1111-1111-111111111111",
+			ChannelID: "22222222-2222-2222-2222-222222222222",
+			MCC:       "620",
+			MNC:       "01",
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if val, has := capturedPayload["largeAccount"]; has && val != "" {
+		t.Fatalf("expected largeAccount absent when not set, got %+v", capturedPayload)
+	}
+}

@@ -192,12 +192,24 @@ func (c *TIMWEClientImpl) optIn(msisdn string, productID int, entryChannel strin
 	}
 
 	// Build request payload for subscription-external partner MT endpoint.
+	// Per-tenant MCC/MNC override global config when present; empty string means "not set by tenant".
+	mcc := tenant.MCC
+	if mcc == "" {
+		mcc = c.config.MCC
+	}
+	mnc := tenant.MNC
+	if mnc == "" {
+		mnc = c.config.MNC
+	}
 	reqData := MTRequest{
 		ProductID:         productID,
-		MCC:               c.config.MCC,
-		MNC:               c.config.MNC,
+		MCC:               mcc,
+		MNC:               mnc,
 		MSISDN:            msisdn,
 		MoTransactionUUID: txUUID,
+	}
+	if strings.TrimSpace(tenant.LargeAccount) != "" {
+		reqData.LargeAccount = tenant.LargeAccount
 	}
 	if tenant.TenantID != "" && tenant.ChannelID != "" {
 		reqData.ChannelID = tenant.ChannelID

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/seidu626/subscription-manager/common/secretcrypto"
@@ -75,4 +76,66 @@ func GetChannelCredentialSecret(ctx context.Context, db *sql.DB, id string) ([]b
 		return nil, fmt.Errorf("fetch secret: %w", err)
 	}
 	return secretcrypto.Decrypt(ciphertext)
+}
+
+// channelProviderSecret mirrors the JSON blob stored for a channel credential.
+// Only the fields needed by acquisition-api are decoded here; the rest are ignored.
+type channelProviderSecret struct {
+	MCC          string `json:"mcc"`
+	MNC          string `json:"mnc"`
+	LargeAccount string `json:"large_account"`
+}
+
+// ChannelAccountConfig holds per-tenant account fields extracted from the channel
+// credential blob. Empty string means "not set by tenant"; callers fall back to
+// the global config values.
+type ChannelAccountConfig struct {
+	MCC          string
+	MNC          string
+	LargeAccount string
+}
+
+// GetChannelAccountConfig resolves the active provider_api credential for
+// (tenantID, channelID), decrypts it, and returns MCC/MNC/LargeAccount.
+// Returns a zero-value ChannelAccountConfig (all empty) when no active credential
+// exists — callers must apply their own global-config fallback.
+func GetChannelAccountConfig(ctx context.Context, db *sql.DB, tenantID, channelID string) (ChannelAccountConfig, error) {
+	var secretRef string
+	err := db.QueryRowContext(ctx, `
+		SELECT cred.secret_ref
+		FROM tenant_channel_credentials cred
+		WHERE cred.tenant_id = $1::uuid
+		  AND cred.channel_id = $2::uuid
+		  AND cred.purpose = 'provider_api'
+		  AND cred.status = 'ACTIVE'
+		LIMIT 1
+	`, tenantID, channelID).Scan(&secretRef)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return ChannelAccountConfig{}, nil
+		}
+		return ChannelAccountConfig{}, fmt.Errorf("fetch channel credential: %w", err)
+	}
+
+	const secretScheme = "secret://"
+	if !strings.HasPrefix(secretRef, secretScheme) {
+		// Not a locally-stored secret (e.g. vault://, env://) — no blob to decode.
+		return ChannelAccountConfig{}, nil
+	}
+	secretID := strings.TrimPrefix(secretRef, secretScheme)
+
+	plaintext, err := GetChannelCredentialSecret(ctx, db, secretID)
+	if err != nil {
+		return ChannelAccountConfig{}, fmt.Errorf("decrypt channel credential: %w", err)
+	}
+
+	var s channelProviderSecret
+	if err := json.Unmarshal(plaintext, &s); err != nil {
+		return ChannelAccountConfig{}, fmt.Errorf("parse channel credential blob: %w", err)
+	}
+	return ChannelAccountConfig{
+		MCC:          strings.TrimSpace(s.MCC),
+		MNC:          strings.TrimSpace(s.MNC),
+		LargeAccount: strings.TrimSpace(s.LargeAccount),
+	}, nil
 }
