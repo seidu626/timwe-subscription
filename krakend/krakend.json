@@ -9,7 +9,9 @@
   "max_header_bytes": 10485760,
   "extra_config": {
     "security/cors": {
-      "allow_headers": ["*"],
+      "allow_headers": [
+        "*"
+      ],
       "allow_methods": [
         "POST",
         "GET",
@@ -734,12 +736,25 @@
       "extra_config": {
         "github.com/devopsfaith/krakend/http": {
           "return_error_details": true
+        },
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
         }
       },
       "headers_to_pass": [
         "external-tx-id",
         "x-admin-request-id",
-        "x-requestid"
+        "x-requestid",
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ],
       "backend": [
         {
@@ -784,6 +799,11 @@
             "x-requestid"
           ]
         }
+      ],
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ]
     },
     {
@@ -793,12 +813,25 @@
       "extra_config": {
         "github.com/devopsfaith/krakend/http": {
           "return_error_details": true
+        },
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
         }
       },
       "headers_to_pass": [
         "external-tx-id",
         "x-admin-request-id",
-        "x-requestid"
+        "x-requestid",
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ],
       "backend": [
         {
@@ -843,6 +876,11 @@
             "x-requestid"
           ]
         }
+      ],
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ]
     },
     {
@@ -852,12 +890,25 @@
       "extra_config": {
         "github.com/devopsfaith/krakend/http": {
           "return_error_details": true
+        },
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
         }
       },
       "headers_to_pass": [
         "external-tx-id",
         "x-admin-request-id",
-        "x-requestid"
+        "x-requestid",
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ],
       "backend": [
         {
@@ -902,6 +953,11 @@
             "x-requestid"
           ]
         }
+      ],
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ]
     },
     {
@@ -911,12 +967,25 @@
       "extra_config": {
         "github.com/devopsfaith/krakend/http": {
           "return_error_details": true
+        },
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
         }
       },
       "headers_to_pass": [
         "external-tx-id",
         "x-admin-request-id",
-        "x-requestid"
+        "x-requestid",
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ],
       "backend": [
         {
@@ -961,6 +1030,11 @@
             "x-requestid"
           ]
         }
+      ],
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ]
     },
     {
@@ -970,12 +1044,25 @@
       "extra_config": {
         "github.com/devopsfaith/krakend/http": {
           "return_error_details": true
+        },
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
         }
       },
       "headers_to_pass": [
         "external-tx-id",
         "x-admin-request-id",
-        "x-requestid"
+        "x-requestid",
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ],
       "input_query_strings": [
         "*"
@@ -1023,6 +1110,11 @@
             "x-requestid"
           ]
         }
+      ],
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ]
     },
     {
@@ -1032,12 +1124,25 @@
       "extra_config": {
         "github.com/devopsfaith/krakend/http": {
           "return_error_details": true
+        },
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
         }
       },
       "headers_to_pass": [
         "external-tx-id",
         "x-admin-request-id",
-        "x-requestid"
+        "x-requestid",
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ],
       "backend": [
         {
@@ -1082,6 +1187,11 @@
             "x-requestid"
           ]
         }
+      ],
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Key",
+        "X-Channel-Key"
       ]
     },
     {
