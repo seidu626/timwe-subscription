@@ -1,0 +1,15 @@
+{
+  "assignment": {
+    "decision": "allow",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "classification_id": "hvc-goal-20260610T043420Z-port-the-empty-uuid-bloc",
+  "created_at": "2026-06-10T04:35:55Z",
+  "domains": [
+    "security"
+  ],
+  "goal_id": "goal-20260610T043420Z-port-the-empty-uuid-bloc",
+  "schema_version": "1.0"
+}

@@ -84,6 +84,9 @@ func (s *SubscriptionService) ProcessOptin(req *domain.SubscriptionRequest) erro
 	if req.PartnerRoleId == 0 || req.UserIdentifier == "" {
 		return errors.New("invalid subscription request")
 	}
+	if strings.TrimSpace(req.TenantRoute.TenantID) == "" {
+		return errors.New("TENANT_CONTEXT_REQUIRED: tenant context is required for optin")
+	}
 
 	// Step 4: Save the new subscription
 	if err := s.repo.CreateSubscription(req); err != nil {
@@ -98,6 +101,9 @@ func (s *SubscriptionService) ProcessOptout(req *domain.UnsubscriptionRequest) e
 	// Implement the logic for processing an opt-out request
 	if req.PartnerRoleId == 0 || req.UserIdentifier == "" {
 		return errors.New("invalid unsubscription request")
+	}
+	if strings.TrimSpace(req.TenantRoute.TenantID) == "" {
+		return errors.New("TENANT_CONTEXT_REQUIRED: tenant context is required for optout")
 	}
 
 	// Step 4: Save the new subscription
@@ -114,6 +120,9 @@ func (s *SubscriptionService) ProcessStatus(req *domain.GetStatusRequest) (*doma
 	if req.PartnerRoleId == 0 || req.UserIdentifier == "" {
 		return nil, errors.New("invalid status request")
 	}
+	if strings.TrimSpace(req.TenantRoute.TenantID) == "" {
+		return nil, errors.New("TENANT_CONTEXT_REQUIRED: tenant context is required for status")
+	}
 
 	// Step 4: Save the new subscription
 	status, err := s.repo.GetSubscriptionStatus(req)
@@ -127,6 +136,9 @@ func (s *SubscriptionService) ProcessStatus(req *domain.GetStatusRequest) (*doma
 func (s *SubscriptionService) ProcessNotification(req *domain.NotificationRequest) error {
 	if req == nil || req.Type == "" || req.MSISDN == "" {
 		return errors.New("invalid notification request")
+	}
+	if strings.TrimSpace(req.TenantRoute.TenantID) == "" {
+		return errors.New("TENANT_CONTEXT_REQUIRED: tenant context is required for notification")
 	}
 	if err := s.repo.CreateNotification(req); err != nil {
 		return err
