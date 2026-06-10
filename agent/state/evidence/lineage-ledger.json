@@ -1277,6 +1277,195 @@
       "record_id": "lineage-0142-6f3256c6",
       "rel": "final_ready_check",
       "skill": "implement-verify"
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/notification-enforce/result.json",
+      "created_at": "2026-06-10T03:27:58Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-ENFORCE-TENANT-CONTEXT-ON-NOTIFICATION-CALLBACKS",
+      "record_id": "lineage-0143-c88f7c6e",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/secret-store/result.json",
+      "created_at": "2026-06-10T03:27:59Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TENANT-CREDENTIAL-SECRET-STORE-AND-WRITE-PATH-IM",
+      "record_id": "lineage-0144-100baf43",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/partner-tenancy/result.json",
+      "created_at": "2026-06-10T03:27:59Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-CLOSE-THE-SUBSCRIPTION-PARTNER-TENANTLESS-BYPASS",
+      "record_id": "lineage-0145-5c0745d9",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/gateway-routes/result.json",
+      "created_at": "2026-06-10T03:27:59Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TENANT-PATH-SHAPE-FOR-MT-CHARGE-AND-GATEWAY-HARD",
+      "record_id": "lineage-0146-2607aacc",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/ops-batch/result.json",
+      "created_at": "2026-06-10T03:27:59Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TENANT-AWARE-SUBSCRIPTION-OPERATIONS-MANAGEMENT",
+      "record_id": "lineage-0147-bee99976",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/ops-batch-gap2/result.json",
+      "created_at": "2026-06-10T03:48:18Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TENANT-AWARE-SUBSCRIPTION-OPERATIONS-MANAGEMENT",
+      "record_id": "lineage-0148-34fc0cfb",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/verify-integrated/result.json",
+      "created_at": "2026-06-10T03:54:26Z",
+      "kind": "evidence_record",
+      "parent_id": null,
+      "record_id": "lineage-0149-04e77611",
+      "rel": "verifies",
+      "skill": "mythos-verification-runner"
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/ops-batch-gap3/result.json",
+      "created_at": "2026-06-10T04:03:27Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TENANT-AWARE-SUBSCRIPTION-OPERATIONS-MANAGEMENT",
+      "record_id": "lineage-0150-043688ef",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/review-security/result.json",
+      "created_at": "2026-06-10T04:11:54Z",
+      "kind": "review_record",
+      "parent_id": null,
+      "record_id": "lineage-0151-2f681e4c",
+      "rel": "reviews",
+      "skill": "security-reviewer"
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/review-engineering/result.json",
+      "created_at": "2026-06-10T04:14:07Z",
+      "kind": "review_record",
+      "parent_id": null,
+      "record_id": "lineage-0152-1e35284f",
+      "rel": "reviews",
+      "skill": "engineering-reviewer"
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/port-partner-uuid/result.json",
+      "created_at": "2026-06-10T04:40:42Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-CLOSE-THE-SUBSCRIPTION-PARTNER-TENANTLESS-BYPASS",
+      "record_id": "lineage-0153-be10c74a",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/port-batch-security/result.json",
+      "created_at": "2026-06-10T04:45:57Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TENANT-AWARE-SUBSCRIPTION-OPERATIONS-MANAGEMENT",
+      "record_id": "lineage-0154-a3e8a8dc",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/fix-credential-workers/result.json",
+      "created_at": "2026-06-10T04:45:57Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TENANT-CREDENTIAL-SECRET-STORE-AND-WRITE-PATH-IM",
+      "record_id": "lineage-0155-0b95cc62",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/fix-gateway-auth/result.json",
+      "created_at": "2026-06-10T04:45:57Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TENANT-PATH-SHAPE-FOR-MT-CHARGE-AND-GATEWAY-HARD",
+      "record_id": "lineage-0156-3cc66bfe",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/review-closure/result.json",
+      "created_at": "2026-06-10T04:51:24Z",
+      "kind": "review_record",
+      "parent_id": null,
+      "record_id": "lineage-0157-23cf8ff1",
+      "rel": "reviews",
+      "skill": "security-reviewer"
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/ready/WO-CRYPTOGRAPHIC-GATEWAY-TRUST-MARKER-FOR-TENANT-CO.json",
+      "created_at": "2026-06-10T04:54:28Z",
+      "kind": "work_order",
+      "parent_id": "goal-20260610T041624Z-cryptographic-gateway-tr",
+      "record_id": "lineage-0158-1ec1decd",
+      "rel": "derives_from",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/fix-batch-auth-gaps/result.json",
+      "created_at": "2026-06-10T05:01:39Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TENANT-AWARE-SUBSCRIPTION-OPERATIONS-MANAGEMENT",
+      "record_id": "lineage-0159-c5215a7e",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/review-closure-final/result.json",
+      "created_at": "2026-06-10T05:05:11Z",
+      "kind": "review_record",
+      "parent_id": null,
+      "record_id": "lineage-0160-feafe91a",
+      "rel": "reviews",
+      "skill": "security-reviewer"
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/fix-final-residuals/result.json",
+      "created_at": "2026-06-10T05:14:51Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-TENANT-AWARE-SUBSCRIPTION-OPERATIONS-MANAGEMENT",
+      "record_id": "lineage-0161-42b58889",
+      "rel": "produced_by",
+      "skill": null
+    },
+    {
+      "artifact_ref": "agent/state/work-orders/active/WO-PORT-THE-EMPTY-UUID-BLOCKER-FIX-NULLIF-UUID-CAST.json",
+      "created_at": "2026-06-10T05:18:26Z",
+      "kind": "work_order",
+      "parent_id": null,
+      "record_id": "lineage-0162-f2b4f19e",
+      "rel": "derives_from",
+      "skill": "hvc"
+    },
+    {
+      "artifact_ref": ".harness/runs/tenant-gaps-20260610/members/port-partner-uuid/result.json",
+      "created_at": "2026-06-10T05:18:26Z",
+      "kind": "result_capsule",
+      "parent_id": "WO-PORT-THE-EMPTY-UUID-BLOCKER-FIX-NULLIF-UUID-CAST",
+      "record_id": "lineage-0163-be10c74a",
+      "rel": "produced_by",
+      "skill": null
     }
   ],
   "schema_version": "1.0"

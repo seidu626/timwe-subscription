@@ -1,0 +1,48 @@
+{
+  "classification_hints": {
+    "domains": [
+      "security"
+    ],
+    "likely_hvc_class": "vertical_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-10T03:02:26Z",
+  "goal_id": "goal-20260610T030226Z-tenant-path-shape-for-mt",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Tenant path shape for MT/charge and gateway hardening: add POST /api/external/v1/{tenant_key}/{channel_key}/mt and /charges KrakenD routes mapping to subscription-external partner handlers using gateway-injected X-Tenant-Key/X-Channel-Key (keep legacy routes during transition, marked deprecated); parameterize Auth0 domain/audience in krakend config template settings instead of hardcoded dev tenant; add per-tenant-key rate limiting on public partner routes and callback source allowlist scaffolding (nginx geo block placeholders with documented variables). Acceptance: krakend config renders and validates with krakend check, new routes present, Auth0 values sourced from settings; nginx config passes nginx -t syntax semantics.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "The requested outcome is implemented with evidence and tests."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "high",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Tenant path shape for MT/charge and gateway hardening: add POST /api/external/v1/{tenant_key}/{channel_key}/mt and /charges KrakenD routes mapping to subscription-external partner handlers using gateway-injected X-Tenant-Key/X-Channel-Key (keep legacy routes during transition, marked deprecated); parameterize Auth0 domain/audience in krakend config template settings instead of hardcoded dev tenant; add per-tenant-key rate limiting on public partner routes and callback source allowlist scaffoldin",
+    "prompt_hash": "sha256:12abc6d5a797698fc94918c8ab7d4806ff16fb4fb36f34ebd5016e53481898d2",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "The requested outcome is implemented with evidence and tests."
+  ],
+  "title": "Tenant path shape for MT/charge and gateway hardening: add POST /api/external/v1/{tenant_k"
+}

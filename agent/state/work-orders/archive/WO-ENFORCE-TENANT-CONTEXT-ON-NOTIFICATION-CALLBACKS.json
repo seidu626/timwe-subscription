@@ -1,0 +1,88 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-10T03:05:37Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260610T030218Z-enforce-tenant-context-o",
+  "hashes": {
+    "classification_hash": "sha256:347fbfa58746217033de981e271a4fa9150529857a671bd620ffe811ab1df7c4",
+    "contract_hash": "sha256:5acec32c9c92786270e0c8b642e0845dfffa01c79c61e1f9cf8259ffd2d13caf",
+    "issue_hash": "sha256:c1c7ad40d62af30cae634c77acf51d8ae3ff3c4186a09d9d9ef2481b6b51ac7c"
+  },
+  "issue_id": "ISSUE-ENFORCE-TENANT-CONTEXT-ON-NOTIFICATION-C",
+  "loop_mode": "closed",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Enforce tenant context on notification callbacks and remove dead JWT stubs: remove the tenantless legacy path in resolveNotificationTenant in services/notification/internal/handler/http.go so all /api/v1/notification/{mo,mt/dn,user-optin,user-renewed,user-optout,charge}/{partnerRole} callbacks require resolvable tenant_key+channel_key (reject with 422 otherwise, behind a config flag defaulting to enforced); delete the four dead hardcoded-JWT middleware stubs (services/{billing,notification,subsc",
+    "trigger": "Enforce tenant context on notification callbacks and remove dead JWT stubs: remove the tenantless legacy path in resolveNotificationTenant in services/notification/internal/handler/http.go so all /api/v1/notification/{mo,mt/dn,user-optin,user-renewed,user-optout,charge}/{partnerRole} callbacks requi"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "api-contract-design"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/state/context-packs/**",
+      "skills/context-kernel/**",
+      "policies/security/**",
+      "tools/**",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "agent/state/context-packs/**",
+      "skills/context-kernel/**",
+      "policies/security/**"
+    ]
+  },
+  "work_order_id": "WO-ENFORCE-TENANT-CONTEXT-ON-NOTIFICATION-CALLBACKS"
+}

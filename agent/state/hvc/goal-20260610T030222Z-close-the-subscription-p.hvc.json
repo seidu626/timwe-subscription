@@ -1,0 +1,15 @@
+{
+  "assignment": {
+    "decision": "allow",
+    "reason": "Inferred vertical_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_slice",
+  "classification_id": "hvc-goal-20260610T030222Z-close-the-subscription-p",
+  "created_at": "2026-06-10T03:03:06Z",
+  "domains": [
+    "security"
+  ],
+  "goal_id": "goal-20260610T030222Z-close-the-subscription-p",
+  "schema_version": "1.0"
+}

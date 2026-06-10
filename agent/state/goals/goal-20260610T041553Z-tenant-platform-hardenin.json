@@ -1,0 +1,51 @@
+{
+  "classification_hints": {
+    "domains": [
+      "workflow",
+      "schemas",
+      "context",
+      "security"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-10T04:15:53Z",
+  "goal_id": "goal-20260610T041553Z-tenant-platform-hardenin",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Tenant platform hardening follow-ups (deferred review findings, non-blocking): (1) replace unconditional GatewayTrusted=true with a cryptographic gateway marker (shared-secret header injected by KrakenD, verified by all services) so direct service-port callers cannot spoof tenant context via query/headers; (2) per-IP throttling for notification callback routes at gateway/nginx; (3) tighten KrakenD CORS allow_headers from wildcard; (4) redact Authorization and HE headers from request logging on 404/error paths; (5) per-request context propagation in tenant lookup repos (ChannelIDByKeys/TenantIDByKey ambient context); (6) consolidate duplicate tenant-secret decrypt logic into common/secretcrypto; (7) key-rotation support (key_version decrypt path) for tenant_channel_secrets; (8) wire add_ten",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "Context capsules enforce bounded token budgets."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Tenant platform hardening follow-ups (deferred review findings, non-blocking): (1) replace unconditional GatewayTrusted=true with a cryptographic gateway marker (shared-secret header injected by KrakenD, verified by all services) so direct service-port callers cannot spoof tenant context via query/headers; (2) per-IP throttling for notification callback routes at gateway/nginx; (3) tighten KrakenD CORS allow_headers from wildcard; (4) redact Authorization and HE headers from request logging on 4",
+    "prompt_hash": "sha256:80f422629ef879b0a9085f60594a345e81f0b0b426f74815e39c08c85648c753",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "Context capsules enforce bounded token budgets."
+  ],
+  "title": "Tenant platform hardening follow-ups (deferred review findings, non-blocking): (1) replace"
+}

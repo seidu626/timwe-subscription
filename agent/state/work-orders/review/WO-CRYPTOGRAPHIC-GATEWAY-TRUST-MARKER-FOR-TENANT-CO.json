@@ -1,0 +1,92 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-10T04:16:25Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260610T041624Z-cryptographic-gateway-tr",
+  "hashes": {
+    "classification_hash": "sha256:95454f93138d60b6293d12d46d49b24872dbc88bc96c9a3d3015bb91340dd67b",
+    "contract_hash": "sha256:83056e6cb1d64ee01394f3170d1166e019f7bff31dccf1be676751359bf818eb",
+    "issue_hash": "sha256:367d9c6b32d6e2994bcad6f59a2ff8047f20fc5a65df85d8ce3e426cba05e132"
+  },
+  "issue_id": "ISSUE-CRYPTOGRAPHIC-GATEWAY-TRUST-MARKER-FOR-T",
+  "loop_mode": "closed",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Cryptographic gateway trust marker for tenant context: KrakenD injects a signed X-Gateway-Trust header (HMAC over timestamp+path with a platform secret) on every proxied request; the subscription-external partner gateway handlers verify it before honoring tenant_key/channel_key query params (GatewayTrusted), rejecting direct service-port callers attempting tenant spoofing with 403. Entry point: tenantRouteFromGatewayHeaders in services/subscription-external/internal/handler/partner_handler.go; t",
+    "trigger": "Cryptographic gateway trust marker for tenant context: KrakenD injects a signed X-Gateway-Trust header (HMAC over timestamp+path with a platform secret) on every proxied request; the subscription-external partner gateway handlers verify it before honoring tenant_key/channel_key query params (Gateway"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "api-contract-design"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "tools/agent_hub/**",
+      "workflows/**",
+      "agent/state/context-packs/**",
+      "skills/context-kernel/**",
+      "policies/security/**",
+      "tools/**",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "tools/agent_hub/**",
+      "workflows/**",
+      "agent/state/context-packs/**",
+      "skills/context-kernel/**",
+      "policies/security/**"
+    ]
+  },
+  "work_order_id": "WO-CRYPTOGRAPHIC-GATEWAY-TRUST-MARKER-FOR-TENANT-CO"
+}

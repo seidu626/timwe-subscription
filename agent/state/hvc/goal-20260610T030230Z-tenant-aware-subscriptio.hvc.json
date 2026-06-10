@@ -1,0 +1,16 @@
+{
+  "assignment": {
+    "decision": "allow",
+    "reason": "Inferred operational_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "HIGH"
+  },
+  "class": "operational_slice",
+  "classification_id": "hvc-goal-20260610T030230Z-tenant-aware-subscriptio",
+  "created_at": "2026-06-10T03:03:06Z",
+  "domains": [
+    "context",
+    "security"
+  ],
+  "goal_id": "goal-20260610T030230Z-tenant-aware-subscriptio",
+  "schema_version": "1.0"
+}

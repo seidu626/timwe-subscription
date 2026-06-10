@@ -1,1 +1,8 @@
 {"forced": false, "from_state": "ready", "schema_version": "1.0", "to_state": "active", "ts": "2026-06-10T04:36:04Z", "work_order_id": "WO-PORT-THE-EMPTY-UUID-BLOCKER-FIX-NULLIF-UUID-CAST"}
+{"forced": true, "from_state": "ready", "schema_version": "1.0", "to_state": "review", "ts": "2026-06-10T04:54:55Z", "work_order_id": "WO-CRYPTOGRAPHIC-GATEWAY-TRUST-MARKER-FOR-TENANT-CO"}
+{"forced": false, "from_state": "review", "schema_version": "1.0", "to_state": "archive", "ts": "2026-06-10T05:18:10Z", "work_order_id": "WO-ENFORCE-TENANT-CONTEXT-ON-NOTIFICATION-CALLBACKS"}
+{"forced": false, "from_state": "review", "schema_version": "1.0", "to_state": "archive", "ts": "2026-06-10T05:18:10Z", "work_order_id": "WO-TENANT-CREDENTIAL-SECRET-STORE-AND-WRITE-PATH-IM"}
+{"forced": false, "from_state": "review", "schema_version": "1.0", "to_state": "archive", "ts": "2026-06-10T05:18:11Z", "work_order_id": "WO-CLOSE-THE-SUBSCRIPTION-PARTNER-TENANTLESS-BYPASS"}
+{"forced": false, "from_state": "review", "schema_version": "1.0", "to_state": "archive", "ts": "2026-06-10T05:18:11Z", "work_order_id": "WO-TENANT-PATH-SHAPE-FOR-MT-CHARGE-AND-GATEWAY-HARD"}
+{"forced": false, "from_state": "review", "schema_version": "1.0", "to_state": "archive", "ts": "2026-06-10T05:18:12Z", "work_order_id": "WO-TENANT-AWARE-SUBSCRIPTION-OPERATIONS-MANAGEMENT"}
+{"forced": false, "from_state": "active", "schema_version": "1.0", "to_state": "archive", "ts": "2026-06-10T05:18:26Z", "work_order_id": "WO-PORT-THE-EMPTY-UUID-BLOCKER-FIX-NULLIF-UUID-CAST"}

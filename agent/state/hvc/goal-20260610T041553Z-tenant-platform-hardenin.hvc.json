@@ -1,0 +1,17 @@
+{
+  "assignment": {
+    "decision": "non_assignable",
+    "reason": "Prompt contains horizontal scope phrase 'all services'. Split into concrete, provable slices (e.g. 'Add structured logging to tools/agent_hub/hvc.py' or 'Fix missing log calls in dispatch.py').",
+    "runtime_tier": "LOW"
+  },
+  "class": "spike",
+  "classification_id": "hvc-goal-20260610T041553Z-tenant-platform-hardenin",
+  "created_at": "2026-06-10T04:16:05Z",
+  "domains": [
+    "workflow",
+    "context",
+    "security"
+  ],
+  "goal_id": "goal-20260610T041553Z-tenant-platform-hardenin",
+  "schema_version": "1.0"
+}

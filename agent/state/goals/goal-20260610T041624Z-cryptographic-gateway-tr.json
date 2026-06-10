@@ -1,0 +1,51 @@
+{
+  "classification_hints": {
+    "domains": [
+      "workflow",
+      "context",
+      "security"
+    ],
+    "likely_hvc_class": "vertical_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Cryptographic gateway trust marker for tenant context: KrakenD injects a signed X-Gateway-Trust header (HMAC over timestamp+path with a platform secret) on every proxied request; the subscription-external partner gateway handlers verify it before honoring tenant_key/channel_key query params (GatewayTrusted), rejecting direct service-port callers attempting tenant spoofing with 403. Entry point: tenantRouteFromGatewayHeaders in services/subscription-external/internal/handler/partner_handler.go; trigger: any /api/external/v1/{tenant_key}/{channel_key}/* request. Acceptance: request through gateway succeeds; same request direct to service port without valid marker gets 403; unit tests for valid/expired/forged markers.",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-10T04:16:24Z",
+  "goal_id": "goal-20260610T041624Z-cryptographic-gateway-tr",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Cryptographic gateway trust marker for tenant context: KrakenD injects a signed X-Gateway-Trust header (HMAC over timestamp+path with a platform secret) on every proxied request; the subscription-external partner gateway handlers verify it before honoring tenant_key/channel_key query params (GatewayTrusted), rejecting direct service-port callers attempting tenant spoofing with 403. Entry point: tenantRouteFromGatewayHeaders in services/subscription-external/internal/handler/partner_handler.go; trigger: any /api/external/v1/{tenant_key}/{channel_key}/* request. Acceptance: request through gateway succeeds; same request direct to service port without valid marker gets 403; unit tests for valid/expired/forged markers.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "Context capsules enforce bounded token budgets."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Cryptographic gateway trust marker for tenant context: KrakenD injects a signed X-Gateway-Trust header (HMAC over timestamp+path with a platform secret) on every proxied request; the subscription-external partner gateway handlers verify it before honoring tenant_key/channel_key query params (GatewayTrusted), rejecting direct service-port callers attempting tenant spoofing with 403. Entry point: tenantRouteFromGatewayHeaders in services/subscription-external/internal/handler/partner_handler.go; t",
+    "prompt_hash": "sha256:dd06d5ee1047066f38990bb170d76bf52c6a431c9fb2453182a4bb33e9daa8fb",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "Context capsules enforce bounded token budgets."
+  ],
+  "title": "Cryptographic gateway trust marker for tenant context: KrakenD injects a signed X-Gateway-"
+}

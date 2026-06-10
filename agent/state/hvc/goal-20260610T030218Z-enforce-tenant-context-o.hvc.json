@@ -1,0 +1,16 @@
+{
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_slice",
+  "classification_id": "hvc-goal-20260610T030218Z-enforce-tenant-context-o",
+  "created_at": "2026-06-10T03:03:06Z",
+  "domains": [
+    "context",
+    "security"
+  ],
+  "goal_id": "goal-20260610T030218Z-enforce-tenant-context-o",
+  "schema_version": "1.0"
+}

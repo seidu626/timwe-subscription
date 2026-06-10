@@ -1,0 +1,50 @@
+{
+  "classification_hints": {
+    "domains": [
+      "context",
+      "security"
+    ],
+    "likely_hvc_class": "vertical_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Enforce tenant context on notification callbacks and remove dead JWT stubs: remove the tenantless legacy path in resolveNotificationTenant in services/notification/internal/handler/http.go so all /api/v1/notification/{mo,mt/dn,user-optin,user-renewed,user-optout,charge}/{partnerRole} callbacks require resolvable tenant_key+channel_key (reject with 422 otherwise, behind a config flag defaulting to enforced); delete the four dead hardcoded-JWT middleware stubs (services/{billing,notification,subscription-external,subscription-partner}/internal/handler/middleware.go). Acceptance: callback without tenant context is rejected, callback with tenant_key+channel_key persists tenant_id/channel_id; stubs gone; go build and notification tests pass.",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-10T03:02:18Z",
+  "goal_id": "goal-20260610T030218Z-enforce-tenant-context-o",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Enforce tenant context on notification callbacks and remove dead JWT stubs: remove the tenantless legacy path in resolveNotificationTenant in services/notification/internal/handler/http.go so all /api/v1/notification/{mo,mt/dn,user-optin,user-renewed,user-optout,charge}/{partnerRole} callbacks require resolvable tenant_key+channel_key (reject with 422 otherwise, behind a config flag defaulting to enforced); delete the four dead hardcoded-JWT middleware stubs (services/{billing,notification,subscription-external,subscription-partner}/internal/handler/middleware.go). Acceptance: callback without tenant context is rejected, callback with tenant_key+channel_key persists tenant_id/channel_id; stubs gone; go build and notification tests pass.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "Context capsules enforce bounded token budgets."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Enforce tenant context on notification callbacks and remove dead JWT stubs: remove the tenantless legacy path in resolveNotificationTenant in services/notification/internal/handler/http.go so all /api/v1/notification/{mo,mt/dn,user-optin,user-renewed,user-optout,charge}/{partnerRole} callbacks require resolvable tenant_key+channel_key (reject with 422 otherwise, behind a config flag defaulting to enforced); delete the four dead hardcoded-JWT middleware stubs (services/{billing,notification,subsc",
+    "prompt_hash": "sha256:e440c399e5959875aca14cf007a7f4b90d0ff1a65bbd3241be676c318072a1c6",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "Context capsules enforce bounded token budgets."
+  ],
+  "title": "Enforce tenant context on notification callbacks and remove dead JWT stubs: remove the ten"
+}

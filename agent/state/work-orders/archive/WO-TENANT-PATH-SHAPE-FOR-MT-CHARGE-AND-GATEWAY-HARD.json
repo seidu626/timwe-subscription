@@ -1,0 +1,85 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "The requested outcome is implemented with evidence and tests.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "Inferred vertical_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-10T03:05:37Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260610T030226Z-tenant-path-shape-for-mt",
+  "hashes": {
+    "classification_hash": "sha256:f628e2c1a17333f7a2eb4d5af0594b84ddbf268c576511d064ff278ff9757ced",
+    "contract_hash": "sha256:19161858fd371828f4475986cfdaf272664fccdabbed9c0524a547fb6bbead7d",
+    "issue_hash": "sha256:0a56f4d8e2b89edcf580a5aa509ece5d4930d182b80cc0de8162cbf490324f6f"
+  },
+  "issue_id": "ISSUE-TENANT-PATH-SHAPE-FOR-MT-CHARGE-AND-GATE",
+  "loop_mode": "closed",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Tenant path shape for MT/charge and gateway hardening: add POST /api/external/v1/{tenant_key}/{channel_key}/mt and /charges KrakenD routes mapping to subscription-external partner handlers using gateway-injected X-Tenant-Key/X-Channel-Key (keep legacy routes during transition, marked deprecated); parameterize Auth0 domain/audience in krakend config template settings instead of hardcoded dev tenant; add per-tenant-key rate limiting on public partner routes and callback source allowlist scaffoldin",
+    "trigger": "Tenant path shape for MT/charge and gateway hardening: add POST /api/external/v1/{tenant_key}/{channel_key}/mt and /charges KrakenD routes mapping to subscription-external partner handlers using gateway-injected X-Tenant-Key/X-Channel-Key (keep legacy routes during transition, marked deprecated); pa"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": "wave-001",
+    "parallel_safe": true,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "api-contract-design",
+    "migration-orchestrator"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "policies/security/**",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "policies/security/**"
+    ]
+  },
+  "work_order_id": "WO-TENANT-PATH-SHAPE-FOR-MT-CHARGE-AND-GATEWAY-HARD"
+}
