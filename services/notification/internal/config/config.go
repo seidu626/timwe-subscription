@@ -79,7 +79,10 @@ type Config struct {
 		// USER_OPTIN, USER_RENEWED, USER_OPTOUT, CHARGE) reject requests that
 		// carry no resolvable tenant context with HTTP 422. Defaults to true.
 		// Set NOTIFICATION_REQUIRE_TENANT_CONTEXT=false to preserve legacy behaviour.
-		RequireTenantContext bool `mapstructure:"REQUIRE_TENANT_CONTEXT"`
+		// SECURITY: no mapstructure tag — the value is set by parseTenantContextFlag
+		// after Unmarshal so unset/garbage env values fail CLOSED instead of fatally
+		// failing or decoding to false.
+		RequireTenantContext bool
 	} `mapstructure:"NOTIFICATION"`
 }
 
@@ -132,6 +135,11 @@ func InitConfig(logger *zap.Logger, path string, files []string) Config {
 		if err != nil {
 			log.Fatalln("cannot unmarshalling config")
 		}
+		// Fail-closed override: viper's bool decode would fail open on unset or
+		// unparseable values; only an explicit falsy env value disables enforcement.
+		cfg.Notification.RequireTenantContext = parseTenantContextFlag(
+			os.Getenv("NOTIFICATION_REQUIRE_TENANT_CONTEXT"),
+		)
 	})
 
 	conf.OnConfigChange(func(e fsnotify.Event) {
@@ -196,6 +204,18 @@ func mustBindEnv(logger *zap.Logger, conf *viper.Viper, key string, envs ...stri
 	if err := conf.BindEnv(args...); err != nil {
 		// Do not fail hard; keep defaults/config file behavior.
 		logger.Warn("failed to bind env var", zap.String("key", key), zap.Error(err))
+	}
+}
+
+// parseTenantContextFlag resolves the NOTIFICATION_REQUIRE_TENANT_CONTEXT env var
+// with fail-CLOSED semantics: only an explicit falsy value ("false", "0", "no",
+// case-insensitive) disables the check. Unset, empty, or any other value resolves true.
+func parseTenantContextFlag(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "false", "0", "no":
+		return false
+	default:
+		return true
 	}
 }
 
