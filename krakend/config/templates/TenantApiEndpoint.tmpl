@@ -49,20 +49,6 @@
                             {
                                 "header.Modifier": {
                                     "scope": ["request"],
-                                    "name": "X-Tenant-Key",
-                                    "value": "{tenant_key}"
-                                }
-                            },
-                            {
-                                "header.Modifier": {
-                                    "scope": ["request"],
-                                    "name": "X-Channel-Key",
-                                    "value": "{channel_key}"
-                                }
-                            },
-                            {
-                                "header.Modifier": {
-                                    "scope": ["request"],
                                     "name": "X-Gateway-Trust",
                                     "value": "{{ env "GATEWAY_TRUST_TOKEN" }}"
                                 }
