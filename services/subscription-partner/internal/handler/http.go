@@ -13,12 +13,20 @@ import (
 )
 
 type SubscriptionHandler struct {
-	service *service.SubscriptionService
-	config  *config.Config
+	service     *service.SubscriptionService
+	config      *config.Config
+	tenantRepo  gatewayTenantLookup
 }
 
 func NewSubscriptionHandler(service *service.SubscriptionService, c *config.Config) *SubscriptionHandler {
 	return &SubscriptionHandler{service: service, config: c}
+}
+
+// WithTenantRepo sets the repository used for gateway-trust tenant resolution.
+// Call this after NewSubscriptionHandler when the repo implements gatewayTenantLookup.
+func (h *SubscriptionHandler) WithTenantRepo(repo gatewayTenantLookup) *SubscriptionHandler {
+	h.tenantRepo = repo
+	return h
 }
 
 func (h *SubscriptionHandler) ListSubscriptions(ctx *fasthttp.RequestCtx) {
@@ -133,6 +141,27 @@ func (h *SubscriptionHandler) handleSubscription(ctx *fasthttp.RequestCtx, subsc
 		return
 	}
 
+	// Resolve tenant context from gateway-forwarded headers/query params.
+	// Tenantless requests are rejected with 422.
+	if h.tenantRepo == nil {
+		writeJSONResponse(ctx, fasthttp.StatusUnprocessableEntity, map[string]interface{}{
+			"message": "Tenant resolution not configured",
+			"code":    "TENANT_CONTEXT_REQUIRED",
+			"inError": true,
+		})
+		return
+	}
+	tenantRoute, err := tenantRouteFromGatewayHeaders(ctx, h.tenantRepo)
+	if err != nil {
+		statusCode, errCode := gatewayRouteStatus(err)
+		writeJSONResponse(ctx, statusCode, map[string]interface{}{
+			"message": err.Error(),
+			"code":    errCode,
+			"inError": true,
+		})
+		return
+	}
+
 	// Confirm path is deprecated in subscription-partner.
 	// Real confirm is handled by subscription-external's Partner API.
 	if subscriptionType == "CONFIRM" {
@@ -175,16 +204,19 @@ func (h *SubscriptionHandler) handleSubscription(ctx *fasthttp.RequestCtx, subsc
 		return
 	}
 
-	// Set partnerRoleId in the request struct dynamically based on its type
+	// Set partnerRoleId and tenantRoute in the request struct dynamically based on its type.
 	switch req := subscriptionRequest.(type) {
 	case *domain.SubscriptionRequest:
 		req.PartnerRoleId = partnerRoleId
+		req.TenantRoute = tenantRoute
 	case *domain.SubscriptionConfirmationRequest:
 		req.PartnerRoleId = partnerRoleId
 	case *domain.UnsubscriptionRequest:
 		req.PartnerRoleId = partnerRoleId
+		req.TenantRoute = tenantRoute
 	case *domain.GetStatusRequest:
 		req.PartnerRoleId = partnerRoleId
+		req.TenantRoute = tenantRoute
 	}
 
 	// Process the subscription action based on type

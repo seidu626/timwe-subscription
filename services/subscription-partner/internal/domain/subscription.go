@@ -35,19 +35,29 @@ type Subscription struct {
 	TransactionAuthCode *string    `json:"transactionAuthCode"`
 }
 
+// TenantRouteContext carries the resolved tenant and channel identifiers for
+// a request that has been verified by the gateway trust boundary.
+type TenantRouteContext struct {
+	TenantID   string
+	TenantKey  string
+	ChannelID  string
+	ChannelKey string
+}
+
 type SubscriptionRequest struct {
-	PartnerRoleId      int    `json:"-"`
-	UserIdentifier     string `json:"userIdentifier"`
-	UserIdentifierType string `json:"userIdentifierType"`
-	ProductId          int    `json:"productId"`
-	Mcc                string `json:"mcc"`
-	Mnc                string `json:"mnc"`
-	EntryChannel       string `json:"entryChannel"`
-	LargeAccount       string `json:"largeAccount"`
-	SubKeyword         string `json:"subKeyword"`
-	TrackingId         string `json:"trackingId"`
-	ClientIp           string `json:"clientIp"`
-	CampaignUrl        string `json:"campaignUrl"`
+	PartnerRoleId      int                `json:"-"`
+	UserIdentifier     string             `json:"userIdentifier"`
+	UserIdentifierType string             `json:"userIdentifierType"`
+	ProductId          int                `json:"productId"`
+	Mcc                string             `json:"mcc"`
+	Mnc                string             `json:"mnc"`
+	EntryChannel       string             `json:"entryChannel"`
+	LargeAccount       string             `json:"largeAccount"`
+	SubKeyword         string             `json:"subKeyword"`
+	TrackingId         string             `json:"trackingId"`
+	ClientIp           string             `json:"clientIp"`
+	CampaignUrl        string             `json:"campaignUrl"`
+	TenantRoute        TenantRouteContext `json:"-"`
 }
 
 // SubscribeResponse represents the expected response from the external service.
@@ -69,36 +79,38 @@ type SubscriptionConfirmationRequest struct {
 }
 
 type UnsubscriptionRequest struct {
-	PartnerRoleId         int    `json:"-"`
-	UserIdentifier        string `json:"userIdentifier"`
-	UserIdentifierType    string `json:"userIdentifierType"`
-	ProductId             int    `json:"productId"`
-	Mcc                   string `json:"mcc"`
-	Mnc                   string `json:"mnc"`
-	EntryChannel          string `json:"entryChannel"`
-	LargeAccount          string `json:"largeAccount"`
-	SubKeyword            string `json:"subKeyword"`
-	TrackingId            string `json:"trackingId"`
-	ClientIp              string `json:"clientIp"`
-	ControlKeyword        string `json:"controlKeyword"`
-	ControlServiceKeyword string `json:"controlServiceKeyword"`
-	SubId                 int    `json:"subId"`
-	CancelReason          int    `json:"cancelReason"`
-	CancelSource          int    `json:"cancelSource"`
+	PartnerRoleId         int                `json:"-"`
+	UserIdentifier        string             `json:"userIdentifier"`
+	UserIdentifierType    string             `json:"userIdentifierType"`
+	ProductId             int                `json:"productId"`
+	Mcc                   string             `json:"mcc"`
+	Mnc                   string             `json:"mnc"`
+	EntryChannel          string             `json:"entryChannel"`
+	LargeAccount          string             `json:"largeAccount"`
+	SubKeyword            string             `json:"subKeyword"`
+	TrackingId            string             `json:"trackingId"`
+	ClientIp              string             `json:"clientIp"`
+	ControlKeyword        string             `json:"controlKeyword"`
+	ControlServiceKeyword string             `json:"controlServiceKeyword"`
+	SubId                 int                `json:"subId"`
+	CancelReason          int                `json:"cancelReason"`
+	CancelSource          int                `json:"cancelSource"`
+	TenantRoute           TenantRouteContext `json:"-"`
 }
 
 type GetStatusRequest struct {
-	PartnerRoleId         int    `json:"-"`
-	UserIdentifier        string `json:"userIdentifier"`
-	UserIdentifierType    string `json:"userIdentifierType"`
-	ProductId             int    `json:"productId"`
-	Mcc                   string `json:"mcc"`
-	Mnc                   string `json:"mnc"`
-	EntryChannel          string `json:"entryChannel"`
-	ClientIp              string `json:"clientIp"`
-	ControlKeyword        string `json:"controlKeyword"`
-	ControlServiceKeyword string `json:"controlServiceKeyword"`
-	SubId                 int    `json:"subId"`
+	PartnerRoleId         int                `json:"-"`
+	UserIdentifier        string             `json:"userIdentifier"`
+	UserIdentifierType    string             `json:"userIdentifierType"`
+	ProductId             int                `json:"productId"`
+	Mcc                   string             `json:"mcc"`
+	Mnc                   string             `json:"mnc"`
+	EntryChannel          string             `json:"entryChannel"`
+	ClientIp              string             `json:"clientIp"`
+	ControlKeyword        string             `json:"controlKeyword"`
+	ControlServiceKeyword string             `json:"controlServiceKeyword"`
+	SubId                 int                `json:"subId"`
+	TenantRoute           TenantRouteContext `json:"-"`
 }
 
 type SubscriptionStatus struct {
@@ -111,19 +123,20 @@ type SubscriptionStatus struct {
 
 // NotificationRequest represents inbound TIMWE webhook payload persisted to notifications.
 type NotificationRequest struct {
-	PartnerRole     int      `json:"partnerRole"`
-	ExternalTxID    string   `json:"externalTxId"`
-	ProductID       int      `json:"productId"`
-	PricepointID    int      `json:"pricepointId"`
-	MCC             string   `json:"mcc"`
-	MNC             string   `json:"mnc"`
-	MSISDN          string   `json:"msisdn"`
-	LargeAccount    string   `json:"largeAccount"`
-	TransactionUUID string   `json:"transactionUuid"`
-	EntryChannel    string   `json:"entryChannel"`
-	MessageType     string   `json:"messageType"`
-	Message         string   `json:"message"`
-	MnoDeliveryCode string   `json:"mnoDeliveryCode"`
-	Tags            []string `json:"tags"`
-	Type            string   `json:"type"`
+	PartnerRole     int                `json:"partnerRole"`
+	ExternalTxID    string             `json:"externalTxId"`
+	ProductID       int                `json:"productId"`
+	PricepointID    int                `json:"pricepointId"`
+	MCC             string             `json:"mcc"`
+	MNC             string             `json:"mnc"`
+	MSISDN          string             `json:"msisdn"`
+	LargeAccount    string             `json:"largeAccount"`
+	TransactionUUID string             `json:"transactionUuid"`
+	EntryChannel    string             `json:"entryChannel"`
+	MessageType     string             `json:"messageType"`
+	Message         string             `json:"message"`
+	MnoDeliveryCode string             `json:"mnoDeliveryCode"`
+	Tags            []string           `json:"tags"`
+	Type            string             `json:"type"`
+	TenantRoute     TenantRouteContext `json:"-"`
 }
