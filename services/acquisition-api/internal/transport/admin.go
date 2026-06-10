@@ -128,7 +128,7 @@ func (a *adminAccess) setCORS(ctx *fasthttp.RequestCtx) {
 
 	ctx.Response.Header.Set("Access-Control-Allow-Origin", allowOrigin)
 	ctx.Response.Header.Set("Vary", "Origin")
-	ctx.Response.Header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,OPTIONS")
+	ctx.Response.Header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 	ctx.Response.Header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Tenant-Id, X-Tenant-Key")
 	ctx.Response.Header.Set("Access-Control-Max-Age", "600")
 }

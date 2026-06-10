@@ -96,6 +96,66 @@ func TestPutChannelCredential_FailsClosedWithoutMasterKey(t *testing.T) {
 	}
 }
 
+// TestGetChannelCredentialSecret_ScopedQuery verifies that
+// GetChannelCredentialSecret requires both tenant_id and channel_id to match:
+// a mismatched tenant or channel yields "secret not found" (not-found, not a
+// cross-tenant leak).
+func TestGetChannelCredentialSecret_ScopedQuery(t *testing.T) {
+	setTestMasterKey(t)
+
+	const (
+		secretID  = "cccccccc-0000-0000-0000-000000000003"
+		tenantID  = "aaaaaaaa-0000-0000-0000-000000000001"
+		channelID = "bbbbbbbb-0000-0000-0000-000000000002"
+	)
+
+	t.Run("mismatched_tenant_yields_not_found", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("sqlmock: %v", err)
+		}
+		defer db.Close()
+
+		// No rows returned for wrong tenant.
+		mock.ExpectQuery(`SELECT s\.ciphertext`).
+			WillReturnRows(sqlmock.NewRows([]string{"ciphertext"}))
+
+		_, err = GetChannelCredentialSecret(context.Background(), db, secretID, "wrong-tenant-id", channelID)
+		if err == nil {
+			t.Fatal("expected error for mismatched tenant, got nil")
+		}
+		if err.Error() != "secret not found: "+secretID {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if err2 := mock.ExpectationsWereMet(); err2 != nil {
+			t.Errorf("sqlmock: %v", err2)
+		}
+	})
+
+	t.Run("mismatched_channel_yields_not_found", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("sqlmock: %v", err)
+		}
+		defer db.Close()
+
+		// No rows returned for wrong channel.
+		mock.ExpectQuery(`SELECT s\.ciphertext`).
+			WillReturnRows(sqlmock.NewRows([]string{"ciphertext"}))
+
+		_, err = GetChannelCredentialSecret(context.Background(), db, secretID, tenantID, "wrong-channel-id")
+		if err == nil {
+			t.Fatal("expected error for mismatched channel, got nil")
+		}
+		if err.Error() != "secret not found: "+secretID {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if err2 := mock.ExpectationsWereMet(); err2 != nil {
+			t.Errorf("sqlmock: %v", err2)
+		}
+	})
+}
+
 func TestPutChannelCredential_EmptySecretValue(t *testing.T) {
 	setTestMasterKey(t)
 
