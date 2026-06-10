@@ -79,3 +79,6 @@ slices/**/spec-validation*.json
 .agent-work/CURRENT.md
 
 # <<< agent-hub canonical gitignore
+agent/state/work-orders/*.lock
+agent/state/evidence/*.lock
+agent/state/evidence/*.migrated-*
