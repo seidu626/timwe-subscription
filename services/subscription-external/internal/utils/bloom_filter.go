@@ -8,6 +8,7 @@ import (
 
 	"github.com/bits-and-blooms/bloom/v3"
 	cached "github.com/seidu626/subscription-manager/common/cache"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"go.uber.org/zap"
 )
 
@@ -145,7 +146,7 @@ func (bf *MSISDNBloomFilter) cacheInRedis(msisdn string) {
 	err := bf.redis.Set(ctx, key, "1", bf.ttl)
 	if err != nil {
 		bf.logger.Warn("Failed to cache MSISDN in Redis",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Error(err))
 	}
 }
@@ -164,7 +165,7 @@ func (bf *MSISDNBloomFilter) cacheBatchInRedis(msisdns []string) {
 		key := fmt.Sprintf("invalid_msisdn:%s", msisdn)
 		if err := bf.redis.Set(ctx, key, "1", bf.ttl); err != nil {
 			bf.logger.Warn("Failed to cache MSISDN in batch",
-				zap.String("msisdn", msisdn),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Error(err))
 		}
 	}

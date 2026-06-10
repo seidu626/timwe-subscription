@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"go.uber.org/zap"
 )
 
@@ -97,7 +98,7 @@ func (s *ChargingFailureService) GetChargingFailureSummary() (map[string]interfa
 // GetChargingFailureByMSISDN retrieves charging failure information for a specific MSISDN
 func (s *ChargingFailureService) GetChargingFailureByMSISDN(msisdn string, productID int) (*repository.ChargingFailedSubscription, error) {
 	s.logger.Info("Getting charging failure by MSISDN",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.Int("product_id", productID))
 
 	failure, err := s.repo.GetChargingFailureByMSISDN(msisdn, productID)
@@ -108,12 +109,12 @@ func (s *ChargingFailureService) GetChargingFailureByMSISDN(msisdn string, produ
 
 	if failure == nil {
 		s.logger.Info("No charging failure found for MSISDN",
-			zap.String("msisdn", msisdn))
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)))
 		return nil, nil
 	}
 
 	s.logger.Info("Successfully got charging failure by MSISDN",
-		zap.String("msisdn", msisdn),
+		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("charging_status", failure.ChargingStatus))
 
 	return failure, nil
@@ -190,7 +191,7 @@ func (s *ChargingFailureService) ProcessChargingFailures(batchSize int, daysThre
 	for _, subscription := range subscriptions {
 		s.logger.Info("Processing charging failure",
 			zap.Int("subscription_id", subscription.ID),
-			zap.String("msisdn", subscription.MSISDN),
+			zap.String("msisdn", pii.MaskMSISDN(subscription.MSISDN)),
 			zap.String("charging_status", subscription.ChargingStatus))
 
 		// Mark as in progress
@@ -210,7 +211,7 @@ func (s *ChargingFailureService) ProcessChargingFailures(batchSize int, daysThre
 
 		s.logger.Info("Successfully processed charging failure",
 			zap.Int("subscription_id", subscription.ID),
-			zap.String("msisdn", subscription.MSISDN))
+			zap.String("msisdn", pii.MaskMSISDN(subscription.MSISDN)))
 	}
 
 	s.logger.Info("Completed charging failure processing",

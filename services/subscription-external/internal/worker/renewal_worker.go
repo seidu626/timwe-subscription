@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/service"
 	"go.uber.org/zap"
@@ -205,7 +206,7 @@ func (w *RenewalWorker) processSubscription(ctx context.Context, sub *domain.Sub
 	action := w.renewalService.EvaluateChurnPolicy(ctx, sub.UserIdentifier, sub.ProductId)
 
 	w.logger.Debug("Processing subscription",
-		zap.String("msisdn", sub.UserIdentifier),
+		zap.String("msisdn", pii.MaskMSISDN(sub.UserIdentifier)),
 		zap.String("productId", sub.ProductId),
 		zap.String("action", string(action)))
 
@@ -213,7 +214,7 @@ func (w *RenewalWorker) processSubscription(ctx context.Context, sub *domain.Sub
 	case domain.ActionAttemptRenewal:
 		if err := w.attemptRenewal(ctx, sub); err != nil {
 			w.logger.Error("Renewal failed",
-				zap.String("msisdn", sub.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(sub.UserIdentifier)),
 				zap.Error(err))
 			w.stats.mu.Lock()
 			w.stats.Failed++
@@ -227,7 +228,7 @@ func (w *RenewalWorker) processSubscription(ctx context.Context, sub *domain.Sub
 	case domain.ActionChurn:
 		if err := w.renewalService.ChurnSubscription(ctx, sub.UserIdentifier, sub.ProductId, "PAYMENT_FAILURE"); err != nil {
 			w.logger.Error("Failed to churn subscription",
-				zap.String("msisdn", sub.UserIdentifier),
+				zap.String("msisdn", pii.MaskMSISDN(sub.UserIdentifier)),
 				zap.Error(err))
 			w.stats.mu.Lock()
 			w.stats.Failed++
@@ -240,7 +241,7 @@ func (w *RenewalWorker) processSubscription(ctx context.Context, sub *domain.Sub
 
 	case domain.ActionGracePeriod:
 		w.logger.Debug("Subscription in grace period",
-			zap.String("msisdn", sub.UserIdentifier))
+			zap.String("msisdn", pii.MaskMSISDN(sub.UserIdentifier)))
 		w.stats.mu.Lock()
 		w.stats.Skipped++
 		w.stats.mu.Unlock()
@@ -286,7 +287,7 @@ func (w *RenewalWorker) attemptRenewal(ctx context.Context, sub *domain.Subscrip
 func (w *RenewalWorker) incrementRenewalAttempt(msisdn string, productID string) {
 	if err := w.repo.IncrementRenewalAttempt(msisdn, productID); err != nil {
 		w.logger.Error("Failed to increment renewal attempt",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("productId", productID),
 			zap.Error(err))
 	}
@@ -340,7 +341,7 @@ func (w *RenewalWorker) ProcessPriorityRetryQueue(ctx context.Context) error {
 		// Process retry
 		if err := w.processRetryItem(ctx, item); err != nil {
 			w.logger.Error("Failed to process retry item",
-				zap.String("msisdn", item.MSISDN),
+				zap.String("msisdn", pii.MaskMSISDN(item.MSISDN)),
 				zap.Error(err))
 			
 			// Update retry count and next retry time
@@ -381,7 +382,7 @@ func (w *RenewalWorker) processRetryItem(ctx context.Context, item *domain.Prior
 	}
 
 	w.logger.Info("Successfully resubscribed user from retry queue",
-		zap.String("msisdn", item.MSISDN),
+		zap.String("msisdn", pii.MaskMSISDN(item.MSISDN)),
 		zap.String("productId", item.ProductID))
 
 	return nil
@@ -414,7 +415,7 @@ func (w *RenewalWorker) updateRetryItem(item *domain.PriorityRetryQueue, success
 
 	if err := w.repo.UpdatePriorityRetryItem(item); err != nil {
 		w.logger.Error("Failed to update retry item",
-			zap.String("msisdn", item.MSISDN),
+			zap.String("msisdn", pii.MaskMSISDN(item.MSISDN)),
 			zap.Error(err))
 	}
 }

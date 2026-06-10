@@ -14,6 +14,7 @@ import (
 
 	"github.com/lib/pq"
 	cached "github.com/seidu626/subscription-manager/common/cache"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"go.uber.org/zap"
 )
@@ -508,7 +509,7 @@ func (r *SubscriptionRepository) CreateInvalidMSISDNLog(log *domain.InvalidMSISD
 	}
 
 	r.logger.Info("Invalid MSISDN log saved successfully",
-		zap.String("msisdn", log.MSISDN),
+		zap.String("msisdn", pii.MaskMSISDN(log.MSISDN)),
 		zap.String("responseCode", log.ResponseCode),
 		zap.String("subscriptionResult", log.SubscriptionResult))
 
@@ -880,7 +881,7 @@ func (r *SubscriptionRepository) FindAndRemoveSubscription(msisdn string, produc
 	// If no active subscription found, nothing to remove
 	if count == 0 {
 		r.logger.Info("No active subscription found to remove",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int("productId", productId))
 		return nil
 	}
@@ -903,11 +904,11 @@ func (r *SubscriptionRepository) FindAndRemoveSubscription(msisdn string, produc
 
 	if rowsAffected == 0 {
 		r.logger.Warn("No subscription rows were updated during deactivation",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int("productId", productId))
 	} else {
 		r.logger.Info("Successfully deactivated subscription",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int("productId", productId),
 			zap.Int64("rowsAffected", rowsAffected))
 	}
@@ -935,7 +936,7 @@ func (r *SubscriptionRepository) DeleteSubscriptionRecord(msisdn string) error {
 	// If no subscription found, nothing to delete
 	if count == 0 {
 		r.logger.Info("No subscription found to delete",
-			zap.String("msisdn", msisdn))
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)))
 		return nil
 	}
 
@@ -956,10 +957,10 @@ func (r *SubscriptionRepository) DeleteSubscriptionRecord(msisdn string) error {
 
 	if rowsAffected == 0 {
 		r.logger.Warn("No subscription rows were deleted",
-			zap.String("msisdn", msisdn))
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)))
 	} else {
 		r.logger.Info("Successfully deleted subscription record",
-			zap.String("msisdn", msisdn),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int64("rowsAffected", rowsAffected))
 	}
 
@@ -1464,7 +1465,7 @@ func (r *SubscriptionRepository) AddToPriorityRetryQueue(item *domain.PriorityRe
 
 	if err != nil {
 		r.logger.Error("Failed to add to priority retry queue",
-			zap.String("msisdn", item.MSISDN),
+			zap.String("msisdn", pii.MaskMSISDN(item.MSISDN)),
 			zap.Error(err))
 		return fmt.Errorf("failed to add to priority retry queue: %w", err)
 	}

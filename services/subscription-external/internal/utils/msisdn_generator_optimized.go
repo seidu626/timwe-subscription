@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/seidu626/subscription-manager/common/config"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"go.uber.org/zap"
 )
@@ -119,7 +120,7 @@ func (g *OptimizedMSISDNGenerator) GenerateRandomMSISDNOptimized(
 				isExcluded, err := g.repo.IsExcludedUser(msisdn)
 				if err != nil {
 					g.logger.Warn("Failed to check excluded user status",
-						zap.String("msisdn", msisdn), zap.Error(err))
+						zap.String("msisdn", pii.MaskMSISDN(msisdn)), zap.Error(err))
 					continue
 				}
 

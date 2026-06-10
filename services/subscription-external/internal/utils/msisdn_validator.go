@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"go.uber.org/zap"
 )
 
@@ -249,7 +250,7 @@ func (v *MSISDNValidator) ValidateMSISDN(ctx context.Context, msisdn string) (*V
 		isExcluded, err := v.repo.IsExcludedUser(formattedMSISDN)
 		if err != nil {
 			v.logger.Warn("Failed to check excluded user status",
-				zap.String("msisdn", formattedMSISDN),
+				zap.String("msisdn", pii.MaskMSISDN(formattedMSISDN)),
 				zap.Error(err))
 			// Don't fail validation due to database errors, but log the issue
 		} else if isExcluded {
@@ -269,7 +270,7 @@ func (v *MSISDNValidator) ValidateMSISDN(ctx context.Context, msisdn string) (*V
 			invalid, err := fastRepo.GetInvalidMSISDNSFast(ctx, formattedMSISDN)
 			if err != nil {
 				v.logger.Warn("Failed to check invalid MSISDN logs",
-					zap.String("msisdn", formattedMSISDN),
+					zap.String("msisdn", pii.MaskMSISDN(formattedMSISDN)),
 					zap.Error(err))
 			} else if invalid {
 				result.IsValid = false
