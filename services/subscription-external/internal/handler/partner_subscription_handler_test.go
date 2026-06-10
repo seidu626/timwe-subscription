@@ -363,3 +363,76 @@ func TestPartnerSubscriptionConfirm_UnknownChannel(t *testing.T) {
 
 // Ensure domain.TenantRouteContext is usable (compile-time check).
 var _ domain.TenantRouteContext = domain.TenantRouteContext{}
+
+// --- GatewayPartnerMTHandler and GatewayPartnerChargeHandler error-path tests ---
+
+// TestGatewayPartnerMTHandler_NilRepo verifies that GatewayPartnerMTHandler
+// returns 500 when the tenant repository is not configured.
+func TestGatewayPartnerMTHandler_NilRepo(t *testing.T) {
+	h := newTestPartnerHandler(nil)
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetBody([]byte(`{}`))
+	h.GatewayPartnerMTHandler(ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusInternalServerError {
+		t.Errorf("want 500 when tenantRepo is nil, got %d", ctx.Response.StatusCode())
+	}
+}
+
+// TestGatewayPartnerMTHandler_MissingTenantContext verifies that
+// GatewayPartnerMTHandler returns 400 TENANT_CONTEXT_REQUIRED when no
+// tenant/channel context is supplied.
+func TestGatewayPartnerMTHandler_MissingTenantContext(t *testing.T) {
+	h := newTestPartnerHandler(stubRepo())
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetBody([]byte(`{"msisdn":"233241234567","productId":1}`))
+	h.GatewayPartnerMTHandler(ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusBadRequest {
+		t.Errorf("want 400, got %d", ctx.Response.StatusCode())
+	}
+	if code := errorCode(ctx.Response.Body()); code != "TENANT_CONTEXT_REQUIRED" {
+		t.Errorf("want TENANT_CONTEXT_REQUIRED, got %q", code)
+	}
+}
+
+// TestGatewayPartnerMTHandler_UnknownTenant verifies that
+// GatewayPartnerMTHandler returns 400 UNKNOWN_TENANT for an unrecognised tenant key.
+func TestGatewayPartnerMTHandler_UnknownTenant(t *testing.T) {
+	h := newTestPartnerHandler(stubRepo())
+	ctx := buildCtx("bogus-tenant", "some-channel", "", "")
+	ctx.Request.SetBody([]byte(`{"msisdn":"233241234567","productId":1}`))
+	h.GatewayPartnerMTHandler(ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusBadRequest {
+		t.Errorf("want 400, got %d", ctx.Response.StatusCode())
+	}
+	if code := errorCode(ctx.Response.Body()); code != "UNKNOWN_TENANT" {
+		t.Errorf("want UNKNOWN_TENANT, got %q", code)
+	}
+}
+
+// TestGatewayPartnerChargeHandler_NilRepo verifies that GatewayPartnerChargeHandler
+// returns 500 when the tenant repository is not configured.
+func TestGatewayPartnerChargeHandler_NilRepo(t *testing.T) {
+	h := newTestPartnerHandler(nil)
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetBody([]byte(`{}`))
+	h.GatewayPartnerChargeHandler(ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusInternalServerError {
+		t.Errorf("want 500 when tenantRepo is nil, got %d", ctx.Response.StatusCode())
+	}
+}
+
+// TestGatewayPartnerChargeHandler_MissingTenantContext verifies that
+// GatewayPartnerChargeHandler returns 400 TENANT_CONTEXT_REQUIRED when no
+// tenant/channel context is supplied.
+func TestGatewayPartnerChargeHandler_MissingTenantContext(t *testing.T) {
+	h := newTestPartnerHandler(stubRepo())
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetBody([]byte(`{"msisdn":"233241234567"}`))
+	h.GatewayPartnerChargeHandler(ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusBadRequest {
+		t.Errorf("want 400, got %d", ctx.Response.StatusCode())
+	}
+	if code := errorCode(ctx.Response.Body()); code != "TENANT_CONTEXT_REQUIRED" {
+		t.Errorf("want TENANT_CONTEXT_REQUIRED, got %q", code)
+	}
+}

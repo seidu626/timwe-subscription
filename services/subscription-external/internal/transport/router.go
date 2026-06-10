@@ -568,7 +568,25 @@ func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler
 				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
 			}
 
-		// Partner MT: /api/external/v1/{channel}/mt
+		// Gateway-trusted partner MT/charge routes (tenant-path shape — TMP-TENANT-PATH).
+		// KrakenD injects X-Tenant-Key/X-Channel-Key via martian from the public path
+		// /api/external/v1/{tenant_key}/{channel_key}/mt and /charges.
+		case strings.EqualFold(path, "/api/v1/subscription-external/partners/mt"):
+			if method == fasthttp.MethodPost {
+				partnerHandler.GatewayPartnerMTHandler(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+		case strings.EqualFold(path, "/api/v1/subscription-external/partners/charge"):
+			if method == fasthttp.MethodPost {
+				partnerHandler.GatewayPartnerChargeHandler(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+
+		// DEPRECATED: Partner MT legacy path /api/external/v1/{channel}/mt.
+		// Canonical path: /api/external/v1/{tenant_key}/{channel_key}/mt via GatewayPartnerMTHandler.
+		// TODO(deprecation): add once-per-process warn log.
 		case strings.HasPrefix(path, "/api/external/v1/") && strings.HasSuffix(path, "/mt"):
 			if method != fasthttp.MethodPost {
 				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
@@ -582,7 +600,9 @@ func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler
 			}
 			channel := segments[0]
 			partnerHandler.PartnerMTHandler(ctx, channel)
-		// Partner Charge: /api/external/v1/charge/dob
+		// DEPRECATED: Partner charge legacy path /api/external/v1/charge/dob.
+		// Canonical path: /api/external/v1/{tenant_key}/{channel_key}/charges via GatewayPartnerChargeHandler.
+		// TODO(deprecation): add once-per-process warn log.
 		case strings.EqualFold(path, "/api/external/v1/charge/dob"):
 			if method != fasthttp.MethodPost {
 				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
