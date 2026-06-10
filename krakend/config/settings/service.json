@@ -8,15 +8,15 @@
   "default_hosts": [
     "https://api.nouveauricheglobalgroup.com"
   ],
-  "subscription_api_url":          "http://localhost:8081",
-  "notification_api_url":          "http://localhost:8082",
+  "subscription_api_url": "http://localhost:8081",
+  "notification_api_url": "http://localhost:8082",
   "subscription_external_api_url": "http://localhost:8083",
-  "billing_api_url":               "http://localhost:8085",
-  "acquisition_api_url":           "http://localhost:8084",
-  "cadence_api_url":               "http://localhost:8091",
-  "landing_web_url":               "http://localhost:3000",
-  "admin_auth0_domain":            "dev-chliep5q.auth0.com",
-  "admin_auth0_audience":          "https://dev-chliep5q.auth0.com/api/v2/",
+  "billing_api_url": "http://localhost:8085",
+  "acquisition_api_url": "http://localhost:8084",
+  "cadence_api_url": "http://localhost:8091",
+  "landing_web_url": "http://localhost:3000",
+  "admin_auth0_domain": "dev-chliep5q.auth0.com",
+  "admin_auth0_audience": "https://dev-chliep5q.auth0.com/api/v2/",
   "extra_config": {
     "security/http": {
       "allowed_hosts": [],
@@ -43,7 +43,9 @@
         "DELETE",
         "OPTIONS"
       ],
-      "allow_headers": ["*"],
+      "allow_headers": [
+        "*"
+      ],
       "expose_headers": [
         "Content-Length",
         "x-pagination"
@@ -65,5 +67,6 @@
       "endpoint_disabled": false,
       "listen_address": ":8090"
     }
-  }
+  },
+  "admin_auth0_issuer": "https://dev-chliep5q.auth0.com/"
 }
