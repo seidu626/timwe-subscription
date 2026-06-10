@@ -225,7 +225,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -322,7 +322,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -419,7 +419,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -516,7 +516,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -613,7 +613,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -710,7 +710,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -810,7 +810,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -1367,7 +1367,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -1573,7 +1573,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -1669,7 +1669,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -1765,7 +1765,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -4438,7 +4438,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -4539,7 +4539,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -4640,7 +4640,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -4741,7 +4741,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -4842,7 +4842,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
@@ -4943,7 +4943,7 @@
                         "request"
                       ],
                       "name": "X-Gateway-Trust",
-                      "value": "__REPLACE_WITH_GATEWAY_TRUST_TOKEN__"
+                      "value": "__env:GATEWAY_TRUST_TOKEN__"
                     }
                   }
                 ]
