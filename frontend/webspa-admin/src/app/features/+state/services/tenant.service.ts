@@ -8,6 +8,7 @@ import {
   ChannelCreatePayload,
   ChannelFilters,
   ChannelListResponse,
+  CredentialSecretValue,
   TenantMemberListResponse,
   TenantMemberMutationResponse,
   TenantMemberPayload,
@@ -129,5 +130,18 @@ export class TenantService {
       `${this.channelsUrl}/${encodeURIComponent(channelId)}/credentials`,
       payload
     );
+  }
+
+  /** Serialize a per-field credential blob and POST it as secret_value. */
+  bindChannelCredentialValue(
+    channelId: string,
+    purpose: string,
+    value: CredentialSecretValue
+  ): Observable<ChannelCredentialListResponse['credentials'][number]> {
+    const payload: ChannelCredentialPayload = {
+      purpose,
+      secret_value: JSON.stringify(value)
+    };
+    return this.bindChannelCredential(channelId, payload);
   }
 }

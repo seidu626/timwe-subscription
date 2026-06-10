@@ -142,6 +142,26 @@ export interface ChannelCredentialListResponse {
 export interface ChannelCredentialPayload {
   purpose?: string;
   secret_ref?: string;
+  secret_value?: string;
   redacted_display?: string;
   performed_by?: string;
+}
+
+/** Per-field credential blob. Serialized to JSON and sent as secret_value. */
+export interface CredentialSecretValue {
+  base_url?: string;
+  api_key?: string;
+  mt_api_key?: string;
+  psk?: string;
+  partner_service_id?: string;
+  partner_role_id?: string;
+  realm?: string;
+  mcc?: string;
+  mnc?: string;
+  large_account?: string;
+  service_name?: string;
+  free_mt_pricepoint_id?: string;
+  mo_pricepoint_ids?: string[];
+  billing_pricepoint_ids?: string[];
+  he_iv_param_spec_key?: string;
 }

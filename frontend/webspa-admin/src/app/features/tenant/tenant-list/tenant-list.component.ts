@@ -9,6 +9,7 @@ import {
   AdminTenantMember,
   ChannelCredentialPayload,
   ChannelCreatePayload,
+  CredentialSecretValue,
   TenantCreatePayload,
   TenantMemberPayload,
   TenantMemberRole,
@@ -40,7 +41,7 @@ export class TenantListComponent implements OnInit {
   displayedColumns: string[] = ['tenant_key', 'name', 'status', 'default_country', 'updated_at', 'actions'];
   memberDisplayedColumns: string[] = ['auth0_subject', 'email', 'role', 'status', 'updated_at', 'actions'];
   channelDisplayedColumns: string[] = ['channel_key', 'provider', 'capabilities', 'status', 'updated_at', 'actions'];
-  credentialDisplayedColumns: string[] = ['purpose', 'version', 'redacted_display', 'status', 'updated_at'];
+  credentialDisplayedColumns: string[] = ['purpose', 'version', 'redacted_display', 'status', 'updated_at', 'created_at'];
   trackByTenantKey = (_: number, row: any) => row?.tenant_key ?? row?.id ?? _;
   trackByMember = (_: number, row: any) => row?.auth0_subject ?? row?.id ?? _;
   trackByChannel = (_: number, row: any) => row?.channel_id ?? row?.channel_key ?? _;
@@ -60,12 +61,19 @@ export class TenantListComponent implements OnInit {
     status: ''
   };
 
+  /** 'ref' = secret_ref mode; 'value' = per-field direct-value mode */
+  credentialMode: 'ref' | 'value' = 'ref';
+  showApiKey = false;
+  showMtApiKey = false;
+  showPsk = false;
+
   editingTenantId: string | null = null;
   selectedChannelId = '';
   form = this.emptyForm();
   memberForm = this.emptyMemberForm();
   channelForm = this.emptyChannelForm();
   credentialForm = this.emptyCredentialForm();
+  credentialValueForm = this.emptyCredentialValueForm();
   metadataText = '{}';
 
   constructor(
@@ -134,6 +142,11 @@ export class TenantListComponent implements OnInit {
     this.memberForm = this.emptyMemberForm();
     this.channelForm = this.emptyChannelForm();
     this.credentialForm = this.emptyCredentialForm();
+    this.credentialValueForm = this.emptyCredentialValueForm();
+    this.credentialMode = 'ref';
+    this.showApiKey = false;
+    this.showMtApiKey = false;
+    this.showPsk = false;
     this.memberDataSource.data = [];
     this.channelDataSource.data = [];
     this.credentialDataSource.data = [];
@@ -351,6 +364,73 @@ export class TenantListComponent implements OnInit {
     });
   }
 
+  saveCredentialValue(): void {
+    if (!this.selectedChannelId) {
+      this.toast('Select a channel first');
+      return;
+    }
+    const f = this.credentialValueForm;
+    if (!f.base_url.trim() && !f.api_key.trim()) {
+      this.toast('At least base_url or api_key is required');
+      return;
+    }
+
+    const value: CredentialSecretValue = {};
+    if (f.base_url.trim()) { value.base_url = f.base_url.trim(); }
+    if (f.api_key.trim()) { value.api_key = f.api_key.trim(); }
+    if (f.mt_api_key.trim()) { value.mt_api_key = f.mt_api_key.trim(); }
+    if (f.psk.trim()) { value.psk = f.psk.trim(); }
+    if (f.partner_service_id.trim()) { value.partner_service_id = f.partner_service_id.trim(); }
+    if (f.partner_role_id.trim()) { value.partner_role_id = f.partner_role_id.trim(); }
+    if (f.realm.trim()) { value.realm = f.realm.trim(); }
+    if (f.mcc.trim()) { value.mcc = f.mcc.trim(); }
+    if (f.mnc.trim()) { value.mnc = f.mnc.trim(); }
+    if (f.large_account.trim()) { value.large_account = f.large_account.trim(); }
+    if (f.service_name.trim()) { value.service_name = f.service_name.trim(); }
+    if (f.free_mt_pricepoint_id.trim()) { value.free_mt_pricepoint_id = f.free_mt_pricepoint_id.trim(); }
+    if (f.he_iv_param_spec_key.trim()) { value.he_iv_param_spec_key = f.he_iv_param_spec_key.trim(); }
+
+    const moPpIds = this.parseIdList(f.mo_pricepoint_ids_text);
+    if (moPpIds === null) {
+      this.toast('mo_pricepoint_ids: each entry must be non-empty');
+      return;
+    }
+    if (moPpIds.length > 0) { value.mo_pricepoint_ids = moPpIds; }
+
+    const billingPpIds = this.parseIdList(f.billing_pricepoint_ids_text);
+    if (billingPpIds === null) {
+      this.toast('billing_pricepoint_ids: each entry must be non-empty');
+      return;
+    }
+    if (billingPpIds.length > 0) { value.billing_pricepoint_ids = billingPpIds; }
+
+    const purpose = f.purpose.trim() || 'provider_api';
+    this.credentialSaving = true;
+    this.tenantService.bindChannelCredentialValue(this.selectedChannelId, purpose, value).subscribe({
+      next: () => {
+        this.credentialSaving = false;
+        this.credentialValueForm = this.emptyCredentialValueForm();
+        this.showApiKey = false;
+        this.showMtApiKey = false;
+        this.showPsk = false;
+        this.toast('Credential value bound');
+        this.loadChannelCredentials(this.selectedChannelId);
+      },
+      error: (err) => {
+        this.credentialSaving = false;
+        this.toast(this.extractErrorMessage(err, 'Failed to bind credential value'));
+      }
+    });
+  }
+
+  /** Parse a newline/comma-separated list of IDs; returns null on invalid entries. */
+  parseIdList(raw: string): string[] | null {
+    if (!raw.trim()) { return []; }
+    const items = raw.split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.length > 0);
+    if (items.some((s) => s === '')) { return null; }
+    return items;
+  }
+
   private loadTenantMembers(tenantId: string): void {
     if (!tenantId) {
       this.memberDataSource.data = [];
@@ -460,6 +540,44 @@ export class TenantListComponent implements OnInit {
     return {
       purpose: 'provider_api',
       secret_ref: ''
+    };
+  }
+
+  private emptyCredentialValueForm(): {
+    purpose: string;
+    base_url: string;
+    api_key: string;
+    mt_api_key: string;
+    psk: string;
+    partner_service_id: string;
+    partner_role_id: string;
+    realm: string;
+    mcc: string;
+    mnc: string;
+    large_account: string;
+    service_name: string;
+    free_mt_pricepoint_id: string;
+    mo_pricepoint_ids_text: string;
+    billing_pricepoint_ids_text: string;
+    he_iv_param_spec_key: string;
+  } {
+    return {
+      purpose: 'provider_api',
+      base_url: '',
+      api_key: '',
+      mt_api_key: '',
+      psk: '',
+      partner_service_id: '',
+      partner_role_id: '',
+      realm: '',
+      mcc: '',
+      mnc: '',
+      large_account: '',
+      service_name: '',
+      free_mt_pricepoint_id: '',
+      mo_pricepoint_ids_text: '',
+      billing_pricepoint_ids_text: '',
+      he_iv_param_spec_key: ''
     };
   }
 

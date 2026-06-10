@@ -113,6 +113,13 @@ describe('TenantListComponent', () => {
         updated_at: '2026-05-13T00:00:00Z'
       }))
     };
+    // bindChannelCredentialValue delegates to bindChannelCredential after JSON serialization
+    (tenantService as any).bindChannelCredentialValue = (channelId: string, purpose: string, value: object) => {
+      return tenantService.bindChannelCredential(channelId, {
+        purpose,
+        secret_value: JSON.stringify(value)
+      });
+    };
     const snackBar = {
       open: jasmine.createSpy()
     };
@@ -233,6 +240,178 @@ describe('TenantListComponent', () => {
     expect(tenantService.bindChannelCredential).toHaveBeenCalledWith('channel-1', {
       purpose: 'provider_api',
       secret_ref: 'vault://tenant/channel/provider-api'
+    });
+  });
+
+  it('rejects saveCredentialReference when no channel is selected', () => {
+    const { component, tenantService, snackBar } = createComponent();
+    component.selectedChannelId = '';
+    component.credentialForm = { purpose: 'provider_api', secret_ref: 'vault://x' };
+
+    component.saveCredentialReference();
+
+    expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    expect(snackBar.open).toHaveBeenCalledWith('Select a channel first', 'Close', { duration: 4000 });
+  });
+
+  it('rejects saveCredentialReference when secret_ref is empty', () => {
+    const { component, tenantService, snackBar } = createComponent();
+    component.selectedChannelId = 'channel-1';
+    component.credentialForm = { purpose: 'provider_api', secret_ref: '   ' };
+
+    component.saveCredentialReference();
+
+    expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    expect(snackBar.open).toHaveBeenCalledWith('Credential secret reference is required', 'Close', { duration: 4000 });
+  });
+
+  it('binds direct credential value as serialized JSON via bindChannelCredentialValue', () => {
+    const { component, tenantService } = createComponent();
+    component.selectedChannelId = 'channel-1';
+    component.credentialValueForm = {
+      purpose: 'provider_api',
+      base_url: ' https://api.example.com ',
+      api_key: 'key-abc',
+      mt_api_key: 'mtkey-xyz',
+      psk: 'psk-secret',
+      partner_service_id: 'svc-1',
+      partner_role_id: 'role-1',
+      realm: 'gh',
+      mcc: '620',
+      mnc: '01',
+      large_account: 'la-001',
+      service_name: 'newsub',
+      free_mt_pricepoint_id: 'pp-free',
+      mo_pricepoint_ids_text: 'pp-mo-1\npp-mo-2',
+      billing_pricepoint_ids_text: 'pp-bill-1',
+      he_iv_param_spec_key: 'iv-key'
+    };
+
+    component.saveCredentialValue();
+
+    // Key order matches saveCredentialValue(): scalar fields first, list fields last
+    const expectedBlob = {
+      base_url: 'https://api.example.com',
+      api_key: 'key-abc',
+      mt_api_key: 'mtkey-xyz',
+      psk: 'psk-secret',
+      partner_service_id: 'svc-1',
+      partner_role_id: 'role-1',
+      realm: 'gh',
+      mcc: '620',
+      mnc: '01',
+      large_account: 'la-001',
+      service_name: 'newsub',
+      free_mt_pricepoint_id: 'pp-free',
+      he_iv_param_spec_key: 'iv-key',
+      mo_pricepoint_ids: ['pp-mo-1', 'pp-mo-2'],
+      billing_pricepoint_ids: ['pp-bill-1']
+    };
+    expect(tenantService.bindChannelCredential).toHaveBeenCalledWith('channel-1', {
+      purpose: 'provider_api',
+      secret_value: JSON.stringify(expectedBlob)
+    });
+  });
+
+  it('omits empty optional fields from the credential value blob', () => {
+    const { component, tenantService } = createComponent();
+    component.selectedChannelId = 'channel-1';
+    component.credentialValueForm = {
+      purpose: 'provider_api',
+      base_url: 'https://api.example.com',
+      api_key: '',
+      mt_api_key: '',
+      psk: '',
+      partner_service_id: '',
+      partner_role_id: '',
+      realm: '',
+      mcc: '',
+      mnc: '',
+      large_account: '',
+      service_name: '',
+      free_mt_pricepoint_id: '',
+      mo_pricepoint_ids_text: '',
+      billing_pricepoint_ids_text: '',
+      he_iv_param_spec_key: ''
+    };
+
+    component.saveCredentialValue();
+
+    const call = (tenantService.bindChannelCredential as jasmine.Spy).calls.mostRecent();
+    const body = call.args[1] as { purpose: string; secret_value: string };
+    const parsed = JSON.parse(body.secret_value);
+    expect(Object.keys(parsed)).toEqual(['base_url']);
+    expect(parsed.api_key).toBeUndefined();
+    expect(parsed.mo_pricepoint_ids).toBeUndefined();
+  });
+
+  it('rejects saveCredentialValue when no channel is selected', () => {
+    const { component, tenantService, snackBar } = createComponent();
+    component.selectedChannelId = '';
+
+    component.saveCredentialValue();
+
+    expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    expect(snackBar.open).toHaveBeenCalledWith('Select a channel first', 'Close', { duration: 4000 });
+  });
+
+  it('rejects saveCredentialValue when both base_url and api_key are empty', () => {
+    const { component, tenantService, snackBar } = createComponent();
+    component.selectedChannelId = 'channel-1';
+    component.credentialValueForm = {
+      purpose: 'provider_api',
+      base_url: '  ',
+      api_key: '',
+      mt_api_key: '',
+      psk: '',
+      partner_service_id: '',
+      partner_role_id: '',
+      realm: '',
+      mcc: '',
+      mnc: '',
+      large_account: '',
+      service_name: '',
+      free_mt_pricepoint_id: '',
+      mo_pricepoint_ids_text: '',
+      billing_pricepoint_ids_text: '',
+      he_iv_param_spec_key: ''
+    };
+
+    component.saveCredentialValue();
+
+    expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    expect(snackBar.open).toHaveBeenCalledWith('At least base_url or api_key is required', 'Close', { duration: 4000 });
+  });
+
+  describe('parseIdList', () => {
+    it('parses newline-separated IDs', () => {
+      const { component } = createComponent();
+      expect(component.parseIdList('a\nb\nc')).toEqual(['a', 'b', 'c']);
+    });
+
+    it('parses comma-separated IDs', () => {
+      const { component } = createComponent();
+      expect(component.parseIdList('a,b,c')).toEqual(['a', 'b', 'c']);
+    });
+
+    it('trims surrounding whitespace from each entry', () => {
+      const { component } = createComponent();
+      expect(component.parseIdList('  pp-1  \n  pp-2  ')).toEqual(['pp-1', 'pp-2']);
+    });
+
+    it('returns empty array for blank input', () => {
+      const { component } = createComponent();
+      expect(component.parseIdList('   ')).toEqual([]);
+    });
+
+    it('returns empty array for empty string', () => {
+      const { component } = createComponent();
+      expect(component.parseIdList('')).toEqual([]);
+    });
+
+    it('filters out blank lines between entries', () => {
+      const { component } = createComponent();
+      expect(component.parseIdList('a\n\nb')).toEqual(['a', 'b']);
     });
   });
 });
