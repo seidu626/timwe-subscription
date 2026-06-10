@@ -366,6 +366,70 @@ func expectTenantInsert(mock sqlmock.Sqlmock, _ time.Time) *sqlmock.ExpectedQuer
 		)
 }
 
+func TestUpdateChannelWithActivityLogReturnsNotFoundOnMissingRow(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	provider := "timwe"
+	mock.ExpectBegin()
+	mock.ExpectQuery(`UPDATE tenant_channels`).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectRollback()
+
+	_, err = repo.UpdateChannelWithActivityLog(
+		"22222222-2222-2222-2222-222222222222",
+		"33333333-3333-3333-3333-333333333333",
+		&domain.ChannelUpdateInput{Provider: &provider},
+		nil,
+	)
+	if !errors.Is(err, ErrAdminNotFound) {
+		t.Fatalf("expected ErrAdminNotFound, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateChannelWithActivityLogCommitsUpdate(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	channelID := "33333333-3333-3333-3333-333333333333"
+	provider := "timwe"
+
+	channelRowCols := []string{"id", "tenant_id", "channel_key", "provider", "country", "operator", "capabilities", "status", "created_at", "updated_at"}
+	mock.ExpectBegin()
+	mock.ExpectQuery(`UPDATE tenant_channels`).
+		WithArgs(tenantID, channelID, provider).
+		WillReturnRows(sqlmock.NewRows(channelRowCols).
+			AddRow(channelID, tenantID, "timwe-gh", provider, "GH", nil, `{"optin","confirm"}`, domain.ChannelStatusActive, now, now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	entry := &domain.AdminActivityLog{ID: "aaaa", Action: "update"}
+	ch, err := repo.UpdateChannelWithActivityLog(tenantID, channelID, &domain.ChannelUpdateInput{Provider: &provider}, entry)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ch.Provider != provider {
+		t.Fatalf("provider=%q want %q", ch.Provider, provider)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func tenantRows(now time.Time) *sqlmock.Rows {
 	return sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
 		AddRow("22222222-2222-2222-2222-222222222222", "tenant-a", "Tenant A", domain.TenantStatusActive, "GH", []byte(`{"tier":"gold"}`), now, now)

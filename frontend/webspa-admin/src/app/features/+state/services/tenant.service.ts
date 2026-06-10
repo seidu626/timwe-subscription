@@ -8,6 +8,7 @@ import {
   ChannelCreatePayload,
   ChannelFilters,
   ChannelListResponse,
+  ChannelUpdatePayload,
   CredentialSecretValue,
   TenantMemberListResponse,
   TenantMemberMutationResponse,
@@ -108,6 +109,13 @@ export class TenantService {
 
   createChannel(payload: ChannelCreatePayload): Observable<ChannelListResponse['channels'][number]> {
     return this.http.post<ChannelListResponse['channels'][number]>(this.channelsUrl, payload);
+  }
+
+  updateChannel(channelId: string, payload: ChannelUpdatePayload): Observable<ChannelListResponse['channels'][number]> {
+    return this.http.patch<ChannelListResponse['channels'][number]>(
+      `${this.channelsUrl}/${encodeURIComponent(channelId)}`,
+      payload
+    );
   }
 
   setChannelEnabled(channelId: string, enabled: boolean): Observable<ChannelListResponse['channels'][number]> {

@@ -288,6 +288,16 @@ func NewRouter(
 			}
 			return
 
+		case strings.HasPrefix(path, "/v1/admin/channels/") &&
+			!strings.HasSuffix(path, "/credentials") &&
+			!strings.HasSuffix(path, "/enabled"):
+			if method == fasthttp.MethodPatch {
+				adminManagementHandler.UpdateChannel(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		case strings.HasPrefix(path, "/v1/admin/products/"):
 			switch method {
 			case fasthttp.MethodPut:

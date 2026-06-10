@@ -212,6 +212,15 @@ type ChannelCreateInput struct {
 	Enabled      *bool
 }
 
+// ChannelUpdateInput contains fields that may be changed after channel creation.
+// Immutable fields (tenant binding, channel_key) are excluded.
+type ChannelUpdateInput struct {
+	Provider     *string
+	Country      *string
+	Operator     *string  // set to empty string to clear
+	Capabilities []string // nil means no change; non-nil (even empty) replaces
+}
+
 // ChannelListFilter is used to filter and paginate tenant channels.
 type ChannelListFilter struct {
 	TenantID string

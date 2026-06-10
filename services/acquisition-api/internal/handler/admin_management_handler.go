@@ -650,6 +650,63 @@ func (h *AdminManagementHandler) BindChannelCredential(ctx *fasthttp.RequestCtx)
 	writeJSON(ctx, fasthttp.StatusCreated, credential)
 }
 
+type channelUpdatePayload struct {
+	Provider     *string  `json:"provider,omitempty"`
+	Country      *string  `json:"country,omitempty"`
+	Operator     *string  `json:"operator,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
+	PerformedBy  string   `json:"performed_by,omitempty"`
+}
+
+func (h *AdminManagementHandler) UpdateChannel(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	channelID, err := parseChannelIDFromPath(string(ctx.Path()))
+	if err != nil {
+		ctx.Error("Invalid channel id", fasthttp.StatusBadRequest)
+		return
+	}
+
+	body := ctx.PostBody()
+	if len(bytes.TrimSpace(body)) == 0 {
+		ctx.Error("Request body must not be empty", fasthttp.StatusBadRequest)
+		return
+	}
+
+	var req channelUpdatePayload
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+
+	// Detect a body that decoded but carries no updatable fields.
+	if req.Provider == nil && req.Country == nil && req.Operator == nil && req.Capabilities == nil {
+		ctx.Error("No updatable fields provided", fasthttp.StatusBadRequest)
+		return
+	}
+
+	input := &domain.ChannelUpdateInput{
+		Provider:     req.Provider,
+		Country:      req.Country,
+		Operator:     req.Operator,
+		Capabilities: req.Capabilities,
+	}
+
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
+	requestID := requestIDFromHeader(ctx)
+	channel, err := h.service.UpdateChannel(tenant.ID, channelID, input, actor, requestID)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, channel)
+}
+
 func (h *AdminManagementHandler) ListChannelCredentials(ctx *fasthttp.RequestCtx) {
 	tenant, _, err := h.currentTenantFromRequest(ctx)
 	if err != nil {
@@ -1028,6 +1085,20 @@ func parseImportIDFromPath(path string) (string, error) {
 	id := strings.TrimSpace(parts[len(parts)-1])
 	if id == "" {
 		return "", errors.New("missing import id")
+	}
+	return id, nil
+}
+
+// parseChannelIDFromPath returns the channel id from paths like /v1/admin/channels/{id}.
+// It rejects paths that end with a recognised sub-resource suffix.
+func parseChannelIDFromPath(path string) (string, error) {
+	parts := splitPathParts(path)
+	if len(parts) < 4 {
+		return "", errors.New("invalid path")
+	}
+	id := strings.TrimSpace(parts[len(parts)-1])
+	if id == "" || id == "credentials" || id == "enabled" {
+		return "", errors.New("invalid channel id")
 	}
 	return id, nil
 }

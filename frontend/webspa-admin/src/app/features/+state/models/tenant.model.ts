@@ -117,6 +117,14 @@ export interface ChannelCreatePayload {
   performed_by?: string;
 }
 
+export interface ChannelUpdatePayload {
+  provider?: string;
+  country?: string;
+  operator?: string;
+  capabilities?: string[];
+  performed_by?: string;
+}
+
 export interface AdminChannelCredential {
   credential_id: string;
   tenant_id: string;

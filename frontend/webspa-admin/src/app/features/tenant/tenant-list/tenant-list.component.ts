@@ -9,6 +9,7 @@ import {
   AdminTenantMember,
   ChannelCredentialPayload,
   ChannelCreatePayload,
+  ChannelUpdatePayload,
   CredentialSecretValue,
   TenantCreatePayload,
   TenantMemberPayload,
@@ -68,10 +69,12 @@ export class TenantListComponent implements OnInit {
   showPsk = false;
 
   editingTenantId: string | null = null;
+  editingChannelId: string | null = null;
   selectedChannelId = '';
   form = this.emptyForm();
   memberForm = this.emptyMemberForm();
   channelForm = this.emptyChannelForm();
+  channelEditForm = this.emptyChannelEditForm();
   credentialForm = this.emptyCredentialForm();
   credentialValueForm = this.emptyCredentialValueForm();
   metadataText = '{}';
@@ -138,9 +141,11 @@ export class TenantListComponent implements OnInit {
 
   resetForm(): void {
     this.editingTenantId = null;
+    this.editingChannelId = null;
     this.form = this.emptyForm();
     this.memberForm = this.emptyMemberForm();
     this.channelForm = this.emptyChannelForm();
+    this.channelEditForm = this.emptyChannelEditForm();
     this.credentialForm = this.emptyCredentialForm();
     this.credentialValueForm = this.emptyCredentialValueForm();
     this.credentialMode = 'ref';
@@ -312,6 +317,74 @@ export class TenantListComponent implements OnInit {
         this.toast(this.extractErrorMessage(err, 'Failed to update channel'));
       }
     });
+  }
+
+  editChannel(channel: AdminChannel): void {
+    this.editingChannelId = channel.channel_id;
+    this.channelEditForm = {
+      provider: channel.provider,
+      country: channel.country,
+      operator: channel.operator || '',
+      capabilities: [...channel.capabilities]
+    };
+  }
+
+  cancelChannelEdit(): void {
+    this.editingChannelId = null;
+    this.channelEditForm = this.emptyChannelEditForm();
+  }
+
+  saveChannelUpdate(): void {
+    if (!this.editingChannelId) {
+      return;
+    }
+    const payload: ChannelUpdatePayload = {};
+    const p = this.channelEditForm.provider.trim().toLowerCase();
+    if (p) {
+      payload.provider = p;
+    }
+    const c = this.channelEditForm.country.trim().toUpperCase();
+    if (c) {
+      payload.country = c;
+    }
+    payload.operator = this.channelEditForm.operator.trim();
+    if (this.channelEditForm.capabilities.length > 0) {
+      payload.capabilities = [...this.channelEditForm.capabilities].sort();
+    }
+
+    if (!payload.provider && !payload.country && payload.operator === undefined && !payload.capabilities) {
+      this.toast('No fields to update');
+      return;
+    }
+
+    this.channelSaving = true;
+    this.tenantService.updateChannel(this.editingChannelId, payload).subscribe({
+      next: () => {
+        this.channelSaving = false;
+        this.editingChannelId = null;
+        this.channelEditForm = this.emptyChannelEditForm();
+        this.toast('Channel updated');
+        this.loadChannels();
+      },
+      error: (err) => {
+        this.channelSaving = false;
+        this.toast(this.extractErrorMessage(err, 'Failed to update channel'));
+      }
+    });
+  }
+
+  editCapabilitySelected(capability: string): boolean {
+    return this.channelEditForm.capabilities.includes(capability);
+  }
+
+  toggleEditCapability(capability: string, checked: boolean): void {
+    const next = new Set(this.channelEditForm.capabilities);
+    if (checked) {
+      next.add(capability);
+    } else {
+      next.delete(capability);
+    }
+    this.channelEditForm.capabilities = Array.from(next).sort();
   }
 
   selectChannel(channelId: string): void {
@@ -533,6 +606,15 @@ export class TenantListComponent implements OnInit {
       operator: '',
       capabilities: ['optin', 'confirm', 'mt'],
       enabled: false
+    };
+  }
+
+  private emptyChannelEditForm(): { provider: string; country: string; operator: string; capabilities: string[] } {
+    return {
+      provider: '',
+      country: '',
+      operator: '',
+      capabilities: []
     };
   }
 
