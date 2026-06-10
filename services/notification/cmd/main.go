@@ -75,7 +75,9 @@ func main() {
 		return out, nil
 	}
 	router := transport.NewRouter(h, memberTenantLookup)
-	handlerWithCORS := middleware.CORSMiddleware(router, cfg.Application.AllowedOrigins)
+	ipLimiter := middleware.NewIPRateLimiterFromEnv(middleware.RealClock)
+	handlerWithThrottle := middleware.CallbackIPRateLimitMiddleware(router, ipLimiter)
+	handlerWithCORS := middleware.CORSMiddleware(handlerWithThrottle, cfg.Application.AllowedOrigins)
 
 	log.Printf("Starting notification service on port: %d...", cfg.Application.Port)
 	log.Fatal(fasthttp.ListenAndServe(fmt.Sprintf(":%d", cfg.Application.Port), handlerWithCORS))
