@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,8 +43,13 @@ type TenantAwareTIMWEClient interface {
 }
 
 type TenantSubscriptionContext struct {
-	TenantID  string
-	ChannelID string
+	TenantID     string
+	ChannelID    string
+	// Per-tenant account config resolved from the channel credential blob.
+	// Empty string means "not set"; callers fall back to global config.
+	MCC          string
+	MNC          string
+	LargeAccount string
 }
 
 // TIMWEResponse represents a response from TIMWE API
@@ -283,13 +289,25 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 	}
 	var timweResp *TIMWEResponse
 	if tenantClient, ok := s.timweClient.(TenantAwareTIMWEClient); ok && campaign.TenantID != nil && campaign.ChannelID != nil {
+		tenantCtx := TenantSubscriptionContext{TenantID: *campaign.TenantID, ChannelID: *campaign.ChannelID}
+		if acctCfg, cfgErr := GetChannelAccountConfig(context.Background(), s.txRepo.DB(), *campaign.TenantID, *campaign.ChannelID); cfgErr == nil {
+			tenantCtx.MCC = acctCfg.MCC
+			tenantCtx.MNC = acctCfg.MNC
+			tenantCtx.LargeAccount = acctCfg.LargeAccount
+		} else {
+			s.logger.Warn("Failed to resolve channel account config; falling back to global MCC/MNC",
+				zap.String("tenant_id", *campaign.TenantID),
+				zap.String("channel_id", *campaign.ChannelID),
+				zap.Error(cfgErr),
+			)
+		}
 		timweResp, err = tenantClient.OptInWithTenant(
 			msisdnToUse,
 			*tx.OfferProductID,
 			"WEB",
 			trackingFields,
 			partnerRoleID,
-			TenantSubscriptionContext{TenantID: *campaign.TenantID, ChannelID: *campaign.ChannelID},
+			tenantCtx,
 		)
 	} else {
 		timweResp, err = s.timweClient.OptIn(
