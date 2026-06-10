@@ -2,7 +2,7 @@ export type TenantStatus = 'ACTIVE' | 'INACTIVE';
 export type TenantMemberStatus = 'ACTIVE' | 'INACTIVE';
 export type TenantMemberRole = 'TENANT_ADMIN' | 'TENANT_VIEWER';
 export type ChannelStatus = 'ACTIVE' | 'INACTIVE';
-export type ChannelCredentialStatus = 'ACTIVE' | 'INACTIVE';
+export type ChannelCredentialStatus = 'ACTIVE' | 'INACTIVE' | 'REVOKED';
 
 export interface AdminTenant {
   id: string;
@@ -144,4 +144,9 @@ export interface ChannelCredentialPayload {
   secret_ref?: string;
   redacted_display?: string;
   performed_by?: string;
+}
+
+export interface RevokeCredentialResponse {
+  credential: AdminChannelCredential;
+  was_only_active: boolean;
 }

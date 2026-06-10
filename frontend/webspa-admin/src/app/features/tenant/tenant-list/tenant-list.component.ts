@@ -9,6 +9,7 @@ import {
   AdminTenantMember,
   ChannelCredentialPayload,
   ChannelCreatePayload,
+  RevokeCredentialResponse,
   TenantCreatePayload,
   TenantMemberPayload,
   TenantMemberRole,
@@ -32,6 +33,7 @@ export class TenantListComponent implements OnInit {
   channelSaving = false;
   credentialLoading = false;
   credentialSaving = false;
+  credentialRevoking = false;
 
   readonly statuses: Array<TenantStatus | ''> = ['', 'ACTIVE', 'INACTIVE'];
   readonly memberStatuses: TenantMemberStatus[] = ['ACTIVE', 'INACTIVE'];
@@ -40,7 +42,7 @@ export class TenantListComponent implements OnInit {
   displayedColumns: string[] = ['tenant_key', 'name', 'status', 'default_country', 'updated_at', 'actions'];
   memberDisplayedColumns: string[] = ['auth0_subject', 'email', 'role', 'status', 'updated_at', 'actions'];
   channelDisplayedColumns: string[] = ['channel_key', 'provider', 'capabilities', 'status', 'updated_at', 'actions'];
-  credentialDisplayedColumns: string[] = ['purpose', 'version', 'redacted_display', 'status', 'updated_at'];
+  credentialDisplayedColumns: string[] = ['purpose', 'version', 'redacted_display', 'status', 'updated_at', 'actions'];
   trackByTenantKey = (_: number, row: any) => row?.tenant_key ?? row?.id ?? _;
   trackByMember = (_: number, row: any) => row?.auth0_subject ?? row?.id ?? _;
   trackByChannel = (_: number, row: any) => row?.channel_id ?? row?.channel_key ?? _;
@@ -347,6 +349,42 @@ export class TenantListComponent implements OnInit {
       error: (err) => {
         this.credentialSaving = false;
         this.toast(this.extractErrorMessage(err, 'Failed to bind credential reference'));
+      }
+    });
+  }
+
+  revokeCredential(credential: AdminChannelCredential): void {
+    if (!this.selectedChannelId || !credential.credential_id) {
+      return;
+    }
+    if (credential.status === 'REVOKED') {
+      this.toast('Credential is already revoked');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Revoke credential "${credential.redacted_display}" (purpose: ${credential.purpose}, v${credential.version})?\n\nThis will permanently delete the stored ciphertext and cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+    this.credentialRevoking = true;
+    this.tenantService.revokeChannelCredential(this.selectedChannelId, credential.credential_id).subscribe({
+      next: (result: RevokeCredentialResponse) => {
+        this.credentialRevoking = false;
+        const msg = result.was_only_active
+          ? 'Credential revoked. Channel now has no active credential for this purpose.'
+          : 'Credential revoked';
+        this.toast(msg);
+        this.loadChannelCredentials(this.selectedChannelId);
+      },
+      error: (err: any) => {
+        this.credentialRevoking = false;
+        if (err?.status === 409) {
+          this.toast('Credential was already revoked');
+          this.loadChannelCredentials(this.selectedChannelId);
+        } else {
+          this.toast(this.extractErrorMessage(err, 'Failed to revoke credential'));
+        }
       }
     });
   }

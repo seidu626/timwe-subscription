@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 	expectRelationExists(mock, "public.userbase_import_errors")
 	expectRelationExists(mock, "public.tenant_channels")
 	expectRelationExists(mock, "public.tenant_channel_credentials")
+	expectRelationExists(mock, "public.tenant_channel_secrets")
 	expectRelationExists(mock, "public.tenant_admin_memberships")
 
 	if err := repo.EnsureSchema(context.Background(), file); err != nil {
@@ -83,6 +84,7 @@ CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 	expectRelationExists(mock, "public.userbase_import_errors")
 	expectRelationExists(mock, "public.tenant_channels")
 	expectRelationExists(mock, "public.tenant_channel_credentials")
+	expectRelationExists(mock, "public.tenant_channel_secrets")
 	expectRelationExists(mock, "public.tenant_admin_memberships")
 
 	err = repo.EnsureSchema(context.Background(), file)

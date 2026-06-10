@@ -156,6 +156,7 @@ type ChannelCredentialStatus string
 const (
 	ChannelCredentialStatusActive   ChannelCredentialStatus = "ACTIVE"
 	ChannelCredentialStatusInactive ChannelCredentialStatus = "INACTIVE"
+	ChannelCredentialStatusRevoked  ChannelCredentialStatus = "REVOKED"
 )
 
 // AdminChannelCredential is a redacted tenant channel credential reference.
@@ -174,6 +175,7 @@ type AdminChannelCredential struct {
 	UpdatedAt         time.Time               `json:"updated_at"`
 	ActivatedAt       *time.Time              `json:"activated_at,omitempty"`
 	DeactivatedAt     *time.Time              `json:"deactivated_at,omitempty"`
+	PurgedAt          *time.Time              `json:"purged_at,omitempty"`
 }
 
 func (c AdminChannelCredential) String() string {
@@ -191,6 +193,12 @@ type ChannelCredentialBindInput struct {
 	SecretRef        string
 	SecretValue      string
 	SecretRefDisplay string
+}
+
+// CredentialRevokeResult is returned by RevokeChannelCredential.
+type CredentialRevokeResult struct {
+	Credential        *AdminChannelCredential `json:"credential"`
+	WasOnlyActive     bool                    `json:"was_only_active"`
 }
 
 // ChannelCredentialListFilter is used to filter and paginate channel credential metadata.

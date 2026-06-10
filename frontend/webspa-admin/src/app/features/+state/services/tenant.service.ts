@@ -8,6 +8,7 @@ import {
   ChannelCreatePayload,
   ChannelFilters,
   ChannelListResponse,
+  RevokeCredentialResponse,
   TenantMemberListResponse,
   TenantMemberMutationResponse,
   TenantMemberPayload,
@@ -128,6 +129,12 @@ export class TenantService {
     return this.http.post<ChannelCredentialListResponse['credentials'][number]>(
       `${this.channelsUrl}/${encodeURIComponent(channelId)}/credentials`,
       payload
+    );
+  }
+
+  revokeChannelCredential(channelId: string, credentialId: string): Observable<RevokeCredentialResponse> {
+    return this.http.delete<RevokeCredentialResponse>(
+      `${this.channelsUrl}/${encodeURIComponent(channelId)}/credentials/${encodeURIComponent(credentialId)}`
     );
   }
 }
