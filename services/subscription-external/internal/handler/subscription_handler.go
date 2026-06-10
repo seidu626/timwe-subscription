@@ -231,17 +231,39 @@ func (h *SubscriptionHandler) BatchOptinHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	// Resolve tenant context from request body or headers.
+	tenantKey := req.TenantKey
+	if tenantKey == "" {
+		tenantKey = string(ctx.Request.Header.Peek("X-Tenant-Key"))
+	}
+	channelKey := req.ChannelKey
+	if channelKey == "" {
+		channelKey = string(ctx.Request.Header.Peek("X-Channel-Key"))
+	}
+	if tenantKey == "" || channelKey == "" {
+		ctx.SetStatusCode(fasthttp.StatusUnprocessableEntity)
+		ctx.SetContentType("application/json")
+		_ = json.NewEncoder(ctx).Encode(map[string]string{
+			"error": "tenant_key and channel_key are required",
+		})
+		return
+	}
+	req.TenantKey = tenantKey
+	req.ChannelKey = channelKey
+
 	// Create job immediately and return
 	jobID := uuid.New().String()
 	initialTotal := len(req.MSISDNS)
 	if initialTotal == 0 && req.Count > 0 {
 		initialTotal = req.Count
 	}
-	status := h.jobs.CreateJob(jobID, initialTotal)
+	status, jobCtx := h.jobs.CreateJob(jobID, initialTotal)
+	status.TenantKey = tenantKey
+	status.ChannelKey = channelKey
 	totalBatchJobsCreated.Add(1)
 
 	// Start background processing (generation/filtering happens inside)
-	go h.runBatchJob(jobID, status, &req)
+	go h.runBatchJob(jobCtx, jobID, status, &req)
 
 	ctx.SetStatusCode(fasthttp.StatusAccepted)
 	ctx.SetContentType("application/json")
@@ -298,9 +320,31 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 		ctx.Error("product_ids is required", fasthttp.StatusBadRequest)
 		return
 	}
+	// Require tenant context.
+	tenantKeyBF := req.TenantKey
+	if tenantKeyBF == "" {
+		tenantKeyBF = string(ctx.Request.Header.Peek("X-Tenant-Key"))
+	}
+	channelKeyBF := req.ChannelKey
+	if channelKeyBF == "" {
+		channelKeyBF = string(ctx.Request.Header.Peek("X-Channel-Key"))
+	}
+	if tenantKeyBF == "" || channelKeyBF == "" {
+		ctx.SetStatusCode(fasthttp.StatusUnprocessableEntity)
+		ctx.SetContentType("application/json")
+		_ = json.NewEncoder(ctx).Encode(map[string]string{
+			"error": "tenant_key and channel_key are required",
+		})
+		return
+	}
+	req.TenantKey = tenantKeyBF
+	req.ChannelKey = channelKeyBF
+
 	jobID := uuid.New().String()
 	initialTotal := len(req.MSISDNS)
-	status := h.jobs.CreateJob(jobID, initialTotal)
+	status, _ := h.jobs.CreateJob(jobID, initialTotal)
+	status.TenantKey = tenantKeyBF
+	status.ChannelKey = channelKeyBF
 	totalBatchJobsCreated.Add(1)
 
 	go func(job string, st *BatchJobStatus, r domain.BackfillRequest) {
@@ -450,8 +494,30 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 		ctx.Error("product_ids is required", fasthttp.StatusBadRequest)
 		return
 	}
+	// Require tenant context.
+	tenantKeyRS := req.TenantKey
+	if tenantKeyRS == "" {
+		tenantKeyRS = string(ctx.Request.Header.Peek("X-Tenant-Key"))
+	}
+	channelKeyRS := req.ChannelKey
+	if channelKeyRS == "" {
+		channelKeyRS = string(ctx.Request.Header.Peek("X-Channel-Key"))
+	}
+	if tenantKeyRS == "" || channelKeyRS == "" {
+		ctx.SetStatusCode(fasthttp.StatusUnprocessableEntity)
+		ctx.SetContentType("application/json")
+		_ = json.NewEncoder(ctx).Encode(map[string]string{
+			"error": "tenant_key and channel_key are required",
+		})
+		return
+	}
+	req.TenantKey = tenantKeyRS
+	req.ChannelKey = channelKeyRS
+
 	jobID := uuid.New().String()
-	status := h.jobs.CreateJob(jobID, 0)
+	status, _ := h.jobs.CreateJob(jobID, 0)
+	status.TenantKey = tenantKeyRS
+	status.ChannelKey = channelKeyRS
 	totalBatchJobsCreated.Add(1)
 
 	go func(job string, st *BatchJobStatus, r domain.BackfillRequest) {
@@ -867,19 +933,18 @@ func (h *SubscriptionHandler) GetBatchProgressHandler(ctx *fasthttp.RequestCtx) 
 		return
 	}
 
-	// TODO: Implement batch progress tracking using proper service layer
-	// For now, return a placeholder response
-	response := map[string]interface{}{
-		"batch_id": batchID,
-		"status":   "not_implemented",
-		"message":  "Batch progress tracking not yet implemented",
+	st, ok := h.jobs.GetJob(batchID)
+	if !ok {
+		ctx.Error("batch not found", fasthttp.StatusNotFound)
+		return
 	}
 
+	ctx.SetStatusCode(fasthttp.StatusOK)
 	ctx.SetContentType("application/json")
-	_ = json.NewEncoder(ctx).Encode(response)
+	_ = json.NewEncoder(ctx).Encode(st)
 }
 
-// StopBatchHandler stops a running batch
+// StopBatchHandler cancels a running batch job.
 func (h *SubscriptionHandler) StopBatchHandler(ctx *fasthttp.RequestCtx) {
 	var req struct {
 		BatchID string `json:"batch_id"`
@@ -896,24 +961,37 @@ func (h *SubscriptionHandler) StopBatchHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	// TODO: Implement batch stopping using proper service layer
-	// For now, return a placeholder response
-	response := map[string]interface{}{
-		"batch_id": req.BatchID,
-		"status":   "not_implemented",
-		"message":  "Batch stopping not yet implemented",
-		"reason":   req.Reason,
+	if _, ok := h.jobs.GetJob(req.BatchID); !ok {
+		ctx.Error("batch not found", fasthttp.StatusNotFound)
+		return
 	}
 
+	cancelled := h.jobs.CancelJob(req.BatchID)
+	if !cancelled {
+		ctx.SetStatusCode(fasthttp.StatusConflict)
+		ctx.SetContentType("application/json")
+		_ = json.NewEncoder(ctx).Encode(map[string]string{
+			"batch_id": req.BatchID,
+			"status":   "not_cancellable",
+			"message":  "batch is not in a running or pending state",
+		})
+		return
+	}
+
+	h.logger.Info("Batch job cancelled via API", zap.String("batchId", req.BatchID), zap.String("reason", req.Reason))
+	ctx.SetStatusCode(fasthttp.StatusOK)
 	ctx.SetContentType("application/json")
-	_ = json.NewEncoder(ctx).Encode(response)
+	_ = json.NewEncoder(ctx).Encode(map[string]string{
+		"batch_id": req.BatchID,
+		"status":   "cancelled",
+	})
 }
 
-func (h *SubscriptionHandler) runBatchJob(jobID string, st *BatchJobStatus, req *domain.BatchOptinRequest) {
+func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, st *BatchJobStatus, req *domain.BatchOptinRequest) {
 	h.logger.Info("Starting batch job", zap.String("jobId", jobID), zap.Int("totalRequests", len(req.MSISDNS)), zap.Int("requestedCount", req.Count))
 
-	// Create context with timeout for the entire batch job
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	// Create context with timeout for the entire batch job, also honouring cancellation.
+	ctx, cancel := context.WithTimeout(jobCtx, 30*time.Minute)
 	defer cancel()
 
 	// If no MSISDNs provided but count is specified, generate them using the optimized generator

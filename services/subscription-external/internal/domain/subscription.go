@@ -14,6 +14,8 @@ type BatchOptinRequest struct {
 	EntryChannel string   `json:"entry_channel"`
 	MSISDNS      []string `json:"msisdns,omitempty"` // if provided, skip generation
 	ProductIds   []string `json:"product_ids,omitempty"`
+	TenantKey    string   `json:"tenant_key,omitempty"`
+	ChannelKey   string   `json:"channel_key,omitempty"`
 }
 
 type BackfillRequest struct {
@@ -24,6 +26,8 @@ type BackfillRequest struct {
 	MSISDNS       []string `json:"msisdns,omitempty"`     // optional explicit list to include
 	StartIndex    int      `json:"start_index,omitempty"` // 0 or -1 means use full list
 	EndIndex      int      `json:"end_index,omitempty"`
+	TenantKey     string   `json:"tenant_key,omitempty"`
+	ChannelKey    string   `json:"channel_key,omitempty"`
 }
 
 // GetNextEntryChannel returns the next entry channel in rotation

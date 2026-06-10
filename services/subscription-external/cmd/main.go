@@ -599,6 +599,16 @@ func main() {
 	renewalWorker := worker.NewRenewalWorker(renewalService, repo, productRepo, logger, renewalConfig)
 	renewalHandler := handler.NewRenewalHandler(renewalService, renewalWorker, logger)
 
+	// Auto-start renewal worker if RENEWAL_WORKER_AUTOSTART=true.
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("RENEWAL_WORKER_AUTOSTART")), "true") {
+		logger.Info("RENEWAL_WORKER_AUTOSTART=true: starting renewal worker at boot")
+		go func() {
+			if err := renewalWorker.Start(monitorCtx); err != nil {
+				logger.Error("Renewal worker exited", zap.Error(err))
+			}
+		}()
+	}
+
 	// Start a goroutine to sync real data with the monitor
 	go func() {
 		// Do initial sync immediately

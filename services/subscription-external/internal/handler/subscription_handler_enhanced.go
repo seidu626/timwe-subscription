@@ -90,7 +90,7 @@ func (h *SubscriptionHandler) EnhancedResubscribeHandler(ctx *fasthttp.RequestCt
 
 	// Create job
 	jobID := uuid.New().String()
-	_ = h.jobs.CreateJob(jobID, 0) // Use underscore for unused variable
+	_, _ = h.jobs.CreateJob(jobID, 0) // Use underscores for unused variables
 	totalBatchJobsCreated.Add(1)
 
 	// Start async processing
