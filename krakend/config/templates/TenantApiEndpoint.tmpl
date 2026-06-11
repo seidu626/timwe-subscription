@@ -89,7 +89,7 @@
     ],
     "backend": [
         {
-            "url_pattern": "{{ .BackendUrlPattern }}",
+            "url_pattern": "{{ .BackendUrlPattern }}?tenant_key={tenant_key}&channel_key={channel_key}",
             "encoding": "json",
             "sd": "static",
             "method": "{{ .METHOD }}",
@@ -117,20 +117,6 @@
                         "scope": ["request"],
                         "aggregateErrors": true,
                         "modifiers": [
-                            {
-                                "header.Modifier": {
-                                    "scope": ["request"],
-                                    "name": "X-Tenant-Key",
-                                    "value": "{tenant_key}"
-                                }
-                            },
-                            {
-                                "header.Modifier": {
-                                    "scope": ["request"],
-                                    "name": "X-Channel-Key",
-                                    "value": "{channel_key}"
-                                }
-                            },
                             {
                                 "header.Modifier": {
                                     "scope": ["request"],

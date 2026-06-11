@@ -71,10 +71,17 @@ def _validate_tenant_templates(repo_root: Path) -> list[str]:
                 f"{tenant_template}: tenant routing must not use static Martian header value {literal}"
             )
 
-    if "modifier/martian" in tenant_source:
-        errors.append(
-            f"{tenant_template}: tenant routing must use KrakenD parameter forwarding, not Martian"
-        )
+    # Martian is allowed only for genuinely static headers (X-Gateway-Trust).
+    # Tenant context must never be routed via Martian header.Modifier: static
+    # values do not interpolate path/query params, so the backend would see
+    # the literal placeholder (and tenantctx.ResolveKeyPair would reject it
+    # as a header/query conflict).
+    for header in ('"name": "X-Tenant-Key"', '"name": "X-Channel-Key"'):
+        if header in tenant_source:
+            errors.append(
+                f"{tenant_template}: tenant routing must use KrakenD parameter "
+                f"forwarding, not a Martian header.Modifier ({header})"
+            )
 
     required_path_routes = (
         "/api/external/v1/{tenant_key}/{channel_key}/subscriptions/optin",
