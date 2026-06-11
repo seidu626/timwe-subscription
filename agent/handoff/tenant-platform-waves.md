@@ -120,5 +120,21 @@ My wave0 krakend template port added a redundant/wrong Martian group to TenantAp
 
 **Not deployed:** webspa-admin portal (Wave 1 UI — credential form/channel-edit/revoke). Backend endpoints are live; the UI image needs a build+deploy (blocked by the same Docker Hub creds). Recommended next once creds refreshed.
 
+## 0.4 krakend + portal deployed — 2026-06-11 (operator said proceed)
+
+**0.4 krakend: DONE (config), verified live.** Fixed the blocking debt first:
+- `eff7daa`/`23f1a54`: re-applied 265a8aa's query-param forwarding on TenantPathApiEndpoint (`url_pattern?tenant_key={tenant_key}&channel_key={channel_key}`, Martian tenant headers removed — they sent the literal `{tenant_key}` and would have 409'd via detectConflict). Gate `check-krakend-query-forwarding.py` refined: blanket Martian ban → ban on X-Tenant-Key/X-Channel-Key header.Modifiers (X-Gateway-Trust is legitimately static); negative-tested.
+- Found live via probe: tenant-path routes 429'd on EVERY request (`qos/ratelimit/router` strategy:header keyed on X-Tenant-Key, which is a path capture, never a client header). Fixed to per-IP via nginx's X-Forwarded-For.
+- Deployed via `just krakend-sync` (restart is NOPASSWD). Verified: baseline routes unchanged (200/200/403/403/401); admin endpoints now 401-guarded; tenant-path positive path proven (`POST /api/external/v1/nrg/web-gh-airteltigo/subscriptions/status` resolves tenant+channel, reaches payload validation); subscription-external logs `gateway trust marker missing or invalid (enforcement disabled)` — log-only as designed until the token drop-in exists.
+- nrg channel_key (for smoke tests): `web-gh-airteltigo`.
+
+**webspa-admin portal: DEPLOYED.** Anonymous Docker Hub pulls work once the EXPIRED stored creds are removed (broken creds fail harder than no creds): cleaned `~/.docker/config.json` (backup `.bak-wave0`), pulled node:20-alpine + nginx:alpine, built, save/load'ed, recreated. Serving 200 direct + via nginx; bundle contains the new credential-form fields. Rollback tag `:rollback-20260611-wave0` on the droplet.
+
+**Wave 0 fully done except two operator-only steps:**
+1. Docker Hub PAT refresh (`docker login`) — restores normal `just deploy-*`.
+2. GATEWAY_TRUST_TOKEN systemd drop-in (root) + then flip `GATEWAY_TRUST_REQUIRED=true` per service:
+   `printf '[Service]\nEnvironment=GATEWAY_TRUST_TOKEN=%s\n' "$(GATEWAY_TRUST_SECRET=<from droplet .env> go run ./tools/gateway-trust-token)" | sudo tee /etc/systemd/system/krakend.service.d/gateway-trust.conf && sudo systemctl daemon-reload && sudo systemctl restart krakend`
+   Then confirm the missing-marker warnings stop in subscription-external logs before flipping the flag.
+
 ## Done = whole effort
 All tenant config add/update/delete portal-managed; per-tenant credentials drive every TIMWE request field for every tenant; notification+partner+krakend tenant code deployed and nrg verified intact; gateway trust marker live; PII masked; master key backed up + rotatable; careerify on real keys.
