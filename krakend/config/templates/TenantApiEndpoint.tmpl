@@ -78,8 +78,9 @@
         },
         "qos/ratelimit/router": {
             "client_max_rate": 60,
-            "strategy": "header",
-            "key": "X-Tenant-Key"
+            "client_capacity": 60,
+            "strategy": "ip",
+            "key": "X-Forwarded-For"
         }
     },
     "headers_to_pass": [
