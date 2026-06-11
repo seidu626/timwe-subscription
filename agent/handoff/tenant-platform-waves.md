@@ -130,8 +130,8 @@ My wave0 krakend template port added a redundant/wrong Martian group to TenantAp
 
 **webspa-admin portal: DEPLOYED.** Anonymous Docker Hub pulls work once the EXPIRED stored creds are removed (broken creds fail harder than no creds): cleaned `~/.docker/config.json` (backup `.bak-wave0`), pulled node:20-alpine + nginx:alpine, built, save/load'ed, recreated. Serving 200 direct + via nginx; bundle contains the new credential-form fields. Rollback tag `:rollback-20260611-wave0` on the droplet.
 
-**Wave 0 fully done except two operator-only steps:**
-1. Docker Hub PAT refresh (`docker login`) — restores normal `just deploy-*`.
+**Wave 0 fully done except ONE operator-only step:**
+1. ~~Docker Hub PAT refresh~~ DONE 2026-06-11: operator logged in; all six current images pushed to Docker Hub (registry == production, so deploy.sh's `docker compose pull` can no longer roll anything back), and cadence-engine — missed in yesterday's 0.1 pass — was built and deployed through the restored normal pipeline (healthy, fresh image verified). zsh gotcha recorded: unbraced `$img:latest` in loops loses `:l` to a zsh modifier.
 2. GATEWAY_TRUST_TOKEN systemd drop-in (root) + then flip `GATEWAY_TRUST_REQUIRED=true` per service:
    `printf '[Service]\nEnvironment=GATEWAY_TRUST_TOKEN=%s\n' "$(GATEWAY_TRUST_SECRET=<from droplet .env> go run ./tools/gateway-trust-token)" | sudo tee /etc/systemd/system/krakend.service.d/gateway-trust.conf && sudo systemctl daemon-reload && sudo systemctl restart krakend`
    Then confirm the missing-marker warnings stop in subscription-external logs before flipping the flag.
