@@ -130,11 +130,17 @@ My wave0 krakend template port added a redundant/wrong Martian group to TenantAp
 
 **webspa-admin portal: DEPLOYED.** Anonymous Docker Hub pulls work once the EXPIRED stored creds are removed (broken creds fail harder than no creds): cleaned `~/.docker/config.json` (backup `.bak-wave0`), pulled node:20-alpine + nginx:alpine, built, save/load'ed, recreated. Serving 200 direct + via nginx; bundle contains the new credential-form fields. Rollback tag `:rollback-20260611-wave0` on the droplet.
 
-**Wave 0 fully done except ONE operator-only step:**
-1. ~~Docker Hub PAT refresh~~ DONE 2026-06-11: operator logged in; all six current images pushed to Docker Hub (registry == production, so deploy.sh's `docker compose pull` can no longer roll anything back), and cadence-engine — missed in yesterday's 0.1 pass — was built and deployed through the restored normal pipeline (healthy, fresh image verified). zsh gotcha recorded: unbraced `$img:latest` in loops loses `:l` to a zsh modifier.
-2. GATEWAY_TRUST_TOKEN systemd drop-in (root) + then flip `GATEWAY_TRUST_REQUIRED=true` per service:
-   `printf '[Service]\nEnvironment=GATEWAY_TRUST_TOKEN=%s\n' "$(GATEWAY_TRUST_SECRET=<from droplet .env> go run ./tools/gateway-trust-token)" | sudo tee /etc/systemd/system/krakend.service.d/gateway-trust.conf && sudo systemctl daemon-reload && sudo systemctl restart krakend`
-   Then confirm the missing-marker warnings stop in subscription-external logs before flipping the flag.
+## Gateway-trust enforcement ENABLED — 2026-06-11 (Wave 0 fully complete)
+
+Registry + token + enforcement all done:
+1. **Docker Hub PAT** refreshed; all six current images pushed (registry == production, so `docker compose pull` can't roll anything back). cadence-engine — missed in the 0.1 pass — built + deployed via the normal pipeline (healthy).
+2. **Token drop-in installed (root)** via the droplet's NOPASSWD `bash /tmp/vq-install/install.sh` grant: writes `/etc/systemd/system/krakend.service.d/gateway-trust.conf` with `GATEWAY_TRUST_TOKEN` (HMAC of `gateway-trust-marker` under the .env secret), daemon-reload + restart. ⚠ SECURITY: that NOPASSWD-on-a-/tmp-script line is a local privesc — operator should remove it or pin the script to a root-owned path (sia high finding).
+3. **Closed the enforcement coverage gap before flipping** (`da4d82e`): the legacy partner MT/charge/optin-confirm routes (PartnerMTHandler etc., all enforce checkGatewayTrust) render via `TimweApiEndpoint`, which did NOT inject the token. Flipping with that gap would have 403'd nrg's live MT/charge. Added X-Gateway-Trust injection to TimweApiEndpoint; rendered-config matrix now proves 100% of enforced routes inject the token.
+4. **Flipped `GATEWAY_TRUST_REQUIRED=true`** on subscription-external/notification/subscription-partner (.env + recreate). Verified: all /health 200; legit gateway traffic passes (tenant-path status 400 business, no trust-403); direct-to-backend **without** token now 403 `GATEWAY_TRUST_REQUIRED`, **with** token passes to business logic; zero trust-403s on real traffic over the monitoring window; nrg live (1.65M subs healthy).
+
+**Revert if needed:** `sed -i 's/^GATEWAY_TRUST_REQUIRED=.*/GATEWAY_TRUST_REQUIRED=false/' .env && docker compose up -d --no-deps subscription-external notification subscription-partner`.
+
+**Follow-ups (non-blocking, sia-recorded):** (a) enforced-reject branch in checkGatewayTrust doesn't log/meter — enforced 403s are server-side invisible; add a Warn/counter. (b) remove the do-sa sudoers privesc line.
 
 ## Done = whole effort
 All tenant config add/update/delete portal-managed; per-tenant credentials drive every TIMWE request field for every tenant; notification+partner+krakend tenant code deployed and nrg verified intact; gateway trust marker live; PII masked; master key backed up + rotatable; careerify on real keys.
