@@ -15,3 +15,5 @@
 {"forced":false,"from_state":"active","schema_version":"1.0","to_state":"review","ts":"2026-06-12T06:19:02Z","work_order_id":"WO-POPULATE-THE-NRG-TENANT-CAREERIFY-TIMWE-RECORDS"}
 {"forced":false,"from_state":"ready","schema_version":"1.0","to_state":"active","ts":"2026-06-12T06:49:19Z","work_order_id":"WO-FIX-ADMIN-WEBSPA-TENANT-WORKSPACE-AUTHORIZATION"}
 {"forced":false,"from_state":"active","schema_version":"1.0","to_state":"review","ts":"2026-06-12T06:55:06Z","work_order_id":"WO-FIX-ADMIN-WEBSPA-TENANT-WORKSPACE-AUTHORIZATION"}
+{"forced":false,"from_state":"review","schema_version":"1.0","to_state":"archive","ts":"2026-06-12T07:12:53Z","work_order_id":"WO-POPULATE-THE-NRG-TENANT-CAREERIFY-TIMWE-RECORDS"}
+{"forced":false,"from_state":"review","schema_version":"1.0","to_state":"archive","ts":"2026-06-12T07:12:53Z","work_order_id":"WO-FIX-ADMIN-WEBSPA-TENANT-WORKSPACE-AUTHORIZATION"}
