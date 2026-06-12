@@ -41,7 +41,8 @@ Stale-runtime evidence:
 - Production env lacked bootstrap subject/email values before rollout.
 
 Result:
-- Local implementation verified. Production rollout pending at artifact creation.
+- Local implementation verified.
+- Production rollout completed on 2026-06-12.
 
 Root cause:
 - Contract mismatch: admin SPA sends tenant context in headers, but the deployed gateway template used the public tenant-query route wrapper for subscription list.
@@ -65,6 +66,27 @@ Verification:
 - `npm run build:prod`: pass with existing SCSS budget and selector warnings.
 - `just krakend-check-do`: pass.
 - `docker compose -f docker-compose.prod-do.yml config --quiet`: pass.
+- Production deploy:
+  - Remote `.env` backup created: `.env.bak-20260612T075703Z-subscription-menu`.
+  - Remote `ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS` set without printing the value.
+  - `acquisition-api` restarted and became healthy.
+  - `just krakend-sync`: pass; remote KrakenD active.
+  - `just deploy-webspa-admin`: pass; remote `webspa-admin` became healthy.
+  - Side-effect `notification-service` recreate from compose dependency also returned healthy.
+  - Public `GET /api/v1/subscription/list?...` without JWT returns `401`, proving the gateway route now stops at auth instead of forwarding a headerless request to backend tenant-context rejection.
+  - Public `GET /v1/admin/tenants/workspaces` without JWT returns `401`.
+  - Public `GET /health` returns `200`.
+  - Public `HEAD https://admin.nouveauricheglobalgroup.com/` returns `200`.
+  - Deployed `webspa-admin` image: `sha256:fa74c92fe304bb4d37f8b8aa8ef65a7f5e9610b3873420d5c507c7b599bb790e`.
+  - Deployed `acquisition-api` image unchanged: `sha256:5bd0f91a77ba0af0405c7a5eb08a4b3928efee48cf2910c11c61d6cecc78c194`.
+  - Remote KrakenD template hash after sync: `1a4abe46fb4c4b1aed5218e7ba92029844fdc1089e77cd4311ce89779a104636`.
+
+Rollback:
+- Previous `webspa-admin` image: `sha256:57ae640f32e00ecaf8443d840c5b4e6db8f7c000c5c5b8c2f61b1680dc5b25cc`.
+- Previous `acquisition-api` image: `sha256:5bd0f91a77ba0af0405c7a5eb08a4b3928efee48cf2910c11c61d6cecc78c194`.
+- Previous KrakenD template hash: `f184247a287e41bb34d54a7e1aabe62e18d0a19d4324d59acf3b0a4b14e15927`.
+- Previous rendered KrakenD hash: `15fa4975c3b8ffa003cc7591cd47525e2d01fda7d1f09d71e9dbd223dc8da8e3`.
+- Restore remote env from `.env.bak-20260612T075703Z-subscription-menu`, restart `acquisition-api`, deploy previous webspa image or previous source commit, and rerun `krakend-sync` from the prior commit to roll back.
 
 Peer review or blocked reason:
 - No peer runtime was available in this turn; the fix was constrained to existing contracts and verified with regression tests.

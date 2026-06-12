@@ -20,3 +20,4 @@
 {"forced":false,"from_state":"ready","schema_version":"1.0","to_state":"active","ts":"2026-06-12T07:18:42Z","work_order_id":"WO-FIX-PRODUCTION-ADMIN-API-ROUTE-FAILURES-REPORTED"}
 {"forced":false,"from_state":"active","schema_version":"1.0","to_state":"archive","ts":"2026-06-12T07:36:26Z","work_order_id":"WO-FIX-PRODUCTION-ADMIN-API-ROUTE-FAILURES-REPORTED"}
 {"forced":false,"from_state":"ready","schema_version":"1.0","to_state":"active","ts":"2026-06-12T07:43:56Z","work_order_id":"WO-FIX-PRODUCTION-ADMIN-TENANT-CONTEXT-FAILURE-SUBS"}
+{"forced":false,"from_state":"active","schema_version":"1.0","to_state":"archive","ts":"2026-06-12T08:01:34Z","work_order_id":"WO-FIX-PRODUCTION-ADMIN-TENANT-CONTEXT-FAILURE-SUBS"}
