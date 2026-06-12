@@ -1,0 +1,49 @@
+{
+  "classification_hints": {
+    "domains": [
+      "security"
+    ],
+    "likely_hvc_class": "vertical_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Populate the NRG tenant Careerify TIMWE records via the supported API using operator-provided credentials without persisting raw secrets in repo artifacts; include product/service/channel/partner role/pricepoint/notification URL/HE configuration and verify tenant onboarding plus subscription, MT, MO, opt-in, opt-out, renewal, and charge notification surfaces.",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-12T05:02:41Z",
+  "goal_id": "goal-20260612T050241Z-populate-the-nrg-tenant",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Populate the NRG tenant Careerify TIMWE records via the supported API using operator-provided credentials without persisting raw secrets in repo artifacts; include product/service/channel/partner role/pricepoint/notification URL/HE configuration and verify tenant onboarding plus subscription, MT, MO, opt-in, opt-out, renewal, and charge notification surfaces.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "The requested outcome is implemented with evidence and tests."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": "codex-20260612-nrg-careerify",
+    "prompt_excerpt": "Populate the NRG tenant Careerify TIMWE records via the supported API using operator-provided credentials without persisting raw secrets in repo artifacts; include product/service/channel/partner role/pricepoint/notification URL/HE configuration and verify tenant onboarding plus subscription, MT, MO, opt-in, opt-out, renewal, and charge notification surfaces.",
+    "prompt_hash": "sha256:b20e5cc35f7cb4f47b592c25d3be62bd36017f3d88be76c9534e9c8c81002777",
+    "repo_ref": "/home/xper626/workspace/apps/timwe-subscription"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "The requested outcome is implemented with evidence and tests."
+  ],
+  "title": "Populate the NRG tenant Careerify TIMWE records via the supported API using operator-provi"
+}

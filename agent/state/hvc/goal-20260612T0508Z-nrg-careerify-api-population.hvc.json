@@ -1,0 +1,15 @@
+{
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_slice",
+  "classification_id": "hvc-goal-20260612T050241Z-populate-the-nrg-tenant",
+  "created_at": "2026-06-12T05:02:41Z",
+  "domains": [
+    "security"
+  ],
+  "goal_id": "goal-20260612T050241Z-populate-the-nrg-tenant",
+  "schema_version": "1.0"
+}

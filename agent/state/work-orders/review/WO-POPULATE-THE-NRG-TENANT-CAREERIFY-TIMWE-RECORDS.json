@@ -1,0 +1,84 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "The requested outcome is implemented with evidence and tests.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-12T05:03:10Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260612T050241Z-populate-the-nrg-tenant",
+  "hashes": {
+    "classification_hash": "sha256:1a38c5f3824f4335a9b7fca95faab89a77083879fb59e4e81de0517350ebe319",
+    "contract_hash": "sha256:f16e7019759bc5298826b7da61875aca56624bd5954f55fef1c4aac8d8c0e9f8",
+    "issue_hash": "sha256:c710d3300a9ce40a2617b2822078cdd5138bde9d78a813651d41d6a91fbbaca0"
+  },
+  "issue_id": "ISSUE-POPULATE-THE-NRG-TENANT-CAREERIFY-TIMWE",
+  "loop_mode": "closed",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Populate the NRG tenant Careerify TIMWE records via the supported API using operator-provided credentials without persisting raw secrets in repo artifacts; include product/service/channel/partner role/pricepoint/notification URL/HE configuration and verify tenant onboarding plus subscription, MT, MO, opt-in, opt-out, renewal, and charge notification surfaces.",
+    "trigger": "Populate the NRG tenant Careerify TIMWE records via the supported API using operator-provided credentials without persisting raw secrets in repo artifacts; include product/service/channel/partner role/pricepoint/notification URL/HE configuration and verify tenant onboarding plus subscription, MT, MO"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "api-contract-design"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "policies/security/**",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "policies/security/**"
+    ]
+  },
+  "work_order_id": "WO-POPULATE-THE-NRG-TENANT-CAREERIFY-TIMWE-RECORDS"
+}

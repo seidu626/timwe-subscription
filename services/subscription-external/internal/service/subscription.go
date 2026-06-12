@@ -81,15 +81,15 @@ type timweOptinPayload struct {
 	ProductID          int    `json:"productId"`
 	// PricepointID carries the resolved free/zero-rated MT pricepoint when non-zero.
 	// Omitted from the outbound JSON when zero (omitempty) so legacy requests are unchanged.
-	PricepointID       int    `json:"pricepointId,omitempty"`
-	MCC                string `json:"mcc"`
-	MNC                string `json:"mnc"`
-	EntryChannel       string `json:"entryChannel"`
-	LargeAccount       string `json:"largeAccount"`
-	SubKeyword         string `json:"subKeyword"`
-	TrackingID         string `json:"trackingId"`
-	ClientIP           string `json:"clientIp"`
-	CampaignURL        string `json:"campaignUrl"`
+	PricepointID int    `json:"pricepointId,omitempty"`
+	MCC          string `json:"mcc"`
+	MNC          string `json:"mnc"`
+	EntryChannel string `json:"entryChannel"`
+	LargeAccount string `json:"largeAccount"`
+	SubKeyword   string `json:"subKeyword"`
+	TrackingID   string `json:"trackingId"`
+	ClientIP     string `json:"clientIp"`
+	CampaignURL  string `json:"campaignUrl"`
 }
 
 type timweOptinConfirmPayload struct {
@@ -797,7 +797,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 		return nil, err
 	}
 
-	resp, callErr := s.sendMTWithRetry(reqData, url, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MTAPIKey }, providerCfg.APIKey), authKey, requestBody, 3)
+	resp, callErr := s.sendMTWithRetry(reqData, url, providerCfg.APIKey, authKey, requestBody, 3)
 	success := callErr == nil || s.isNonBreakerError(callErr)
 	done(success)
 	if callErr != nil {
@@ -831,7 +831,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 			return nil, fmt.Errorf("failed to marshal retry request data: %v", err)
 		}
 
-		resp, callErr = s.sendMTWithRetry(mtReqCopy, url, tenantOrGlobal(providerCfg, func(c *TenantProviderConfig) string { return c.MTAPIKey }, providerCfg.APIKey), authKey, requestBody, 3)
+		resp, callErr = s.sendMTWithRetry(mtReqCopy, url, providerCfg.APIKey, authKey, requestBody, 3)
 		if callErr != nil {
 			s.logger.Error("Error sending MT retry with SMS", zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)), zap.Error(callErr))
 			return nil, callErr

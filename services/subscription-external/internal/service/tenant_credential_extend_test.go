@@ -168,9 +168,9 @@ func TestBuildOptinPayload_GlobalMCCMNCUsedWhenTenantAbsent(t *testing.T) {
 	}
 }
 
-// ─── (iii) MT apikey prefers mt_api_key when set, falls back to api_key ───────
+// ─── (iii) Opt-in uses the subscription api_key even when mt_api_key is set ──
 
-func TestSendMT_UsesMTAPIKeyWhenSet(t *testing.T) {
+func TestSendMT_UsesSubscriptionAPIKeyForOptinWhenMTAPIKeySet(t *testing.T) {
 	var capturedAPIKey string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedAPIKey = r.Header.Get("apikey")
@@ -200,8 +200,8 @@ func TestSendMT_UsesMTAPIKeyWhenSet(t *testing.T) {
 		TenantRoute: domain.TenantRouteContext{TenantID: "t1", ChannelID: "c1"},
 	}, "realm", "WEB")
 
-	if capturedAPIKey != "mt-specific-key" {
-		t.Errorf("apikey header: got %q, want %q", capturedAPIKey, "mt-specific-key")
+	if capturedAPIKey != "generic-api-key" {
+		t.Errorf("apikey header: got %q, want subscription key %q", capturedAPIKey, "generic-api-key")
 	}
 }
 

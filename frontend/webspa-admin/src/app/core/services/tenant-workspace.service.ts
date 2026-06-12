@@ -96,18 +96,7 @@ export class TenantWorkspaceService {
     }
 
     const workspace = this.workspaceSubject.value;
-    const option = workspace.availableTenants.find((candidate) => candidate.identifier === normalized);
-
-    if (!workspace.platformScoped) {
-      return Boolean(
-        workspace.currentTenant &&
-        (
-          workspace.currentTenant.identifier === normalized ||
-          workspace.currentTenant.tenantId === normalized ||
-          workspace.currentTenant.tenantKey === normalized
-        )
-      );
-    }
+    const option = this.findTenantOption(workspace.availableTenants, normalized);
 
     if (!option) {
       return false;
@@ -172,8 +161,8 @@ export class TenantWorkspaceService {
     }
 
     const currentTenant = this.resolveCurrentTenant(claimSnapshot, selection);
-    const canSwitchTenant = claimSnapshot.platformScoped && claimSnapshot.tenantOptions.length > 1;
-    const invalidSelection = claimSnapshot.platformScoped && Boolean(selection) && !currentTenant;
+    const canSwitchTenant = claimSnapshot.tenantOptions.length > 1;
+    const invalidSelection = Boolean(selection) && claimSnapshot.tenantOptions.length > 1 && !currentTenant;
 
     if (!claimSnapshot.tenantOptions.length) {
       return {
@@ -202,7 +191,7 @@ export class TenantWorkspaceService {
     }
 
     if (!currentTenant) {
-      const requiresSelection = claimSnapshot.platformScoped && claimSnapshot.tenantOptions.length > 1;
+      const requiresSelection = claimSnapshot.tenantOptions.length > 1;
 
       return {
         authenticated: true,
@@ -229,7 +218,7 @@ export class TenantWorkspaceService {
   }
 
   private resolveCurrentTenant(snapshot: ClaimSnapshot, selection: string | null): TenantWorkspaceOption | null {
-    const bySelection = snapshot.platformScoped && selection
+    const bySelection = selection
       ? this.findTenantOption(snapshot.tenantOptions, selection)
       : null;
 
@@ -238,6 +227,10 @@ export class TenantWorkspaceService {
     }
 
     if (!snapshot.platformScoped) {
+      if (selection && snapshot.tenantOptions.length > 1) {
+        return null;
+      }
+
       if (snapshot.tenantId || snapshot.tenantKey) {
         return this.findTenantOption(snapshot.tenantOptions, snapshot.tenantKey ?? snapshot.tenantId ?? '');
       }

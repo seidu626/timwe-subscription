@@ -48,7 +48,7 @@ func TestSendMT_UsesPostmanOptinContract(t *testing.T) {
 	reqData := domain.MTRequest{
 		ProductID:          14397,
 		PricepointID:       999,
-		UserIdentifier:     "233572503330",
+		UserIdentifier:     "233501234567",
 		UserIdentifierType: "",
 		EntryChannel:       "",
 		SubKeyword:         "RST",
@@ -86,7 +86,7 @@ func TestSendMT_UsesPostmanOptinContract(t *testing.T) {
 	}
 	assertExactJSONKeys(t, capturedBody, expectedKeys)
 
-	assertStringField(t, capturedBody, "userIdentifier", "233572503330")
+	assertStringField(t, capturedBody, "userIdentifier", "233501234567")
 	assertStringField(t, capturedBody, "userIdentifierType", "MSISDN")
 	assertNumberField(t, capturedBody, "productId", 14397)
 	assertNumberField(t, capturedBody, "pricepointId", 999)
@@ -127,7 +127,7 @@ func TestSendOptoutWithRetry_UsesPostmanOptoutContract(t *testing.T) {
 	configureContractTenantProvider(service, server.URL)
 
 	reqData := domain.UnsubscriptionRequest{
-		UserIdentifier: "233572503330",
+		UserIdentifier: "233501234567",
 		ProductId:      14397,
 		TenantRoute:    contractTenantRoute(),
 	}
@@ -196,7 +196,7 @@ func TestSendStatusCheckWithRetry_UsesPostmanStatusContract(t *testing.T) {
 	configureContractTenantProvider(service, server.URL)
 
 	reqData := domain.GetStatusRequest{
-		UserIdentifier: "233572503330",
+		UserIdentifier: "233501234567",
 		ProductId:      14397,
 		TenantRoute:    contractTenantRoute(),
 	}
@@ -260,7 +260,7 @@ func TestSendOptinConfirmWithRetry_UsesPostmanConfirmContract(t *testing.T) {
 	configureContractTenantProvider(service, server.URL)
 
 	reqData := domain.SubscriptionConfirmationRequest{
-		UserIdentifier:      "233572503330",
+		UserIdentifier:      "233501234567",
 		ProductId:           14397,
 		TransactionAuthCode: "0000",
 		TenantRoute:         contractTenantRoute(),
@@ -309,6 +309,7 @@ func configureContractTenantProvider(service *SubscriptionService, baseURL strin
 			Provider:       "timwe",
 			BaseURL:        baseURL,
 			APIKey:         "tenant-api-key",
+			MTAPIKey:       "tenant-mt-api-key",
 			Authentication: "tenant-auth-key",
 			PartnerRoleID:  "2117",
 			Realm:          "realm",
@@ -328,11 +329,11 @@ func assertRequestBasics(t *testing.T, method string, path string, expectedMetho
 
 func assertCommonHeaders(t *testing.T, headers http.Header) {
 	t.Helper()
-	if headers.Get("apikey") == "" {
-		t.Fatalf("expected apikey header to be set")
+	if headers.Get("apikey") != "tenant-api-key" {
+		t.Fatalf("expected subscription apikey header %q, got %q", "tenant-api-key", headers.Get("apikey"))
 	}
-	if headers.Get("authentication") == "" {
-		t.Fatalf("expected authentication header to be set")
+	if headers.Get("authentication") != "tenant-auth-key" {
+		t.Fatalf("expected authentication header %q, got %q", "tenant-auth-key", headers.Get("authentication"))
 	}
 	if headers.Get("external-tx-id") == "" {
 		t.Fatalf("expected external-tx-id header to be set")

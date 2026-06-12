@@ -332,4 +332,57 @@ describe('TenantWorkspaceService', () => {
     expect(workspace.status).toBe('ready');
     expect(workspace.currentTenant?.tenantKey).toBe('nrg');
   });
+
+  it('requires selection for non-platform users assigned to multiple backend tenant workspaces', () => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              email: 'multi.tenant@example.com',
+              email_verified: true,
+              name: 'Multi Tenant Admin'
+            }),
+            getAccessTokenSilently: jasmine.createSpy('getAccessTokenSilently').and.returnValue(of('workspace-token'))
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const http = TestBed.inject(HttpTestingController);
+    const req = http.expectOne(`${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`);
+
+    req.flush({
+      platform_scoped: false,
+      tenants: [
+        {
+          id: '66d39a9a-f1ef-4721-a31c-5bb966d25c3d',
+          tenant_key: 'nrg',
+          name: 'NRG'
+        },
+        {
+          id: 'dded2b2a-0a76-43c3-8a2b-5106bc07911f',
+          tenant_key: 'careerify',
+          name: 'Careerify'
+        }
+      ]
+    });
+    http.verify();
+
+    const workspace = service.getCurrentWorkspace();
+    expect(workspace.status).toBe('selection-required');
+    expect(workspace.platformScoped).toBeFalse();
+    expect(workspace.canSwitchTenant).toBeTrue();
+    expect(workspace.currentTenant).toBeNull();
+
+    expect(service.selectTenant('careerify')).toBeTrue();
+    const selectedWorkspace = service.getCurrentWorkspace();
+    expect(selectedWorkspace.status).toBe('ready');
+    expect(selectedWorkspace.currentTenant?.tenantKey).toBe('careerify');
+  });
 });
