@@ -1,0 +1,50 @@
+{
+  "classification_hints": {
+    "domains": [
+      "context",
+      "security"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Fix production admin tenant-context failure: subscription list returns 403 tenant context required for a tenant-member admin, and tenant management menu is hidden in the UI despite tenant workspace access. Do not persist or expose bearer tokens; preserve multi-tenant isolation.",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-12T07:43:28Z",
+  "goal_id": "goal-20260612T074328Z-fix-production-admin-ten",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Fix production admin tenant-context failure: subscription list returns 403 tenant context required for a tenant-member admin, and tenant management menu is hidden in the UI despite tenant workspace access. Do not persist or expose bearer tokens; preserve multi-tenant isolation.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "Context capsules enforce bounded token budgets."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Fix production admin tenant-context failure: subscription list returns 403 tenant context required for a tenant-member admin, and tenant management menu is hidden in the UI despite tenant workspace access. Do not persist or expose bearer tokens; preserve multi-tenant isolation."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Fix production admin tenant-context failure: subscription list returns 403 tenant context required for a tenant-member admin, and tenant management menu is hidden in the UI despite tenant workspace access. Do not persist or expose bearer tokens; preserve multi-tenant isolation.",
+    "prompt_hash": "sha256:9f9d36ae94b0a1285eb467bb2d9e5f1ac40c523d339d319fc9e2a0c0d40ed0b5",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "Context capsules enforce bounded token budgets."
+  ],
+  "title": "Fix production admin tenant-context failure: subscription list returns 403 tenant context "
+}

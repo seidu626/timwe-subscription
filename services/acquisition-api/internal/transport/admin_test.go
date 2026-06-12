@@ -174,13 +174,13 @@ func TestAdminRequireAppliesBootstrapPlatformSubjectAndSelectedTenant(t *testing
 	access := &adminAccess{
 		validator: validator,
 		bootstrapPlatformSubjects: map[string]struct{}{
-			"google-oauth2|118328773120143328716": {},
+			"google-oauth2|platform-admin": {},
 		},
 	}
 	token := mustAdminToken(t, privateKey, jwt.MapClaims{
 		"iss": "https://example.auth0.com/",
 		"aud": []string{"api"},
-		"sub": "google-oauth2|118328773120143328716",
+		"sub": "google-oauth2|platform-admin",
 		"iat": time.Now().Unix(),
 		"exp": time.Now().Add(time.Hour).Unix(),
 	})
@@ -296,7 +296,7 @@ func TestAdminRequireStampsSingleMembershipTenant(t *testing.T) {
 	token := mustAdminToken(t, privateKey, jwt.MapClaims{
 		"iss":            "https://example.auth0.com/",
 		"aud":            []string{"api"},
-		"sub":            "google-oauth2|118328773120143328716",
+		"sub":            "google-oauth2|tenant-admin",
 		"email":          "tenant-admin@example.com",
 		"email_verified": true,
 		"iat":            time.Now().Unix(),
@@ -316,7 +316,7 @@ func TestAdminRequireStampsSingleMembershipTenant(t *testing.T) {
 	if identity.PlatformScoped {
 		t.Fatalf("non-platform user must not be promoted, identity = %#v", identity)
 	}
-	if capturedSubject != "google-oauth2|118328773120143328716" || capturedEmail != "tenant-admin@example.com" {
+	if capturedSubject != "google-oauth2|tenant-admin" || capturedEmail != "tenant-admin@example.com" {
 		t.Fatalf("lookup called with subject=%q email=%q", capturedSubject, capturedEmail)
 	}
 }

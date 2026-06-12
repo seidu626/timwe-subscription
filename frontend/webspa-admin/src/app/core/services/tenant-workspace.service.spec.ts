@@ -156,6 +156,38 @@ describe('TenantWorkspaceService', () => {
     expect(workspace.currentTenant?.tenantId).toBe('tenant-runtime-id');
   });
 
+  it('maps configured runtime bootstrap subjects when the access token has no email claim', () => {
+    (window as unknown as Record<string, unknown>)['__ADMIN_TENANT_BOOTSTRAP__'] = {
+      platformAdminSubjects: ['google-oauth2|platform-admin'],
+      tenantWorkspaces: [
+        { tenant_key: 'tenant-runtime', tenant_id: 'tenant-runtime-id', name: 'Runtime Tenant' }
+      ]
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              sub: 'google-oauth2|platform-admin',
+              name: 'Bootstrap Admin'
+            })
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const workspace = service.getCurrentWorkspace();
+
+    expect(workspace.status).toBe('ready');
+    expect(workspace.platformScoped).toBeTrue();
+    expect(workspace.currentTenant?.tenantKey).toBe('tenant-runtime');
+    expect(workspace.currentTenant?.tenantId).toBe('tenant-runtime-id');
+  });
+
   it('maps bootstrap admin emails from user metadata case-insensitively', () => {
     TestBed.configureTestingModule({
       providers: [

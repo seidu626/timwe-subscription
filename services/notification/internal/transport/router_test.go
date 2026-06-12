@@ -61,13 +61,13 @@ func TestAdminRequireAppliesBootstrapSubjectAndTenantKey(t *testing.T) {
 	access := &adminAccess{
 		validator: validator,
 		bootstrapPlatformSubjects: map[string]struct{}{
-			"google-oauth2|118328773120143328716": {},
+			"google-oauth2|platform-admin": {},
 		},
 	}
 	token := mustAdminToken(t, privateKey, jwt.MapClaims{
 		"iss": "https://example.auth0.com/",
 		"aud": []string{"api"},
-		"sub": "google-oauth2|118328773120143328716",
+		"sub": "google-oauth2|platform-admin",
 		"iat": time.Now().Unix(),
 		"exp": time.Now().Add(time.Hour).Unix(),
 	})

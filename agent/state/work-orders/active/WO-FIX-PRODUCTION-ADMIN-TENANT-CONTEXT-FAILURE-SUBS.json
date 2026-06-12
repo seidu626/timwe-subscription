@@ -1,0 +1,86 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-12T07:43:28Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260612T074328Z-fix-production-admin-ten",
+  "hashes": {
+    "classification_hash": "sha256:869f2cfb4831b388fecc34a3ad627440a05a43e392ef378b6db6f30518f3a0a9",
+    "contract_hash": "sha256:2770d119b85a19cf6be46c2988136cfad0ff8d5eabdddefc426e285c46909761",
+    "issue_hash": "sha256:6b4386df10fca74cac200e720b6690bf624c9c0e59b5e2dc8c7a61c88adeca83"
+  },
+  "issue_id": "ISSUE-FIX-PRODUCTION-ADMIN-TENANT-CONTEXT-FAIL",
+  "loop_mode": "closed",
+  "non_goals": [
+    "Fix production admin tenant-context failure: subscription list returns 403 tenant context required for a tenant-member admin, and tenant management menu is hidden in the UI despite tenant workspace access. Do not persist or expose bearer tokens; preserve multi-tenant isolation."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Fix production admin tenant-context failure: subscription list returns 403 tenant context required for a tenant-member admin, and tenant management menu is hidden in the UI despite tenant workspace access. Do not persist or expose bearer tokens; preserve multi-tenant isolation.",
+    "trigger": "Fix production admin tenant-context failure: subscription list returns 403 tenant context required for a tenant-member admin, and tenant management menu is hidden in the UI despite tenant workspace access. Do not persist or expose bearer tokens; preserve multi-tenant isolation."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "agent/state/context-packs/**",
+      "skills/context-kernel/**",
+      "policies/security/**",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "agent/state/context-packs/**",
+      "skills/context-kernel/**",
+      "policies/security/**"
+    ]
+  },
+  "work_order_id": "WO-FIX-PRODUCTION-ADMIN-TENANT-CONTEXT-FAILURE-SUBS"
+}

@@ -41,6 +41,7 @@ export const environment = {
   identityEndpoint: 'https://identityserver.mtn.com.gh',
   adminTenantBootstrap: {
     platformAdminEmails: [],
+    platformAdminSubjects: [],
     tenantWorkspaces: [],
   },
   auth: {

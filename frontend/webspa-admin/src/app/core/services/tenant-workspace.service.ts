@@ -34,6 +34,7 @@ interface ClaimSnapshot {
 
 interface AdminTenantBootstrapConfig {
   platformAdminEmails?: unknown;
+  platformAdminSubjects?: unknown;
   tenantWorkspaces?: unknown;
 }
 
@@ -322,9 +323,17 @@ export class TenantWorkspaceService {
     const platformAdminEmails = this.extractStrings(bootstrap.platformAdminEmails)
       .map((email) => email.trim().toLowerCase())
       .filter((email) => email.length > 0);
+    const platformAdminSubjects = this.extractStrings(bootstrap.platformAdminSubjects)
+      .map((subject) => subject.trim())
+      .filter((subject) => subject.length > 0);
     const userEmails = this.collectStrings(source, ['email', 'https://platform/email']);
+    const userSubjects = this.extractStrings(source['sub'] ?? source['user_id'] ?? source['userId'] ?? source['https://platform/sub'])
+      .map((subject) => subject.trim())
+      .filter((subject) => subject.length > 0);
     const emailVerified = this.resolveOptionalEmailVerified(source);
-    const platformScoped = emailVerified && userEmails.some((email) => platformAdminEmails.includes(email));
+    const subjectScoped = userSubjects.some((subject) => platformAdminSubjects.includes(subject));
+    const emailScoped = emailVerified && userEmails.some((email) => platformAdminEmails.includes(email));
+    const platformScoped = subjectScoped || emailScoped;
 
     if (!platformScoped) {
       return { platformScoped: false, tenantOptions: [] };

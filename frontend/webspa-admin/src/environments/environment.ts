@@ -50,6 +50,7 @@ export const environment = {
       'almauricin@gmail.com',
       'seidu.abdulai@hotmail.com',
     ],
+    platformAdminSubjects: [],
     tenantWorkspaces: [
       {
         tenant_key: 'nrg',

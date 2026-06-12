@@ -53,6 +53,7 @@ Development bootstrap config lives in `environment.adminTenantBootstrap`. Produc
 ```js
 window.__ADMIN_TENANT_BOOTSTRAP__ = {
   platformAdminEmails: ["almauricin@gmail.com", "seidu.abdulai@hotmail.com"],
+  platformAdminSubjects: ["google-oauth2|platform-admin"],
   tenantWorkspaces: [
     { tenant_key: "tenant-a", tenant_id: "tenant-a", name: "Tenant A" },
     { tenant_key: "tenant-b", tenant_id: "tenant-b", name: "Tenant B" }
@@ -60,7 +61,7 @@ window.__ADMIN_TENANT_BOOTSTRAP__ = {
 };
 ```
 
-Backend bootstrap config uses `ADMIN_BOOTSTRAP_PLATFORM_EMAILS`. If unset, no email receives bootstrap platform scope. Set it to `almauricin@gmail.com,seidu.abdulai@hotmail.com` in the target environment. The Auth0 access token must include the account `email` claim and `email_verified: true` so `acquisition-api` can recognize the bootstrap principal.
+Backend bootstrap config uses `ADMIN_BOOTSTRAP_PLATFORM_EMAILS` and `ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS`. If unset, no bootstrap principal receives platform scope. Set approved emails to `almauricin@gmail.com,seidu.abdulai@hotmail.com` and approved Auth0 subjects to their exact `sub` values in the target environment. Email-based bootstrap requires the Auth0 access token to include the account `email` claim and no explicit `email_verified: false`; subject-based bootstrap works when the token carries the configured `sub`.
 
 ## Current Membership Contract
 
