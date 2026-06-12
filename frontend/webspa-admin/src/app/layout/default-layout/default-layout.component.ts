@@ -19,13 +19,33 @@ import {
 
 import { DefaultFooterComponent, DefaultHeaderComponent } from './';
 import { navItems } from './_nav';
-import { TenantWorkspaceService } from '../../core/services/tenant-workspace.service';
+import { TenantWorkspaceService, TenantWorkspaceState } from '../../core/services/tenant-workspace.service';
 
 function isOverflown(element: HTMLElement) {
   return (
     element.scrollHeight > element.clientHeight ||
     element.scrollWidth > element.clientWidth
   );
+}
+
+export function filterNavItemsForWorkspace(
+  items: any[],
+  workspace: Pick<TenantWorkspaceState, 'platformScoped' | 'status'>
+): any[] {
+  return items
+    .filter((item) => {
+      if (item.platformOnly && !workspace.platformScoped) {
+        return false;
+      }
+      if (item.workspaceRequired && workspace.status !== 'ready') {
+        return false;
+      }
+      return true;
+    })
+    .map((item) => item.children
+      ? { ...item, children: filterNavItemsForWorkspace(item.children, workspace) }
+      : item
+    );
 }
 
 @Component({
@@ -57,7 +77,7 @@ export class DefaultLayoutComponent {
 
   public navItems = navItems;
   public readonly navItems$ = this.tenantWorkspace.workspace$.pipe(
-    map((workspace) => this.filterNavItems(navItems, workspace.platformScoped))
+    map((workspace) => filterNavItemsForWorkspace(navItems, workspace))
   );
 
   onScrollbarUpdate($event: any) {
@@ -66,12 +86,4 @@ export class DefaultLayoutComponent {
     // }
   }
 
-  private filterNavItems(items: any[], platformScoped: boolean): any[] {
-    return items
-      .filter((item) => platformScoped || !item.platformOnly)
-      .map((item) => item.children
-        ? { ...item, children: this.filterNavItems(item.children, platformScoped) }
-        : item
-      );
-  }
 }

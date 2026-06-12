@@ -13,7 +13,7 @@
           <a cNavLink routerLink="/reports" routerLinkActive="active">Reports</a>
         </c-nav-item>
         @if (workspace$ | async; as workspace) {
-          @if (workspace.platformScoped) {
+          @if (workspace.status === 'ready') {
             <c-nav-item>
               <a cNavLink routerLink="/tenants" routerLinkActive="active">Tenants</a>
             </c-nav-item>

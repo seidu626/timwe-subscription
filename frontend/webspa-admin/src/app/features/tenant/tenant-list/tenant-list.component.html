@@ -2,16 +2,18 @@
   <section class="tenant-hero">
     <div>
       <p class="eyebrow">Tenant operations</p>
-      <h1>Tenant catalog</h1>
-      <p class="subtitle">Catalog records, workspace membership, and lifecycle state.</p>
+      <h1>{{ platformScoped ? 'Tenant catalog' : 'Tenant management' }}</h1>
+      <p class="subtitle">
+        {{ platformScoped ? 'Catalog records, workspace membership, and lifecycle state.' : 'Provider channels and credentials for the active workspace.' }}
+      </p>
     </div>
     <div class="tenant-hero-meta">
-      <span>{{ totalCount || dataSource.data.length }} records</span>
-      <span>{{ editingTenantId ? 'Editing tenant' : 'Create mode' }}</span>
+      <span>{{ platformScoped ? ((totalCount || dataSource.data.length) + ' records') : (currentWorkspaceTenant?.label || form.name || 'Active tenant') }}</span>
+      <span>{{ platformScoped ? (editingTenantId ? 'Editing tenant' : 'Create mode') : 'Workspace mode' }}</span>
     </div>
   </section>
 
-  <section class="tenant-metrics" aria-label="Tenant catalog summary">
+  <section *ngIf="platformScoped" class="tenant-metrics" aria-label="Tenant catalog summary">
     <div>
       <span>Total records</span>
       <strong>{{ totalCount || dataSource.data.length }}</strong>
@@ -33,47 +35,70 @@
   <mat-card class="card tenant-editor-card">
     <div class="card-heading">
       <div>
-        <p class="eyebrow">{{ editingTenantId ? 'Selected tenant' : 'New tenant' }}</p>
-        <mat-card-title>{{ editingTenantId ? 'Edit Tenant' : 'Create Tenant' }}</mat-card-title>
+        <p class="eyebrow">{{ platformScoped ? (editingTenantId ? 'Selected tenant' : 'New tenant') : 'Selected tenant' }}</p>
+        <mat-card-title>{{ platformScoped ? (editingTenantId ? 'Edit Tenant' : 'Create Tenant') : (form.name || currentWorkspaceTenant?.label || 'Tenant workspace') }}</mat-card-title>
       </div>
-      <span class="mode-pill" [class.editing]="editingTenantId">{{ editingTenantId ? 'Edit' : 'Create' }}</span>
+      <span class="mode-pill" [class.editing]="editingTenantId">{{ platformScoped ? (editingTenantId ? 'Edit' : 'Create') : 'Active workspace' }}</span>
     </div>
     <mat-card-content>
-      <div class="row">
-        <mat-form-field appearance="outline">
-          <mat-label>Tenant Key</mat-label>
-          <input matInput [(ngModel)]="form.tenant_key" [disabled]="!!editingTenantId" />
+      <ng-container *ngIf="platformScoped; else tenantWorkspaceSummary">
+        <div class="row">
+          <mat-form-field appearance="outline">
+            <mat-label>Tenant Key</mat-label>
+            <input matInput [(ngModel)]="form.tenant_key" [disabled]="!!editingTenantId" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Name</mat-label>
+            <input matInput [(ngModel)]="form.name" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="form.status">
+              <mat-option value="ACTIVE">Active</mat-option>
+              <mat-option value="INACTIVE">Inactive</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Default Country</mat-label>
+            <input matInput maxlength="2" [(ngModel)]="form.default_country" />
+          </mat-form-field>
+        </div>
+        <mat-form-field appearance="outline" class="metadata-field">
+          <mat-label>Metadata JSON</mat-label>
+          <textarea matInput rows="5" [(ngModel)]="metadataText"></textarea>
         </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Name</mat-label>
-          <input matInput [(ngModel)]="form.name" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Status</mat-label>
-          <mat-select [(ngModel)]="form.status">
-            <mat-option value="ACTIVE">Active</mat-option>
-            <mat-option value="INACTIVE">Inactive</mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Default Country</mat-label>
-          <input matInput maxlength="2" [(ngModel)]="form.default_country" />
-        </mat-form-field>
-      </div>
-      <mat-form-field appearance="outline" class="metadata-field">
-        <mat-label>Metadata JSON</mat-label>
-        <textarea matInput rows="5" [(ngModel)]="metadataText"></textarea>
-      </mat-form-field>
-      <div class="actions">
-        <button mat-raised-button color="primary" (click)="saveTenant()" [disabled]="saving">
-          {{ saving ? 'Saving...' : (editingTenantId ? 'Update Tenant' : 'Create Tenant') }}
-        </button>
-        <button mat-stroked-button (click)="resetForm()" [disabled]="saving">
-          {{ editingTenantId ? 'Exit Edit' : 'Clear' }}
-        </button>
-      </div>
+        <div class="actions">
+          <button mat-raised-button color="primary" (click)="saveTenant()" [disabled]="saving">
+            {{ saving ? 'Saving...' : (editingTenantId ? 'Update Tenant' : 'Create Tenant') }}
+          </button>
+          <button mat-stroked-button (click)="resetForm()" [disabled]="saving">
+            {{ editingTenantId ? 'Exit Edit' : 'Clear' }}
+          </button>
+        </div>
+      </ng-container>
 
-      <section *ngIf="editingTenantId" class="tenant-members">
+      <ng-template #tenantWorkspaceSummary>
+        <div class="row">
+          <mat-form-field appearance="outline">
+            <mat-label>Tenant Key</mat-label>
+            <input matInput [ngModel]="form.tenant_key || currentWorkspaceTenant?.tenantKey" disabled />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Name</mat-label>
+            <input matInput [ngModel]="form.name || currentWorkspaceTenant?.label" disabled />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <input matInput [ngModel]="form.status" disabled />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Default Country</mat-label>
+            <input matInput [ngModel]="form.default_country" disabled />
+          </mat-form-field>
+        </div>
+      </ng-template>
+
+      <section *ngIf="platformScoped && editingTenantId" class="tenant-members">
         <div class="section-title">
           <div>
             <p class="eyebrow">Access control</p>
@@ -471,7 +496,7 @@
     </mat-card-content>
   </mat-card>
 
-  <mat-card class="card tenant-catalog-card">
+  <mat-card *ngIf="platformScoped" class="card tenant-catalog-card">
     <div class="card-heading">
       <div>
         <p class="eyebrow">Workspace source of truth</p>

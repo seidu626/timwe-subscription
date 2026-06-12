@@ -1,0 +1,48 @@
+{
+  "classification_hints": {
+    "domains": [
+      "security"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-12T10:31:15Z",
+  "goal_id": "goal-20260612T103115Z-fix-the-admin-tenant-man",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Fix the admin tenant management menu so it is visible and usable in ready NRG and Careerify tenant workspaces while preserving multi-tenant backend authorization and platform-only tenant catalog/member mutations.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "The requested outcome is implemented with evidence and tests."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "high",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Fix the admin tenant management menu so it is visible and usable in ready NRG and Careerify tenant workspaces while preserving multi-tenant backend authorization and platform-only tenant catalog/member mutations.",
+    "prompt_hash": "sha256:1f3d9843483c17b72f39bc467d7b564b860954b7d8161e93ca35d4ea8643506c",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "The requested outcome is implemented with evidence and tests."
+  ],
+  "title": "Fix the admin tenant management menu so it is visible and usable in ready NRG and Careerif"
+}

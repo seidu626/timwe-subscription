@@ -1,0 +1,45 @@
+{
+  "claims": [
+    {
+      "artifact_ref": ".harness/logs/20260612-schema-after-evidence.json",
+      "claim": "schema_validation passed for the tenant-management menu fix",
+      "claim_id": "schema_validation",
+      "command": "agent-hub schema validate-all --root . --json",
+      "created_at": "2026-06-12T10:41:20Z",
+      "evidence_type": "artifact",
+      "result_summary": "127 schemas checked with 0 errors.",
+      "status": "proved"
+    },
+    {
+      "artifact_ref": ".harness/logs/20260612-tenant-menu-dispatch-ready.json",
+      "claim": "dispatch_ready_report captured for the tenant-management menu fix",
+      "claim_id": "dispatch_ready_report",
+      "command": "agent-hub dispatch ready --root . --out .harness/logs/20260612-tenant-menu-dispatch-ready.json --json",
+      "created_at": "2026-06-12T10:41:20Z",
+      "evidence_type": "artifact",
+      "result_summary": "Dispatch-ready completed with 0 errors; warnings are pre-existing archived/review queue non-claimable notices.",
+      "status": "proved"
+    },
+    {
+      "artifact_ref": ".harness/logs/20260612-reconcile-after-evidence.json",
+      "claim": "review_gate_result passed for the tenant-management menu fix",
+      "claim_id": "review_gate_result",
+      "command": "agent-hub reconcile --root . --check --json",
+      "created_at": "2026-06-12T10:41:20Z",
+      "evidence_type": "artifact",
+      "result_summary": "vNext reconcile reported 0 findings.",
+      "status": "proved"
+    }
+  ],
+  "evidence_id": "evidence-WO-FIX-THE-ADMIN-TENANT-MANAGEMENT-MENU-SO-IT-IS-VI",
+  "goal_id": "goal-20260612T103115Z-fix-the-admin-tenant-man",
+  "review": {
+    "reviewed_at": "2026-06-12T10:41:20Z",
+    "reviewer": "evidence-gate",
+    "status": "accepted"
+  },
+  "run_id": "run-WO-FIX-THE-ADMIN-TENANT-MANAGEMENT-MENU-SO-IT-IS-VI",
+  "schema_version": "2.0",
+  "unsupported_claims": [],
+  "work_order_id": "WO-FIX-THE-ADMIN-TENANT-MANAGEMENT-MENU-SO-IT-IS-VI"
+}

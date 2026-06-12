@@ -1,9 +1,43 @@
-import { of } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 
 import { TenantListComponent } from './tenant-list.component';
+import { TenantWorkspaceState } from '../../../core/services/tenant-workspace.service';
 
 describe('TenantListComponent', () => {
-  function createComponent() {
+  const platformWorkspace: TenantWorkspaceState = {
+    authenticated: true,
+    loading: false,
+    platformScoped: true,
+    currentTenant: {
+      identifier: 'nrg',
+      tenantId: 'tenant-1',
+      tenantKey: 'nrg',
+      label: 'NRG'
+    },
+    availableTenants: [
+      {
+        identifier: 'nrg',
+        tenantId: 'tenant-1',
+        tenantKey: 'nrg',
+        label: 'NRG'
+      }
+    ],
+    canSwitchTenant: false,
+    status: 'ready',
+    reason: null
+  };
+
+  function createComponent(workspace: TenantWorkspaceState = platformWorkspace) {
+    const currentTenant = {
+      id: 'tenant-1',
+      tenant_key: 'nrg',
+      name: 'NRG',
+      status: 'ACTIVE' as const,
+      default_country: 'GH',
+      metadata: {},
+      created_at: '2026-05-10T00:00:00Z',
+      updated_at: '2026-05-10T00:00:00Z'
+    };
     const tenantService = {
       list: jasmine.createSpy().and.returnValue(of({
         tenants: [],
@@ -11,6 +45,7 @@ describe('TenantListComponent', () => {
         page: 1,
         page_size: 20
       })),
+      current: jasmine.createSpy().and.returnValue(of(currentTenant)),
       update: jasmine.createSpy().and.returnValue(of({
         id: 'tenant-1',
         tenant_key: 'nrg',
@@ -123,9 +158,13 @@ describe('TenantListComponent', () => {
     const snackBar = {
       open: jasmine.createSpy()
     };
+    const workspace$ = new BehaviorSubject<TenantWorkspaceState>(workspace);
+    const tenantWorkspace = {
+      workspace$: workspace$.asObservable()
+    };
 
-    const component = new TenantListComponent(tenantService as any, snackBar as any);
-    return { component, tenantService, snackBar };
+    const component = new TenantListComponent(tenantService as any, snackBar as any, tenantWorkspace as any);
+    return { component, tenantService, snackBar, workspace$ };
   }
 
   it('loads tenant catalog rows with current paging and filters', () => {
@@ -142,6 +181,48 @@ describe('TenantListComponent', () => {
       q: 'nrg',
       status: 'ACTIVE'
     });
+  });
+
+  it('loads the current tenant and provider setup in tenant workspace mode', () => {
+    const tenantWorkspace: TenantWorkspaceState = {
+      ...platformWorkspace,
+      platformScoped: false,
+      currentTenant: {
+        identifier: 'nrg',
+        tenantId: 'tenant-1',
+        tenantKey: 'nrg',
+        label: 'NRG'
+      },
+      status: 'ready'
+    };
+    const { component, tenantService } = createComponent(tenantWorkspace);
+
+    component.ngOnInit();
+
+    expect(tenantService.current).toHaveBeenCalled();
+    expect(tenantService.list).not.toHaveBeenCalled();
+    expect(component.editingTenantId).toBe('tenant-1');
+    expect(component.form.tenant_key).toBe('nrg');
+    expect(tenantService.listMembers).not.toHaveBeenCalled();
+    expect(tenantService.listChannels).toHaveBeenCalledWith({ page: 1, page_size: 100 });
+  });
+
+  it('does not send tenant catalog updates from tenant workspace mode', () => {
+    const tenantWorkspace: TenantWorkspaceState = {
+      ...platformWorkspace,
+      platformScoped: false,
+      status: 'ready'
+    };
+    const { component, tenantService, snackBar } = createComponent(tenantWorkspace);
+    component.platformScoped = false;
+    component.editingTenantId = 'tenant-1';
+    component.form = { tenant_key: 'nrg', name: 'NRG', status: 'ACTIVE', default_country: 'GH' };
+
+    component.saveTenant();
+
+    expect(tenantService.update).not.toHaveBeenCalled();
+    expect(tenantService.create).not.toHaveBeenCalled();
+    expect(snackBar.open).toHaveBeenCalledWith('Platform scope is required to update tenant catalog records', 'Close', { duration: 4000 });
   });
 
   it('sends normalized tenant updates with JSON metadata', () => {

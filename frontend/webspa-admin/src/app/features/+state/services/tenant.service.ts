@@ -49,6 +49,10 @@ export class TenantService {
     return this.http.get<TenantListResponse>(this.baseUrl, { params });
   }
 
+  current(): Observable<TenantListResponse['tenants'][number]> {
+    return this.http.get<TenantListResponse['tenants'][number]>(`${this.baseUrl}/current`);
+  }
+
   create(payload: TenantCreatePayload): Observable<TenantMutationResponse> {
     return this.http.post<TenantMutationResponse>(this.baseUrl, payload);
   }

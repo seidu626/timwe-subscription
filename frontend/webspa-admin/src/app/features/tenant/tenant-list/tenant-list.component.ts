@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
+import { Subject } from 'rxjs';
+import { filter, takeUntil } from 'rxjs/operators';
 import {
   AdminChannel,
   AdminChannelCredential,
@@ -20,13 +22,18 @@ import {
   TenantStatus
 } from '../../+state/models/tenant.model';
 import { TenantService } from '../../+state/services/tenant.service';
+import {
+  TenantWorkspaceOption,
+  TenantWorkspaceService,
+  TenantWorkspaceState
+} from '../../../core/services/tenant-workspace.service';
 
 @Component({
   selector: 'app-tenant-list',
   templateUrl: './tenant-list.component.html',
   styleUrls: ['./tenant-list.component.scss']
 })
-export class TenantListComponent implements OnInit {
+export class TenantListComponent implements OnInit, OnDestroy {
   loading = false;
   saving = false;
   memberLoading = false;
@@ -36,6 +43,8 @@ export class TenantListComponent implements OnInit {
   credentialLoading = false;
   credentialSaving = false;
   credentialRevoking = false;
+  platformScoped = true;
+  currentWorkspaceTenant: TenantWorkspaceOption | null = null;
 
   readonly statuses: Array<TenantStatus | ''> = ['', 'ACTIVE', 'INACTIVE'];
   readonly memberStatuses: TenantMemberStatus[] = ['ACTIVE', 'INACTIVE'];
@@ -80,17 +89,32 @@ export class TenantListComponent implements OnInit {
   credentialForm = this.emptyCredentialForm();
   credentialValueForm = this.emptyCredentialValueForm();
   metadataText = '{}';
+  private readonly destroy$ = new Subject<void>();
+  private workspaceKey = '';
 
   constructor(
     private tenantService: TenantService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private tenantWorkspace: TenantWorkspaceService
   ) {}
 
   ngOnInit(): void {
-    this.loadTenants();
+    this.tenantWorkspace.workspace$.pipe(
+      filter((workspace) => !workspace.loading),
+      takeUntil(this.destroy$)
+    ).subscribe((workspace) => this.applyWorkspace(workspace));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadTenants(): void {
+    if (!this.platformScoped) {
+      this.loadCurrentTenant();
+      return;
+    }
     this.loading = true;
     this.tenantService.list({
       page: this.page,
@@ -128,6 +152,10 @@ export class TenantListComponent implements OnInit {
   }
 
   editTenant(tenant: AdminTenant): void {
+    this.selectTenantForManagement(tenant);
+  }
+
+  private selectTenantForManagement(tenant: AdminTenant): void {
     this.editingTenantId = tenant.id;
     this.form = {
       tenant_key: tenant.tenant_key,
@@ -137,11 +165,19 @@ export class TenantListComponent implements OnInit {
     };
     this.metadataText = JSON.stringify(tenant.metadata || {}, null, 2);
     this.memberForm = this.emptyMemberForm();
-    this.loadTenantMembers(tenant.id);
+    if (this.platformScoped) {
+      this.loadTenantMembers(tenant.id);
+    } else {
+      this.memberDataSource.data = [];
+    }
     this.loadChannels();
   }
 
   resetForm(): void {
+    if (!this.platformScoped && this.dataSource.data.length === 1) {
+      this.selectTenantForManagement(this.dataSource.data[0]);
+      return;
+    }
     this.editingTenantId = null;
     this.editingChannelId = null;
     this.form = this.emptyForm();
@@ -162,6 +198,10 @@ export class TenantListComponent implements OnInit {
   }
 
   saveTenant(): void {
+    if (!this.platformScoped) {
+      this.toast('Platform scope is required to update tenant catalog records');
+      return;
+    }
     if (!this.editingTenantId && !this.form.tenant_key.trim()) {
       this.toast('Tenant key is required');
       return;
@@ -219,6 +259,10 @@ export class TenantListComponent implements OnInit {
   }
 
   saveMember(): void {
+    if (!this.platformScoped) {
+      this.toast('Platform scope is required to manage tenant members');
+      return;
+    }
     if (!this.editingTenantId) {
       this.toast('Select a tenant first');
       return;
@@ -252,6 +296,10 @@ export class TenantListComponent implements OnInit {
   }
 
   deactivateMember(member: AdminTenantMember): void {
+    if (!this.platformScoped) {
+      this.toast('Platform scope is required to manage tenant members');
+      return;
+    }
     if (!this.editingTenantId) {
       return;
     }
@@ -559,6 +607,49 @@ export class TenantListComponent implements OnInit {
         this.toast(this.extractErrorMessage(err, 'Failed to load tenant members'));
       }
     });
+  }
+
+  private loadCurrentTenant(): void {
+    this.loading = true;
+    this.tenantService.current().subscribe({
+      next: (tenant) => {
+        this.dataSource.data = [tenant];
+        this.totalCount = 1;
+        this.loading = false;
+        this.selectTenantForManagement(tenant);
+      },
+      error: (err) => {
+        this.loading = false;
+        this.dataSource.data = [];
+        this.totalCount = 0;
+        this.toast(this.extractErrorMessage(err, 'Failed to load current tenant'));
+      }
+    });
+  }
+
+  private applyWorkspace(workspace: TenantWorkspaceState): void {
+    const currentTenant = workspace.currentTenant;
+    const nextKey = [
+      workspace.platformScoped ? 'platform' : 'tenant',
+      workspace.status,
+      currentTenant?.tenantId ?? '',
+      currentTenant?.tenantKey ?? ''
+    ].join(':');
+
+    if (nextKey === this.workspaceKey) {
+      return;
+    }
+
+    this.workspaceKey = nextKey;
+    this.platformScoped = workspace.platformScoped;
+    this.currentWorkspaceTenant = currentTenant;
+
+    if (workspace.status !== 'ready') {
+      return;
+    }
+
+    this.page = 1;
+    this.loadTenants();
   }
 
   private loadChannels(): void {

@@ -1,0 +1,92 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "The requested outcome is implemented with evidence and tests.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "allow",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-12T10:31:16Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260612T103115Z-fix-the-admin-tenant-man",
+  "hashes": {
+    "classification_hash": "sha256:775c374d381b22e6a4646057cba328e3d611cf5afe8de381c7e0de7dab485f79",
+    "contract_hash": "sha256:c95ad61c90512a91932db7174d027314ca7147bc680efb3a8072beb916fb2afc",
+    "issue_hash": "sha256:6c69020e420c919a5fc31a5da08092df7f05c51b9271f1943038cd995a157536"
+  },
+  "issue_id": "ISSUE-FIX-THE-ADMIN-TENANT-MANAGEMENT-MENU-SO",
+  "loop_mode": "closed",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Fix the admin tenant management menu so it is visible and usable in ready NRG and Careerify tenant workspaces while preserving multi-tenant backend authorization and platform-only tenant catalog/member mutations.",
+    "trigger": "Fix the admin tenant management menu so it is visible and usable in ready NRG and Careerify tenant workspaces while preserving multi-tenant backend authorization and platform-only tenant catalog/member mutations."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": "wave-001",
+    "parallel_safe": true,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "frontend/webspa-admin/src/app/app.routes.ts",
+      "frontend/webspa-admin/src/app/layout/default-layout/_nav.ts",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.ts",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-layout.component.spec.ts",
+      "frontend/webspa-admin/src/app/layout/default-layout/default-header/default-header.component.html",
+      "frontend/webspa-admin/src/app/features/+state/services/tenant.service.ts",
+      "frontend/webspa-admin/src/app/features/tenant/tenant-list/**",
+      "services/acquisition-api/internal/handler/admin_management_handler.go",
+      "services/acquisition-api/internal/service/admin_management_service.go",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "frontend/webspa-admin/src/app/**",
+      "services/acquisition-api/internal/**"
+    ]
+  },
+  "work_order_id": "WO-FIX-THE-ADMIN-TENANT-MANAGEMENT-MENU-SO-IT-IS-VI"
+}

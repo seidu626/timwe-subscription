@@ -32,8 +32,7 @@ export const routes: Routes = [
       { path: 'products', loadChildren: () => import('./features/product/product.module').then(m => m.ProductModule) },
       {
         path: 'tenants',
-        loadChildren: () => import('./features/tenant/tenant.module').then(m => m.TenantModule),
-        data: { platformRequired: true }
+        loadChildren: () => import('./features/tenant/tenant.module').then(m => m.TenantModule)
       },
       { path: 'userbase', loadChildren: () => import('./features/userbase/userbase.module').then(m => m.UserbaseModule) },
       { path: 'operations', loadChildren: () => import('./features/operations/operations.module').then(m => m.OperationsModule) },
