@@ -10,6 +10,7 @@ describe('CampaignFormComponent', () => {
     const campaignService = {
       getCampaignBySlug: jasmine.createSpy().and.returnValue(of({
         slug: routeSlug ?? 'campaign-a',
+        channel_id: 'channel-1',
         language: 'en',
         country: 'GH',
         operator: 'AirtelTigo',
@@ -18,9 +19,31 @@ describe('CampaignFormComponent', () => {
         consent_required: true,
         enabled: true
       })),
-      updateCampaign: jasmine.createSpy(),
-      createCampaign: jasmine.createSpy(),
+      updateCampaign: jasmine.createSpy().and.returnValue(of({})),
+      createCampaign: jasmine.createSpy().and.returnValue(of({})),
       presignBackgroundUpload: jasmine.createSpy()
+    };
+    const tenantService = {
+      listChannels: jasmine.createSpy().and.returnValue(of({
+        channels: [
+          {
+            channel_id: 'channel-1',
+            tenant_id: 'tenant-1',
+            channel_key: 'web-gh-airteltigo',
+            provider: 'timwe',
+            country: 'GH',
+            operator: 'AirtelTigo',
+            capabilities: ['OTP'],
+            status: 'ACTIVE',
+            enabled: true,
+            created_at: '2026-06-12T00:00:00Z',
+            updated_at: '2026-06-12T00:00:00Z'
+          }
+        ],
+        total_count: 1,
+        page: 1,
+        page_size: 100
+      }))
     };
 
     const router = {
@@ -47,6 +70,7 @@ describe('CampaignFormComponent', () => {
     const component = new CampaignFormComponent(
       new FormBuilder(),
       campaignService as any,
+      tenantService as any,
       route as any,
       router as any,
       snackBar as any,
@@ -55,7 +79,7 @@ describe('CampaignFormComponent', () => {
 
     component.ngOnInit();
 
-    return { component, campaignService, router };
+    return { component, campaignService, router, tenantService };
   }
 
   it('confirms before discarding dirty changes from cancel', () => {
@@ -83,5 +107,16 @@ describe('CampaignFormComponent', () => {
 
     expect(event.preventDefault).toHaveBeenCalled();
     expect(event.returnValue).toBe('');
+  });
+
+  it('serializes channel_id when updating a campaign', () => {
+    const { component, campaignService } = createComponent('campaign-a');
+
+    component.onSubmit();
+
+    expect(campaignService.updateCampaign).toHaveBeenCalledWith(
+      'campaign-a',
+      jasmine.objectContaining({ channel_id: 'channel-1' })
+    );
   });
 });

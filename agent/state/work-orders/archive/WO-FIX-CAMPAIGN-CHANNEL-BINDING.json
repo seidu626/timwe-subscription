@@ -1,0 +1,88 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "Campaign create/update payloads include channel_id from a tenant channel selector.",
+    "Frontend unit tests cover channel_id serialization for campaign update."
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Tenant campaign writes now require a tenant channel binding; production update fails with channel_id is required.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-12T14:46:47Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260612T144647Z-fix-webspa-admin-tenant",
+  "hashes": {
+    "classification_hash": "sha256:4ab45c15c3b3c39a0953cfe80c4a007dbd8a2de58cd30bbfad9077d31462ee47",
+    "contract_hash": "sha256:64b06f50b0409d05ca1f579d3495beacbccd7dd71bc7128022f033859a9fef1e",
+    "issue_hash": "sha256:507b5ebbb1b01a8bf9783fc0acb67fec3c05881f833957b8fa51c5a57ce143b6"
+  },
+  "issue_id": "ISSUE-FIX-CAMPAIGN-CHANNEL-BINDING",
+  "loop_mode": "closed",
+  "non_goals": [
+    "Do not change tenant secret handling.",
+    "Do not relax backend channel validation."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Fix webspa-admin tenant campaign create/update so payloads include a selected tenant channel_id.",
+    "trigger": "Production PUT /v1/admin/campaigns/gh-airteltigo-careerify-daily-v1 returned 400 channel_id is required."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "frontend-debugging-investigation",
+    "backend-contract-first",
+    "api-contract-design"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "frontend/webspa-admin/src/app/features/+state/models/campaign.model.ts",
+      "frontend/webspa-admin/src/app/features/campaign/campaign-form/campaign-form.component.ts",
+      "frontend/webspa-admin/src/app/features/campaign/campaign-form/campaign-form.component.html",
+      "frontend/webspa-admin/src/app/features/campaign/campaign-form/campaign-form.component.spec.ts",
+      "agent/state/**",
+      ".harness/logs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "frontend/webspa-admin/**",
+      "services/acquisition-api/**",
+      "schemas/**"
+    ],
+    "write_locks": [
+      "frontend/webspa-admin/src/app/features/campaign/campaign-form/**",
+      "frontend/webspa-admin/src/app/features/+state/models/campaign.model.ts"
+    ]
+  },
+  "work_order_id": "WO-FIX-CAMPAIGN-CHANNEL-BINDING"
+}

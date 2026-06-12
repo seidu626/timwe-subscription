@@ -1,0 +1,45 @@
+{
+  "claims": [
+    {
+      "artifact_ref": ".harness/logs/20260612-campaign-channel-schema.log",
+      "claim": "schema_validation passed for the campaign channel binding fix",
+      "claim_id": "schema_validation",
+      "command": "agent-hub schema validate-all --root . --json",
+      "created_at": "2026-06-12T14:52:00Z",
+      "evidence_type": "artifact",
+      "result_summary": "127 schemas checked with status pass.",
+      "status": "proved"
+    },
+    {
+      "artifact_ref": ".harness/logs/20260612-campaign-channel-form-test.log",
+      "claim": "dispatch_ready_report captured the frontend regression proof for campaign channel_id serialization",
+      "claim_id": "dispatch_ready_report",
+      "command": "npm test -- --watch=false --browsers=ChromeHeadless --include=src/app/features/campaign/campaign-form/campaign-form.component.spec.ts",
+      "created_at": "2026-06-12T14:52:00Z",
+      "evidence_type": "artifact",
+      "result_summary": "Campaign form spec passed 3 tests including update payload channel_id serialization.",
+      "status": "proved"
+    },
+    {
+      "artifact_ref": ".harness/logs/20260612-campaign-channel-reconcile.log",
+      "claim": "review_gate_result passed for the campaign channel binding fix",
+      "claim_id": "review_gate_result",
+      "command": "agent-hub reconcile --root . --check --json",
+      "created_at": "2026-06-12T14:52:00Z",
+      "evidence_type": "artifact",
+      "result_summary": "vNext reconcile reported 0 findings.",
+      "status": "proved"
+    }
+  ],
+  "evidence_id": "evidence-WO-FIX-CAMPAIGN-CHANNEL-BINDING",
+  "goal_id": "goal-20260612T144647Z-fix-webspa-admin-tenant",
+  "review": {
+    "reviewed_at": "2026-06-12T14:52:00Z",
+    "reviewer": "evidence-gate",
+    "status": "accepted"
+  },
+  "run_id": "run-WO-FIX-CAMPAIGN-CHANNEL-BINDING",
+  "schema_version": "2.0",
+  "unsupported_claims": [],
+  "work_order_id": "WO-FIX-CAMPAIGN-CHANNEL-BINDING"
+}

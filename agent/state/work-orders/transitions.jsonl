@@ -26,3 +26,6 @@
 {"forced":false,"from_state":"ready","schema_version":"1.0","to_state":"active","ts":"2026-06-12T11:02:20Z","work_order_id":"WO-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-ADMIN-GET"}
 {"forced":false,"from_state":"active","schema_version":"1.0","to_state":"review","ts":"2026-06-12T11:06:02Z","work_order_id":"WO-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-ADMIN-GET"}
 {"forced":false,"from_state":"review","schema_version":"1.0","to_state":"archive","ts":"2026-06-12T11:06:02Z","work_order_id":"WO-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-ADMIN-GET"}
+{"forced":false,"from_state":"ready","schema_version":"1.0","to_state":"active","ts":"2026-06-12T14:48:00Z","work_order_id":"WO-FIX-CAMPAIGN-CHANNEL-BINDING"}
+{"forced":false,"from_state":"active","schema_version":"1.0","to_state":"review","ts":"2026-06-12T14:53:15Z","work_order_id":"WO-FIX-CAMPAIGN-CHANNEL-BINDING"}
+{"forced":false,"from_state":"review","schema_version":"1.0","to_state":"archive","ts":"2026-06-12T14:53:15Z","work_order_id":"WO-FIX-CAMPAIGN-CHANNEL-BINDING"}

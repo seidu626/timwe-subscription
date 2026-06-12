@@ -91,6 +91,18 @@
           <mat-card-content>
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Channel</mat-label>
+                <mat-select formControlName="channel_id" name="channel_id" [disabled]="channelsLoading">
+                  <mat-option *ngIf="channelsLoading" disabled>Loading channels</mat-option>
+                  <mat-option *ngIf="channelsError" disabled>{{ channelsError }}</mat-option>
+                  <mat-option *ngFor="let channel of availableChannels" [value]="channel.channel_id">
+                    {{ channelDisplayName(channel) }}
+                  </mat-option>
+                </mat-select>
+                <mat-error *ngIf="isFieldInvalid('channel_id')">{{ getFieldError('channel_id') }}</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
                 <mat-label>Offer Product ID</mat-label>
                 <input matInput type="number" formControlName="offer_product_id" name="offer_product_id" inputmode="numeric">
                 <mat-error *ngIf="isFieldInvalid('offer_product_id')">{{ getFieldError('offer_product_id') }}</mat-error>

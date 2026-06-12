@@ -3,10 +3,12 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Campaign, FlowType, CampaignCreateRequest, CampaignUpdateRequest } from '../../+state/models/campaign.model';
+import { AdminChannel } from '../../+state/models/tenant.model';
 import {
   CampaignService,
   PresignBackgroundUploadResponse
 } from '../../+state/services/campaign.service';
+import { TenantService } from '../../+state/services/tenant.service';
 import { PendingChangesAware } from '../../../core/guards/pending-changes.guard';
 
 @Component({
@@ -51,6 +53,9 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
   backgroundUploadInProgress = false;
   backgroundUploadError: string | null = null;
   private existingTrackingConfig: any = {};
+  availableChannels: AdminChannel[] = [];
+  channelsLoading = false;
+  channelsError: string | null = null;
 
   readonly maxBackgroundSizeBytes = 2 * 1024 * 1024;
   readonly allowedBackgroundMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -107,6 +112,7 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
   constructor(
     private fb: FormBuilder,
     private campaignService: CampaignService,
+    private tenantService: TenantService,
     private route: ActivatedRoute,
     private router: Router,
     private snackBar: MatSnackBar,
@@ -115,6 +121,7 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
 
   ngOnInit(): void {
     this.initForm();
+    this.loadChannels();
 
     this.slug = this.route.snapshot.paramMap.get('slug');
     if (this.slug) {
@@ -216,6 +223,7 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
       operator: [''],
 
       // Product Mapping
+      channel_id: ['', Validators.required],
       offer_product_id: [null, [Validators.required, Validators.min(1)]],
       pricepoint_id: [null],
       partner_role_id: [null],
@@ -292,6 +300,7 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
 
     this.form.patchValue({
       slug: campaign.slug,
+      channel_id: campaign.channel_id || '',
       language: campaign.language,
       country: campaign.country,
       operator: campaign.operator || '',
@@ -372,6 +381,7 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
 
   private buildPayload(formValue: any): CampaignCreateRequest | CampaignUpdateRequest {
     const payload: any = {
+      channel_id: formValue.channel_id,
       language: formValue.language,
       country: formValue.country.toUpperCase(),
       operator: formValue.operator || undefined,
@@ -463,6 +473,43 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
     }
 
     return payload;
+  }
+
+  private loadChannels(): void {
+    this.channelsLoading = true;
+    this.channelsError = null;
+
+    this.tenantService.listChannels({ page: 1, page_size: 100, enabled: true }).subscribe({
+      next: (response) => {
+        this.availableChannels = response.channels || [];
+        this.channelsLoading = false;
+        this.selectDefaultChannelWhenSafe();
+      },
+      error: () => {
+        this.channelsError = 'Failed to load tenant channels.';
+        this.channelsLoading = false;
+      }
+    });
+  }
+
+  private selectDefaultChannelWhenSafe(): void {
+    const channelControl = this.form.get('channel_id');
+    if (!channelControl || channelControl.value || this.availableChannels.length !== 1) {
+      return;
+    }
+
+    channelControl.setValue(this.availableChannels[0].channel_id);
+    channelControl.markAsDirty();
+  }
+
+  channelDisplayName(channel: AdminChannel): string {
+    const parts = [
+      channel.provider,
+      channel.country,
+      channel.operator || '',
+      channel.channel_key
+    ].filter(Boolean);
+    return parts.join(' / ');
   }
 
   private buildTrackingConfig(formValue: any): any {

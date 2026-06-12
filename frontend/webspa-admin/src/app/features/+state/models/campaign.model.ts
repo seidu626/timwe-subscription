@@ -45,6 +45,7 @@ export interface CampaignTrackingConfig {
 
 export interface Campaign {
   id: number;
+  channel_id?: string;
   slug: string;
   language: string;
   country: string;
@@ -83,6 +84,7 @@ export interface CampaignListResponse {
 
 export interface CampaignCreateRequest {
   slug: string;
+  channel_id: string;
   language: string;
   country: string;
   operator?: string;

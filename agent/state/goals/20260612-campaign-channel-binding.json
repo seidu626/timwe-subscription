@@ -1,0 +1,48 @@
+{
+  "classification_hints": {
+    "domains": [
+      "security"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-12T14:46:47Z",
+  "goal_id": "goal-20260612T144647Z-fix-webspa-admin-tenant",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Fix webspa-admin tenant campaign updates so tenant-scoped campaign create/update includes a valid channel_id selected from the tenant channel list, resolving production 400 'channel_id is required' and preserving tenant-specific channel binding.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "The requested outcome is implemented with evidence and tests."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": null,
+    "prompt_excerpt": "Fix webspa-admin tenant campaign updates so tenant-scoped campaign create/update includes a valid channel_id selected from the tenant channel list, resolving production 400 'channel_id is required' and preserving tenant-specific channel binding.",
+    "prompt_hash": "sha256:4dd79a117997f998671f3652b857555573646ce1c0b973075525dbc6e71413bb",
+    "repo_ref": "agent-hub"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "The requested outcome is implemented with evidence and tests."
+  ],
+  "title": "Fix webspa-admin tenant campaign updates so tenant-scoped campaign create/update includes "
+}

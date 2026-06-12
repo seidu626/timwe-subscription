@@ -1,0 +1,16 @@
+{
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "classification_id": "hvc-goal-20260612T144647Z-fix-webspa-admin-tenant",
+  "created_at": "2026-06-12T14:46:47Z",
+  "domains": [
+    "security"
+  ],
+  "goal_id": "goal-20260612T144647Z-fix-webspa-admin-tenant",
+  "risk_tier": "T0",
+  "schema_version": "1.0"
+}
