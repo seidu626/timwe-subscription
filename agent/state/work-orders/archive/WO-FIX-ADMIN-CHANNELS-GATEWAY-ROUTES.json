@@ -1,0 +1,82 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "The requested outcome is implemented with evidence and tests.",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-12T11:02:09Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260612T110209Z-fix-production-gateway-4",
+  "hashes": {
+    "classification_hash": "sha256:38318db6bd8d87f1893422491fb6031c23ad145bb9864dfcc6735234c4ae54b1",
+    "contract_hash": "sha256:a301fb3c12c9380186046b0ac9b1b82aa0301dc54f0d22331129cb1cd2096702",
+    "issue_hash": "sha256:c2390f28f32c0d665222da74835ea7752f6ea529fc592bcc258034c4fb877b03"
+  },
+  "issue_id": "ISSUE-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-AD",
+  "loop_mode": "closed",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Fix production gateway 404 for webspa-admin GET /v1/admin/channels by exposing acquisition-api admin channel routes in KrakenD, verify route is auth-gated instead of missing, then deploy KrakenD config.",
+    "trigger": "Fix production gateway 404 for webspa-admin GET /v1/admin/channels by exposing acquisition-api admin channel routes in KrakenD, verify route is auth-gated instead of missing, then deploy KrakenD config."
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "api-contract-design"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "krakend/config/templates/Endpoint.tmpl",
+      ".harness/logs/20260612-admin-channels-gateway-debug-ledger.md"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "krakend/**",
+      "services/acquisition-api/**",
+      "frontend/webspa-admin/**",
+      "schemas/**"
+    ],
+    "write_locks": [
+      "krakend/config/templates/Endpoint.tmpl"
+    ]
+  },
+  "work_order_id": "WO-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-ADMIN-GET"
+}

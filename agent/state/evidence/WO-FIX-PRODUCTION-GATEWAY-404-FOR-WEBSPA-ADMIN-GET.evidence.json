@@ -1,0 +1,45 @@
+{
+  "claims": [
+    {
+      "artifact_ref": ".harness/logs/20260612-admin-channels-schema-validate-all.log",
+      "claim": "schema_validation passed for the admin channels gateway fix",
+      "claim_id": "schema_validation",
+      "command": "agent-hub schema validate-all --root . --json",
+      "created_at": "2026-06-12T11:05:00Z",
+      "evidence_type": "artifact",
+      "result_summary": "127 schemas checked with status pass.",
+      "status": "proved"
+    },
+    {
+      "artifact_ref": ".harness/logs/20260612-admin-channels-rendered-routes.txt",
+      "claim": "dispatch_ready_report captured the rendered KrakenD channel route surface",
+      "claim_id": "dispatch_ready_report",
+      "command": "just krakend-debug-do && rg -n '/v1/admin/channels' .harness/logs/20260612-admin-channels-krakend-debug.log",
+      "created_at": "2026-06-12T11:05:00Z",
+      "evidence_type": "artifact",
+      "result_summary": "Rendered KrakenD config includes all seven admin channel endpoints and backend URL patterns.",
+      "status": "proved"
+    },
+    {
+      "artifact_ref": ".harness/logs/20260612-admin-channels-reconcile.log",
+      "claim": "review_gate_result passed for the admin channels gateway fix",
+      "claim_id": "review_gate_result",
+      "command": "agent-hub reconcile --root . --check --json",
+      "created_at": "2026-06-12T11:05:00Z",
+      "evidence_type": "artifact",
+      "result_summary": "vNext reconcile reported 0 findings.",
+      "status": "proved"
+    }
+  ],
+  "evidence_id": "evidence-WO-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-ADMIN-GET",
+  "goal_id": "goal-20260612T110209Z-fix-production-gateway-4",
+  "review": {
+    "reviewed_at": "2026-06-12T11:05:00Z",
+    "reviewer": "evidence-gate",
+    "status": "accepted"
+  },
+  "run_id": "run-WO-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-ADMIN-GET",
+  "schema_version": "2.0",
+  "unsupported_claims": [],
+  "work_order_id": "WO-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-ADMIN-GET"
+}

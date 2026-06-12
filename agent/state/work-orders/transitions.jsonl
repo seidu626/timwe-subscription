@@ -23,3 +23,6 @@
 {"forced":false,"from_state":"active","schema_version":"1.0","to_state":"archive","ts":"2026-06-12T08:01:34Z","work_order_id":"WO-FIX-PRODUCTION-ADMIN-TENANT-CONTEXT-FAILURE-SUBS"}
 {"forced":false,"from_state":"ready","schema_version":"1.0","to_state":"active","ts":"2026-06-12T10:31:27Z","work_order_id":"WO-FIX-THE-ADMIN-TENANT-MANAGEMENT-MENU-SO-IT-IS-VI"}
 {"forced":false,"from_state":"active","schema_version":"1.0","to_state":"archive","ts":"2026-06-12T10:44:10Z","work_order_id":"WO-FIX-THE-ADMIN-TENANT-MANAGEMENT-MENU-SO-IT-IS-VI"}
+{"forced":false,"from_state":"ready","schema_version":"1.0","to_state":"active","ts":"2026-06-12T11:02:20Z","work_order_id":"WO-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-ADMIN-GET"}
+{"forced":false,"from_state":"active","schema_version":"1.0","to_state":"review","ts":"2026-06-12T11:06:02Z","work_order_id":"WO-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-ADMIN-GET"}
+{"forced":false,"from_state":"review","schema_version":"1.0","to_state":"archive","ts":"2026-06-12T11:06:02Z","work_order_id":"WO-FIX-PRODUCTION-GATEWAY-404-FOR-WEBSPA-ADMIN-GET"}

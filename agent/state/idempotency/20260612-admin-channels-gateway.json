@@ -1,0 +1,6 @@
+{
+  "key": "20260612-admin-channels-gateway",
+  "payload": {
+    "out": "agent/state/work-orders/ready/WO-FIX-ADMIN-CHANNELS-GATEWAY-ROUTES.json"
+  }
+}
