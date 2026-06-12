@@ -1,5 +1,6 @@
 import React from 'react'
 import type { Metadata } from 'next'
+import { getTenantAliasForCampaignSlug } from '@/app/lib/campaign-aliases'
 import LandingPageClient from './LandingPageClient'
 
 export async function generateMetadata(
@@ -7,9 +8,13 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { tenant: slug } = await params
   const ACQUISITION_API_URL = process.env.ACQUISITION_API_URL || 'http://localhost:8084'
+  const tenantAlias = getTenantAliasForCampaignSlug(slug)
+  const campaignPath = tenantAlias
+    ? `${ACQUISITION_API_URL}/v1/campaigns/${encodeURIComponent(tenantAlias)}/${encodeURIComponent(slug)}`
+    : `${ACQUISITION_API_URL}/v1/campaigns/${encodeURIComponent(slug)}`
 
   try {
-    const response = await fetch(`${ACQUISITION_API_URL}/v1/campaigns/${encodeURIComponent(slug)}`, {
+    const response = await fetch(campaignPath, {
       next: { revalidate: 3600 }
     })
     
@@ -25,7 +30,7 @@ export async function generateMetadata(
       openGraph: {
         title: text?.heroTitle,
         description: text?.heDescription,
-        url: `${siteUrl}/lp/${slug}`,
+        url: tenantAlias ? `${siteUrl}/lp/${tenantAlias}/${slug}` : `${siteUrl}/lp/${slug}`,
         siteName: 'Nouveauriche',
         type: 'website',
         images: campaign.og_image ? [{ url: campaign.og_image }] : [],

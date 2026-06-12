@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getTenantAliasForCampaignSlug } from '@/app/lib/campaign-aliases'
 
 const ACQUISITION_API_URL = process.env.ACQUISITION_API_URL || 'http://localhost:8084'
 
@@ -7,9 +8,13 @@ export async function GET(
   { params }: { params: Promise<{ tenant: string }> }
 ) {
   const { tenant: slug } = await params
+  const tenantAlias = getTenantAliasForCampaignSlug(slug)
 
   try {
-    const response = await fetch(`${ACQUISITION_API_URL}/v1/campaigns/${encodeURIComponent(slug)}`, {
+    const campaignPath = tenantAlias
+      ? `${ACQUISITION_API_URL}/v1/campaigns/${encodeURIComponent(tenantAlias)}/${encodeURIComponent(slug)}`
+      : `${ACQUISITION_API_URL}/v1/campaigns/${encodeURIComponent(slug)}`
+    const response = await fetch(campaignPath, {
       headers: {
         'Content-Type': 'application/json',
       },

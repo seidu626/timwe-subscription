@@ -1,4 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
+import { getTenantAliasForCampaignSlug } from '@/app/lib/campaign-aliases'
 
 /**
  * /c/:slug -> /lp/:slug redirect
@@ -33,9 +34,14 @@ export default async function CampaignRedirect({
   }
 
   // URL-encode the slug to handle special characters safely
-  const encodedSlug = encodeURIComponent(slug.trim())
+  const normalizedSlug = slug.trim()
+  const encodedSlug = encodeURIComponent(normalizedSlug)
+  const tenantAlias = getTenantAliasForCampaignSlug(normalizedSlug)
   const query = queryString.toString()
-  const targetUrl = `/lp/${encodedSlug}${query ? `?${query}` : ''}`
+  const targetPath = tenantAlias
+    ? `/lp/${encodeURIComponent(tenantAlias)}/${encodedSlug}`
+    : `/lp/${encodedSlug}`
+  const targetUrl = `${targetPath}${query ? `?${query}` : ''}`
 
   redirect(targetUrl)
 }

@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { LandingPageSkeleton } from '../../components/Skeleton'
 import { PixelManager, usePixels } from '../../components/pixels'
+import { getTenantAliasForCampaignSlug } from '@/app/lib/campaign-aliases'
 import { captureBootstrapTokenFromUrl } from '@/lib/he-bootstrap'
 import type { PixelConfiguration } from '../../types'
 
@@ -31,7 +32,7 @@ function LandingPageWithSearchParams(): React.JSX.Element {
   const tenantParam = firstParam(params?.tenant)
   const slugParam = firstParam(params?.slug)
   const slug = slugParam || tenantParam
-  const tenantKey = slugParam ? tenantParam : ''
+  const tenantKey = slugParam ? tenantParam : getTenantAliasForCampaignSlug(tenantParam)
 
   useEffect(() => {
     captureBootstrapTokenFromUrl()
