@@ -1,6 +1,7 @@
 package adminhttp
 
 import (
+	"context"
 	"crypto/subtle"
 	"log"
 	"net/http"
@@ -17,11 +18,19 @@ type access struct {
 	allowedOrigins            []string
 	bootstrapPlatformEmails   map[string]struct{}
 	bootstrapPlatformSubjects map[string]struct{}
+	memberLookup              MemberTenantLookup
 }
 
 const cadenceAdminAllowedCORSHeaders = "Content-Type, Authorization, X-Admin-Token, X-Tenant-Id, X-Tenant-Key, X-Tenant-Channel-Id, X-Channel-Id"
 
-func newAccess() *access {
+type MemberTenant struct {
+	ID        string
+	TenantKey string
+}
+
+type MemberTenantLookup func(ctx context.Context, auth0Subject, email string) ([]MemberTenant, error)
+
+func newAccess(memberLookup MemberTenantLookup) *access {
 	domain := os.Getenv("ADMIN_AUTH0_DOMAIN")
 	audience := os.Getenv("ADMIN_AUTH0_AUDIENCE")
 
@@ -53,6 +62,7 @@ func newAccess() *access {
 		allowedOrigins:            allowed,
 		bootstrapPlatformEmails:   bootstrapPlatformEmailSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_EMAILS")),
 		bootstrapPlatformSubjects: bootstrapPlatformSubjectSet(os.Getenv("ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS")),
+		memberLookup:              memberLookup,
 	}
 }
 
@@ -119,9 +129,53 @@ func (a *access) require(w http.ResponseWriter, r *http.Request) bool {
 	}
 	identity := claims.Identity()
 	identity = a.applyBootstrapPlatformScope(identity)
+	identity = a.applyMembershipTenantContext(r, identity)
 	identity = a.applySelectedTenantContext(r, identity)
 	*r = *r.WithContext(tenantctx.WithIdentity(r.Context(), identity))
 	return true
+}
+
+// applyMembershipTenantContext mirrors the admin gateway contract used by
+// acquisition-api. Non-platform users whose JWT has no tenant claim can be
+// scoped only through the repository-owned membership table; a selected
+// X-Tenant-Key is accepted only when it matches an active membership.
+func (a *access) applyMembershipTenantContext(r *http.Request, identity tenantctx.Identity) tenantctx.Identity {
+	if identity.PlatformScoped || identity.HasTenant() || a.memberLookup == nil {
+		return identity
+	}
+	subject := strings.TrimSpace(identity.Subject)
+	email := strings.TrimSpace(strings.ToLower(identity.Email))
+	if identity.HasExplicitlyUnverifiedEmail() {
+		email = ""
+	}
+	if subject == "" && email == "" {
+		return identity
+	}
+	memberships, err := a.memberLookup(r.Context(), subject, email)
+	if err != nil {
+		log.Printf("admin tenant resolution failed (cadence-engine): subject=%s err=%v", subject, err)
+		return identity
+	}
+	if len(memberships) == 0 {
+		return identity
+	}
+	if len(memberships) == 1 {
+		identity.TenantID = memberships[0].ID
+		identity.TenantKey = memberships[0].TenantKey
+		return identity
+	}
+	selected := strings.TrimSpace(r.Header.Get(tenantctx.HeaderTenantKey))
+	if selected == "" {
+		return identity
+	}
+	for _, membership := range memberships {
+		if strings.EqualFold(membership.TenantKey, selected) {
+			identity.TenantID = membership.ID
+			identity.TenantKey = membership.TenantKey
+			return identity
+		}
+	}
+	return identity
 }
 
 func (a *access) applyBootstrapPlatformScope(identity tenantctx.Identity) tenantctx.Identity {

@@ -22,7 +22,8 @@ import (
 )
 
 type Config struct {
-	Addr string
+	Addr               string
+	MemberTenantLookup MemberTenantLookup
 }
 
 type Server struct {
@@ -39,7 +40,7 @@ func NewServer(repo *repository.CadenceRepository, logger *zap.Logger, cfg Confi
 		cfg:    cfg,
 		logger: logger,
 		repo:   repo,
-		access: newAccess(),
+		access: newAccess(cfg.MemberTenantLookup),
 	}
 
 	mux := http.NewServeMux()

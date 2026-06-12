@@ -44,6 +44,58 @@ func TestUpsertContentItemTx_ReturnsID(t *testing.T) {
 	}
 }
 
+func TestListActiveTenantsForMemberReturnsActiveMemberships(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewCadenceRepository(db, zap.NewNop())
+	mock.ExpectQuery("FROM tenant_admin_memberships").
+		WithArgs("auth0|tenant-admin", "tenant@example.com").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key"}).
+			AddRow("tenant-a-id", "tenant-a").
+			AddRow("tenant-b-id", "tenant-b"))
+
+	tenants, err := repo.ListActiveTenantsForMember(context.Background(), "auth0|tenant-admin", "Tenant@Example.com")
+	if err != nil {
+		t.Fatalf("ListActiveTenantsForMember: %v", err)
+	}
+	if len(tenants) != 2 {
+		t.Fatalf("expected 2 tenants, got %d", len(tenants))
+	}
+	if tenants[0].ID != "tenant-a-id" || tenants[0].TenantKey != "tenant-a" {
+		t.Fatalf("unexpected first tenant: %#v", tenants[0])
+	}
+	if tenants[1].ID != "tenant-b-id" || tenants[1].TenantKey != "tenant-b" {
+		t.Fatalf("unexpected second tenant: %#v", tenants[1])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
+	}
+}
+
+func TestListActiveTenantsForMemberSkipsLookupWithoutPrincipal(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewCadenceRepository(db, zap.NewNop())
+	tenants, err := repo.ListActiveTenantsForMember(context.Background(), " ", " ")
+	if err != nil {
+		t.Fatalf("ListActiveTenantsForMember: %v", err)
+	}
+	if len(tenants) != 0 {
+		t.Fatalf("expected no tenants, got %#v", tenants)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
+	}
+}
+
 func TestDeactivateMissingContentItemsTx_WithKeepList(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {

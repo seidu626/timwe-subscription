@@ -1,6 +1,7 @@
 package adminhttp
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"net/http"
@@ -79,13 +80,13 @@ func TestRequireAppliesBootstrapPlatformSubjectAndSelectedTenant(t *testing.T) {
 	adminAccess := &access{
 		validator: validator,
 		bootstrapPlatformSubjects: map[string]struct{}{
-			"google-oauth2|118328773120143328716": {},
+			"google-oauth2|bootstrap-admin": {},
 		},
 	}
 	token := mustAdminToken(t, privateKey, jwt.MapClaims{
 		"iss": "https://example.auth0.com/",
 		"aud": []string{"api"},
-		"sub": "google-oauth2|118328773120143328716",
+		"sub": "google-oauth2|bootstrap-admin",
 		"iat": time.Now().Unix(),
 		"exp": time.Now().Add(time.Hour).Unix(),
 	})
@@ -147,6 +148,95 @@ func TestRequireDoesNotApplySelectedTenantForUnscopedIdentity(t *testing.T) {
 	}
 	if identity.PlatformScoped || identity.TenantKey != "" {
 		t.Fatalf("identity = %#v", identity)
+	}
+}
+
+func TestRequireAppliesSelectedTenantWhenMembershipMatches(t *testing.T) {
+	privateKey := mustAdminRSAKey(t)
+	validator, err := auth0jwt.NewWithKeyfunc("example.auth0.com", "api", func(token *jwt.Token) (any, error) {
+		return &privateKey.PublicKey, nil
+	})
+	if err != nil {
+		t.Fatalf("new validator: %v", err)
+	}
+	adminAccess := &access{
+		validator: validator,
+		memberLookup: func(_ context.Context, subject, email string) ([]MemberTenant, error) {
+			if subject != "auth0|ordinary-admin" || email != "ordinary@example.com" {
+				t.Fatalf("membership lookup subject=%q email=%q", subject, email)
+			}
+			return []MemberTenant{
+				{ID: "tenant-a-id", TenantKey: "tenant-a"},
+				{ID: "tenant-b-id", TenantKey: "tenant-b"},
+			}, nil
+		},
+	}
+	token := mustAdminToken(t, privateKey, jwt.MapClaims{
+		"iss":   "https://example.auth0.com/",
+		"aud":   []string{"api"},
+		"sub":   "auth0|ordinary-admin",
+		"email": "ordinary@example.com",
+		"iat":   time.Now().Unix(),
+		"exp":   time.Now().Add(time.Hour).Unix(),
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/admin/cadence/series", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set(tenantctx.HeaderTenantKey, "Tenant-B")
+	rr := httptest.NewRecorder()
+
+	if !adminAccess.require(rr, req) {
+		t.Fatalf("expected admin auth to pass, status=%d body=%q", rr.Code, rr.Body.String())
+	}
+	identity, ok := tenantctx.FromContext(req.Context())
+	if !ok {
+		t.Fatal("tenant identity missing from request context")
+	}
+	if identity.PlatformScoped || identity.TenantID != "tenant-b-id" || identity.TenantKey != "tenant-b" {
+		t.Fatalf("identity = %#v", identity)
+	}
+}
+
+func TestRequireRejectsUnmatchedSelectedTenantForMembershipBackedIdentity(t *testing.T) {
+	privateKey := mustAdminRSAKey(t)
+	validator, err := auth0jwt.NewWithKeyfunc("example.auth0.com", "api", func(token *jwt.Token) (any, error) {
+		return &privateKey.PublicKey, nil
+	})
+	if err != nil {
+		t.Fatalf("new validator: %v", err)
+	}
+	adminAccess := &access{
+		validator: validator,
+		memberLookup: func(_ context.Context, _, _ string) ([]MemberTenant, error) {
+			return []MemberTenant{
+				{ID: "tenant-a-id", TenantKey: "tenant-a"},
+				{ID: "tenant-b-id", TenantKey: "tenant-b"},
+			}, nil
+		},
+	}
+	token := mustAdminToken(t, privateKey, jwt.MapClaims{
+		"iss":   "https://example.auth0.com/",
+		"aud":   []string{"api"},
+		"sub":   "auth0|ordinary-admin",
+		"email": "ordinary@example.com",
+		"iat":   time.Now().Unix(),
+		"exp":   time.Now().Add(time.Hour).Unix(),
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/admin/cadence/series", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set(tenantctx.HeaderTenantKey, "tenant-c")
+	rr := httptest.NewRecorder()
+
+	if !adminAccess.require(rr, req) {
+		t.Fatalf("expected admin auth to pass, status=%d body=%q", rr.Code, rr.Body.String())
+	}
+	identity, ok := tenantctx.FromContext(req.Context())
+	if !ok {
+		t.Fatal("tenant identity missing from request context")
+	}
+	if identity.HasTenant() {
+		t.Fatalf("unmatched selected tenant must not stamp membership context, identity = %#v", identity)
 	}
 }
 

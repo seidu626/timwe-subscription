@@ -1,0 +1,90 @@
+{
+  "acceptance_tests": [
+    "agent-hub schema validate --schema work_order_v2 --file <work-order>",
+    "agent-hub evidence verify --work-order <work-order>"
+  ],
+  "assignment": {
+    "decision": "review",
+    "reason": "Inferred vertical_defect_slice from GoalSpec classification hints and prompt terms.",
+    "runtime_tier": "MED"
+  },
+  "class": "vertical_defect_slice",
+  "context": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first",
+    "required_context_refs": [
+      "schemas/goal-spec.schema.json",
+      "schemas/work-order.v2.schema.json"
+    ]
+  },
+  "created_at": "2026-06-12T07:18:37Z",
+  "dependencies": {
+    "blocks": [],
+    "depends_on": []
+  },
+  "goal_id": "goal-20260612T071824Z-fix-production-admin-api",
+  "hashes": {
+    "classification_hash": "sha256:e4539a47758ffc253d334fe3d9691ca40c0fa245ee80dbbd6c9b5dc0d4b0f9b6",
+    "contract_hash": "sha256:d5c7102b469425c3a92802cb2d7f28faa8c95603a9f02defc44416a804a85036",
+    "issue_hash": "sha256:bf8886844f347841080d6479eaf173782ab8ffc65eb3be936b922062b2eb4473"
+  },
+  "issue_id": "ISSUE-FIX-PRODUCTION-ADMIN-API-ROUTE-FAILURES",
+  "loop_mode": "closed",
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "objective": {
+    "actor": "agent-hub workflow worker",
+    "entrypoint": "agent-hub graph run",
+    "outcome": "Fix production admin/API route failures reported on 2026-06-12: GET https://api.nouveauricheglobalgroup.com/api/v1/renewal/worker/status returns 404 Not Found, and GET https://api.nouveauricheglobalgroup.com/v1/admin/cadence/series?limit=500 returns 403 tenant context required from the admin UI. Trace exact gateway, backend, and frontend caller contracts in this multi-tenant TIMWE subscription app, repair missing route/tenant context behavior with tests, preserve tenant isolation, and verify loc",
+    "trigger": "Fix production admin/API route failures reported on 2026-06-12: GET https://api.nouveauricheglobalgroup.com/api/v1/renewal/worker/status returns 404 Not Found, and GET https://api.nouveauricheglobalgroup.com/v1/admin/cadence/series?limit=500 returns 403 tenant context required from the admin UI. Tra"
+  },
+  "parallelism": {
+    "max_parallel_group_size": 4,
+    "parallel_group": null,
+    "parallel_safe": false,
+    "requires_isolated_worktree": true
+  },
+  "required_evidence": [
+    "schema_validation",
+    "dispatch_ready_report",
+    "review_gate_result"
+  ],
+  "required_skills": [
+    "repository-codebase-governance",
+    "security-supply-chain",
+    "backend-contract-first",
+    "api-contract-design",
+    "observability-design"
+  ],
+  "schema_version": "2.0",
+  "scope": {
+    "allowed_files": [
+      "schemas/**",
+      "agent/state/context-packs/**",
+      "skills/context-kernel/**",
+      "policies/security/**",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      ".git/**",
+      "secrets/**",
+      "**/.env",
+      "policies/global/**"
+    ],
+    "read_scopes": [
+      "schemas/**",
+      "policies/**",
+      "skills/**"
+    ],
+    "write_locks": [
+      "schemas/**",
+      "agent/state/context-packs/**",
+      "skills/context-kernel/**",
+      "policies/security/**"
+    ]
+  },
+  "work_order_id": "WO-FIX-PRODUCTION-ADMIN-API-ROUTE-FAILURES-REPORTED"
+}

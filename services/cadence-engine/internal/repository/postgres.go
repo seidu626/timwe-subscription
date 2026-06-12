@@ -18,6 +18,11 @@ type CadenceRepository struct {
 	logger *zap.Logger
 }
 
+type MemberTenant struct {
+	ID        string
+	TenantKey string
+}
+
 var ErrTenantNotFound = errors.New("tenant not found")
 
 func NewCadenceRepository(db *sql.DB, logger *zap.Logger) *CadenceRepository {
@@ -48,6 +53,54 @@ func (r *CadenceRepository) TenantIDByKey(ctx context.Context, tenantKey string)
 		return "", err
 	}
 	return tenantID, nil
+}
+
+func (r *CadenceRepository) ListActiveTenantsForMember(ctx context.Context, auth0Subject, email string) ([]MemberTenant, error) {
+	auth0Subject = strings.TrimSpace(auth0Subject)
+	email = strings.TrimSpace(strings.ToLower(email))
+
+	where := []string{"m.status = 'ACTIVE'", "t.status = 'ACTIVE'"}
+	args := []any{}
+	principalFilters := []string{}
+	if auth0Subject != "" {
+		args = append(args, auth0Subject)
+		principalFilters = append(principalFilters, fmt.Sprintf("m.auth0_subject = $%d", len(args)))
+	}
+	if email != "" {
+		args = append(args, email)
+		principalFilters = append(principalFilters, fmt.Sprintf("LOWER(m.email) = $%d", len(args)))
+	}
+	if len(principalFilters) == 0 {
+		return nil, nil
+	}
+	where = append(where, "("+strings.Join(principalFilters, " OR ")+")")
+
+	query := fmt.Sprintf(`
+		SELECT DISTINCT t.id::text, t.tenant_key
+		FROM tenant_admin_memberships m
+		JOIN tenants t ON t.id = m.tenant_id
+		WHERE %s
+		ORDER BY t.tenant_key ASC
+	`, strings.Join(where, " AND "))
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list active member tenants: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]MemberTenant, 0)
+	for rows.Next() {
+		var tenant MemberTenant
+		if err := rows.Scan(&tenant.ID, &tenant.TenantKey); err != nil {
+			return nil, fmt.Errorf("failed to scan member tenant: %w", err)
+		}
+		out = append(out, tenant)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate member tenants: %w", err)
+	}
+	return out, nil
 }
 
 func (r *CadenceRepository) ClaimDueStatesTx(ctx context.Context, tx *sql.Tx, limit int) ([]domain.DueState, error) {

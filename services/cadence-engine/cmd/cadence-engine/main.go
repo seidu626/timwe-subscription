@@ -47,8 +47,21 @@ func main() {
 	plannerWorker := planner.NewPlanner(repo, logger, plannerCfg)
 	advancerWorker := advancer.NewAdvancer(repo, logger, advancerCfg)
 	backfillWorker := backfill.NewBackfill(repo, logger, backfillCfg)
+	memberTenantLookup := func(ctx context.Context, auth0Subject, email string) ([]adminhttp.MemberTenant, error) {
+		tenants, err := repo.ListActiveTenantsForMember(ctx, auth0Subject, email)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]adminhttp.MemberTenant, 0, len(tenants))
+		for _, tenant := range tenants {
+			out = append(out, adminhttp.MemberTenant{ID: tenant.ID, TenantKey: tenant.TenantKey})
+		}
+		return out, nil
+	}
+
 	adminServer := adminhttp.NewServer(repo, logger, adminhttp.Config{
-		Addr: getEnvString("CADENCE_ADMIN_HTTP_ADDR", ":8091"),
+		Addr:               getEnvString("CADENCE_ADMIN_HTTP_ADDR", ":8091"),
+		MemberTenantLookup: memberTenantLookup,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())

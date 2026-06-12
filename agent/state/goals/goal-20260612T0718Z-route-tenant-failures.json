@@ -1,0 +1,51 @@
+{
+  "classification_hints": {
+    "domains": [
+      "schemas",
+      "context",
+      "security"
+    ],
+    "likely_hvc_class": "vertical_defect_slice",
+    "requires_human_review": true,
+    "requires_parallelism": false
+  },
+  "constraints": [
+    "Fix production admin/API route failures reported on 2026-06-12: GET https://api.nouveauricheglobalgroup.com/api/v1/renewal/worker/status returns 404 Not Found, and GET https://api.nouveauricheglobalgroup.com/v1/admin/cadence/series?limit=500 returns 403 tenant context required from the admin UI. Trace exact gateway, backend, and frontend caller contracts in this multi-tenant TIMWE subscription app, repair missing route/tenant context behavior with tests, preserve tenant isolation, and verify locally plus production-deploy if code changes are needed.",
+    "Preserve existing source artifacts.",
+    "Use capsule-first context for dispatched agents."
+  ],
+  "context_policy": {
+    "hydrate_on_demand": true,
+    "max_initial_tokens": 1800,
+    "mode": "capsule_first"
+  },
+  "created_at": "2026-06-12T07:18:24Z",
+  "goal_id": "goal-20260612T071824Z-fix-production-admin-api",
+  "goals": [
+    {
+      "id": "G1",
+      "priority": "must",
+      "statement": "Fix production admin/API route failures reported on 2026-06-12: GET https://api.nouveauricheglobalgroup.com/api/v1/renewal/worker/status returns 404 Not Found, and GET https://api.nouveauricheglobalgroup.com/v1/admin/cadence/series?limit=500 returns 403 tenant context required from the admin UI. Trace exact gateway, backend, and frontend caller contracts in this multi-tenant TIMWE subscription app, repair missing route/tenant context behavior with tests, preserve tenant isolation, and verify locally plus production-deploy if code changes are needed.",
+      "success_criteria": [
+        "A valid GoalSpec exists before HVC classification.",
+        "Context capsules enforce bounded token budgets."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Do not perform unrelated repository-wide rewrites."
+  ],
+  "risk_level": "critical",
+  "schema_version": "1.0",
+  "source": {
+    "conversation_ref": "codex-20260612-route-tenant-failures",
+    "prompt_excerpt": "Fix production admin/API route failures reported on 2026-06-12: GET https://api.nouveauricheglobalgroup.com/api/v1/renewal/worker/status returns 404 Not Found, and GET https://api.nouveauricheglobalgroup.com/v1/admin/cadence/series?limit=500 returns 403 tenant context required from the admin UI. Trace exact gateway, backend, and frontend caller contracts in this multi-tenant TIMWE subscription app, repair missing route/tenant context behavior with tests, preserve tenant isolation, and verify loc",
+    "prompt_hash": "sha256:920e785bf6b440f7dd713ca45f934f0b21183fd25a4ada8715803fbb0fb448e4",
+    "repo_ref": "main"
+  },
+  "success_criteria": [
+    "A valid GoalSpec exists before HVC classification.",
+    "Context capsules enforce bounded token budgets."
+  ],
+  "title": "Fix production admin/API route failures reported on 2026-06-12: GET https://api"
+}
