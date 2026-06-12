@@ -79,7 +79,44 @@ Verification:
 Residual risk:
 
 - The authenticated browser request was not replayed with the user's live Auth0 token in local verification.
-- Production requires a `cadence-engine` service image deploy and `krakend-sync` to make both fixes live.
+- Production was deployed after source verification. The authenticated browser request still requires the user's live Auth0 session for final UI confirmation.
+
+## Production Deploy
+
+Mode:
+
+- service-level deploy for `cadence-engine`
+- gateway config sync for `krakend`
+
+Commit deployed: `84f1d94`
+
+Rollback baseline:
+
+- previous `cadence-engine` image ID: `55c929afc56e`
+- previous remote KrakenD template hash: `fc1e4d71ae218e3c6a18a6a5e00a14f56a7853bd2a5307a9d3613f8b07c15eba`
+- previous remote rendered KrakenD hash: `15fa4975c3b8ffa003cc7591cd47525e2d01fda7d1f09d71e9dbd223dc8da8e3`
+
+Deploy commands:
+
+- `just deploy-cadence-engine`
+- `just krakend-sync`
+
+Production verification:
+
+- remote `cadence-engine` image ID: `4d2552495650`
+- remote `cadence-engine`: `Up`, `healthy`, port `8091`
+- `krakend`: active
+- `nginx`: active
+- remote `/etc/krakend/config/templates/Endpoint.tmpl` includes `/api/v1/renewal/worker/status`
+- `GET https://api.nouveauricheglobalgroup.com/api/v1/renewal/worker/status` now returns HTTP 401 instead of HTTP 404, proving the route exists and is JWT-protected
+- unauthenticated `GET https://api.nouveauricheglobalgroup.com/v1/admin/cadence/series?limit=1` returns HTTP 401
+- `GET https://api.nouveauricheglobalgroup.com/health` returns `healthy`
+- `HEAD https://admin.nouveauricheglobalgroup.com/` returns HTTP 200
+- cadence-engine post-deploy logs show startup and admin listener on `:8091`
+
+Deployment caveat:
+
+- `sudo -n nginx -t` could not run for this user because sudo requires a password. nginx configuration was not changed.
 
 ## Secrets Handling
 
