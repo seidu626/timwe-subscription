@@ -13,6 +13,7 @@ import (
 
 type fakeCampaignRepo struct {
 	getByTenantKeyAndSlugFn   func(string, string) (*domain.Campaign, error)
+	getEnabledBySlugFn        func(string) (*domain.Campaign, error)
 	getAdminBySlugFn          func(string) (*domain.Campaign, error)
 	getAdminByTenantAndSlugFn func(string, string) (*domain.Campaign, error)
 	listAllFn                 func(*bool, *string) ([]*domain.Campaign, error)
@@ -31,6 +32,12 @@ type fakeCampaignRepo struct {
 
 func (f *fakeCampaignRepo) GetByTenantKeyAndSlug(tenantKey, slug string) (*domain.Campaign, error) {
 	return f.getByTenantKeyAndSlugFn(tenantKey, slug)
+}
+func (f *fakeCampaignRepo) GetEnabledBySlug(slug string) (*domain.Campaign, error) {
+	if f.getEnabledBySlugFn == nil {
+		return nil, errors.New("campaign not found: " + slug)
+	}
+	return f.getEnabledBySlugFn(slug)
 }
 func (f *fakeCampaignRepo) GetAdminBySlug(slug string) (*domain.Campaign, error) {
 	return f.getAdminBySlugFn(slug)

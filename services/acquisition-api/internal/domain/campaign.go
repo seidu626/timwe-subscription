@@ -19,6 +19,10 @@ const (
 type Campaign struct {
 	ID        int     `json:"id" db:"id"`
 	TenantID  *string `json:"tenant_id,omitempty" db:"tenant_id"`
+	// TenantKey is the owning tenant's public key (slug). Not stored on the
+	// campaigns row; resolved/joined from tenants and set programmatically so
+	// public single-segment landing URLs can carry tenant context downstream.
+	TenantKey *string `json:"tenant_key,omitempty" db:"-"`
 	ChannelID *string `json:"channel_id,omitempty" db:"channel_id"`
 	Slug      string  `json:"slug" db:"slug"`
 	Language  string  `json:"language" db:"language"`
@@ -75,6 +79,7 @@ type Campaign struct {
 // PublicCampaign is a public-safe subset of Campaign for landing page rendering
 type PublicCampaign struct {
 	Slug            string          `json:"slug"`
+	TenantKey       *string         `json:"tenant_key,omitempty"`
 	Language        string          `json:"language"`
 	Country         string          `json:"country"`
 	FlowType        FlowType        `json:"flow_type"`
@@ -93,6 +98,7 @@ type PublicCampaign struct {
 func (c *Campaign) ToPublic() *PublicCampaign {
 	return &PublicCampaign{
 		Slug:            c.Slug,
+		TenantKey:       c.TenantKey,
 		Language:        c.Language,
 		Country:         c.Country,
 		FlowType:        c.FlowType,

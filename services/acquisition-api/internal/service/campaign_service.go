@@ -14,6 +14,7 @@ import (
 // This enables unit testing without a real database.
 type CampaignRepo interface {
 	GetByTenantKeyAndSlug(tenantKey, slug string) (*domain.Campaign, error)
+	GetEnabledBySlug(slug string) (*domain.Campaign, error)
 	GetAdminBySlug(slug string) (*domain.Campaign, error)
 	GetAdminByTenantAndSlug(tenantID, slug string) (*domain.Campaign, error)
 	ListAll(enabled *bool, country *string) ([]*domain.Campaign, error)
@@ -58,6 +59,19 @@ func NewCampaignService(repo CampaignRepo, logger *zap.Logger) *CampaignService 
 
 func (s *CampaignService) GetByTenantKeyAndSlug(tenantKey, slug string) (*domain.PublicCampaign, error) {
 	campaign, err := s.repo.GetByTenantKeyAndSlug(tenantKey, slug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get campaign: %w", err)
+	}
+
+	return campaign.ToPublic(), nil
+}
+
+// GetEnabledBySlug resolves a public campaign from a single-segment slug by
+// looking up its owning tenant server-side (no hardcoded alias map). The
+// returned PublicCampaign carries tenant_key so the landing page can drive the
+// tenant-scoped opt-in.
+func (s *CampaignService) GetEnabledBySlug(slug string) (*domain.PublicCampaign, error) {
+	campaign, err := s.repo.GetEnabledBySlug(slug)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get campaign: %w", err)
 	}

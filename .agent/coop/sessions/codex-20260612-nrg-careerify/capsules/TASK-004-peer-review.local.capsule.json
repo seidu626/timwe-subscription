@@ -1,0 +1,41 @@
+{
+  "acceptance_tests": [
+    "Return result capsule",
+    "Attach evidence_refs",
+    "Do not claim success without proof"
+  ],
+  "completion_protocol": {
+    "claim": "agent-hub-coop --session codex-20260612-nrg-careerify --runtime local claim --task TASK-004-peer-review",
+    "heartbeat": "agent-hub-coop --session codex-20260612-nrg-careerify --runtime local heartbeat --task TASK-004-peer-review",
+    "submit": "agent-hub-coop --session codex-20260612-nrg-careerify --runtime local submit --task TASK-004-peer-review --status done --summary '...'"
+  },
+  "goal_id": "goal-20260612T054254Z-populate-nrg-tenant-careerify-ti",
+  "objective": "Adversarially review implementation and evidence from another runtime.",
+  "required_evidence": [
+    "summary",
+    "changed_files",
+    "evidence_refs"
+  ],
+  "runtime": "local",
+  "schema_version": "1.0",
+  "scope": {
+    "allowed_files": [
+      "reports/**",
+      "agent/state/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      "secrets/**",
+      ".env"
+    ],
+    "write_locks": [
+      "reports/**",
+      "agent/state/**"
+    ]
+  },
+  "session_id": "codex-20260612-nrg-careerify",
+  "task_id": "TASK-004-peer-review",
+  "teacher_hint_payload": {
+    "teacher_hints": []
+  }
+}

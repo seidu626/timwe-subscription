@@ -1,0 +1,41 @@
+{
+  "acceptance_tests": [
+    "Return result capsule",
+    "Attach evidence_refs",
+    "Do not claim success without proof"
+  ],
+  "completion_protocol": {
+    "claim": "agent-hub-coop --session codex-20260612-nrg-careerify --runtime local claim --task TASK-003-verification",
+    "heartbeat": "agent-hub-coop --session codex-20260612-nrg-careerify --runtime local heartbeat --task TASK-003-verification",
+    "submit": "agent-hub-coop --session codex-20260612-nrg-careerify --runtime local submit --task TASK-003-verification --status done --summary '...'"
+  },
+  "goal_id": "goal-20260612T054254Z-populate-nrg-tenant-careerify-ti",
+  "objective": "Run focused verification and produce evidence, without hollow claims.",
+  "required_evidence": [
+    "summary",
+    "changed_files",
+    "evidence_refs"
+  ],
+  "runtime": "local",
+  "schema_version": "1.0",
+  "scope": {
+    "allowed_files": [
+      "tests/**",
+      "reports/**",
+      "agent/state/**"
+    ],
+    "forbidden_files": [
+      "secrets/**",
+      ".env"
+    ],
+    "write_locks": [
+      "tests/**",
+      "reports/**"
+    ]
+  },
+  "session_id": "codex-20260612-nrg-careerify",
+  "task_id": "TASK-003-verification",
+  "teacher_hint_payload": {
+    "teacher_hints": []
+  }
+}

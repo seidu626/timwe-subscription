@@ -334,7 +334,31 @@ func buildTIMWEConfig(cfg *config.Config) *service.TIMWEConfig {
 		timweCfg.RetryMaxDelay = cfg.Application.TIMWE.ChargeRetryMaxDelay
 	}
 
+	timweCfg.TrustedServiceSecret = firstNonEmptyEnv(
+		"TRUSTED_SERVICE_TENANT_SECRET",
+		"TENANT_TRUSTED_HEADER_SECRET",
+		"JWT_SECRET",
+	)
+	if serviceID := strings.TrimSpace(os.Getenv("TRUSTED_SERVICE_ID")); serviceID != "" {
+		timweCfg.ServiceID = serviceID
+	} else {
+		timweCfg.ServiceID = "acquisition-api"
+	}
+
+	// Gateway-trust marker for direct (in-cluster) calls to subscription-external,
+	// which enforce GATEWAY_TRUST_REQUIRED. Must match subscription-external's secret.
+	timweCfg.GatewayTrustSecret = firstNonEmptyEnv("GATEWAY_TRUST_SECRET")
+
 	return timweCfg
+}
+
+func firstNonEmptyEnv(keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // isEnvVarReference checks if a value is an unresolved environment variable reference

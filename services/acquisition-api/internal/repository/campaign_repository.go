@@ -226,6 +226,60 @@ func (r *CampaignRepository) GetByTenantKeyAndSlug(tenantKey, slug string) (*dom
 	if err != nil {
 		return nil, fmt.Errorf("failed to get campaign: %w", err)
 	}
+	tk := tenantKey
+	campaign.TenantKey = &tk
+	return campaign, nil
+}
+
+// GetEnabledBySlug resolves a single enabled campaign by slug across all tenants
+// and sets its owning tenant_key. Public landing pages use single-segment slug
+// URLs (/lp/{slug}); the owning tenant is resolved server-side rather than from
+// a hardcoded alias map. Campaign slugs are expected to be globally unique
+// (enforced by idx_campaigns_slug_global); if more than one enabled campaign
+// shares the slug the lookup fails rather than guessing a tenant.
+func (r *CampaignRepository) GetEnabledBySlug(slug string) (*domain.Campaign, error) {
+	var matches int
+	if err := r.db.QueryRow(`
+			SELECT count(*)
+			FROM campaigns c
+			JOIN tenants t ON t.id = c.tenant_id
+			WHERE c.slug = $1 AND c.enabled = true AND t.status = 'ACTIVE'
+		`, slug).Scan(&matches); err != nil {
+		return nil, fmt.Errorf("failed to count campaigns by slug: %w", err)
+	}
+	if matches == 0 {
+		return nil, fmt.Errorf("campaign not found: %s", slug)
+	}
+	if matches > 1 {
+		return nil, fmt.Errorf("ambiguous campaign slug %q resolves to %d tenants", slug, matches)
+	}
+
+	query := `
+			SELECT c.id, c.tenant_id, c.channel_id, c.slug, c.language, c.country, c.operator, c.offer_product_id, c.pricepoint_id,
+			       c.partner_role_id, c.flow_type, c.short_code, c.sms_keyword, c.price, c.billing_cycle,
+			       c.trial_flags, c.terms_url, c.inline_terms_text, c.consent_required, c.consent_version,
+			       c.attribution_mapping, c.postback_rules, c.throttles, c.allowed_referrers,
+			       c.allowed_sources, c.landing_page_urls, c.tracking_config, c.lp_copy,
+			       c.enabled, c.created_at, c.updated_at, c.created_by, c.updated_by
+			FROM campaigns c
+			JOIN tenants t ON t.id = c.tenant_id
+			WHERE c.slug = $1 AND c.enabled = true AND t.status = 'ACTIVE'
+		`
+	campaign, err := r.scanCampaignRow(r.db.QueryRow(query, slug))
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("campaign not found: %s", slug)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get campaign: %w", err)
+	}
+
+	if campaign.TenantID != nil {
+		var tk string
+		if err := r.db.QueryRow(`SELECT tenant_key FROM tenants WHERE id = $1`, *campaign.TenantID).Scan(&tk); err != nil {
+			return nil, fmt.Errorf("failed to resolve tenant_key for campaign %s: %w", slug, err)
+		}
+		campaign.TenantKey = &tk
+	}
 	return campaign, nil
 }
 

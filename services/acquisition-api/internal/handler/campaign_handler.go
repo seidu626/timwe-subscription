@@ -128,7 +128,17 @@ func (h *CampaignHandler) GetBySlug(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+	// Public single-segment slug URL (/lp/{slug}): resolve the owning tenant
+	// server-side from the globally-unique slug instead of requiring a tenant in
+	// the path or a hardcoded alias map. The response carries tenant_key so the
+	// landing page can drive the tenant-scoped opt-in.
+	campaign, err := h.service.GetEnabledBySlug(slug)
+	if err != nil {
+		h.logger.Warn("Failed to resolve public campaign by slug", zap.String("slug", slug), zap.Error(err))
+		ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, campaign)
 }
 
 type fastHTTPHeaderGetter struct {

@@ -192,12 +192,16 @@ export function useSubscriptionFlow({
 
       trackEvent('msisdn_submit', { campaign_slug: slug, click_id: clickId, provider })
 
+      // Prefer the tenant_key resolved server-side from the campaign (single-segment
+      // slug URLs), falling back to an explicit tenant in the URL/alias.
+      const effectiveTenantKey = campaign?.tenant_key || tenantKey
+
       const response = await fetch('/api/transactions', {
         method: 'POST',
         headers,
         body: JSON.stringify({
           campaign_slug: slug,
-          ...(tenantKey ? { tenant_key: tenantKey } : {}),
+          ...(effectiveTenantKey ? { tenant_key: effectiveTenantKey } : {}),
           msisdn: normalizedMsisdn,
           provider,
           click_id: clickId,

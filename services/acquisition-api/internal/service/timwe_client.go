@@ -41,6 +41,11 @@ type TIMWEConfig struct {
 	CBConsecutiveFailures  uint32
 	TrustedServiceSecret   string
 	ServiceID              string
+	// GatewayTrustSecret produces the static X-Gateway-Trust marker that
+	// subscription-external requires on partner routes when GATEWAY_TRUST_REQUIRED
+	// is enforced. Direct (in-cluster) callers must inject it themselves since
+	// they bypass KrakenD, which normally adds the marker.
+	GatewayTrustSecret string
 }
 
 // DefaultTIMWEConfig returns default TIMWE configuration
@@ -666,7 +671,7 @@ func (c *TIMWEClientImpl) signedTenantHeaders(method, path string, body []byte, 
 		TenantID:  tenant.TenantID,
 		BodySHA:   bodySHA,
 	})
-	return map[string]string{
+	headers := map[string]string{
 		tenantctx.HeaderTenantID:         tenant.TenantID,
 		tenantctx.HeaderServiceID:        serviceID,
 		tenantctx.HeaderServiceTimestamp: timestamp,
@@ -674,7 +679,13 @@ func (c *TIMWEClientImpl) signedTenantHeaders(method, path string, body []byte, 
 		tenantctx.HeaderServiceBodySHA:   bodySHA,
 		tenantctx.HeaderServiceSignature: signature,
 		"X-Tenant-Channel-Id":            tenant.ChannelID,
-	}, nil
+	}
+	// Direct in-cluster calls bypass KrakenD, so inject the gateway-trust marker
+	// that subscription-external verifies when GATEWAY_TRUST_REQUIRED is enforced.
+	if gwSecret := strings.TrimSpace(c.config.GatewayTrustSecret); gwSecret != "" {
+		headers[tenantctx.HeaderGatewayTrust] = tenantctx.GatewayTrustToken(gwSecret)
+	}
+	return headers, nil
 }
 
 func msisdnPrefix(msisdn string) string {

@@ -1,0 +1,39 @@
+{
+  "acceptance_tests": [
+    "Return result capsule",
+    "Attach evidence_refs",
+    "Do not claim success without proof"
+  ],
+  "created_at": "2026-06-12T05:42:54Z",
+  "depends_on": [
+    "TASK-002-implementation",
+    "TASK-003-verification"
+  ],
+  "kind": "peer-review",
+  "objective": "Adversarially review implementation and evidence from another runtime.",
+  "required_evidence": [
+    "summary",
+    "changed_files",
+    "evidence_refs"
+  ],
+  "runtime": "local",
+  "schema_version": "1.0",
+  "scope": {
+    "allowed_files": [
+      "reports/**",
+      "agent/state/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      "secrets/**",
+      ".env"
+    ],
+    "write_locks": [
+      "reports/**",
+      "agent/state/**"
+    ]
+  },
+  "status": "queued",
+  "task_id": "TASK-004-peer-review",
+  "updated_at": "2026-06-12T05:42:54Z"
+}

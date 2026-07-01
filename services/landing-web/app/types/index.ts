@@ -107,6 +107,7 @@ export interface LandingCopyConfig {
 
 export interface Campaign {
   slug: string
+  tenant_key?: string
   language: string
   country: string
   flow_type: string

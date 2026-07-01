@@ -1,0 +1,43 @@
+{
+  "acceptance_tests": [
+    "Return result capsule",
+    "Attach evidence_refs",
+    "Do not claim success without proof"
+  ],
+  "completion_protocol": {
+    "claim": "agent-hub-coop --session codex-20260612-nrg-careerify --runtime local claim --task TASK-002-implementation",
+    "heartbeat": "agent-hub-coop --session codex-20260612-nrg-careerify --runtime local heartbeat --task TASK-002-implementation",
+    "submit": "agent-hub-coop --session codex-20260612-nrg-careerify --runtime local submit --task TASK-002-implementation --status done --summary '...'"
+  },
+  "goal_id": "goal-20260612T054254Z-populate-nrg-tenant-careerify-ti",
+  "objective": "Implement bounded code/schema/test changes for the goal.",
+  "required_evidence": [
+    "summary",
+    "changed_files",
+    "evidence_refs"
+  ],
+  "runtime": "local",
+  "schema_version": "1.0",
+  "scope": {
+    "allowed_files": [
+      "tools/**",
+      "schemas/**",
+      "tests/**",
+      "docs/**"
+    ],
+    "forbidden_files": [
+      "secrets/**",
+      ".env",
+      ".git/**"
+    ],
+    "write_locks": [
+      "tools/**",
+      "schemas/**"
+    ]
+  },
+  "session_id": "codex-20260612-nrg-careerify",
+  "task_id": "TASK-002-implementation",
+  "teacher_hint_payload": {
+    "teacher_hints": []
+  }
+}
