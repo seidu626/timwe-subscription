@@ -292,6 +292,54 @@ func TestSendOptinConfirmWithRetry_UsesPostmanConfirmContract(t *testing.T) {
 	assertStringField(t, capturedBody, "transactionAuthCode", "0000")
 }
 
+func TestSendOptinConfirmWithRetry_OmitsAuthCodeForPinlessConfirm(t *testing.T) {
+	var capturedBody map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{
+				"transactionId":      "tx-confirm",
+				"subscriptionResult": "OPTIN_ACTIVE_WAIT_CHARGING",
+			},
+			"message":   "ok",
+			"inError":   false,
+			"requestId": "req-confirm",
+			"code":      "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
+	configureContractTenantProvider(service, server.URL)
+
+	reqData := domain.SubscriptionConfirmationRequest{
+		UserIdentifier: "233501234567",
+		ProductId:      14397,
+		TenantRoute:    contractTenantRoute(),
+	}
+
+	_, err := service.sendOptinConfirmWithRetry(reqData, "realm")
+	if err != nil {
+		t.Fatalf("expected no error for pin-less confirm, got %v", err)
+	}
+
+	expectedKeys := []string{
+		"clientIp",
+		"entryChannel",
+		"mcc",
+		"mnc",
+		"productId",
+		"userIdentifier",
+		"userIdentifierType",
+	}
+	assertExactJSONKeys(t, capturedBody, expectedKeys)
+}
+
 func contractTenantRoute() domain.TenantRouteContext {
 	return domain.TenantRouteContext{
 		TenantID:   "tenant-contract",

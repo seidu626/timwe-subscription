@@ -100,7 +100,7 @@ type timweOptinConfirmPayload struct {
 	MNC                 string `json:"mnc"`
 	EntryChannel        string `json:"entryChannel"`
 	ClientIP            string `json:"clientIp"`
-	TransactionAuthCode string `json:"transactionAuthCode"`
+	TransactionAuthCode string `json:"transactionAuthCode,omitempty"`
 }
 
 type timweOptoutPayload struct {
@@ -2010,10 +2010,9 @@ func (s *SubscriptionService) buildTIMWEOptinConfirmPayload(reqData domain.Subsc
 		return timweOptinConfirmPayload{}, fmt.Errorf("invalid optin confirm payload: productId must be greater than zero")
 	}
 
+	// transactionAuthCode is optional: PIN-less double opt-in flows confirm with
+	// a bare second request, and the field is omitted from the TIMWE payload.
 	transactionAuthCode := strings.TrimSpace(reqData.TransactionAuthCode)
-	if transactionAuthCode == "" {
-		return timweOptinConfirmPayload{}, fmt.Errorf("invalid optin confirm payload: transactionAuthCode is required")
-	}
 
 	payload := timweOptinConfirmPayload{
 		UserIdentifier:      userIdentifier,
