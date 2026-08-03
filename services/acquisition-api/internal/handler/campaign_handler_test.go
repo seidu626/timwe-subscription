@@ -243,20 +243,67 @@ func TestExtractTenantAndCampaignSlugFromPath(t *testing.T) {
 	}
 }
 
-func TestPublicCampaignSlugRouteRequiresTenantContext(t *testing.T) {
-	h := NewCampaignHandler(nil, nil, zap.NewNop())
-	var ctx fasthttp.RequestCtx
-	ctx.Request.SetRequestURI("/v1/campaigns/daily")
-	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+// stubCampaignRepo embeds the CampaignRepo interface so tests only implement
+// the methods a code path exercises; calling anything else panics loudly.
+type stubCampaignRepo struct {
+	service.CampaignRepo
+	getEnabledBySlugFn func(string) (*domain.Campaign, error)
+}
 
-	h.GetBySlug(&ctx)
+func (s *stubCampaignRepo) GetEnabledBySlug(slug string) (*domain.Campaign, error) {
+	return s.getEnabledBySlugFn(slug)
+}
 
-	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
-		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+// The public single-segment slug route (/v1/campaigns/{slug}) intentionally
+// requires no tenant headers: the owning tenant is resolved server-side from
+// the globally-unique slug and returned as tenant_key so the landing page can
+// drive the tenant-scoped opt-in (see landing-web campaign-aliases.ts).
+// Unknown slugs must surface as 404, never as a tenant-context error.
+func TestPublicCampaignSlugRouteResolvesTenantServerSide(t *testing.T) {
+	tenantKey := "tenant-a"
+	repo := &stubCampaignRepo{
+		getEnabledBySlugFn: func(slug string) (*domain.Campaign, error) {
+			if slug != "daily" {
+				return nil, errors.New("campaign not found: " + slug)
+			}
+			return &domain.Campaign{Slug: slug, Enabled: true, TenantKey: &tenantKey}, nil
+		},
 	}
-	if !strings.Contains(string(ctx.Response.Body()), "Tenant context required") {
-		t.Fatalf("expected tenant context error, got %q", ctx.Response.Body())
-	}
+	h := NewCampaignHandler(service.NewCampaignService(repo, zap.NewNop()), nil, zap.NewNop())
+
+	t.Run("known slug resolves without tenant headers", func(t *testing.T) {
+		var ctx fasthttp.RequestCtx
+		ctx.Request.SetRequestURI("/v1/campaigns/daily")
+		ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+
+		h.GetBySlug(&ctx)
+
+		if ctx.Response.StatusCode() != fasthttp.StatusOK {
+			t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+		}
+		var got domain.PublicCampaign
+		if err := json.Unmarshal(ctx.Response.Body(), &got); err != nil {
+			t.Fatalf("invalid JSON response %q: %v", ctx.Response.Body(), err)
+		}
+		if got.Slug != "daily" || got.TenantKey == nil || *got.TenantKey != tenantKey {
+			t.Fatalf("expected slug=daily tenant_key=%q, got %+v", tenantKey, got)
+		}
+	})
+
+	t.Run("unknown slug returns 404", func(t *testing.T) {
+		var ctx fasthttp.RequestCtx
+		ctx.Request.SetRequestURI("/v1/campaigns/nope")
+		ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+
+		h.GetBySlug(&ctx)
+
+		if ctx.Response.StatusCode() != fasthttp.StatusNotFound {
+			t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+		}
+		if !strings.Contains(string(ctx.Response.Body()), "Campaign not found") {
+			t.Fatalf("expected not-found error, got %q", ctx.Response.Body())
+		}
+	})
 }
 
 func TestPublicCampaignListRequiresTenantContext(t *testing.T) {
