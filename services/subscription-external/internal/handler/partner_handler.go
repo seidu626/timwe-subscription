@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -521,6 +523,7 @@ func (h *PartnerHandler) PartnerSubscriptionOptin(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, serviceErrorStatus(err), serviceErrorCode(err), err.Error())
 		return
 	}
+	h.persistPartnerOptinSubscription(route, req, resp)
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	_ = json.NewEncoder(ctx).Encode(resp)
@@ -559,6 +562,7 @@ func (h *PartnerHandler) PartnerSubscriptionConfirm(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, serviceErrorStatus(err), serviceErrorCode(err), err.Error())
 		return
 	}
+	h.persistPartnerConfirmSubscription(route, req)
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	_ = json.NewEncoder(ctx).Encode(resp)
@@ -597,6 +601,7 @@ func (h *PartnerHandler) PartnerSubscriptionOptout(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, serviceErrorStatus(err), serviceErrorCode(err), err.Error())
 		return
 	}
+	h.persistPartnerOptoutSubscription(route, req)
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	_ = json.NewEncoder(ctx).Encode(resp)
@@ -638,6 +643,172 @@ func (h *PartnerHandler) PartnerSubscriptionStatus(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	_ = json.NewEncoder(ctx).Encode(resp)
+}
+
+// subscriptionPersister is the minimal repository surface the gateway-trust
+// partner subscription handlers need to persist a tenant-scoped subscription
+// row after a successful TIMWE response (see repository.SubscriptionRepository,
+// which the production h.tenantRepo is bound to via WithTenantRepo). A runtime
+// type assertion is used instead of widening gatewayTenantLookup so existing
+// gatewayTenantLookup-only test stubs keep compiling; when the assertion fails
+// (e.g. in unit tests, or if the repo is ever swapped for something narrower),
+// persistence is silently skipped. It must never fail the proxied response
+// because the TIMWE action already happened.
+type subscriptionPersister interface {
+	CreateSubscription(request *domain.SubscriptionRequest) error
+	UpdateSubscriptionStatus(msisdn string, productID string, status string) error
+}
+
+// Tenant-scoped subscriptions.status values used by the partner persistence
+// helpers below. "active"/"inactive" mirror the lowercase vocabulary already
+// established for this column (repository.CheckSubscriptionExists filters
+// status = 'active'; worker/notification_monitor.go calls
+// UpsertSubscriptionStatus with "active"/"inactive"; the column default is
+// 'active'). renewal_service.go writes different uppercase, multi-word values
+// ("PENDING_RENEWAL", etc.) to the same column for its own renewal-cycle
+// bookkeeping - that is a separate, pre-existing convention this change does
+// not touch. "preactive" has no prior precedent in this column; it is a
+// conservative, lowercase-consistent placeholder for a subscription still
+// awaiting double opt-in confirmation (PartnerSubscriptionConfirm promotes it
+// to "active").
+const (
+	partnerSubscriptionStatusActive    = "active"
+	partnerSubscriptionStatusPreactive = "preactive"
+	partnerSubscriptionStatusInactive  = "inactive"
+)
+
+// partnerOptinStatusFromResult maps a TIMWE optin subscriptionResult to the
+// status persistPartnerOptinSubscription should apply. Any other or absent
+// result (including the OPTIN_CONFIG_NOT_FOUND passthrough SendMT allows for
+// SMS retry) is intentionally left unmapped so the caller skips persistence.
+func partnerOptinStatusFromResult(result string) (string, bool) {
+	switch result {
+	case service.SubscriptionResultOptinAlreadyActive, service.SubscriptionResultOptinActiveWaitCharging:
+		return partnerSubscriptionStatusActive, true
+	case service.SubscriptionResultOptinPreactiveWaitConf:
+		return partnerSubscriptionStatusPreactive, true
+	default:
+		return "", false
+	}
+}
+
+// subscriptionResultFromResponse extracts responseData.subscriptionResult
+// (the same key service.SubscriptionService reads internally, e.g.
+// isSubscriptionAlreadyActive) from a TIMWE MTResponse.
+func subscriptionResultFromResponse(resp *domain.MTResponse) string {
+	if resp == nil || resp.ResponseData == nil {
+		return ""
+	}
+	if v, ok := resp.ResponseData["subscriptionResult"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+// transactionIDFromResponse extracts responseData.transactionId (the same key
+// service.SubscriptionService.getTransactionID reads) from a TIMWE MTResponse.
+func transactionIDFromResponse(resp *domain.MTResponse) (string, bool) {
+	if resp == nil || resp.ResponseData == nil {
+		return "", false
+	}
+	v, ok := resp.ResponseData["transactionId"]
+	if !ok || v == nil {
+		return "", false
+	}
+	s, ok := v.(string)
+	if !ok || strings.TrimSpace(s) == "" {
+		return "", false
+	}
+	return s, true
+}
+
+// persistPartnerOptinSubscription upserts a tenant-scoped subscription row
+// after a successful gateway-trust partner optin (h.svc.SendMT returned
+// err == nil, meaning validateMTResponse already accepted the response).
+// Persistence failures are logged and swallowed: the TIMWE action already
+// happened and the proxied response body must never change because of a
+// local DB error.
+func (h *PartnerHandler) persistPartnerOptinSubscription(route domain.TenantRouteContext, req domain.MTRequest, resp *domain.MTResponse) {
+	persister, ok := h.tenantRepo.(subscriptionPersister)
+	if !ok {
+		return
+	}
+	status, mapped := partnerOptinStatusFromResult(subscriptionResultFromResponse(resp))
+	if !mapped {
+		return
+	}
+	transactionID, ok := transactionIDFromResponse(resp)
+	if !ok {
+		h.logger.Warn("partner optin succeeded but transactionId missing from response; skipping persistence",
+			zap.String("tenant_id", route.TenantID),
+			zap.String("channel_id", route.ChannelID))
+		return
+	}
+	partnerRoleID, err := h.svc.PartnerRoleIDForRoute(context.Background(), service.ChannelOperationMT, route)
+	if err != nil {
+		h.logger.Error("partner optin succeeded but partner role could not be resolved; skipping persistence",
+			zap.Error(err),
+			zap.String("tenant_id", route.TenantID),
+			zap.String("channel_id", route.ChannelID))
+		return
+	}
+	subscriptionRequest := domain.MapMTRequestToSubscriptionRequest(req, transactionID, partnerRoleID, "GATEWAY", "GATEWAY")
+	if err := persister.CreateSubscription(&subscriptionRequest); err != nil {
+		h.logger.Error("failed to persist partner optin subscription",
+			zap.Error(err),
+			zap.String("tenant_id", route.TenantID),
+			zap.String("channel_id", route.ChannelID))
+		return
+	}
+	// CreateSubscription's INSERT/ON CONFLICT statement does not include the
+	// status column, so every call leaves status at the table default
+	// ("active"). That is correct for the two "already active" results, but
+	// wrong for the preactive (awaiting confirmation) result, which needs an
+	// explicit follow-up update.
+	if status == partnerSubscriptionStatusPreactive {
+		if err := persister.UpdateSubscriptionStatus(req.UserIdentifier, strconv.Itoa(req.ProductID), status); err != nil {
+			h.logger.Error("failed to set preactive status on partner optin subscription",
+				zap.Error(err),
+				zap.String("tenant_id", route.TenantID),
+				zap.String("channel_id", route.ChannelID))
+		}
+	}
+}
+
+// persistPartnerConfirmSubscription activates a tenant-scoped subscription
+// row after a successful gateway-trust partner optin confirm
+// (h.svc.SendOptinConfirm returned err == nil). See
+// persistPartnerOptinSubscription for the never-fail-the-response contract.
+func (h *PartnerHandler) persistPartnerConfirmSubscription(route domain.TenantRouteContext, req domain.SubscriptionConfirmationRequest) {
+	persister, ok := h.tenantRepo.(subscriptionPersister)
+	if !ok {
+		return
+	}
+	if err := persister.UpdateSubscriptionStatus(req.UserIdentifier, strconv.Itoa(req.ProductId), partnerSubscriptionStatusActive); err != nil {
+		h.logger.Error("failed to activate partner subscription after optin confirm",
+			zap.Error(err),
+			zap.String("tenant_id", route.TenantID),
+			zap.String("channel_id", route.ChannelID))
+	}
+}
+
+// persistPartnerOptoutSubscription deactivates a tenant-scoped subscription
+// row after a successful gateway-trust partner optout (h.svc.SendOptout
+// returned err == nil). See persistPartnerOptinSubscription for the
+// never-fail-the-response contract.
+func (h *PartnerHandler) persistPartnerOptoutSubscription(route domain.TenantRouteContext, req domain.UnsubscriptionRequest) {
+	persister, ok := h.tenantRepo.(subscriptionPersister)
+	if !ok {
+		return
+	}
+	if err := persister.UpdateSubscriptionStatus(req.UserIdentifier, strconv.Itoa(req.ProductId), partnerSubscriptionStatusInactive); err != nil {
+		h.logger.Error("failed to deactivate partner subscription after optout",
+			zap.Error(err),
+			zap.String("tenant_id", route.TenantID),
+			zap.String("channel_id", route.ChannelID))
+	}
 }
 
 // checkGatewayTrust verifies the X-Gateway-Trust header injected by KrakenD.

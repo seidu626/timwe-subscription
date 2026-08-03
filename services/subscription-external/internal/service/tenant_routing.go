@@ -175,6 +175,21 @@ func (s *SubscriptionService) providerConfigForRoute(ctx context.Context, operat
 	return s.tenantRouter.Resolve(ctx, operation, route)
 }
 
+// PartnerRoleIDForRoute resolves the tenant-scoped partner role ID configured
+// for the given tenant route and channel operation (PartnerRoleID varies per
+// tenant channel; see TenantProviderRouter.Resolve's
+// firstNonEmpty(secret.PartnerRoleID, global) fallback). Gateway-trust partner
+// handlers (handler.PartnerHandler) call this after a successful TIMWE
+// response to build the same (tenant_id, partner_role_id, user_identifier,
+// product_id) upsert key repository.CreateSubscription enforces.
+func (s *SubscriptionService) PartnerRoleIDForRoute(ctx context.Context, operation ChannelOperation, route domain.TenantRouteContext) (int, error) {
+	providerCfg, err := s.providerConfigForRoute(ctx, operation, route)
+	if err != nil {
+		return 0, err
+	}
+	return providerCfg.PartnerRoleInt()
+}
+
 func routeMissingTenant(route domain.TenantRouteContext) bool {
 	return strings.TrimSpace(route.TenantID) == "" && strings.TrimSpace(route.TenantKey) == ""
 }
