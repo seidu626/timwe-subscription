@@ -243,19 +243,103 @@ func TestExtractTenantAndCampaignSlugFromPath(t *testing.T) {
 	}
 }
 
-func TestPublicCampaignSlugRouteRequiresTenantContext(t *testing.T) {
-	h := NewCampaignHandler(nil, nil, zap.NewNop())
+// stubCampaignRepo backs a real CampaignService in handler tests; only
+// GetEnabledBySlug is routable, everything else errors.
+type stubCampaignRepo struct {
+	getEnabledBySlug func(slug string) (*domain.Campaign, error)
+}
+
+func (s *stubCampaignRepo) GetByTenantKeyAndSlug(tenantKey, slug string) (*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) GetEnabledBySlug(slug string) (*domain.Campaign, error) {
+	return s.getEnabledBySlug(slug)
+}
+
+func (s *stubCampaignRepo) GetAdminBySlug(slug string) (*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) GetAdminByTenantAndSlug(tenantID, slug string) (*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) ListAll(enabled *bool, country *string) ([]*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) ListAllForTenant(tenantID string, enabled *bool, country *string) ([]*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) Create(c *domain.Campaign) (*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) CreateForTenant(tenantID string, c *domain.Campaign) (*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) Update(slug string, c *domain.Campaign) (*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) UpdateForTenant(tenantID, slug string, c *domain.Campaign) (*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) SetEnabled(slug string, enabled bool, updatedBy *string) (*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) SetEnabledForTenant(tenantID, slug string, enabled bool, updatedBy *string) (*domain.Campaign, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubCampaignRepo) UpdatePostbackRules(slug string, rules json.RawMessage) error {
+	return errors.New("not implemented")
+}
+
+// The public single-segment slug route (/v1/campaigns/{slug}) deliberately does
+// NOT require tenant context: the owning tenant is resolved server-side from
+// the globally-unique slug and echoed back as tenant_key (see GetBySlug).
+func TestPublicCampaignSlugRouteResolvesTenantServerSide(t *testing.T) {
+	tenantKey := "tenant-a"
+	repo := &stubCampaignRepo{getEnabledBySlug: func(slug string) (*domain.Campaign, error) {
+		if slug != "daily" {
+			t.Fatalf("unexpected slug %q", slug)
+		}
+		return &domain.Campaign{Slug: "daily", TenantKey: &tenantKey}, nil
+	}}
+	h := NewCampaignHandler(service.NewCampaignService(repo, zap.NewNop()), nil, zap.NewNop())
 	var ctx fasthttp.RequestCtx
 	ctx.Request.SetRequestURI("/v1/campaigns/daily")
 	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
 
 	h.GetBySlug(&ctx)
 
-	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
 		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
 	}
-	if !strings.Contains(string(ctx.Response.Body()), "Tenant context required") {
-		t.Fatalf("expected tenant context error, got %q", ctx.Response.Body())
+	if !strings.Contains(string(ctx.Response.Body()), `"tenant_key":"tenant-a"`) {
+		t.Fatalf("expected tenant_key in body, got %q", ctx.Response.Body())
+	}
+}
+
+func TestPublicCampaignSlugRouteUnknownSlugNotFound(t *testing.T) {
+	repo := &stubCampaignRepo{getEnabledBySlug: func(slug string) (*domain.Campaign, error) {
+		return nil, errors.New("campaign not found")
+	}}
+	h := NewCampaignHandler(service.NewCampaignService(repo, zap.NewNop()), nil, zap.NewNop())
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/campaigns/unknown")
+	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+
+	h.GetBySlug(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusNotFound {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
 	}
 }
 
