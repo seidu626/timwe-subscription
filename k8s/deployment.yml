@@ -91,6 +91,11 @@ spec:
                 secretKeyRef:
                   name: timwe-credentials
                   key: psk
+            - name: TENANT_SECRET_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tenant-secrets
+                  key: master-key
             - name: ADMIN_AUTH0_DOMAIN
               valueFrom:
                 secretKeyRef:
@@ -421,6 +426,11 @@ spec:
                 secretKeyRef:
                   name: timwe-credentials
                   key: psk
+            - name: TENANT_SECRET_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tenant-secrets
+                  key: master-key
             - name: ACQUISITION_API_URL
               value: "http://acquisition-api:8084"
           resources:
