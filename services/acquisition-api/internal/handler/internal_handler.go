@@ -115,8 +115,8 @@ func (h *InternalHandler) HandleChargeSuccess(ctx *fasthttp.RequestCtx) {
 		)
 
 		// Return 404 if transaction not found, 500 otherwise
-		if err.Error() == "transaction not found" || 
-		   (len(err.Error()) > 24 && err.Error()[:24] == "transaction not found") {
+		if err.Error() == "transaction not found" ||
+			(len(err.Error()) > 24 && err.Error()[:24] == "transaction not found") {
 			ctx.Error("Transaction not found", fasthttp.StatusNotFound)
 			return
 		}
@@ -141,6 +141,68 @@ func (h *InternalHandler) HandleChargeSuccess(ctx *fasthttp.RequestCtx) {
 
 // ChargeSuccessResponse represents the response for charge success endpoint
 type ChargeSuccessResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// HandlePartnerSubscription handles POST /internal/acquisition/partner-subscription
+// This endpoint is called by subscription-external after a tenant partner-route
+// optin/confirm succeeds, so it is recorded as an acquisition transaction and
+// becomes visible in acquisition reporting (KPIs, funnel, transactions).
+func (h *InternalHandler) HandlePartnerSubscription(ctx *fasthttp.RequestCtx) {
+	// Validate internal authentication
+	if !h.validateInternalAuth(ctx) {
+		ctx.Error("Unauthorized", fasthttp.StatusUnauthorized)
+		return
+	}
+
+	// Parse request body
+	var req service.PartnerSubscriptionRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		h.logger.Error("Failed to parse partner subscription request", zap.Error(err))
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if req.TenantID == "" {
+		ctx.Error("tenant_id is required", fasthttp.StatusBadRequest)
+		return
+	}
+	if req.MSISDN == "" {
+		ctx.Error("msisdn is required", fasthttp.StatusBadRequest)
+		return
+	}
+
+	// Process partner subscription notification
+	if err := h.transactionService.HandlePartnerSubscription(&req); err != nil {
+		h.logger.Error("Failed to handle partner subscription",
+			zap.String("tenant_id", req.TenantID),
+			zap.String("action", string(req.Action)),
+			zap.Error(err),
+		)
+		ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Info("Partner subscription processed successfully",
+		zap.String("tenant_id", req.TenantID),
+		zap.String("action", string(req.Action)),
+	)
+
+	// Return success response
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	response := map[string]interface{}{
+		"success": true,
+		"message": "Partner subscription recorded for acquisition reporting",
+	}
+	json.NewEncoder(ctx).Encode(response)
+}
+
+// PartnerSubscriptionResponse represents the response for the
+// partner-subscription endpoint.
+type PartnerSubscriptionResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }

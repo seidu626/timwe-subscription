@@ -497,7 +497,11 @@ func main() {
 
 	subscriptionHandler := handler.NewSubscriptionHandler(logger, svc, cfg)
 	userBaseHandler := handler.NewUserBaseHandler(logger, userBaseSvc, cfg)
-	partnerHandler := handler.NewPartnerHandler(logger, svc, cfg).WithTenantRepo(repo)
+	// acquisitionClient notifies acquisition-api of tenant partner-route
+	// optin/confirm events so they are counted by acquisition reporting
+	// (see internal/handler/partner_handler.go notifyAcquisitionPartnerSubscription).
+	acquisitionClient := service.NewAcquisitionClient(logger)
+	partnerHandler := handler.NewPartnerHandler(logger, svc, cfg).WithTenantRepo(repo).WithAcquisitionClient(acquisitionClient)
 
 	// Initialize monitoring and worker components
 	monitor := monitoring.NewChargingFailureMonitor(logger)

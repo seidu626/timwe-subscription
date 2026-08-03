@@ -12,8 +12,8 @@ import (
 	"os"
 	"time"
 
-	"go.uber.org/zap"
 	"github.com/seidu626/subscription-manager/common/pii"
+	"go.uber.org/zap"
 )
 
 // AcquisitionClient handles internal calls to the acquisition-api service
@@ -157,6 +157,111 @@ func (c *AcquisitionClient) NotifyChargeSuccessAsync(req *ChargeSuccessRequest) 
 		if err := c.NotifyChargeSuccess(req); err != nil {
 			c.logger.Error("Async charge success notification failed",
 				zap.String("timwe_transaction_id", req.TimweTransactionID),
+				zap.Error(err))
+		}
+	}()
+}
+
+// PartnerSubscriptionRequest represents the payload for the partner-subscription
+// notification. Unlike ChargeSuccessRequest, this call is what actually
+// creates the acquisition-reporting row for tenant partner-route optins:
+// those never go through the web CreateTransaction path, so without this
+// notification they never appear in acquisition-api's reports (KPIs, funnel,
+// transactions all aggregate off acquisition_transactions).
+type PartnerSubscriptionRequest struct {
+	Action             string `json:"action"`
+	TenantID           string `json:"tenant_id"`
+	ChannelID          string `json:"channel_id,omitempty"`
+	ChannelKey         string `json:"channel_key"`
+	MSISDN             string `json:"msisdn"`
+	ProductID          int    `json:"product_id,omitempty"`
+	TimweTransactionID string `json:"timwe_transaction_id,omitempty"`
+	SubscriptionResult string `json:"subscription_result,omitempty"`
+	EntryChannel       string `json:"entry_channel,omitempty"`
+}
+
+// PartnerSubscriptionResponse represents the response from the
+// partner-subscription endpoint.
+type PartnerSubscriptionResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// NotifyPartnerSubscription calls acquisition-api to record a tenant
+// partner-route optin/confirm as an acquisition transaction, so it is
+// counted by acquisition reporting the same way a web-checkout acquisition
+// already is. Reuses the charge-success client's transport, auth secret,
+// and enable flag rather than introducing a second configuration surface.
+func (c *AcquisitionClient) NotifyPartnerSubscription(req *PartnerSubscriptionRequest) error {
+	if !c.enabled {
+		c.logger.Debug("Acquisition callback disabled, skipping partner subscription notification",
+			zap.String("tenant_id", req.TenantID))
+		return nil
+	}
+
+	if req.TenantID == "" {
+		return fmt.Errorf("tenant_id is required")
+	}
+	if req.MSISDN == "" {
+		return fmt.Errorf("msisdn is required")
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+	message := timestamp + string(body)
+	mac := hmac.New(sha256.New, []byte(c.secret))
+	mac.Write([]byte(message))
+	signature := hex.EncodeToString(mac.Sum(nil))
+
+	url := fmt.Sprintf("%s/internal/acquisition/partner-subscription", c.baseURL)
+	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("X-Internal-Timestamp", timestamp)
+	httpReq.Header.Set("X-Internal-Signature", signature)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		c.logger.Error("Failed to call acquisition-api partner-subscription",
+			zap.String("tenant_id", req.TenantID),
+			zap.Error(err))
+		return fmt.Errorf("failed to call acquisition-api: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		c.logger.Error("Acquisition-api partner-subscription returned error",
+			zap.String("tenant_id", req.TenantID),
+			zap.Int("status", resp.StatusCode),
+			zap.String("response", string(respBody)))
+		return fmt.Errorf("acquisition-api returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	c.logger.Info("Partner subscription notification sent to acquisition-api",
+		zap.String("tenant_id", req.TenantID),
+		zap.String("action", req.Action),
+		zap.String("msisdn", pii.MaskMSISDN(req.MSISDN)))
+
+	return nil
+}
+
+// NotifyPartnerSubscriptionAsync calls NotifyPartnerSubscription in a
+// goroutine. Partner optin/confirm proxied responses must never be delayed
+// or failed by this acquisition-reporting bookkeeping call.
+func (c *AcquisitionClient) NotifyPartnerSubscriptionAsync(req *PartnerSubscriptionRequest) {
+	go func() {
+		if err := c.NotifyPartnerSubscription(req); err != nil {
+			c.logger.Error("Async partner subscription notification failed",
+				zap.String("tenant_id", req.TenantID),
 				zap.Error(err))
 		}
 	}()

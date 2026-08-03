@@ -505,6 +505,14 @@ func NewRouter(
 			}
 			return
 
+		case strings.EqualFold(path, "/internal/acquisition/partner-subscription"):
+			if method == fasthttp.MethodPost {
+				internalHandler.HandlePartnerSubscription(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		// Analytics endpoints (public, for landing page event ingestion)
 		case strings.EqualFold(path, "/v1/analytics/landing/events"):
 			if method == fasthttp.MethodPost {

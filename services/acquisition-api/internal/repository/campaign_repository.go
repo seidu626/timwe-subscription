@@ -831,6 +831,54 @@ func (r *CampaignRepository) ValidateTenantChannelForCampaign(tenantID, channelI
 	return nil
 }
 
+// GetTenantChannelByID retrieves a tenant channel row by (tenant_id, id).
+// Used by partner-subscription acquisition reporting (see
+// TransactionService.HandlePartnerSubscription) to resolve the country
+// required by campaigns.country (NOT NULL) when auto-provisioning the
+// synthetic "direct API" campaign for a tenant partner-route channel.
+func (r *CampaignRepository) GetTenantChannelByID(tenantID, channelID string) (*domain.AdminChannel, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	channelID = strings.TrimSpace(channelID)
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required")
+	}
+	if channelID == "" {
+		return nil, fmt.Errorf("channel_id is required")
+	}
+
+	var channel domain.AdminChannel
+	var channelOperator sql.NullString
+	var capabilities pq.StringArray
+	err := r.db.QueryRow(`
+		SELECT id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at
+		FROM tenant_channels
+		WHERE tenant_id = $1 AND id = $2
+	`, tenantID, channelID).Scan(
+		&channel.ID,
+		&channel.TenantID,
+		&channel.ChannelKey,
+		&channel.Provider,
+		&channel.Country,
+		&channelOperator,
+		&capabilities,
+		&channel.Status,
+		&channel.CreatedAt,
+		&channel.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("channel not found: %s", channelID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to load tenant channel: %w", err)
+	}
+	if channelOperator.Valid {
+		channel.Operator = &channelOperator.String
+	}
+	channel.Capabilities = capabilities
+	channel.Enabled = channel.Status == domain.ChannelStatusActive
+	return &channel, nil
+}
+
 func missingCapabilitiesForFlow(flowType domain.FlowType, capabilities []string) []string {
 	required := []string{}
 	switch flowType {

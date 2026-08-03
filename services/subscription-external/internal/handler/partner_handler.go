@@ -28,6 +28,11 @@ type PartnerHandler struct {
 	// nonceStore is a process-lifetime in-memory nonce store that prevents
 	// HMAC signature replay within the 5-minute trusted-service skew window (FIX 4).
 	nonceStore tenantctx.NonceStore
+	// acqClient notifies acquisition-api of tenant partner-route
+	// optin/confirm events so they are counted by acquisition reporting.
+	// Optional: nil unless WithAcquisitionClient is called, in which case
+	// notifyAcquisitionPartnerSubscription is a no-op (e.g. in unit tests).
+	acqClient *service.AcquisitionClient
 }
 
 func NewPartnerHandler(logger *zap.Logger, svc *service.SubscriptionService, cfg *config.Config) *PartnerHandler {
@@ -43,6 +48,15 @@ func NewPartnerHandler(logger *zap.Logger, svc *service.SubscriptionService, cfg
 // Call this after NewPartnerHandler when the concrete repository implements gatewayTenantLookup.
 func (h *PartnerHandler) WithTenantRepo(repo gatewayTenantLookup) *PartnerHandler {
 	h.tenantRepo = repo
+	return h
+}
+
+// WithAcquisitionClient sets the client used to notify acquisition-api of
+// tenant partner-route optin/confirm events for acquisition reporting.
+// Call this after NewPartnerHandler; omit it (leaving acqClient nil) to
+// disable the notification entirely, e.g. in unit tests.
+func (h *PartnerHandler) WithAcquisitionClient(client *service.AcquisitionClient) *PartnerHandler {
+	h.acqClient = client
 	return h
 }
 
@@ -524,6 +538,7 @@ func (h *PartnerHandler) PartnerSubscriptionOptin(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	h.persistPartnerOptinSubscription(route, req, resp)
+	h.notifyAcquisitionPartnerSubscription(partnerAcquisitionActionOptin, route, req.UserIdentifier, req.ProductID, req.EntryChannel, resp)
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	_ = json.NewEncoder(ctx).Encode(resp)
@@ -563,6 +578,11 @@ func (h *PartnerHandler) PartnerSubscriptionConfirm(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	h.persistPartnerConfirmSubscription(route, req)
+	entryChannel := ""
+	if req.EntryChannel != nil {
+		entryChannel = *req.EntryChannel
+	}
+	h.notifyAcquisitionPartnerSubscription(partnerAcquisitionActionConfirm, route, req.UserIdentifier, req.ProductId, entryChannel, resp)
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	_ = json.NewEncoder(ctx).Encode(resp)
@@ -676,6 +696,39 @@ const (
 	partnerSubscriptionStatusPreactive = "preactive"
 	partnerSubscriptionStatusInactive  = "inactive"
 )
+
+// partnerAcquisitionActionOptin/Confirm are the values sent as
+// service.PartnerSubscriptionRequest.Action, matching acquisition-api's own
+// PartnerSubscriptionAction vocabulary ("optin"/"confirm") exactly.
+const (
+	partnerAcquisitionActionOptin   = "optin"
+	partnerAcquisitionActionConfirm = "confirm"
+)
+
+// notifyAcquisitionPartnerSubscription fires a best-effort, non-blocking
+// notification to acquisition-api so this tenant partner-route
+// optin/confirm becomes visible to acquisition reporting (KPIs, funnel,
+// transactions), which otherwise only ever sees web-checkout acquisitions
+// created through CreateTransaction/ConfirmTransaction. It must never affect
+// the already-computed TIMWE-proxied response: failures are only logged,
+// inside AcquisitionClient itself, via NotifyPartnerSubscriptionAsync.
+func (h *PartnerHandler) notifyAcquisitionPartnerSubscription(action string, route domain.TenantRouteContext, msisdn string, productID int, entryChannel string, resp *domain.MTResponse) {
+	if h.acqClient == nil {
+		return
+	}
+	timweTxID, _ := transactionIDFromResponse(resp)
+	h.acqClient.NotifyPartnerSubscriptionAsync(&service.PartnerSubscriptionRequest{
+		Action:             action,
+		TenantID:           route.TenantID,
+		ChannelID:          route.ChannelID,
+		ChannelKey:         route.ChannelKey,
+		MSISDN:             msisdn,
+		ProductID:          productID,
+		TimweTransactionID: timweTxID,
+		SubscriptionResult: subscriptionResultFromResponse(resp),
+		EntryChannel:       entryChannel,
+	})
+}
 
 // partnerOptinStatusFromResult maps a TIMWE optin subscriptionResult to the
 // status persistPartnerOptinSubscription should apply. Any other or absent

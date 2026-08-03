@@ -43,8 +43,8 @@ type TenantAwareTIMWEClient interface {
 }
 
 type TenantSubscriptionContext struct {
-	TenantID     string
-	ChannelID    string
+	TenantID  string
+	ChannelID string
 	// Per-tenant account config resolved from the channel credential blob.
 	// Empty string means "not set"; callers fall back to global config.
 	MCC          string
@@ -881,6 +881,301 @@ func (s *TransactionService) verifyChargeSuccessTenant(tx *domain.AcquisitionTra
 	if transactionTenantID == "" || transactionTenantID != requestTenantID {
 		return fmt.Errorf("charge success tenant mismatch")
 	}
+	return nil
+}
+
+// PartnerSubscriptionAction identifies which partner-route lifecycle step
+// triggered the acquisition-reporting notification.
+type PartnerSubscriptionAction string
+
+const (
+	PartnerSubscriptionActionOptin   PartnerSubscriptionAction = "optin"
+	PartnerSubscriptionActionConfirm PartnerSubscriptionAction = "confirm"
+)
+
+// PartnerSubscriptionRequest represents a tenant partner-route (gateway-trust)
+// optin/confirm notification from subscription-external. Partner-route calls
+// proxy TIMWE directly and never go through CreateTransaction/ConfirmTransaction,
+// so this is the only path that makes them visible to acquisition reporting
+// (reports_repository.go aggregates strictly off acquisition_transactions
+// joined to enabled campaigns).
+type PartnerSubscriptionRequest struct {
+	Action             PartnerSubscriptionAction `json:"action"`
+	TenantID           string                    `json:"tenant_id"`
+	ChannelID          string                    `json:"channel_id,omitempty"`
+	ChannelKey         string                    `json:"channel_key"`
+	MSISDN             string                    `json:"msisdn"`
+	ProductID          int                       `json:"product_id,omitempty"`
+	TimweTransactionID string                    `json:"timwe_transaction_id,omitempty"`
+	SubscriptionResult string                    `json:"subscription_result,omitempty"`
+	EntryChannel       string                    `json:"entry_channel,omitempty"`
+}
+
+// partnerStatusRank orders TransactionStatus so a replayed or out-of-order
+// partner notification never regresses a transaction that already advanced
+// further (e.g. a duplicated optin call must not downgrade a CHARGED row).
+func partnerStatusRank(status domain.TransactionStatus) int {
+	switch status {
+	case domain.StatusPending:
+		return 0
+	case domain.StatusActionRequired:
+		return 1
+	case domain.StatusConfirmRequired:
+		return 2
+	case domain.StatusSubscribed:
+		return 3
+	case domain.StatusCharged:
+		return 4
+	default:
+		return -1
+	}
+}
+
+// partnerAcquisitionStatus maps a TIMWE subscriptionResult observed by
+// subscription-external's partner optin handler to the TransactionStatus
+// vocabulary acquisition reporting understands. OPTIN_PREACTIVE_WAIT_CONF
+// maps to CONFIRM_REQUIRED: the same pre-subscribed status
+// HandleChargeSuccess already knows how to promote to SUBSCRIBED/CHARGED, so
+// a later confirm or charge-success call for this transaction advances it
+// correctly with no extra glue code. The confirm action always means TIMWE
+// activated the subscription, so it always maps to SUBSCRIBED regardless of
+// subscriptionResult content.
+func partnerAcquisitionStatus(action PartnerSubscriptionAction, subscriptionResult string) (domain.TransactionStatus, bool) {
+	if action == PartnerSubscriptionActionConfirm {
+		return domain.StatusSubscribed, true
+	}
+	switch subscriptionResult {
+	case "OPTIN_ACTIVE_WAIT_CHARGING", "OPTIN_ALREADY_ACTIVE":
+		return domain.StatusSubscribed, true
+	case "OPTIN_PREACTIVE_WAIT_CONF":
+		return domain.StatusConfirmRequired, true
+	default:
+		return "", false
+	}
+}
+
+// partnerCampaignSlug builds a deterministic per-tenant-channel campaign
+// slug for partner-route acquisitions. campaigns.slug is unique GLOBALLY
+// (idx_campaigns_slug_global), not per-tenant, so the literal
+// "direct-<channel_key>" scheme would collide across tenants that happen to
+// share a channel_key naming convention; a tenant-id suffix keeps slugs
+// unique while remaining stable and idempotent across repeated calls.
+func partnerCampaignSlug(tenantID, channelKey string) string {
+	suffix := tenantID
+	if len(suffix) > 8 {
+		suffix = suffix[len(suffix)-8:]
+	}
+	slug := fmt.Sprintf("direct-%s-%s", sanitizeSlugSegment(channelKey), sanitizeSlugSegment(suffix))
+	if len(slug) > 100 {
+		slug = slug[:100]
+	}
+	return slug
+}
+
+// sanitizeSlugSegment lowercases and replaces characters outside [a-z0-9-]
+// with '-' so arbitrary channel keys/tenant ids can be embedded in a slug.
+func sanitizeSlugSegment(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('-')
+		}
+	}
+	return b.String()
+}
+
+// ensurePartnerCampaign returns the slug of the per-tenant-channel synthetic
+// "direct API" campaign used to attribute tenant partner-route acquisitions,
+// auto-creating it on first use. domain.Campaign has no name/display-name
+// column, so the descriptive slug itself is the only human-readable label
+// available in the admin portal for this synthetic campaign.
+func (s *TransactionService) ensurePartnerCampaign(tenantID, channelID, channelKey string, productID int) (string, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	channelKey = strings.TrimSpace(channelKey)
+	if tenantID == "" {
+		return "", fmt.Errorf("tenant_id is required")
+	}
+	if channelKey == "" {
+		return "", fmt.Errorf("channel_key is required")
+	}
+	if productID <= 0 {
+		return "", fmt.Errorf("product_id is required")
+	}
+
+	slug := partnerCampaignSlug(tenantID, channelKey)
+	if existing, err := s.campaignRepo.GetAdminByTenantAndSlug(tenantID, slug); err == nil {
+		return existing.Slug, nil
+	}
+
+	country := "XX"
+	var channelIDPtr *string
+	channelID = strings.TrimSpace(channelID)
+	if channelID != "" {
+		if channel, chErr := s.campaignRepo.GetTenantChannelByID(tenantID, channelID); chErr == nil {
+			country = channel.Country
+			channelIDPtr = &channelID
+		} else {
+			s.logger.Warn("could not resolve tenant channel for synthetic partner campaign, defaulting country to XX",
+				zap.String("tenant_id", tenantID),
+				zap.String("channel_id", channelID),
+				zap.Error(chErr),
+			)
+		}
+	} else {
+		s.logger.Warn("no channel_id provided for synthetic partner campaign, defaulting country to XX",
+			zap.String("tenant_id", tenantID),
+			zap.String("channel_key", channelKey),
+		)
+	}
+
+	campaign := &domain.Campaign{
+		TenantID:       &tenantID,
+		ChannelID:      channelIDPtr,
+		Slug:           slug,
+		Language:       "en",
+		Country:        country,
+		OfferProductID: productID,
+		FlowType:       domain.FlowTypeMixed,
+		Enabled:        true,
+	}
+	created, err := s.campaignRepo.CreateForTenant(tenantID, campaign)
+	if err != nil {
+		// Concurrent creation is possible (two simultaneous optins for a
+		// brand-new tenant channel); re-check before treating this as
+		// fatal, the same TOCTOU-tolerant pattern CreateTransaction uses.
+		if existing, getErr := s.campaignRepo.GetAdminByTenantAndSlug(tenantID, slug); getErr == nil {
+			return existing.Slug, nil
+		}
+		return "", fmt.Errorf("failed to create synthetic partner campaign: %w", err)
+	}
+	return created.Slug, nil
+}
+
+// HandlePartnerSubscription upserts an acquisition_transactions row for a
+// tenant partner-route optin/confirm, auto-provisioning a per-tenant-channel
+// synthetic campaign on first use so the row satisfies campaigns' NOT NULL
+// columns and is picked up by acquisition reporting (see reports_repository.go).
+// It never fails loudly enough to affect the TIMWE-proxied response on the
+// subscription-external side: callers there invoke this best-effort/async.
+func (s *TransactionService) HandlePartnerSubscription(req *PartnerSubscriptionRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+	tenantID := strings.TrimSpace(req.TenantID)
+	msisdn := strings.TrimSpace(req.MSISDN)
+	if tenantID == "" {
+		return fmt.Errorf("tenant_id is required")
+	}
+	if msisdn == "" {
+		return fmt.Errorf("msisdn is required")
+	}
+	if strings.TrimSpace(string(req.Action)) == "" {
+		return fmt.Errorf("action is required")
+	}
+
+	status, mapped := partnerAcquisitionStatus(req.Action, req.SubscriptionResult)
+	if !mapped {
+		s.logger.Debug("partner subscription notification carries no status-changing signal, skipping",
+			zap.String("tenant_id", tenantID),
+			zap.String("action", string(req.Action)),
+			zap.String("subscription_result", req.SubscriptionResult),
+		)
+		return nil
+	}
+
+	campaignSlug, err := s.ensurePartnerCampaign(tenantID, req.ChannelID, req.ChannelKey, req.ProductID)
+	if err != nil {
+		return fmt.Errorf("failed to provision synthetic partner campaign: %w", err)
+	}
+
+	timweTxID := strings.TrimSpace(req.TimweTransactionID)
+
+	var existing *domain.AcquisitionTransaction
+	if timweTxID != "" {
+		existing, err = s.txRepo.FindByTenantAndTimweTransactionID(tenantID, timweTxID)
+	} else {
+		existing, err = s.txRepo.FindByTenantMSISDNAndStatuses(tenantID, msisdn, []domain.TransactionStatus{
+			domain.StatusPending,
+			domain.StatusActionRequired,
+			domain.StatusConfirmRequired,
+			domain.StatusSubscribed,
+			domain.StatusCharged,
+		})
+	}
+
+	if err == nil && existing != nil {
+		if partnerStatusRank(status) <= partnerStatusRank(existing.Status) {
+			s.logger.Info("partner subscription notification is a no-op replay, skipping",
+				zap.String("transaction_id", existing.ID.String()),
+				zap.String("existing_status", string(existing.Status)),
+				zap.String("incoming_status", string(status)),
+			)
+			return nil
+		}
+		if timweTxID != "" && existing.TimweTransactionID == nil {
+			if updErr := s.txRepo.UpdateTIMWEData(existing.ID, timweTxID, "", req.SubscriptionResult); updErr != nil {
+				s.logger.Warn("failed to attach timwe_transaction_id to existing partner transaction",
+					zap.String("transaction_id", existing.ID.String()), zap.Error(updErr))
+			}
+		}
+		if err := s.txRepo.UpdateStatus(existing.ID, status, nil, nil); err != nil {
+			return fmt.Errorf("failed to advance partner transaction status: %w", err)
+		}
+		s.logger.Info("partner subscription transaction advanced",
+			zap.String("transaction_id", existing.ID.String()),
+			zap.String("status", string(status)),
+		)
+		return nil
+	}
+
+	now := time.Now()
+	tx := &domain.AcquisitionTransaction{
+		ID:              uuid.New(),
+		CorrelationID:   uuid.New(),
+		TenantID:        &tenantID,
+		CampaignSlug:    campaignSlug,
+		MSISDN:          msisdn,
+		Status:          status,
+		ConsentRequired: false,
+		ConsentChecked:  true,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	if req.ProductID > 0 {
+		productID := req.ProductID
+		tx.OfferProductID = &productID
+	}
+	if timweTxID != "" {
+		tx.TimweTransactionID = &timweTxID
+	}
+	if req.SubscriptionResult != "" {
+		result := req.SubscriptionResult
+		tx.TimweStatus = &result
+	}
+
+	if err := s.txRepo.Create(tx); err != nil {
+		// Idempotency is TOCTOU-tolerant (no unique DB constraint on
+		// timwe_transaction_id), matching CreateTransaction's existing
+		// pattern: a concurrent duplicate is treated as a benign replay
+		// rather than an error once a matching row exists.
+		if timweTxID != "" {
+			if again, findErr := s.txRepo.FindByTenantAndTimweTransactionID(tenantID, timweTxID); findErr == nil && again != nil {
+				return nil
+			}
+		}
+		return fmt.Errorf("failed to create partner acquisition transaction: %w", err)
+	}
+
+	s.logger.Info("partner subscription transaction created",
+		zap.String("transaction_id", tx.ID.String()),
+		zap.String("tenant_id", tenantID),
+		zap.String("campaign_slug", campaignSlug),
+		zap.String("status", string(status)),
+	)
 	return nil
 }
 
