@@ -209,8 +209,16 @@ func TestHandlePartnerSubscription_AutoCreatesCampaignAndTransactionOnFirstUse(t
 		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "channel_key", "provider", "country", "operator", "capabilities", "status", "created_at", "updated_at"}).
 			AddRow(channelID, testTenantID, channelKey, "TIMWE", "GH", nil, pq.StringArray{"optin", "confirm"}, "ACTIVE", now, now))
 
-	// 3. campaign insert (Create), returning the new slug.
+	// 3. campaign insert (Create), returning the new slug. lp_copy ($27) must
+	// be a non-null JSON object: campaigns.lp_copy is NOT NULL in production
+	// (migration 014) and synthetic campaigns have no landing page copy.
+	campaignInsertArgs := make([]driver.Value, 30)
+	for i := range campaignInsertArgs {
+		campaignInsertArgs[i] = sqlmock.AnyArg()
+	}
+	campaignInsertArgs[26] = "{}"
 	mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO campaigns")).
+		WithArgs(campaignInsertArgs...).
 		WillReturnRows(sqlmock.NewRows([]string{"slug"}).AddRow(slug))
 
 	// 4. Create()'s own GetAdminBySlug confirmation read.

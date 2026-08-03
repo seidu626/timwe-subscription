@@ -1040,7 +1040,10 @@ func (s *TransactionService) ensurePartnerCampaign(tenantID, channelID, channelK
 		Country:        country,
 		OfferProductID: productID,
 		FlowType:       domain.FlowTypeMixed,
-		Enabled:        true,
+		// campaigns.lp_copy is NOT NULL (migration 014); synthetic direct-API
+		// campaigns have no landing page, so an empty object is the honest value.
+		LPCopy:  json.RawMessage(`{}`),
+		Enabled: true,
 	}
 	created, err := s.campaignRepo.CreateForTenant(tenantID, campaign)
 	if err != nil {
