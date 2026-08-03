@@ -69,6 +69,7 @@ Thumbs.db
 # Claude Code local artifacts
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
 
 # Slice-spec-validator output (ephemeral)
 slices/**/spec-validation*.json
