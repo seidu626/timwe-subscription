@@ -1904,7 +1904,7 @@ func (s *SubscriptionService) HandleWaitingForChargingSubscription(msisdn string
 	}
 
 	// Schedule periodic charging status monitoring
-	go s.scheduleChargingStatusMonitoring(ctx, msisdn, product, transactionIdStr)
+	go s.scheduleChargingStatusMonitoring(ctx, msisdn, product, transactionIdStr, mtReq.TenantRoute)
 
 	s.logger.Info("Successfully handled waiting for charging subscription",
 		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
@@ -1914,7 +1914,7 @@ func (s *SubscriptionService) HandleWaitingForChargingSubscription(msisdn string
 }
 
 // CheckChargingStatus checks the charging status for a subscription that is waiting for charging
-func (s *SubscriptionService) CheckChargingStatus(msisdn string, product *domain.Product, transactionId string) error {
+func (s *SubscriptionService) CheckChargingStatus(msisdn string, product *domain.Product, transactionId string, route domain.TenantRouteContext) error {
 	s.logger.Info("Checking charging status for subscription",
 		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("productId", product.ProductId),
@@ -1931,15 +1931,25 @@ func (s *SubscriptionService) CheckChargingStatus(msisdn string, product *domain
 		mnc = "03" // Default fallback
 	}
 
+	// TIMWE identifies the offer by product id; the price point id is rejected upstream
+	// with INVALID_PRODUCT_ID ("product doesn't belong to partner"). Product.ProductId is a
+	// string while GetStatusRequest.ProductId is an int, so it needs explicit conversion.
+	productId, err := strconv.Atoi(product.ProductId)
+	if err != nil {
+		s.logger.Error("Failed to convert ProductId", zap.Error(err))
+		return fmt.Errorf("failed to convert ProductId: %w", err)
+	}
+
 	// Create a status check request
 	statusReq := domain.GetStatusRequest{
 		UserIdentifier:     msisdn,
 		UserIdentifierType: "MSISDN",
-		ProductId:          product.PricePointId,
+		ProductId:          productId,
 		Mcc:                &mcc,                  // Use pointer to string
 		Mnc:                &mnc,                  // Use pointer to string
 		EntryChannel:       stringPtr("INTERNAL"), // Use pointer to string
 		ClientIp:           stringPtr("INTERNAL"), // Use pointer to string
+		TenantRoute:        route,
 	}
 
 	// Send status check request to TIMWE API
@@ -2306,7 +2316,7 @@ func (s *SubscriptionService) scheduleRenewalForChargingStatus(msisdn string, pr
 }
 
 // scheduleChargingStatusMonitoring schedules periodic charging status monitoring
-func (s *SubscriptionService) scheduleChargingStatusMonitoring(ctx context.Context, msisdn string, product *domain.Product, transactionIdStr string) {
+func (s *SubscriptionService) scheduleChargingStatusMonitoring(ctx context.Context, msisdn string, product *domain.Product, transactionIdStr string, route domain.TenantRouteContext) {
 	// Wait before first check
 	time.Sleep(5 * time.Minute)
 
@@ -2333,7 +2343,7 @@ func (s *SubscriptionService) scheduleChargingStatusMonitoring(ctx context.Conte
 				zap.Int("checkCount", checkCount),
 				zap.Int("maxChecks", maxChecks))
 
-			if err := s.CheckChargingStatus(msisdn, product, transactionIdStr); err != nil {
+			if err := s.CheckChargingStatus(msisdn, product, transactionIdStr, route); err != nil {
 				s.logger.Error("Periodic charging status check failed",
 					zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 					zap.Error(err))

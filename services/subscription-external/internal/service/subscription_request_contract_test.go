@@ -454,3 +454,43 @@ func assertNumberField(t *testing.T, body map[string]interface{}, key string, ex
 		t.Fatalf("expected key %q to be %d, got %v", key, expected, value)
 	}
 }
+
+// CheckChargingStatus must identify the offer to TIMWE by product id. Sending the price
+// point id instead is rejected upstream with INVALID_PRODUCT_ID ("product doesn't belong
+// to partner"), which silently broke every periodic post-optin charging status poll.
+func TestCheckChargingStatus_SendsProductIDNotPricePointID(t *testing.T) {
+	var capturedBody map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{},
+			"message":      "ok",
+			"inError":      false,
+			"requestId":    "req-status",
+			"code":         "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
+	service.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+	service.bulkhead = make(chan struct{}, 1)
+	configureContractTenantProvider(service, server.URL)
+
+	// Deliberately distinct values so the assertion discriminates between the two ids.
+	product := &domain.Product{
+		ProductId:    "32535",
+		PricePointId: 70946,
+	}
+
+	if err := service.CheckChargingStatus("233270000000", product, "tx-charging-status", contractTenantRoute()); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	assertNumberField(t, capturedBody, "productId", 32535)
+}
