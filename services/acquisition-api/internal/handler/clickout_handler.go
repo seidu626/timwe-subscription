@@ -35,10 +35,10 @@ type ClickOutConfig struct {
 
 // DestinationConfig defines an allowlisted destination
 type DestinationConfig struct {
-	BaseURL        string   // Base URL to redirect to
-	ClickIDParam   string   // Query param name for click_id (partner-specific)
+	BaseURL           string   // Base URL to redirect to
+	ClickIDParam      string   // Query param name for click_id (partner-specific)
 	PassthroughParams []string // Params to copy from incoming request
-	AllowedPartners []string // Restrict to specific partners (empty = all)
+	AllowedPartners   []string // Restrict to specific partners (empty = all)
 }
 
 // NewClickOutHandler creates a new click-out handler
@@ -64,7 +64,7 @@ func NewClickOutHandler(
 func defaultClickOutConfig() *ClickOutConfig {
 	return &ClickOutConfig{
 		// No default destinations: force allowlist to be configured explicitly.
-		Destinations:         map[string]DestinationConfig{},
+		Destinations:          map[string]DestinationConfig{},
 		DefaultClickIDParam:   "click_id",
 		RateLimitPerIPPerHour: 100,
 		CookieSecure:          true,

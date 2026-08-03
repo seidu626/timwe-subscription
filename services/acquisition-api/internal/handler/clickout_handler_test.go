@@ -33,4 +33,3 @@ func TestClickOutHandler_InvalidDestination(t *testing.T) {
 		t.Fatalf("expected %d, got %d", fasthttp.StatusBadRequest, ctx.Response.StatusCode())
 	}
 }
-
