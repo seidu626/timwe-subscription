@@ -2,8 +2,10 @@ package handler
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +24,11 @@ type handlerRepoStub struct {
 	tenantIDByKey   map[string]string
 	channelIDByKeys map[string]string // keyed by tenantID + "|" + channelKey
 	saved           *domain.NotificationRequest
+	templates       map[string]domain.SMSTemplate
+	templateTenant  string
+	templateProduct int
+	enqueuedKeys    map[string]struct{}
+	enqueueCount    int
 }
 
 func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
@@ -36,9 +43,44 @@ func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, tenan
 	return &domain.ListResponse{}, nil
 }
 
-func (h *handlerRepoStub) Save(notification *domain.NotificationRequest) error {
+func (h *handlerRepoStub) ProcessNotification(_ context.Context, notification *domain.NotificationRequest) error {
 	h.saved = notification
+	if notification.Type == domain.UserOptinEvent && notification.TenantID != nil {
+		key := *notification.TenantID + "|" + strconv.Itoa(notification.ProductID) + "|" + domain.UserOptinEvent
+		if item, ok := h.templates[key]; ok && item.Enabled {
+			if h.enqueuedKeys == nil {
+				h.enqueuedKeys = make(map[string]struct{})
+			}
+			idempotencyKey := notification.ExternalTxID + "|" + strconv.FormatInt(item.ID, 10)
+			if _, exists := h.enqueuedKeys[idempotencyKey]; !exists {
+				h.enqueuedKeys[idempotencyKey] = struct{}{}
+				h.enqueueCount++
+			}
+		}
+	}
 	return nil
+}
+
+func (h *handlerRepoStub) ListSMSTemplates(context.Context, string) ([]domain.SMSTemplate, error) {
+	return nil, nil
+}
+
+func (h *handlerRepoStub) GetSMSTemplate(_ context.Context, tenantID string, productID int, eventType string) (*domain.SMSTemplate, error) {
+	h.templateTenant = tenantID
+	h.templateProduct = productID
+	item, ok := h.templates[tenantID+"|"+strconv.Itoa(productID)+"|"+eventType]
+	if !ok {
+		return nil, sql.ErrNoRows
+	}
+	return &item, nil
+}
+
+func (h *handlerRepoStub) UpsertSMSTemplate(_ context.Context, item domain.SMSTemplate) (*domain.SMSTemplate, error) {
+	return &item, nil
+}
+
+func (h *handlerRepoStub) SetSMSTemplateEnabled(_ context.Context, tenantID string, productID int, eventType string, enabled bool) (*domain.SMSTemplate, error) {
+	return &domain.SMSTemplate{TenantID: tenantID, ProductID: productID, EventType: eventType, Enabled: enabled}, nil
 }
 
 func (h *handlerRepoStub) TenantIDByKey(_ context.Context, tenantKey string) (string, error) {
@@ -270,8 +312,8 @@ func TestHandleNotification_TenantEnforcement(t *testing.T) {
 			wantChannelID: ptr(careerifyChannelID),
 		},
 		{
-			name: "(b) unknown tenant_key",
-			uri:  "/api/v1/notification/mo/2117?tenant_key=evil-tenant&channel_key=web-gh-airteltigo",
+			name:           "(b) unknown tenant_key",
+			uri:            "/api/v1/notification/mo/2117?tenant_key=evil-tenant&channel_key=web-gh-airteltigo",
 			tenantIDByKey:  map[string]string{},
 			wantStatus:     fasthttp.StatusBadRequest,
 			wantBodySubstr: "UNKNOWN_TENANT",
@@ -309,7 +351,7 @@ func TestHandleNotification_TenantEnforcement(t *testing.T) {
 			name: "(f) header-only tenant + channel",
 			uri:  "/api/v1/notification/mo/2117",
 			headers: map[string]string{
-				"X-Tenant-Key": "careerify",
+				"X-Tenant-Key":  "careerify",
 				"X-Channel-Key": "web-gh-airteltigo",
 			},
 			tenantIDByKey: map[string]string{
@@ -505,6 +547,60 @@ func TestHandleNotification_TenantContextEnforcement(t *testing.T) {
 		}
 		if repo.saved == nil || repo.saved.TenantID == nil || *repo.saved.TenantID != careerifyTenantID {
 			t.Fatalf("expected tenant stamped, got %#v", repo.saved)
+		}
+	})
+}
+
+func TestGetSMSTemplateScopesByAuthenticatedTenantAndProduct(t *testing.T) {
+	repo := &handlerRepoStub{templates: map[string]domain.SMSTemplate{
+		"tenant-a|32535|USER_OPTIN": {ID: 7, TenantID: "tenant-a", ProductID: 32535, EventType: domain.UserOptinEvent, Enabled: true, Template: "welcome"},
+	}}
+	h := NewNotificationHandler(service.NewNotificationService(repo))
+	ctx := newListRequestContext("/api/v1/notification/sms-templates/32535")
+	setTenantIdentity(ctx, "tenant-a")
+
+	h.GetSMSTemplate(ctx, 32535)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if repo.templateTenant != "tenant-a" || repo.templateProduct != 32535 {
+		t.Fatalf("lookup escaped tenant/product scope: tenant=%q product=%d", repo.templateTenant, repo.templateProduct)
+	}
+}
+
+func TestUserOptinConfirmationIdempotencyAndDisabledBehavior(t *testing.T) {
+	const tenantID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	newCallback := func(externalTxID string) *fasthttp.RequestCtx {
+		ctx := &fasthttp.RequestCtx{}
+		ctx.Request.SetRequestURI("/api/v1/notification/user-optin/2117")
+		ctx.Request.Header.SetMethod(fasthttp.MethodPost)
+		ctx.Request.Header.Set(tenantIDHeader, tenantID)
+		ctx.SetUserValue("partnerRole", "2117")
+		ctx.Request.SetBodyString(`{"externalTxId":"` + externalTxID + `","msisdn":"233241234567","productId":32535,"largeAccount":"CAREERIFY"}`)
+		return ctx
+	}
+
+	t.Run("duplicate callback enqueues once", func(t *testing.T) {
+		repo := &handlerRepoStub{templates: map[string]domain.SMSTemplate{
+			tenantID + "|32535|USER_OPTIN": {ID: 9, Enabled: true},
+		}}
+		h := NewNotificationHandler(service.NewNotificationService(repo))
+		h.UserOptinHandler(newCallback("carrier-tx-1"))
+		h.UserOptinHandler(newCallback("carrier-tx-1"))
+		if repo.enqueueCount != 1 {
+			t.Fatalf("expected one enqueue for duplicate callback, got %d", repo.enqueueCount)
+		}
+	})
+
+	t.Run("no enabled template enqueues nothing", func(t *testing.T) {
+		repo := &handlerRepoStub{templates: map[string]domain.SMSTemplate{
+			tenantID + "|32535|USER_OPTIN": {ID: 10, Enabled: false},
+		}}
+		h := NewNotificationHandler(service.NewNotificationService(repo))
+		h.UserOptinHandler(newCallback("carrier-tx-2"))
+		if repo.enqueueCount != 0 {
+			t.Fatalf("expected no enqueue for disabled template, got %d", repo.enqueueCount)
 		}
 	})
 }
