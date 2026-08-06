@@ -4,6 +4,11 @@
 
 {{ template "DefaultEndpoint"  "http://localhost/status" }},
 {{ template "TimweApiEndpoint"  (dict "Endpoint" "/api/v1/notification/list"                         "METHOD" "GET"  "BackendUrlPattern" "/api/v1/notification/list"                         "BackendHost" $service.notification_api_url) }},
+{{/* Per-tenant SMS confirmation templates: admin-only. The notification service validates the Auth0 bearer and resolves the tenant itself, same as /notification/list. */}}
+{{ template "TimweApiEndpoint"  (dict "Endpoint" "/api/v1/notification/sms-templates"                        "METHOD" "GET"   "BackendUrlPattern" "/api/v1/notification/sms-templates"                        "BackendHost" $service.notification_api_url) }},
+{{ template "TimweApiEndpoint"  (dict "Endpoint" "/api/v1/notification/sms-templates/{productId}"            "METHOD" "GET"   "BackendUrlPattern" "/api/v1/notification/sms-templates/{productId}"            "BackendHost" $service.notification_api_url) }},
+{{ template "TimweApiEndpoint"  (dict "Endpoint" "/api/v1/notification/sms-templates/{productId}"            "METHOD" "PUT"   "BackendUrlPattern" "/api/v1/notification/sms-templates/{productId}"            "BackendHost" $service.notification_api_url) }},
+{{ template "TimweApiEndpoint"  (dict "Endpoint" "/api/v1/notification/sms-templates/{productId}/enabled"    "METHOD" "PATCH" "BackendUrlPattern" "/api/v1/notification/sms-templates/{productId}/enabled"    "BackendHost" $service.notification_api_url) }},
 {{/* Notification MNO callbacks — tenant-aware via forwarded tenant_key/channel_key query params. */}}
 {{ template "TenantApiEndpoint" (dict "Endpoint" "/api/v1/notification/mo/{partnerRole}"             "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/mo/{partnerRole}"            "BackendHost" $service.notification_api_url) }},
 {{ template "TenantApiEndpoint" (dict "Endpoint" "/api/v1/notification/mt/dn/{partnerRole}"          "METHOD" "POST" "BackendUrlPattern" "/api/v1/notification/mt/dn/{partnerRole}"         "BackendHost" $service.notification_api_url) }},
