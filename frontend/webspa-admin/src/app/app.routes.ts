@@ -24,6 +24,7 @@ export const routes: Routes = [
       },
       { path: 'subscription', loadChildren: () => import('./features/subscription/subscription.module').then(m => m.SubscriptionModule) },
       { path: 'notification', loadChildren: () => import('./features/notification/notification.module').then(m => m.NotificationModule) },
+      { path: 'sms-templates', loadChildren: () => import('./features/sms-templates/sms-templates.module').then(m => m.SmsTemplatesModule) },
       { path: 'campaign', loadChildren: () => import('./features/campaign/campaign.module').then(m => m.CampaignModule) },
       { path: 'cadence', loadChildren: () => import('./features/cadence/cadence.module').then(m => m.CadenceModule) },
       { path: 'reports', loadChildren: () => import('./features/reports/reports.module').then(m => m.ReportsModule) },

@@ -1,0 +1,72 @@
+<section class="sms-page">
+  <header class="page-header">
+    <div><p class="eyebrow">Tenant messaging</p><h1>SMS confirmation templates</h1><p>Manage each product’s opt-in confirmation message in the active workspace.</p></div>
+    <button mat-stroked-button color="primary" type="button" (click)="startCreate()"><mat-icon>add</mat-icon>New template</button>
+  </header>
+
+  <div *ngIf="error" class="feedback error" role="alert"><mat-icon>error_outline</mat-icon><span>{{ error }}</span></div>
+  <div *ngIf="success" class="feedback success" role="status"><mat-icon>check_circle</mat-icon><span>{{ success }}</span></div>
+
+  <div class="workspace-grid">
+    <mat-card class="list-card">
+      <mat-card-header><mat-card-title>Configured products</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <div *ngIf="loading" class="state"><mat-progress-spinner diameter="32"></mat-progress-spinner><span>Loading templates…</span></div>
+        <div *ngIf="!loading && !error && templates.length === 0" class="state"><mat-icon>sms</mat-icon><span>No SMS templates are configured for this tenant yet.</span></div>
+        <div *ngIf="!loading && templates.length" class="template-list">
+          <article *ngFor="let item of templates" class="template-row" [class.selected]="selectedTemplate?.id === item.id">
+            <button class="template-main" type="button" (click)="edit(item)"><strong>{{ productLabel(item.productId) }}</strong><span>{{ item.eventType === eventType ? 'User opt-in confirmation' : item.eventType }}</span><small>{{ item.template }}</small></button>
+            <button mat-stroked-button type="button" (click)="toggle(item)" [disabled]="togglingProductId === item.productId" [attr.aria-label]="(item.enabled ? 'Disable ' : 'Enable ') + productLabel(item.productId)">
+              {{ togglingProductId === item.productId ? 'Updating…' : (item.enabled ? 'Enabled' : 'Disabled') }}
+            </button>
+          </article>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="editor-card">
+      <mat-card-header><mat-card-title>{{ selectedTemplate ? 'Edit template' : 'Create template' }}</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <form [formGroup]="form" (ngSubmit)="save()">
+          <mat-form-field appearance="outline">
+            <mat-label>Product</mat-label>
+            <input matInput [formControl]="productSearch" [matAutocomplete]="productOptions" placeholder="Search products by name" />
+            <mat-progress-spinner *ngIf="productsLoading" matSuffix diameter="20"></mat-progress-spinner>
+            <mat-autocomplete #productOptions="matAutocomplete" [displayWith]="displayProduct" (optionSelected)="selectProduct($event.option.value)">
+              <mat-option *ngFor="let product of products" [value]="product">{{ product.name }}</mat-option>
+              <mat-option *ngIf="!productsLoading && !products.length" disabled>No matching products</mat-option>
+            </mat-autocomplete>
+            <mat-hint *ngIf="selectedTemplate">Locked while editing. Use “New template” to configure another product.</mat-hint>
+            <mat-error *ngIf="form.controls.productId.hasError('required')">Select a product from the results.</mat-error>
+          </mat-form-field>
+          <p *ngIf="productError" class="inline-error" role="alert">{{ productError }}</p>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Event</mat-label>
+            <mat-select formControlName="eventType"><mat-option [value]="eventType">User opt-in confirmation</mat-option></mat-select>
+          </mat-form-field>
+
+          <mat-slide-toggle formControlName="enabled">Template enabled</mat-slide-toggle>
+
+          <mat-form-field appearance="outline" class="message-field">
+            <mat-label>SMS message template</mat-label>
+            <textarea matInput rows="9" formControlName="template" placeholder="Write the confirmation message…"></textarea>
+            <mat-hint align="end" [class.limit-warning]="characterCount >= 440">{{ characterCount }} / {{ maxCharacters }}</mat-hint>
+            <mat-error *ngIf="form.controls.template.hasError('required')">Message text is required.</mat-error>
+            <mat-error *ngIf="characterLimitExceeded">Messages over 480 characters would be truncated by the server. Shorten this template before saving.</mat-error>
+          </mat-form-field>
+
+          <aside class="variables-panel" aria-labelledby="variables-title">
+            <h2 id="variables-title">Available template variables</h2>
+            <p>Insert only these supported placeholders. Keep the rendered message within 480 characters.</p>
+            <button *ngFor="let variable of placeholders" type="button" class="variable" (click)="form.controls.template.setValue((form.controls.template.value || '') + variable.token)">
+              <code>{{ variable.token }}</code><span>{{ variable.description }}</span>
+            </button>
+          </aside>
+
+          <div class="actions"><button mat-raised-button color="primary" type="submit" [disabled]="saving || form.invalid">{{ saving ? 'Saving…' : 'Save template' }}</button></div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</section>
