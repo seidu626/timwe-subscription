@@ -40,6 +40,12 @@ export const navItems: any[] = [
     permissions: ['vr:manage']
   },
   {
+    name: 'SMS Templates',
+    url: '/sms-templates',
+    iconComponent: { name: 'cil-speech' },
+    permissions: ['vr:manage']
+  },
+  {
     name: 'Reports',
     url: '/reports',
     iconComponent: { name: 'cil-chart' },
