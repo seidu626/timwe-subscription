@@ -72,7 +72,9 @@ export class SmsTemplatesComponent implements OnInit, OnDestroy {
   }
 
   startCreate(): void {
-    this.selectedTemplate = null; this.success = null; this.productSearch.setValue('');
+    this.selectedTemplate = null; this.success = null;
+    this.productSearch.enable({ emitEvent: false });
+    this.productSearch.setValue('');
     this.form.reset({ productId: null, eventType: this.eventType, enabled: true, template: '' });
   }
 
@@ -80,6 +82,10 @@ export class SmsTemplatesComponent implements OnInit, OnDestroy {
     this.selectedTemplate = template; this.success = null;
     const product = this.products.find((item) => item.id === template.productId);
     this.productSearch.setValue(product ?? this.productLabel(template.productId), { emitEvent: false });
+    // Product plus event is the server's uniqueness key, so re-pointing the picker
+    // mid-edit would upsert a second template instead of moving this one. Editing
+    // an existing row locks the product; use "New template" to configure another.
+    this.productSearch.disable({ emitEvent: false });
     this.form.reset({ productId: template.productId, eventType: template.eventType, enabled: template.enabled, template: template.template });
   }
 

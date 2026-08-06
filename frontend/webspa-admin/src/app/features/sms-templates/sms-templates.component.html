@@ -36,6 +36,7 @@
               <mat-option *ngFor="let product of products" [value]="product">{{ product.name }}</mat-option>
               <mat-option *ngIf="!productsLoading && !products.length" disabled>No matching products</mat-option>
             </mat-autocomplete>
+            <mat-hint *ngIf="selectedTemplate">Locked while editing. Use “New template” to configure another product.</mat-hint>
             <mat-error *ngIf="form.controls.productId.hasError('required')">Select a product from the results.</mat-error>
           </mat-form-field>
           <p *ngIf="productError" class="inline-error" role="alert">{{ productError }}</p>
