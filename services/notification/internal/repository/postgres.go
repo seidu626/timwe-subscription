@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -368,7 +369,16 @@ func nullStringPtr(val sql.NullString) *string {
 	return &s
 }
 
-func (r *NotificationRepository) Save(notification *domain.NotificationRequest) error {
+// ProcessNotification persists the carrier callback and atomically enqueues an
+// enabled USER_OPTIN confirmation. The unique idempotency key makes callback
+// replay safe even when concurrent requests race.
+func (r *NotificationRepository) ProcessNotification(ctx context.Context, notification *domain.NotificationRequest) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin notification transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	query := `
         INSERT INTO notifications (
             tenant_id, channel_id, partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn,
@@ -377,7 +387,7 @@ func (r *NotificationRepository) Save(notification *domain.NotificationRequest) 
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
         )`
-	_, err := r.db.Exec(query,
+	_, err = tx.ExecContext(ctx, query,
 		nullStringPtrValue(notification.TenantID),
 		nullStringPtrValue(notification.ChannelID),
 		notification.PartnerRole,
@@ -399,7 +409,130 @@ func (r *NotificationRepository) Save(notification *domain.NotificationRequest) 
 	if err != nil {
 		return fmt.Errorf("failed to save notification: %w", err)
 	}
+
+	if notification.Type == domain.UserOptinEvent && notification.TenantID != nil {
+		if err := enqueueOptinConfirmation(ctx, tx, notification); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit notification transaction: %w", err)
+	}
 	return nil
+}
+
+func enqueueOptinConfirmation(ctx context.Context, tx *sql.Tx, notification *domain.NotificationRequest) error {
+	var templateID int64
+	var templateText string
+	err := tx.QueryRowContext(ctx, `
+		SELECT id, template
+		FROM tenant_product_sms_templates
+		WHERE tenant_id = $1 AND product_id = $2 AND event_type = $3 AND enabled = TRUE
+	`, *notification.TenantID, notification.ProductID, domain.UserOptinEvent).Scan(&templateID, &templateText)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("lookup opt-in SMS template: %w", err)
+	}
+	if strings.TrimSpace(notification.ExternalTxID) == "" {
+		return fmt.Errorf("externalTxId is required when an opt-in SMS template is enabled")
+	}
+
+	keyInput := fmt.Sprintf("USER_OPTIN:%d:%s", templateID, notification.ExternalTxID)
+	idempotencyKey := fmt.Sprintf("sms-confirmation:%x", sha256.Sum256([]byte(keyInput)))
+	messageText := domain.RenderSMSTemplate(templateText, notification)
+	result, err := tx.ExecContext(ctx, `
+		INSERT INTO message_outbox (
+			job_id, idempotency_key, subscription_id, series_id, content_item_id,
+			message_text, planned_send_at, status, tenant_id, channel_id
+		)
+		SELECT gen_random_uuid(), $1, s.id, NULL, NULL, $2, NOW(), 'PENDING', s.tenant_id, s.channel_id
+		FROM subscriptions s
+		WHERE s.tenant_id = $3 AND s.product_id = $4 AND s.user_identifier = $5
+		ORDER BY s.created_at DESC, s.id DESC
+		LIMIT 1
+		ON CONFLICT (idempotency_key) DO NOTHING
+	`, idempotencyKey, messageText, *notification.TenantID, notification.ProductID, notification.MSISDN)
+	if err != nil {
+		return fmt.Errorf("enqueue opt-in confirmation: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("inspect opt-in confirmation enqueue: %w", err)
+	}
+	if rows == 0 {
+		// Zero rows is valid only when the idempotency key already exists.
+		var exists bool
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM message_outbox WHERE idempotency_key = $1)`, idempotencyKey).Scan(&exists); err != nil {
+			return fmt.Errorf("verify opt-in confirmation idempotency: %w", err)
+		}
+		if !exists {
+			return fmt.Errorf("enqueue opt-in confirmation: matching subscription not found")
+		}
+	}
+	return nil
+}
+
+func (r *NotificationRepository) ListSMSTemplates(ctx context.Context, tenantID string) ([]domain.SMSTemplate, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, tenant_id::text, product_id, event_type, enabled, template, created_at, updated_at
+		FROM tenant_product_sms_templates WHERE tenant_id = $1
+		ORDER BY product_id, event_type
+	`, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list SMS templates: %w", err)
+	}
+	defer rows.Close()
+	templates := make([]domain.SMSTemplate, 0)
+	for rows.Next() {
+		var item domain.SMSTemplate
+		if err := rows.Scan(&item.ID, &item.TenantID, &item.ProductID, &item.EventType, &item.Enabled, &item.Template, &item.CreatedAt, &item.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan SMS template: %w", err)
+		}
+		templates = append(templates, item)
+	}
+	return templates, rows.Err()
+}
+
+func (r *NotificationRepository) GetSMSTemplate(ctx context.Context, tenantID string, productID int, eventType string) (*domain.SMSTemplate, error) {
+	var item domain.SMSTemplate
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id, tenant_id::text, product_id, event_type, enabled, template, created_at, updated_at
+		FROM tenant_product_sms_templates
+		WHERE tenant_id = $1 AND product_id = $2 AND event_type = $3
+	`, tenantID, productID, eventType).Scan(&item.ID, &item.TenantID, &item.ProductID, &item.EventType, &item.Enabled, &item.Template, &item.CreatedAt, &item.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *NotificationRepository) UpsertSMSTemplate(ctx context.Context, item domain.SMSTemplate) (*domain.SMSTemplate, error) {
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO tenant_product_sms_templates (tenant_id, product_id, event_type, enabled, template)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (tenant_id, product_id, event_type) DO UPDATE
+		SET enabled = EXCLUDED.enabled, template = EXCLUDED.template, updated_at = NOW()
+		RETURNING id, tenant_id::text, product_id, event_type, enabled, template, created_at, updated_at
+	`, item.TenantID, item.ProductID, item.EventType, item.Enabled, item.Template).Scan(&item.ID, &item.TenantID, &item.ProductID, &item.EventType, &item.Enabled, &item.Template, &item.CreatedAt, &item.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("upsert SMS template: %w", err)
+	}
+	return &item, nil
+}
+
+func (r *NotificationRepository) SetSMSTemplateEnabled(ctx context.Context, tenantID string, productID int, eventType string, enabled bool) (*domain.SMSTemplate, error) {
+	var item domain.SMSTemplate
+	err := r.db.QueryRowContext(ctx, `
+		UPDATE tenant_product_sms_templates SET enabled = $4, updated_at = NOW()
+		WHERE tenant_id = $1 AND product_id = $2 AND event_type = $3
+		RETURNING id, tenant_id::text, product_id, event_type, enabled, template, created_at, updated_at
+	`, tenantID, productID, eventType, enabled).Scan(&item.ID, &item.TenantID, &item.ProductID, &item.EventType, &item.Enabled, &item.Template, &item.CreatedAt, &item.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
 }
 
 func nullStringPtrValue(value *string) sql.NullString {

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type NotificationService struct {
@@ -17,7 +18,11 @@ type notificationRepository interface {
 	FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error)
 	TenantIDByKey(ctx context.Context, tenantKey string) (string, error)
 	ChannelIDByKeys(ctx context.Context, tenantID, channelKey string) (string, error)
-	Save(notification *domain.NotificationRequest) error
+	ProcessNotification(ctx context.Context, notification *domain.NotificationRequest) error
+	ListSMSTemplates(ctx context.Context, tenantID string) ([]domain.SMSTemplate, error)
+	GetSMSTemplate(ctx context.Context, tenantID string, productID int, eventType string) (*domain.SMSTemplate, error)
+	UpsertSMSTemplate(ctx context.Context, template domain.SMSTemplate) (*domain.SMSTemplate, error)
+	SetSMSTemplateEnabled(ctx context.Context, tenantID string, productID int, eventType string, enabled bool) (*domain.SMSTemplate, error)
 }
 
 func NewNotificationService(repo notificationRepository) *NotificationService {
@@ -74,7 +79,56 @@ func (s *NotificationService) ChannelIDByKeys(ctx context.Context, tenantID, cha
 }
 
 func (s *NotificationService) ProcessNotification(notification *domain.NotificationRequest) error {
-	return s.repo.Save(notification)
+	return s.repo.ProcessNotification(context.Background(), notification)
+}
+
+// RenderSMSTemplate substitutes the supported placeholders and limits the
+// result to three concatenated GSM-style SMS segments (480 Unicode runes).
+func RenderSMSTemplate(template string, notification *domain.NotificationRequest) string {
+	return domain.RenderSMSTemplate(template, notification)
+}
+
+func (s *NotificationService) ListSMSTemplates(ctx context.Context, tenantID string) ([]domain.SMSTemplate, error) {
+	return s.repo.ListSMSTemplates(ctx, strings.TrimSpace(tenantID))
+}
+
+func (s *NotificationService) GetSMSTemplate(ctx context.Context, tenantID string, productID int, eventType string) (*domain.SMSTemplate, error) {
+	return s.repo.GetSMSTemplate(ctx, strings.TrimSpace(tenantID), productID, normalizeEventType(eventType))
+}
+
+func (s *NotificationService) UpsertSMSTemplate(ctx context.Context, tenantID string, productID int, input domain.SMSTemplateUpsert) (*domain.SMSTemplate, error) {
+	if strings.TrimSpace(tenantID) == "" || productID <= 0 {
+		return nil, fmt.Errorf("tenant and positive product ID are required")
+	}
+	eventType := normalizeEventType(input.EventType)
+	if eventType == "" {
+		return nil, fmt.Errorf("eventType must contain letters, digits, or underscores")
+	}
+	template := strings.TrimSpace(input.Template)
+	if template == "" || utf8.RuneCountInString(template) > 2000 {
+		return nil, fmt.Errorf("template must contain between 1 and 2000 characters")
+	}
+	return s.repo.UpsertSMSTemplate(ctx, domain.SMSTemplate{TenantID: strings.TrimSpace(tenantID), ProductID: productID, EventType: eventType, Enabled: input.Enabled, Template: template})
+}
+
+func (s *NotificationService) SetSMSTemplateEnabled(ctx context.Context, tenantID string, productID int, eventType string, enabled bool) (*domain.SMSTemplate, error) {
+	if strings.TrimSpace(tenantID) == "" || productID <= 0 {
+		return nil, fmt.Errorf("tenant and positive product ID are required")
+	}
+	return s.repo.SetSMSTemplateEnabled(ctx, strings.TrimSpace(tenantID), productID, normalizeEventType(eventType), enabled)
+}
+
+func normalizeEventType(value string) string {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if value == "" {
+		return domain.UserOptinEvent
+	}
+	for _, r := range value {
+		if (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' {
+			return ""
+		}
+	}
+	return value
 }
 
 func parseFilterDate(raw string, endOfDay bool) time.Time {

@@ -21,8 +21,24 @@ func (s *serviceRepoStub) FetchNotifications(startDate, endDate time.Time, tenan
 	return &domain.ListResponse{}, nil
 }
 
-func (s *serviceRepoStub) Save(notification *domain.NotificationRequest) error {
+func (s *serviceRepoStub) ProcessNotification(_ context.Context, notification *domain.NotificationRequest) error {
 	return nil
+}
+
+func (s *serviceRepoStub) ListSMSTemplates(context.Context, string) ([]domain.SMSTemplate, error) {
+	return nil, nil
+}
+
+func (s *serviceRepoStub) GetSMSTemplate(context.Context, string, int, string) (*domain.SMSTemplate, error) {
+	return nil, nil
+}
+
+func (s *serviceRepoStub) UpsertSMSTemplate(_ context.Context, item domain.SMSTemplate) (*domain.SMSTemplate, error) {
+	return &item, nil
+}
+
+func (s *serviceRepoStub) SetSMSTemplateEnabled(_ context.Context, tenantID string, productID int, eventType string, enabled bool) (*domain.SMSTemplate, error) {
+	return &domain.SMSTemplate{TenantID: tenantID, ProductID: productID, EventType: eventType, Enabled: enabled}, nil
 }
 
 func (s *serviceRepoStub) TenantIDByKey(_ context.Context, tenantKey string) (string, error) {
@@ -93,5 +109,19 @@ func TestGetNotifications_ParsesDateAndTypeFilters(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestRenderSMSTemplateMasksMSISDNAndTruncates(t *testing.T) {
+	notification := &domain.NotificationRequest{ProductID: 32535, LargeAccount: "CAREERIFY", MSISDN: "233241234567"}
+	rendered := RenderSMSTemplate("Product {{product_id}} {{large_account}} subscriber {{msisdn}} "+strings.Repeat("x", 600), notification)
+	if strings.Contains(rendered, notification.MSISDN) {
+		t.Fatal("rendered message exposed the full MSISDN")
+	}
+	if !strings.Contains(rendered, "4567") {
+		t.Fatalf("expected last four digits, got %q", rendered)
+	}
+	if len([]rune(rendered)) != 480 {
+		t.Fatalf("expected 480-rune cap, got %d", len([]rune(rendered)))
 	}
 }

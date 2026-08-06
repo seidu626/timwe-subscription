@@ -42,6 +42,34 @@ func NewRouter(handler *handler.NotificationHandler, memberTenantLookup MemberTe
 				return
 			}
 			handler.ListNotifications(ctx)
+		case strings.EqualFold(path, "/api/v1/notification/sms-templates"):
+			if !admin.require(ctx) {
+				return
+			}
+			if !ctx.IsGet() {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+				return
+			}
+			handler.ListSMSTemplates(ctx)
+		case strings.HasPrefix(path, "/api/v1/notification/sms-templates/"):
+			if !admin.require(ctx) {
+				return
+			}
+			productID, enablePath, ok := handler.ParseTemplateProductPath(path)
+			if !ok {
+				ctx.Error("invalid product ID", fasthttp.StatusBadRequest)
+				return
+			}
+			switch {
+			case enablePath && ctx.IsPatch():
+				handler.SetSMSTemplateEnabled(ctx, productID)
+			case !enablePath && ctx.IsGet():
+				handler.GetSMSTemplate(ctx, productID)
+			case !enablePath && ctx.IsPut():
+				handler.UpsertSMSTemplate(ctx, productID)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
 		case strings.HasPrefix(path, "/api/v1/notification/mo/"):
 			partnerRole := extractPartnerRole(path, "/api/v1/notification/mo/")
 			if partnerRole != "" {
