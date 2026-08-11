@@ -108,20 +108,20 @@ func (h *CampaignHandler) GetBySlug(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 	slug, ok := extractCampaignSlugFromPath(path)
 	if !ok {
-		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid path")
 		return
 	}
 
 	if hasPublicTenantHeaders(ctx) {
 		identity, err := trustedPublicTenantIdentityFromRequest(ctx)
 		if err != nil || strings.TrimSpace(identity.TenantKey) == "" {
-			ctx.Error("Tenant context invalid", fasthttp.StatusForbidden)
+			writeJSONError(ctx, fasthttp.StatusForbidden, "Tenant context invalid")
 			return
 		}
 		campaign, err := h.service.GetByTenantKeyAndSlug(identity.TenantKey, slug)
 		if err != nil {
 			h.logger.Error("Failed to get trusted tenant campaign", zap.String("tenant_key", identity.TenantKey), zap.String("slug", slug), zap.Error(err))
-			ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+			writeJSONError(ctx, fasthttp.StatusNotFound, "Campaign not found")
 			return
 		}
 		writeJSON(ctx, fasthttp.StatusOK, campaign)
@@ -135,7 +135,7 @@ func (h *CampaignHandler) GetBySlug(ctx *fasthttp.RequestCtx) {
 	campaign, err := h.service.GetEnabledBySlug(slug)
 	if err != nil {
 		h.logger.Warn("Failed to resolve public campaign by slug", zap.String("slug", slug), zap.Error(err))
-		ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+		writeJSONError(ctx, fasthttp.StatusNotFound, "Campaign not found")
 		return
 	}
 	writeJSON(ctx, fasthttp.StatusOK, campaign)
@@ -175,18 +175,18 @@ func (h *CampaignHandler) GetByTenantAndSlug(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 	tenantKey, slug, ok := extractTenantAndCampaignSlugFromPath(path)
 	if !ok {
-		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid path")
 		return
 	}
 	if !slugRe.MatchString(tenantKey) || !slugRe.MatchString(slug) {
-		ctx.Error("Invalid tenant or campaign slug", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid tenant or campaign slug")
 		return
 	}
 
 	campaign, err := h.service.GetByTenantKeyAndSlug(tenantKey, slug)
 	if err != nil {
 		h.logger.Error("Failed to get tenant campaign", zap.String("tenant_key", tenantKey), zap.String("slug", slug), zap.Error(err))
-		ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+		writeJSONError(ctx, fasthttp.StatusNotFound, "Campaign not found")
 		return
 	}
 
@@ -195,7 +195,7 @@ func (h *CampaignHandler) GetByTenantAndSlug(ctx *fasthttp.RequestCtx) {
 
 // ListEnabled handles GET /v1/campaigns
 func (h *CampaignHandler) ListEnabled(ctx *fasthttp.RequestCtx) {
-	ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+	writeJSONError(ctx, fasthttp.StatusForbidden, "Tenant context required")
 }
 
 type adminCampaignUpsertRequest struct {
@@ -448,6 +448,12 @@ func normalizeAndValidateLPCopy(raw json.RawMessage) (json.RawMessage, error) {
 	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
 		trimmed = defaultLPCopy
 	}
+	// Synthetic partner campaigns (see transaction_service.autoProvisionCampaign)
+	// store an empty object because they have no landing page. Treat that as
+	// "no copy configured" so those rows stay editable from the admin UI.
+	if bytes.Equal(trimmed, []byte("{}")) {
+		return json.RawMessage(`{}`), nil
+	}
 
 	var payload lpCopyPayload
 	dec := json.NewDecoder(bytes.NewReader(trimmed))
@@ -661,7 +667,7 @@ func (h *CampaignHandler) AdminGetBySlug(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 	slug, ok := extractCampaignSlugFromPath(path)
 	if !ok {
-		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid path")
 		return
 	}
 
@@ -673,7 +679,7 @@ func (h *CampaignHandler) AdminGetBySlug(ctx *fasthttp.RequestCtx) {
 	campaign, err := h.service.AdminGetByTenantAndSlug(tenant.ID, slug)
 	if err != nil {
 		h.logger.Error("Failed to get campaign (admin)", zap.String("slug", slug), zap.Error(err))
-		ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+		writeJSONError(ctx, fasthttp.StatusNotFound, "Campaign not found")
 		return
 	}
 
@@ -690,7 +696,7 @@ func (h *CampaignHandler) AdminList(ctx *fasthttp.RequestCtx) {
 	raw := string(ctx.URI().FullURI())
 	u, err := url.Parse(raw)
 	if err != nil {
-		ctx.Error("Invalid query", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid query")
 		return
 	}
 
@@ -698,7 +704,7 @@ func (h *CampaignHandler) AdminList(ctx *fasthttp.RequestCtx) {
 	if v := u.Query().Get("enabled"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {
-			ctx.Error("enabled must be true or false", fasthttp.StatusBadRequest)
+			writeJSONError(ctx, fasthttp.StatusBadRequest, "enabled must be true or false")
 			return
 		}
 		enabled = &b
@@ -712,7 +718,7 @@ func (h *CampaignHandler) AdminList(ctx *fasthttp.RequestCtx) {
 	campaigns, err := h.service.AdminListForTenant(tenant.ID, enabled, country)
 	if err != nil {
 		h.logger.Error("Failed to list campaigns (admin)", zap.Error(err))
-		ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
+		writeJSONError(ctx, fasthttp.StatusInternalServerError, "Internal server error")
 		return
 	}
 
@@ -727,11 +733,11 @@ func (h *CampaignHandler) AdminCreate(ctx *fasthttp.RequestCtx) {
 
 	var req adminCampaignUpsertRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
-		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid request body")
 		return
 	}
 	if err := validateAdminUpsert(&req, true); err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -769,15 +775,15 @@ func (h *CampaignHandler) AdminCreate(ctx *fasthttp.RequestCtx) {
 	})
 	if err != nil {
 		if status := mapTenantCampaignErrorStatus(err); status != fasthttp.StatusInternalServerError {
-			ctx.Error(err.Error(), status)
+			writeJSONError(ctx, status, err.Error())
 			return
 		}
 		if isCampaignConfigValidationError(err) {
-			ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+			writeJSONError(ctx, fasthttp.StatusBadRequest, err.Error())
 			return
 		}
 		h.logger.Error("Failed to create campaign (admin)", zap.String("slug", req.Slug), zap.Error(err))
-		ctx.Error("Failed to create campaign", fasthttp.StatusInternalServerError)
+		writeJSONError(ctx, fasthttp.StatusInternalServerError, "Failed to create campaign")
 		return
 	}
 
@@ -793,18 +799,18 @@ func (h *CampaignHandler) AdminUpdate(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 	slug, ok := extractCampaignSlugFromPath(path)
 	if !ok {
-		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid path")
 		return
 	}
 
 	var req adminCampaignUpsertRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
-		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid request body")
 		return
 	}
 	// For update, slug comes from path; ignore any body slug.
 	if err := validateAdminUpsert(&req, false); err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -841,15 +847,15 @@ func (h *CampaignHandler) AdminUpdate(ctx *fasthttp.RequestCtx) {
 	})
 	if err != nil {
 		if status := mapTenantCampaignErrorStatus(err); status != fasthttp.StatusInternalServerError {
-			ctx.Error(err.Error(), status)
+			writeJSONError(ctx, status, err.Error())
 			return
 		}
 		if isCampaignConfigValidationError(err) {
-			ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+			writeJSONError(ctx, fasthttp.StatusBadRequest, err.Error())
 			return
 		}
 		h.logger.Error("Failed to update campaign (admin)", zap.String("slug", slug), zap.Error(err))
-		ctx.Error("Failed to update campaign", fasthttp.StatusInternalServerError)
+		writeJSONError(ctx, fasthttp.StatusInternalServerError, "Failed to update campaign")
 		return
 	}
 
@@ -865,24 +871,24 @@ func (h *CampaignHandler) AdminSetEnabled(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 	slug, ok := extractCampaignSlugBeforeSuffix(path, "/enabled")
 	if !ok {
-		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid path")
 		return
 	}
 
 	var req adminSetEnabledRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
-		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	updated, err := h.service.AdminSetEnabledForTenant(tenant.ID, slug, req.Enabled, req.UpdatedBy)
 	if err != nil {
 		if status := mapTenantCampaignErrorStatus(err); status != fasthttp.StatusInternalServerError {
-			ctx.Error(err.Error(), status)
+			writeJSONError(ctx, status, err.Error())
 			return
 		}
 		h.logger.Error("Failed to set enabled (admin)", zap.String("slug", slug), zap.Error(err))
-		ctx.Error("Failed to update campaign", fasthttp.StatusInternalServerError)
+		writeJSONError(ctx, fasthttp.StatusInternalServerError, "Failed to update campaign")
 		return
 	}
 
@@ -893,18 +899,18 @@ func (h *CampaignHandler) AdminClone(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 	sourceSlug, ok := extractCampaignSlugBeforeSuffix(path, "/clone")
 	if !ok {
-		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid path")
 		return
 	}
 
 	var req adminCloneCampaignRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
-		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	if err := validateCloneCampaignRequest(sourceSlug, &req); err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -934,7 +940,7 @@ func (h *CampaignHandler) AdminClone(ctx *fasthttp.RequestCtx) {
 				zap.Error(err),
 			)
 		}
-		ctx.Error(err.Error(), status)
+		writeJSONError(ctx, status, err.Error())
 		return
 	}
 
@@ -1013,19 +1019,19 @@ func mapTenantCampaignErrorStatus(err error) int {
 func (h *CampaignHandler) currentCampaignTenantFromRequest(ctx *fasthttp.RequestCtx) (*domain.AdminTenant, tenantctx.Identity, bool) {
 	identity, ok := tenantIdentityFromRequest(ctx)
 	if !ok {
-		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		writeJSONError(ctx, fasthttp.StatusForbidden, "Tenant context required")
 		return nil, tenantctx.Identity{}, false
 	}
 	if h.tenantResolver != nil {
 		tenant, err := h.tenantResolver.ResolveCurrentTenant(identity)
 		if err != nil || tenant == nil || strings.TrimSpace(tenant.ID) == "" {
-			ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+			writeJSONError(ctx, fasthttp.StatusForbidden, "Tenant context required")
 			return nil, tenantctx.Identity{}, false
 		}
 		return tenant, identity, true
 	}
 	if strings.TrimSpace(identity.TenantID) == "" {
-		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		writeJSONError(ctx, fasthttp.StatusForbidden, "Tenant context required")
 		return nil, tenantctx.Identity{}, false
 	}
 	return &domain.AdminTenant{ID: strings.TrimSpace(identity.TenantID), TenantKey: strings.TrimSpace(identity.TenantKey), Status: domain.TenantStatusActive}, identity, true
@@ -1055,28 +1061,28 @@ func isCampaignConfigValidationError(err error) bool {
 
 func (h *CampaignHandler) AdminPresignBackgroundUpload(ctx *fasthttp.RequestCtx) {
 	if h.assetService == nil || !h.assetService.Enabled() {
-		ctx.Error("Campaign asset upload is not configured", fasthttp.StatusNotImplemented)
+		writeJSONError(ctx, fasthttp.StatusNotImplemented, "Campaign asset upload is not configured")
 		return
 	}
 	identity, ok := tenantIdentityFromRequest(ctx)
 	if !ok || !identity.HasTenant() {
-		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		writeJSONError(ctx, fasthttp.StatusForbidden, "Tenant context required")
 		return
 	}
 
 	var req adminPresignBackgroundUploadRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
-		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	slug := strings.TrimSpace(req.CampaignSlug)
 	if slug == "" {
-		ctx.Error("campaign_slug is required", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "campaign_slug is required")
 		return
 	}
 	if !slugRe.MatchString(slug) {
-		ctx.Error(fmt.Sprintf("campaign_slug must match %s", slugRe.String()), fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, fmt.Sprintf("campaign_slug must match %s", slugRe.String()))
 		return
 	}
 
@@ -1089,10 +1095,10 @@ func (h *CampaignHandler) AdminPresignBackgroundUpload(ctx *fasthttp.RequestCtx)
 	})
 	if err != nil {
 		if errors.Is(err, service.ErrCampaignAssetStorageUnavailable) {
-			ctx.Error("Campaign asset storage unavailable", fasthttp.StatusServiceUnavailable)
+			writeJSONError(ctx, fasthttp.StatusServiceUnavailable, "Campaign asset storage unavailable")
 			return
 		}
-		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1111,7 +1117,7 @@ func (h *CampaignHandler) AdminGetPostbackRules(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 	slug, ok := extractCampaignSlugBeforeSuffix(path, "/postback-rules")
 	if !ok {
-		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid path")
 		return
 	}
 
@@ -1119,9 +1125,9 @@ func (h *CampaignHandler) AdminGetPostbackRules(ctx *fasthttp.RequestCtx) {
 	if err != nil {
 		h.logger.Error("Failed to get postback rules", zap.String("slug", slug), zap.Error(err))
 		if strings.Contains(err.Error(), "campaign not found") {
-			ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+			writeJSONError(ctx, fasthttp.StatusNotFound, "Campaign not found")
 		} else {
-			ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
+			writeJSONError(ctx, fasthttp.StatusInternalServerError, "Internal server error")
 		}
 		return
 	}
@@ -1136,30 +1142,30 @@ func (h *CampaignHandler) AdminUpdatePostbackRules(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 	slug, ok := extractCampaignSlugBeforeSuffix(path, "/postback-rules")
 	if !ok {
-		ctx.Error("Invalid path", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid path")
 		return
 	}
 
 	body := ctx.PostBody()
 	if len(body) == 0 {
-		ctx.Error("Request body is required", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Request body is required")
 		return
 	}
 
 	// Validate it's valid JSON
 	if !json.Valid(body) {
-		ctx.Error("Invalid JSON body", fasthttp.StatusBadRequest)
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid JSON body")
 		return
 	}
 
 	if err := h.service.AdminUpdatePostbackRules(slug, body); err != nil {
 		h.logger.Error("Failed to update postback rules", zap.String("slug", slug), zap.Error(err))
 		if strings.Contains(err.Error(), "invalid postback_rules") {
-			ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+			writeJSONError(ctx, fasthttp.StatusBadRequest, err.Error())
 		} else if strings.Contains(err.Error(), "campaign not found") {
-			ctx.Error("Campaign not found", fasthttp.StatusNotFound)
+			writeJSONError(ctx, fasthttp.StatusNotFound, "Campaign not found")
 		} else {
-			ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
+			writeJSONError(ctx, fasthttp.StatusInternalServerError, "Internal server error")
 		}
 		return
 	}
@@ -1168,7 +1174,7 @@ func (h *CampaignHandler) AdminUpdatePostbackRules(ctx *fasthttp.RequestCtx) {
 	rules, err := h.service.AdminGetPostbackRules(slug)
 	if err != nil {
 		h.logger.Error("Failed to fetch updated postback rules", zap.String("slug", slug), zap.Error(err))
-		ctx.Error("Internal server error", fasthttp.StatusInternalServerError)
+		writeJSONError(ctx, fasthttp.StatusInternalServerError, "Internal server error")
 		return
 	}
 

@@ -128,6 +128,16 @@ func TestNormalizeAndValidateLPCopy(t *testing.T) {
 		}
 	})
 
+	t.Run("preserves empty object for landing-page-less campaigns", func(t *testing.T) {
+		normalized, err := normalizeAndValidateLPCopy([]byte(` {} `))
+		if err != nil {
+			t.Fatalf("expected empty lp_copy object to be accepted, got %v", err)
+		}
+		if string(normalized) != "{}" {
+			t.Fatalf("expected empty object to be preserved, got %s", normalized)
+		}
+	})
+
 	t.Run("rejects missing en block", func(t *testing.T) {
 		raw := []byte(`{"ar":{"heroTitle":"x"}}`)
 		_, err := normalizeAndValidateLPCopy(raw)

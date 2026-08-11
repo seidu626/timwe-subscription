@@ -10,6 +10,7 @@ import {
 } from '../../+state/services/campaign.service';
 import { TenantService } from '../../+state/services/tenant.service';
 import { PendingChangesAware } from '../../../core/guards/pending-changes.guard';
+import { extractHttpErrorMessage } from '../../../core/utils/http-error-message';
 
 @Component({
   selector: 'app-campaign-form',
@@ -370,7 +371,7 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
       },
       error: (err) => {
         console.error('Failed to save campaign:', err);
-        this.error = err.error?.message || 'Failed to save campaign. Please check your input.';
+        this.error = extractHttpErrorMessage(err, 'Failed to save campaign. Please check your input.');
         this.submitting = false;
         this.snackBar.open(
           'Save failed — check the form for errors',
