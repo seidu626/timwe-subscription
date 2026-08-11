@@ -314,16 +314,20 @@ type lpCopyText struct {
 	OTPDescription    string `json:"otpDescription"`
 	OTPPlaceholder    string `json:"otpPlaceholder"`
 	OTPCTA            string `json:"otpCta"`
-	SuccessTitle      string `json:"successTitle"`
-	SuccessBody       string `json:"successBody"`
-	ConsentPrefix     string `json:"consentPrefix"`
-	ConsentTerms      string `json:"consentTerms"`
-	TermsHeading      string `json:"termsHeading"`
-	Legal             string `json:"legal"`
-	PhoneRequired     string `json:"phoneRequired"`
-	PhoneInvalid      string `json:"phoneInvalid"`
-	OTPInvalid        string `json:"otpInvalid"`
-	ConsentRequired   string `json:"consentRequired"`
+	// Double opt-in confirm step. Optional so campaigns authored before the
+	// mode existed stay valid; the landing page falls back to default copy.
+	ConfirmDescription string `json:"confirmDescription,omitempty"`
+	ConfirmCTA         string `json:"confirmCta,omitempty"`
+	SuccessTitle       string `json:"successTitle"`
+	SuccessBody        string `json:"successBody"`
+	ConsentPrefix      string `json:"consentPrefix"`
+	ConsentTerms       string `json:"consentTerms"`
+	TermsHeading       string `json:"termsHeading"`
+	Legal              string `json:"legal"`
+	PhoneRequired      string `json:"phoneRequired"`
+	PhoneInvalid       string `json:"phoneInvalid"`
+	OTPInvalid         string `json:"otpInvalid"`
+	ConsentRequired    string `json:"consentRequired"`
 }
 
 var defaultLPCopy = json.RawMessage(`{
