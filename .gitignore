@@ -48,15 +48,15 @@ Thumbs.db
 # Data files
 *.csv
 
-# >>> agent-hub canonical gitignore (managed by scripts/align-gitignore.sh — do not edit between markers)
+# >>> agent-hub canonical gitignore (managed by scripts/align-gitignore.sh - do not edit between markers)
 
-# Agent-harness state machine — session-scoped artifacts
+# Agent-harness state machine - session-scoped artifacts
 .agent/sessions/
 .agent/heartbeats/*.json
 .agent/inventory/*.json
 .agent/events.jsonl
 
-# Supervisor harness — runtime-only artifacts
+# Supervisor harness - runtime-only artifacts
 .harness/trash/
 .harness/events.jsonl
 .harness/runs/
@@ -83,3 +83,12 @@ slices/**/spec-validation*.json
 agent/state/work-orders/*.lock
 agent/state/evidence/*.lock
 agent/state/evidence/*.migrated-*
+
+# Agent runtime telemetry/state - churns every session; tracking it forced
+# worker lanes to git-restore before trusting the tree (untracked 2026-08-11)
+.harness/events.jsonl.lock
+.harness/pending-slice-tasks.json
+.agent/self-improvement/events.jsonl
+.agent/self-improvement/*.lock
+.agent/self-improvement/state.json
+.agent/self-improvement/failure-hook-state.json
