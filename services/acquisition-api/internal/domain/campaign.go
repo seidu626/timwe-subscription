@@ -13,6 +13,14 @@ const (
 	FlowTypeOTP        FlowType = "OTP"
 	FlowTypeRedirect   FlowType = "REDIRECT"
 	FlowTypeMixed      FlowType = "MIXED"
+	// FlowTypeDoubleOptin is a PIN-less double opt-in: the provider holds the
+	// subscription pre-active and the user confirms by pressing a button, which
+	// confirms with no transaction auth code.
+	FlowTypeDoubleOptin FlowType = "DOUBLE_OPTIN"
+	// FlowTypeAuto subscribes on submit with no confirmation step. It requires a
+	// TIMWE product configured as single-type opt-in; a product that answers
+	// with a pending-confirmation result is a misconfiguration and fails.
+	FlowTypeAuto FlowType = "AUTO"
 )
 
 // Campaign represents a marketing campaign configuration

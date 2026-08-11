@@ -401,7 +401,8 @@ func validateAdminUpsert(req *adminCampaignUpsertRequest, requireSlug bool) erro
 		if req.SMSKeyword == nil || strings.TrimSpace(*req.SMSKeyword) == "" {
 			return fmt.Errorf("sms_keyword is required for flow_type=CLICK_TO_SMS")
 		}
-	case domain.FlowTypeOTP, domain.FlowTypeRedirect, domain.FlowTypeMixed:
+	case domain.FlowTypeOTP, domain.FlowTypeRedirect, domain.FlowTypeMixed,
+		domain.FlowTypeDoubleOptin, domain.FlowTypeAuto:
 		// ok
 	default:
 		return fmt.Errorf("invalid flow_type")

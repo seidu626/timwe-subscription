@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
     
     -- Flow configuration
     flow_type VARCHAR(20) NOT NULL DEFAULT 'OTP' 
-        CHECK (flow_type IN ('CLICK_TO_SMS', 'OTP', 'REDIRECT', 'MIXED')),
+        CHECK (flow_type IN ('CLICK_TO_SMS', 'OTP', 'REDIRECT', 'MIXED', 'DOUBLE_OPTIN', 'AUTO')),
     short_code VARCHAR(10),
     sms_keyword VARCHAR(50),
     

@@ -84,6 +84,10 @@ export interface LandingCopyLocale {
   otpDescription: string
   otpPlaceholder: string
   otpCta: string
+  // Double opt-in copy. Optional so campaigns authored before the mode existed
+  // keep rendering; the confirm step falls back to provider/default copy.
+  confirmDescription?: string
+  confirmCta?: string
   successTitle: string
   successBody: string
   consentPrefix: string
@@ -128,7 +132,7 @@ export interface TransactionResponse {
   transaction_id: string
   correlation_id?: string
   status: 'PENDING' | 'ACTION_REQUIRED' | 'CONFIRM_REQUIRED' | 'SUBSCRIBED' | 'CHARGED' | 'FAILED' | 'CANCELLED'
-  next_action?: 'OPEN_SMS' | 'OTP' | 'REDIRECT' | 'SHOW_INSTRUCTIONS' | 'SUBSCRIBED'
+  next_action?: 'OPEN_SMS' | 'OTP' | 'CONFIRM' | 'REDIRECT' | 'SHOW_INSTRUCTIONS' | 'SUBSCRIBED'
   payload?: {
     sms_link?: string
     short_code?: string
@@ -144,7 +148,7 @@ export interface TransactionResponse {
 }
 
 // LP flow/UI state
-export type FlowStep = 'HE_PROMPT' | 'MSISDN_ENTRY' | 'OTP_ENTRY' | 'SUCCESS'
+export type FlowStep = 'HE_PROMPT' | 'MSISDN_ENTRY' | 'OTP_ENTRY' | 'CONFIRM_PROMPT' | 'SUCCESS'
 
 // Backend analytics event contract for /api/analytics/landing
 export type AnalyticsEventType = 'landing_view' | 'landing_click' | 'form_submit'

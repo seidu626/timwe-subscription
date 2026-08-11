@@ -40,6 +40,7 @@ type TIMWEClient interface {
 
 type TenantAwareTIMWEClient interface {
 	OptInWithTenant(msisdn string, productID int, entryChannel string, trackingFields map[string]string, partnerRoleID string, tenant TenantSubscriptionContext) (*TIMWEResponse, error)
+	ConfirmWithTenant(msisdn string, productID int, entryChannel string, partnerRoleID string, authCode string, tenant TenantSubscriptionContext) (*TIMWEResponse, error)
 }
 
 type TenantSubscriptionContext struct {
@@ -288,19 +289,7 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 		"campaign": attribution.CampaignSlug,
 	}
 	var timweResp *TIMWEResponse
-	if tenantClient, ok := s.timweClient.(TenantAwareTIMWEClient); ok && campaign.TenantID != nil && campaign.ChannelID != nil {
-		tenantCtx := TenantSubscriptionContext{TenantID: *campaign.TenantID, ChannelID: *campaign.ChannelID}
-		if acctCfg, cfgErr := GetChannelAccountConfig(context.Background(), s.txRepo.DB(), *campaign.TenantID, *campaign.ChannelID); cfgErr == nil {
-			tenantCtx.MCC = acctCfg.MCC
-			tenantCtx.MNC = acctCfg.MNC
-			tenantCtx.LargeAccount = acctCfg.LargeAccount
-		} else {
-			s.logger.Warn("Failed to resolve channel account config; falling back to global MCC/MNC",
-				zap.String("tenant_id", *campaign.TenantID),
-				zap.String("channel_id", *campaign.ChannelID),
-				zap.Error(cfgErr),
-			)
-		}
+	if tenantClient, tenantCtx, ok := s.tenantRoute(campaign); ok {
 		timweResp, err = tenantClient.OptInWithTenant(
 			msisdnToUse,
 			*tx.OfferProductID,
@@ -341,6 +330,8 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 	var payload map[string]interface{}
 	isOTPFlow := campaign.FlowType == domain.FlowTypeOTP
 	isMixedFlow := campaign.FlowType == domain.FlowTypeMixed
+	isDoubleOptin := campaign.FlowType == domain.FlowTypeDoubleOptin
+	isAutoFlow := campaign.FlowType == domain.FlowTypeAuto
 	hasHEIdentity := req.HESource != nil &&
 		*req.HESource != domain.HESourceNone &&
 		req.HEMSISDN != nil &&
@@ -367,6 +358,48 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 			"transaction_id": tx.ID.String(),
 			"prompt":         "Please enter the confirmation code sent to your phone",
 			"message":        "OTP sent successfully. Please confirm your subscription.",
+		}
+	} else if isDoubleOptin && timweResp.Success && timweResp.RequiresConfirm {
+		tx.Status = domain.StatusConfirmRequired
+		nextAction = domain.NextActionConfirm
+		payload = map[string]interface{}{
+			"transaction_id": tx.ID.String(),
+			"prompt":         "Press confirm to complete your subscription",
+			"message":        "One step left. Confirm to activate your subscription.",
+		}
+	} else if isDoubleOptin && timweResp.Success {
+		// The provider activated the subscription outright, so there is nothing
+		// to confirm. The campaign promises a confirmation step, so the TIMWE
+		// product is configured as single-type opt-in and the two disagree.
+		s.logger.Warn("Double opt-in campaign received a directly-active result; the provider product is not configured as double-type opt-in",
+			zap.String("campaign_slug", campaign.Slug),
+			zap.String("timwe_status", timweResp.Status),
+		)
+		tx.Status = domain.StatusSubscribed
+		nextAction = domain.NextActionShowInstructions
+		payload = map[string]interface{}{
+			"message": "Subscription successful!",
+		}
+	} else if isAutoFlow && timweResp.Success && timweResp.RequiresConfirm {
+		// Fail loudly rather than confirming on the user's behalf. The provider
+		// is holding the subscription pre-active because the product is
+		// configured as double-type opt-in; auto-confirming here would supply a
+		// consent the operator deliberately made user-driven.
+		s.logger.Error("Auto campaign received a pending-confirmation result; the provider product is configured as double-type opt-in and cannot run without a confirmation step",
+			zap.String("campaign_slug", campaign.Slug),
+			zap.Int("product_id", *tx.OfferProductID),
+			zap.String("timwe_status", timweResp.Status),
+		)
+		tx.Status = domain.StatusFailed
+		nextAction = domain.NextActionShowInstructions
+		payload = map[string]interface{}{
+			"message": "Subscription could not be completed. Please try again later.",
+		}
+	} else if isAutoFlow && timweResp.Success {
+		tx.Status = domain.StatusSubscribed
+		nextAction = domain.NextActionSubscribed
+		payload = map[string]interface{}{
+			"message": "Subscription successful!",
 		}
 	} else if isMixedFlow && timweResp.RequiresConfirm {
 		// Preserve mixed-flow behavior for providers that explicitly require confirmation.
@@ -424,6 +457,30 @@ func (s *TransactionService) CreateTransaction(req *domain.CreateTransactionRequ
 	return s.buildResponse(tx), nil
 }
 
+// tenantRoute resolves the tenant-scoped routing context for a campaign. Both
+// opt-in and confirm must travel this path: subscription-external gates them on
+// the gateway-trust marker plus a signed service request, and an untenanted call
+// carries neither.
+func (s *TransactionService) tenantRoute(campaign *domain.Campaign) (TenantAwareTIMWEClient, TenantSubscriptionContext, bool) {
+	tenantClient, ok := s.timweClient.(TenantAwareTIMWEClient)
+	if !ok || campaign == nil || campaign.TenantID == nil || campaign.ChannelID == nil {
+		return nil, TenantSubscriptionContext{}, false
+	}
+	tenantCtx := TenantSubscriptionContext{TenantID: *campaign.TenantID, ChannelID: *campaign.ChannelID}
+	if acctCfg, cfgErr := GetChannelAccountConfig(context.Background(), s.txRepo.DB(), *campaign.TenantID, *campaign.ChannelID); cfgErr == nil {
+		tenantCtx.MCC = acctCfg.MCC
+		tenantCtx.MNC = acctCfg.MNC
+		tenantCtx.LargeAccount = acctCfg.LargeAccount
+	} else {
+		s.logger.Warn("Failed to resolve channel account config; falling back to global MCC/MNC",
+			zap.String("tenant_id", *campaign.TenantID),
+			zap.String("channel_id", *campaign.ChannelID),
+			zap.Error(cfgErr),
+		)
+	}
+	return tenantClient, tenantCtx, true
+}
+
 // ConfirmTransaction confirms a transaction (OTP flow)
 func (s *TransactionService) ConfirmTransaction(transactionID uuid.UUID, authCode string) (*domain.TransactionStatusResponse, error) {
 	// Get transaction
@@ -434,6 +491,14 @@ func (s *TransactionService) ConfirmTransaction(transactionID uuid.UUID, authCod
 
 	if tx.Status != domain.StatusConfirmRequired {
 		return nil, fmt.Errorf("transaction is not in confirm_required status")
+	}
+
+	// A code is only meaningful where one was sent to the user. PIN-less double
+	// opt-in confirms with a bare request and subscription-external omits the
+	// blank field from the provider payload.
+	authCode = strings.TrimSpace(authCode)
+	if authCode == "" && (tx.NextAction == nil || *tx.NextAction != domain.NextActionConfirm) {
+		return nil, fmt.Errorf("confirmation code is required")
 	}
 
 	// Call TIMWE confirm
@@ -479,7 +544,12 @@ func (s *TransactionService) ConfirmTransaction(transactionID uuid.UUID, authCod
 		zap.Int("partner_role_id", roleID),
 	)
 
-	timweResp, err := s.timweClient.Confirm(tx.MSISDN, productID, "WEB", partnerRoleID, authCode)
+	var timweResp *TIMWEResponse
+	if tenantClient, tenantCtx, ok := s.tenantRoute(campaign); ok {
+		timweResp, err = tenantClient.ConfirmWithTenant(tx.MSISDN, productID, "WEB", partnerRoleID, authCode, tenantCtx)
+	} else {
+		timweResp, err = s.timweClient.Confirm(tx.MSISDN, productID, "WEB", partnerRoleID, authCode)
+	}
 	if err != nil {
 		s.logger.Warn("TIMWE confirm failed",
 			zap.String("transaction_id", transactionID.String()),

@@ -1,6 +1,6 @@
 // campaign.model.ts
 
-export type FlowType = 'CLICK_TO_SMS' | 'OTP' | 'REDIRECT' | 'MIXED';
+export type FlowType = 'CLICK_TO_SMS' | 'OTP' | 'REDIRECT' | 'MIXED' | 'DOUBLE_OPTIN' | 'AUTO';
 
 export interface CampaignLPCopyLocale {
   heroTitle: string;

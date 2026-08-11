@@ -1068,3 +1068,184 @@ func TestConfirmTransaction_DoesNotRetryWithPricepointOnInvalidPricepointID(t *t
 		t.Fatalf("unmet sql expectations: %v", err)
 	}
 }
+
+// flowModeCase drives the campaign flow_type -> (status, next_action) ladder for
+// the three landing-page subscription modes.
+type flowModeCase struct {
+	name           string
+	flowType       string
+	client         TIMWEClient
+	expectedStatus domain.TransactionStatus
+	expectedAction domain.NextAction
+}
+
+func TestCreateTransaction_FlowModeLadder(t *testing.T) {
+	cases := []flowModeCase{
+		{
+			name:           "double opt-in prompts for a bare confirmation",
+			flowType:       "DOUBLE_OPTIN",
+			client:         timweOptInRequiresConfirmClient{},
+			expectedStatus: domain.StatusConfirmRequired,
+			expectedAction: domain.NextActionConfirm,
+		},
+		{
+			name:           "double opt-in subscribes when the provider activates directly",
+			flowType:       "DOUBLE_OPTIN",
+			client:         timweOptInSuccessNoConfirmClient{},
+			expectedStatus: domain.StatusSubscribed,
+			expectedAction: domain.NextActionShowInstructions,
+		},
+		{
+			name:           "auto subscribes with no confirmation step",
+			flowType:       "AUTO",
+			client:         timweOptInSuccessNoConfirmClient{},
+			expectedStatus: domain.StatusSubscribed,
+			expectedAction: domain.NextActionSubscribed,
+		},
+		{
+			// The provider product is configured as double-type opt-in, which
+			// AUTO cannot honour. Fail rather than confirm on the user's behalf.
+			name:           "auto fails when the provider withholds activation",
+			flowType:       "AUTO",
+			client:         timweOptInRequiresConfirmClient{},
+			expectedStatus: domain.StatusFailed,
+			expectedAction: domain.NextActionShowInstructions,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("failed to create sqlmock: %v", err)
+			}
+			defer db.Close()
+
+			logger := zap.NewNop()
+			campaignRepo := repository.NewCampaignRepository(db, logger)
+			txRepo := repository.NewTransactionRepository(db, logger)
+			postbackRepo := repository.NewPostbackRepository(db, logger)
+			providerReg := NewProviderRegistry(logger)
+			providerReg.Register(NewGenericProvider(logger))
+
+			service := NewTransactionService(txRepo, campaignRepo, postbackRepo, providerReg, tc.client, logger)
+
+			campaignSlug := "test-campaign-flow-mode"
+			now := time.Now()
+
+			expectTenantCampaign(mock, testTenantKey, campaignSlug,
+				1, campaignSlug, "en", "GH", nil, 101, nil, nil,
+				tc.flowType, nil, nil, nil, nil, nil, nil,
+				nil, false, nil, nil, nil,
+				nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+				true, now, now, nil, nil,
+			)
+
+			expectNoExistingCampaignMSISDNTransaction(mock, campaignSlug, "233561914461")
+
+			mock.ExpectExec(regexp.QuoteMeta("INSERT INTO acquisition_transactions")).
+				WillReturnResult(sqlmock.NewResult(1, 1))
+
+			resp, err := service.CreateTransaction(&domain.CreateTransactionRequest{
+				CampaignSlug:   campaignSlug,
+				MSISDN:         "0561914461",
+				ConsentChecked: true,
+				TenantKey:      testTenantKeyPtr(),
+			})
+			if err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+
+			if resp.Status != tc.expectedStatus {
+				t.Fatalf("expected status %s, got %s", tc.expectedStatus, resp.Status)
+			}
+			if resp.NextAction != tc.expectedAction {
+				t.Fatalf("expected next_action %s, got %s", tc.expectedAction, resp.NextAction)
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatalf("unmet sql expectations: %v", err)
+			}
+		})
+	}
+}
+
+func TestConfirmTransaction_AuthCodeRequiredOnlyWhereACodeWasSent(t *testing.T) {
+	cases := []struct {
+		name        string
+		nextAction  string
+		expectError bool
+	}{
+		{name: "OTP confirmation rejects a blank code", nextAction: "OTP", expectError: true},
+		{name: "double opt-in confirmation accepts a blank code", nextAction: "CONFIRM", expectError: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("failed to create sqlmock: %v", err)
+			}
+			defer db.Close()
+
+			logger := zap.NewNop()
+			campaignRepo := repository.NewCampaignRepository(db, logger)
+			txRepo := repository.NewTransactionRepository(db, logger)
+			postbackRepo := repository.NewPostbackRepository(db, logger)
+			providerReg := NewProviderRegistry(logger)
+			providerReg.Register(NewGenericProvider(logger))
+
+			service := NewTransactionService(txRepo, campaignRepo, postbackRepo, providerReg, timweOptInSuccessNoConfirmClient{}, logger)
+
+			transactionID := uuid.New()
+			correlationID := uuid.New()
+			campaignSlug := "confirm-campaign"
+			timweTransactionID := "timwe-tx-123"
+			tenantID := "11111111-1111-1111-1111-111111111111"
+			now := time.Now()
+
+			mock.ExpectQuery(regexp.QuoteMeta("SELECT id, correlation_id, campaign_slug, msisdn, status, next_action")).
+				WithArgs(transactionID).
+				WillReturnRows(sqlmock.NewRows(acquisitionTransactionColumns()).AddRow(
+					transactionID, correlationID, campaignSlug, "233561914461", "CONFIRM_REQUIRED", tc.nextAction,
+					`{"transaction_id":"`+transactionID.String()+`"}`, nil, nil, nil,
+					nil, nil, false, false,
+					nil, nil, nil,
+					101, nil, 2117,
+					timweTransactionID, "", "OPTIN_PREACTIVE_WAIT_CONF",
+					nil, nil, nil,
+					nil, nil, false,
+					now, now,
+				))
+
+			if !tc.expectError {
+				expectTransactionTenantID(mock, transactionID, tenantID)
+				mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, channel_id, slug, language")).
+					WithArgs(tenantID, campaignSlug).
+					WillReturnRows(sqlmock.NewRows(adminCampaignColumns()).AddRow(
+						1, tenantID, nil, campaignSlug, "en", "GH", nil, 101, nil, 2117,
+						"DOUBLE_OPTIN", nil, nil, nil, nil, nil, nil,
+						nil, false, nil, nil, nil,
+						nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+						true, now, now, nil, nil,
+					))
+				mock.ExpectExec(regexp.QuoteMeta("UPDATE acquisition_transactions")).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			}
+
+			resp, err := service.ConfirmTransaction(transactionID, "")
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("expected a blank confirmation code to be rejected, got %+v", resp)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected PIN-less confirmation to succeed, got: %v", err)
+			}
+			if resp.Status != domain.StatusSubscribed {
+				t.Fatalf("expected status %s, got %s", domain.StatusSubscribed, resp.Status)
+			}
+		})
+	}
+}

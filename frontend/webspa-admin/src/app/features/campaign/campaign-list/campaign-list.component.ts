@@ -180,7 +180,9 @@ export class CampaignListComponent implements OnInit {
       'CLICK_TO_SMS': 'Click to SMS',
       'OTP': 'OTP',
       'REDIRECT': 'Redirect',
-      'MIXED': 'Mixed'
+      'MIXED': 'Mixed',
+      'DOUBLE_OPTIN': 'Double opt-in',
+      'AUTO': 'Auto'
     };
     return labels[flowType] || flowType;
   }

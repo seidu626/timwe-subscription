@@ -231,6 +231,11 @@ export function useSubscriptionFlow({
         return
       }
 
+      if (data.next_action === 'CONFIRM') {
+        setStep('CONFIRM_PROMPT')
+        return
+      }
+
       if (data.next_action === 'OPEN_SMS' && data.payload?.sms_link) {
         window.location.href = data.payload.sms_link
         return
@@ -264,19 +269,13 @@ export function useSubscriptionFlow({
     }
   }, [msisdn, campaign, consentChecked, trackEvent, slug, clickId, provider, attributionData, trackConversion, isGhanaCampaign])
 
-  const handleOtpConfirm = useCallback(async (text: any) => {
+  // Shared by both confirmation flows. authCode is empty for PIN-less double
+  // opt-in, where confirming is a bare second request.
+  const submitConfirmation = useCallback(async (
+    authCode: string,
+    copy: { event: string; failureMessage: string; pendingMessage: string; retryMessage: string }
+  ) => {
     if (!transaction) return
-
-    if (!text) {
-      setError('Campaign lp_copy is not configured. Please update campaign settings.')
-      return
-    }
-
-    const otpError = validateOtp(otpCode, text)
-    if (otpError) {
-      setError(otpError)
-      return
-    }
 
     setLoading(true)
     setError(null)
@@ -287,17 +286,17 @@ export function useSubscriptionFlow({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           transaction_id: transaction.transaction_id,
-          auth_code: otpCode.trim(),
+          auth_code: authCode,
         }),
       })
 
       const data = await parseApiResponse<TransactionResponse>(
         response,
-        'Failed to confirm OTP'
+        copy.failureMessage
       )
       setTransaction(data)
 
-      trackEvent('otp_confirmed', {
+      trackEvent(copy.event, {
         campaign_slug: slug,
         transaction_id: data.transaction_id,
         status: data.status,
@@ -313,15 +312,15 @@ export function useSubscriptionFlow({
         })
         setStep('SUCCESS')
       } else if (data.status === 'CONFIRM_REQUIRED') {
-        // Confirmation is still pending - let user retry OTP
+        // Confirmation is still pending - keep the user on the current step so
+        // they can retry.
         setOtpCode('')
-        setError(normalizeServerMessage(data.payload?.message, 'Confirmation is still processing. Please re-enter your PIN.'))
-        // Don't reset transaction or step - keep user on OTP_ENTRY
+        setError(normalizeServerMessage(data.payload?.message, copy.pendingMessage))
       } else {
         setTransaction(null)
         setOtpCode('')
         setStep('MSISDN_ENTRY')
-        setError(normalizeServerMessage(data.payload?.message, 'PIN validation failed. Please try again.'))
+        setError(normalizeServerMessage(data.payload?.message, copy.retryMessage))
       }
     } catch (err) {
       const message = normalizeServerMessage(err instanceof Error ? err.message : '', 'An unknown error occurred')
@@ -334,7 +333,38 @@ export function useSubscriptionFlow({
     } finally {
       setLoading(false)
     }
-  }, [transaction, otpCode, trackEvent, slug, trackConversion, campaign])
+  }, [transaction, trackEvent, slug, trackConversion, campaign])
+
+  const handleOtpConfirm = useCallback(async (text: any) => {
+    if (!transaction) return
+
+    if (!text) {
+      setError('Campaign lp_copy is not configured. Please update campaign settings.')
+      return
+    }
+
+    const otpError = validateOtp(otpCode, text)
+    if (otpError) {
+      setError(otpError)
+      return
+    }
+
+    await submitConfirmation(otpCode.trim(), {
+      event: 'otp_confirmed',
+      failureMessage: 'Failed to confirm OTP',
+      pendingMessage: 'Confirmation is still processing. Please re-enter your PIN.',
+      retryMessage: 'PIN validation failed. Please try again.',
+    })
+  }, [transaction, otpCode, submitConfirmation])
+
+  const handleDoubleOptinConfirm = useCallback(async () => {
+    await submitConfirmation('', {
+      event: 'double_optin_confirmed',
+      failureMessage: 'Failed to confirm subscription',
+      pendingMessage: 'Confirmation is still processing. Please try again in a moment.',
+      retryMessage: 'Subscription could not be confirmed. Please try again.',
+    })
+  }, [submitConfirmation])
 
   return {
     step, setStep,
@@ -350,6 +380,7 @@ export function useSubscriptionFlow({
     clickId, provider,
     submitTransaction,
     handleOtpConfirm,
+    handleDoubleOptinConfirm,
     trackEvent,
     normalizeGhanaLocalInput,
   }

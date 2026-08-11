@@ -24,8 +24,11 @@ const (
 type NextAction string
 
 const (
-	NextActionOpenSMS          NextAction = "OPEN_SMS"
-	NextActionOTP              NextAction = "OTP"
+	NextActionOpenSMS NextAction = "OPEN_SMS"
+	NextActionOTP     NextAction = "OTP"
+	// NextActionConfirm asks the user to press a confirm button. Unlike
+	// NextActionOTP it carries no code to collect; the confirm call is bare.
+	NextActionConfirm          NextAction = "CONFIRM"
 	NextActionRedirect         NextAction = "REDIRECT"
 	NextActionShowInstructions NextAction = "SHOW_INSTRUCTIONS"
 	NextActionSubscribed       NextAction = "SUBSCRIBED" // HE path - direct subscription
@@ -130,7 +133,9 @@ type CreateTransactionResponse struct {
 // ConfirmTransactionRequest represents the request to confirm a transaction (OTP flow)
 type ConfirmTransactionRequest struct {
 	TransactionID uuid.UUID `json:"transaction_id" binding:"required"`
-	AuthCode      string    `json:"auth_code" binding:"required"`
+	// AuthCode is empty for PIN-less double opt-in, where confirmation is a bare
+	// second request. ConfirmTransaction enforces presence per flow.
+	AuthCode string `json:"auth_code"`
 }
 
 // TransactionStatusResponse represents the current status of a transaction

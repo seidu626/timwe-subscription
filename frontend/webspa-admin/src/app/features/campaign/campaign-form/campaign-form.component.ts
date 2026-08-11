@@ -65,7 +65,9 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
     { value: 'CLICK_TO_SMS', label: 'Click to SMS' },
     { value: 'OTP', label: 'OTP' },
     { value: 'REDIRECT', label: 'Redirect' },
-    { value: 'MIXED', label: 'Mixed' }
+    { value: 'MIXED', label: 'Mixed' },
+    { value: 'DOUBLE_OPTIN', label: 'Double opt-in (confirm button)' },
+    { value: 'AUTO', label: 'Auto (no confirmation)' }
   ];
 
   billingCycles = ['daily', 'weekly', 'biweekly', 'monthly'];

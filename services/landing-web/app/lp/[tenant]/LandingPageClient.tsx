@@ -14,6 +14,7 @@ import type { PixelConfiguration } from '../../types'
 import { HEPrompt } from '../../components/funnel/HEPrompt'
 import { MsisdnEntry } from '../../components/funnel/MsisdnEntry'
 import { OtpEntry } from '../../components/funnel/OtpEntry'
+import { ConfirmPrompt } from '../../components/funnel/ConfirmPrompt'
 import { SuccessState } from '../../components/funnel/SuccessState'
 
 // Logic & Helpers
@@ -87,6 +88,7 @@ function LandingPageContent({
     clickId, provider,
     submitTransaction,
     handleOtpConfirm,
+    handleDoubleOptinConfirm,
     trackEvent,
     normalizeGhanaLocalInput,
   } = useSubscriptionFlow({
@@ -168,6 +170,15 @@ function LandingPageContent({
             setOtpCode={setOtpCode}
             loading={loading}
             onSubmit={() => handleOtpConfirm(text)}
+          />
+        )}
+
+        {step === 'CONFIRM_PROMPT' && (
+          <ConfirmPrompt
+            text={text}
+            transaction={transaction}
+            loading={loading}
+            onSubmit={() => handleDoubleOptinConfirm()}
           />
         )}
 

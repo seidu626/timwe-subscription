@@ -658,3 +658,91 @@ func TestTIMWEClient_OptInWithTenantOmitsLargeAccountWhenAbsent(t *testing.T) {
 		t.Fatalf("expected largeAccount absent when not set, got %+v", capturedPayload)
 	}
 }
+
+func TestTIMWEClient_ConfirmWithTenantSignsAndCarriesGatewayTrust(t *testing.T) {
+	const secret = "trusted-secret"
+	const gatewaySecret = "gateway-secret"
+	var capturedHeaders http.Header
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedHeaders = r.Header.Clone()
+		if _, err := tenantctx.IdentityFromTrustedRequest(r.Method, r.URL.EscapedPath(), r.Header, tenantctx.TrustedHeaderOptions{Secret: secret}); err != nil {
+			t.Fatalf("trusted tenant headers did not verify: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{"transactionId": "tx-confirm"},
+			"message":      "ok",
+			"inError":      false,
+			"requestId":    "req-confirm",
+			"code":         "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	client.config.TrustedServiceSecret = secret
+	client.config.ServiceID = "acquisition-api"
+	client.config.GatewayTrustSecret = gatewaySecret
+
+	_, err := client.ConfirmWithTenant(
+		"233241234567",
+		8509,
+		"WEB",
+		"2117",
+		"1234",
+		TenantSubscriptionContext{
+			TenantID:  "11111111-1111-1111-1111-111111111111",
+			ChannelID: "22222222-2222-2222-2222-222222222222",
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected tenant confirm to succeed, got %v", err)
+	}
+	if capturedHeaders.Get(tenantctx.HeaderTenantID) != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("expected tenant header, got %q", capturedHeaders.Get(tenantctx.HeaderTenantID))
+	}
+	if got, want := capturedHeaders.Get(tenantctx.HeaderGatewayTrust), tenantctx.GatewayTrustToken(gatewaySecret); got != want {
+		t.Fatalf("expected gateway-trust marker %q, got %q", want, got)
+	}
+}
+
+func TestTIMWEClient_ConfirmWithTenantSendsBlankAuthCodeForPINLessDoubleOptin(t *testing.T) {
+	const secret = "trusted-secret"
+	var capturedPayload map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&capturedPayload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"responseData": map[string]interface{}{"transactionId": "tx-confirm"},
+			"inError":      false,
+			"code":         "SUCCESS",
+		})
+	}))
+	defer server.Close()
+
+	client := newTIMWEClientForTest(server.URL)
+	client.config.TrustedServiceSecret = secret
+	client.config.ServiceID = "acquisition-api"
+
+	_, err := client.ConfirmWithTenant(
+		"233241234567",
+		8509,
+		"WEB",
+		"2117",
+		"",
+		TenantSubscriptionContext{
+			TenantID:  "11111111-1111-1111-1111-111111111111",
+			ChannelID: "22222222-2222-2222-2222-222222222222",
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected PIN-less confirm to succeed, got %v", err)
+	}
+	if code, ok := capturedPayload["transactionAuthCode"]; ok && code != "" {
+		t.Fatalf("expected blank transactionAuthCode for PIN-less double opt-in, got %v", code)
+	}
+}

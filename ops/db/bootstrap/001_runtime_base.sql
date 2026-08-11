@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
     pricepoint_id INTEGER,
     partner_role_id INTEGER,
     flow_type VARCHAR(20) NOT NULL DEFAULT 'OTP'
-        CHECK (flow_type IN ('CLICK_TO_SMS', 'OTP', 'REDIRECT', 'MIXED')),
+        CHECK (flow_type IN ('CLICK_TO_SMS', 'OTP', 'REDIRECT', 'MIXED', 'DOUBLE_OPTIN', 'AUTO')),
     short_code VARCHAR(10),
     sms_keyword VARCHAR(50),
     price DECIMAL(10,2),

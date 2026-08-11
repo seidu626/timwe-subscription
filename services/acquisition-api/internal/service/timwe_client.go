@@ -354,6 +354,18 @@ func optInResultRequiresConfirm(mtResp *MTResponse) bool {
 
 // Confirm calls subscription-external confirm endpoint.
 func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel string, partnerRoleID string, authCode string) (*TIMWEResponse, error) {
+	return c.confirm(msisdn, productID, entryChannel, partnerRoleID, authCode, TenantSubscriptionContext{})
+}
+
+// ConfirmWithTenant confirms through the tenant-scoped route. subscription-external
+// gates the confirm endpoint on both the gateway-trust marker and a signed service
+// request, so a confirm without tenant context is rejected wherever
+// GATEWAY_TRUST_REQUIRED is enforced.
+func (c *TIMWEClientImpl) ConfirmWithTenant(msisdn string, productID int, entryChannel string, partnerRoleID string, authCode string, tenant TenantSubscriptionContext) (*TIMWEResponse, error) {
+	return c.confirm(msisdn, productID, entryChannel, partnerRoleID, authCode, tenant)
+}
+
+func (c *TIMWEClientImpl) confirm(msisdn string, productID int, entryChannel string, partnerRoleID string, authCode string, tenant TenantSubscriptionContext) (*TIMWEResponse, error) {
 	c.logger.Info("Subscription confirm called",
 		zap.String("msisdn", msisdn),
 		zap.Int("product_id", productID),
@@ -361,15 +373,28 @@ func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel str
 
 	// partnerRoleID is intentionally ignored here - subscription-external owns TIMWE role selection.
 	_ = partnerRoleID
-	url := fmt.Sprintf("%s/api/external/v1/subscription/optin/confirm", strings.TrimRight(c.config.BaseURL, "/"))
+	const confirmPath = "/api/external/v1/subscription/optin/confirm"
+	url := fmt.Sprintf("%s%s", strings.TrimRight(c.config.BaseURL, "/"), confirmPath)
 
-	// Build request payload (TIMWE confirm requires MSISDN + productId + authCode)
+	// Per-tenant MCC/MNC override global config when present, matching optIn.
+	mcc := tenant.MCC
+	if mcc == "" {
+		mcc = c.config.MCC
+	}
+	mnc := tenant.MNC
+	if mnc == "" {
+		mnc = c.config.MNC
+	}
+
+	// Build request payload. transactionAuthCode is optional: PIN-less double
+	// opt-in confirms with a bare second request and subscription-external omits
+	// the field from the TIMWE payload when it is blank.
 	reqData := ConfirmRequest{
 		UserIdentifier:      msisdn,
 		UserIdentifierType:  "MSISDN",
 		ProductID:           productID,
-		MCC:                 c.config.MCC,
-		MNC:                 c.config.MNC,
+		MCC:                 mcc,
+		MNC:                 mnc,
 		EntryChannel:        entryChannel,
 		TransactionAuthCode: authCode,
 	}
@@ -378,6 +403,15 @@ func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel str
 	if err != nil {
 		c.logger.Error("Failed to marshal confirm request", zap.Error(err))
 		return nil, fmt.Errorf("failed to marshal confirm request: %w", err)
+	}
+
+	headers := map[string]string{}
+	if tenant.TenantID != "" {
+		signed, signErr := c.signedTenantHeaders("POST", confirmPath, requestBody, tenant)
+		if signErr != nil {
+			return nil, signErr
+		}
+		headers = signed
 	}
 
 	// Log outbound request payload for debugging.
@@ -402,6 +436,7 @@ func (c *TIMWEClientImpl) Confirm(msisdn string, productID int, entryChannel str
 		Operation: "confirm",
 		MSISDN:    msisdn,
 		ProductID: productID,
+		Headers:   headers,
 	})
 	if err != nil {
 		done(false)
