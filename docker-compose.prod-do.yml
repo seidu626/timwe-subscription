@@ -116,6 +116,10 @@ services:
       - APP_APPLICATION_TIMWE_MA_PSK=${TIMWE_PSK}
       - ACQUISITION_API_URL=http://acquisition-api:8084
       - TENANT_SECRET_MASTER_KEY=${TENANT_SECRET_MASTER_KEY}
+      # Verifies the X-Service-Signature on trusted service-to-service calls
+      # (acquisition-api opt-in MT). Without it tenant-routed requests fail
+      # with TENANT_CONTEXT_REQUIRED "trusted service secret is not configured".
+      - JWT_SECRET=${JWT_SECRET}
       - GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
       - GATEWAY_TRUST_REQUIRED=${GATEWAY_TRUST_REQUIRED:-false}
     healthcheck:
