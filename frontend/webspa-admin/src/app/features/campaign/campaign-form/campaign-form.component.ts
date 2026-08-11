@@ -671,7 +671,9 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
       CLICK_TO_SMS: 'Click to SMS',
       OTP: 'OTP',
       REDIRECT: 'Redirect',
-      MIXED: 'Mixed'
+      MIXED: 'Mixed',
+      DOUBLE_OPTIN: 'Double opt-in',
+      AUTO: 'Auto'
     };
 
     return flowType ? labels[flowType] || flowType : 'Not Set';
