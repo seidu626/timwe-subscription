@@ -161,10 +161,13 @@ func main() {
 	adminManagementHandler := handler.NewAdminManagementHandler(adminManagementService, logger)
 
 	// Dayline mobile app: auth, catalog, subscriptions (thin wrappers over
-	// the existing TransactionService state machine).
+	// the existing TransactionService state machine). The JWT validator fails
+	// closed: if DAYLINE_APP_JWT_SECRET is unset, AppHandler rejects every
+	// request with 401 UNAUTHORIZED instead of the whole service (landing
+	// pages, billing, admin) refusing to start.
 	appJWTValidator, err := appauth.NewValidator(os.Getenv("DAYLINE_APP_JWT_SECRET"))
 	if err != nil {
-		logger.Fatal("Failed to initialize Dayline app JWT validator", zap.Error(err))
+		logger.Warn("DAYLINE_APP_JWT_SECRET not set: dayline app routes will reject all requests", zap.Error(err))
 	}
 	appOTPRepo := repository.NewAppOTPRepository(db, logger)
 	// No OTPSender implementation is wired: acquisition-api has no callable
