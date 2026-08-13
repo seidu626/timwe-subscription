@@ -2,7 +2,7 @@
 // fields kept as-is so payloads need no transform layer).
 
 export type FlowType = 'OTP' | 'DOUBLE_OPTIN' | 'AUTO';
-export type SubscriptionStatus = 'ACTIVE' | 'PENDING' | 'FAILED';
+export type SubscriptionStatus = 'ACTIVE' | 'PENDING' | 'CANCELLED' | 'FAILED';
 export type NextAction = 'OTP' | 'CONFIRM' | 'SUBSCRIBED';
 export type NotificationChannel = 'PUSH' | 'SMS' | 'BOTH';
 export type DevicePlatform = 'android' | 'ios';

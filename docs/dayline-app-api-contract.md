@@ -28,8 +28,8 @@ Owner services: auth/catalog/subscriptions = acquisition-api; feed/devices/prefs
 ## Subscriptions (acquisition-api)
 - `POST /v1/app/subscriptions` auth; body `{"campaign_slug": "..."}` -> `{"subscription_ref": "<transaction_id>", "next_action": "OTP"|"CONFIRM"|"SUBSCRIBED", "message": "..."}`. Thin wrapper over the existing transaction create path (same service methods the LP uses; msisdn/tenant from JWT). Respect campaign flow_type exactly as the LP does (OTP, DOUBLE_OPTIN, AUTO).
 - `POST /v1/app/subscriptions/{ref}/confirm` auth; body `{"pin": "1234"}` (pin optional for DOUBLE_OPTIN) -> `{"status": "ACTIVE"|"PENDING"|"FAILED"}`. Wrapper over existing confirm.
-- `GET /v1/app/subscriptions` auth -> `{"subscriptions": [{"ref", "product_slug", "product_name", "status", "price", "currency", "billing_cycle", "next_charge_hint", "started_at"}]}`.
-- `DELETE /v1/app/subscriptions/{ref}` auth -> 202. Triggers the existing opt-out path in subscription-external (direct in-cluster call with gateway-trust headers, same pattern acquisition-api already uses for opt-in).
+- `GET /v1/app/subscriptions` auth -> `{"subscriptions": [{"ref", "product_slug", "product_name", "status", "price", "currency", "billing_cycle", "next_charge_hint", "started_at"}]}`. `status` is `"ACTIVE"|"PENDING"|"CANCELLED"|"FAILED"`.
+- `DELETE /v1/app/subscriptions/{ref}` auth -> 202. Triggers the existing opt-out path in subscription-external (direct in-cluster call with gateway-trust headers, same pattern acquisition-api already uses for opt-in) and marks the transaction CANCELLED on success.
 
 ## Feed (subscription-external)
 - `GET /v1/app/feed` auth -> `{"items": [{"id", "product_slug", "product_name", "title", "body", "published_at", "read": bool}]}`. Items = content already DELIVERED to this msisdn (from message_outbox history) plus today's due item if sent. Order: published_at desc, max 50.

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 
 import { Button } from '@/components/Button';
@@ -18,28 +18,43 @@ export default function SubscriptionsScreen() {
   const cancelSubscription = useCancelSubscription();
   const [cancelingRef, setCancelingRef] = useState<string | null>(null);
 
+  async function runCancel(subscription: Subscription) {
+    setCancelingRef(subscription.ref);
+    try {
+      await cancelSubscription.mutateAsync(subscription.ref);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Please try again.';
+      if (Platform.OS === 'web') {
+        window.alert(`Could not cancel: ${message}`);
+      } else {
+        Alert.alert('Could not cancel', message);
+      }
+    } finally {
+      setCancelingRef(null);
+    }
+  }
+
   function confirmCancel(subscription: Subscription) {
-    Alert.alert(
-      `Cancel ${subscription.product_name}?`,
-      "You'll lose access at the end of the current billing period.",
-      [
-        { text: 'Keep subscription', style: 'cancel' },
-        {
-          text: 'Cancel subscription',
-          style: 'destructive',
-          onPress: async () => {
-            setCancelingRef(subscription.ref);
-            try {
-              await cancelSubscription.mutateAsync(subscription.ref);
-            } catch (err) {
-              Alert.alert('Could not cancel', err instanceof Error ? err.message : 'Please try again.');
-            } finally {
-              setCancelingRef(null);
-            }
-          },
+    const title = `Cancel ${subscription.product_name}?`;
+    const body = "You'll lose access at the end of the current billing period.";
+    // Alert.alert with buttons is a no-op on react-native-web, so the web
+    // build must confirm through the browser dialog instead.
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n${body}`)) {
+        void runCancel(subscription);
+      }
+      return;
+    }
+    Alert.alert(title, body, [
+      { text: 'Keep subscription', style: 'cancel' },
+      {
+        text: 'Cancel subscription',
+        style: 'destructive',
+        onPress: () => {
+          void runCancel(subscription);
         },
-      ],
-    );
+      },
+    ]);
   }
 
   return (
@@ -108,7 +123,8 @@ export default function SubscriptionsScreen() {
 }
 
 function StatusPill({ status }: { status: Subscription['status'] }) {
-  const label = status === 'ACTIVE' ? 'Active' : status === 'PENDING' ? 'Pending' : 'Failed';
+  const label =
+    status === 'ACTIVE' ? 'Active' : status === 'PENDING' ? 'Pending' : status === 'CANCELLED' ? 'Cancelled' : 'Failed';
   return (
     <View style={[styles.statusPill, statusStyles[status]]}>
       <Text style={[styles.statusPillText, statusTextStyles[status]]}>{label}</Text>
@@ -186,11 +202,13 @@ const styles = StyleSheet.create({
 const statusStyles = {
   ACTIVE: { backgroundColor: 'rgba(15,110,82,0.14)' },
   PENDING: { backgroundColor: 'rgba(253,183,65,0.2)' },
+  CANCELLED: { backgroundColor: 'rgba(73,69,79,0.1)' },
   FAILED: { backgroundColor: 'rgba(186,26,26,0.12)' },
 } as const;
 
 const statusTextStyles = {
   ACTIVE: { color: colors.primary },
   PENDING: { color: colors.secondary },
+  CANCELLED: { color: colors.onSurfaceVariant },
   FAILED: { color: colors.error },
 } as const;

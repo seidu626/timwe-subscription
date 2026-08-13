@@ -76,15 +76,17 @@ type AppCatalogProduct struct {
 }
 
 // MapTransactionStatusToApp collapses the acquisition transaction state
-// machine's finer-grained statuses to the app contract's three-value status
-// (ACTIVE|PENDING|FAILED); the app doesn't distinguish ACTION_REQUIRED from
-// CONFIRM_REQUIRED, and CANCELLED reads as FAILED to the subscriber.
+// machine's finer-grained statuses to the app contract's status values
+// (ACTIVE|PENDING|CANCELLED|FAILED); the app doesn't distinguish
+// ACTION_REQUIRED from CONFIRM_REQUIRED.
 func MapTransactionStatusToApp(status TransactionStatus) string {
 	switch status {
 	case StatusSubscribed, StatusCharged:
 		return "ACTIVE"
 	case StatusPending, StatusActionRequired, StatusConfirmRequired:
 		return "PENDING"
+	case StatusCancelled:
+		return "CANCELLED"
 	default:
 		return "FAILED"
 	}

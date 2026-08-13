@@ -132,6 +132,11 @@ func (s *AppSubscriptionService) Cancel(ref, msisdn, tenantKey string) error {
 		s.logger.Error("app subscription optout failed", zap.Error(err))
 		return domain.NewAppError(domain.AppErrProviderError, "failed to cancel subscription")
 	}
+	if err := s.txRepo.UpdateStatus(transactionID, domain.StatusCancelled, nil, nil); err != nil {
+		// The provider opt-out already succeeded; surface success to the app
+		// and let the provider's async notification reconcile the row.
+		s.logger.Error("failed to mark transaction cancelled after optout", zap.Error(err))
+	}
 	return nil
 }
 
