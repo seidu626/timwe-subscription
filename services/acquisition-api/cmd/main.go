@@ -15,6 +15,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
+	"github.com/seidu626/subscription-manager/acquisition-api/internal/appauth"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/handler"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
@@ -159,6 +160,23 @@ func main() {
 	transactionAdminHandler := handler.NewTransactionAdminHandler(transactionRepo, postbackRepo, transactionService, logger)
 	adminManagementHandler := handler.NewAdminManagementHandler(adminManagementService, logger)
 
+	// Dayline mobile app: auth, catalog, subscriptions (thin wrappers over
+	// the existing TransactionService state machine).
+	appJWTValidator, err := appauth.NewValidator(os.Getenv("DAYLINE_APP_JWT_SECRET"))
+	if err != nil {
+		logger.Fatal("Failed to initialize Dayline app JWT validator", zap.Error(err))
+	}
+	appOTPRepo := repository.NewAppOTPRepository(db, logger)
+	// No OTPSender implementation is wired: acquisition-api has no callable
+	// outbound SMS ingress for an anonymous login OTP (message_outbox
+	// requires an existing subscriptions row). RequestOTP fails closed with
+	// PROVIDER_ERROR rather than faking delivery. See the result capsule.
+	appOTPService := service.NewAppOTPService(appOTPRepo, nil, logger)
+	appCatalogService := service.NewAppCatalogService(campaignRepo)
+	appOptoutClient := service.NewAppOptoutClient(timweConfig.BaseURL, timweConfig.GatewayTrustSecret, logger)
+	appSubscriptionService := service.NewAppSubscriptionService(transactionService, transactionRepo, campaignRepo, appOptoutClient, logger)
+	appHandler := handler.NewAppHandler(appOTPService, appCatalogService, appSubscriptionService, appJWTValidator, logger)
+
 	// Initialize click-out handler (optional, configured via environment)
 	var clickOutHandler *handler.ClickOutHandler
 	clickOutConfig := buildClickOutConfig()
@@ -197,7 +215,7 @@ func main() {
 	}
 
 	// Create router
-	router := transport.NewRouter(campaignHandler, transactionHandler, callbackHandler, internalHandler, analyticsHandler, reportsHandler, postbackAdminHandler, transactionAdminHandler, adminManagementHandler, clickOutHandler, heBootstrapHandler, memberTenantLookup)
+	router := transport.NewRouter(campaignHandler, transactionHandler, callbackHandler, internalHandler, analyticsHandler, reportsHandler, postbackAdminHandler, transactionAdminHandler, adminManagementHandler, clickOutHandler, heBootstrapHandler, appHandler, memberTenantLookup)
 
 	// Create server
 	server := &fasthttp.Server{

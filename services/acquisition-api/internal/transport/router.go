@@ -20,6 +20,7 @@ func NewRouter(
 	adminManagementHandler *handler.AdminManagementHandler,
 	clickOutHandler *handler.ClickOutHandler,
 	heBootstrapHandler *handler.HEBootstrapHandler,
+	appHandler *handler.AppHandler,
 	memberTenantLookup MemberTenantLookup,
 ) fasthttp.RequestHandler {
 	admin := newAdminAccess(memberTenantLookup)
@@ -558,6 +559,58 @@ func NewRouter(
 		case strings.EqualFold(path, "/v1/admin/reports/timeseries"):
 			if method == fasthttp.MethodGet {
 				reportsHandler.GetTimeSeries(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		// Dayline mobile app endpoints
+		case strings.EqualFold(path, "/v1/app/auth/otp/request"):
+			if method == fasthttp.MethodPost {
+				appHandler.RequestOTP(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.EqualFold(path, "/v1/app/auth/otp/verify"):
+			if method == fasthttp.MethodPost {
+				appHandler.VerifyOTP(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.EqualFold(path, "/v1/app/catalog"):
+			if method == fasthttp.MethodGet {
+				appHandler.Catalog(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.EqualFold(path, "/v1/app/subscriptions"):
+			switch method {
+			case fasthttp.MethodPost:
+				appHandler.CreateSubscription(ctx)
+			case fasthttp.MethodGet:
+				appHandler.ListSubscriptions(ctx)
+			default:
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/app/subscriptions/") && strings.HasSuffix(path, "/confirm"):
+			if method == fasthttp.MethodPost {
+				appHandler.ConfirmSubscription(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/app/subscriptions/"):
+			if method == fasthttp.MethodDelete {
+				appHandler.CancelSubscription(ctx)
 			} else {
 				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
 			}
