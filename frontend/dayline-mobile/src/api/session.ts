@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '@/utils/secureStorage';
 
 const SESSION_KEY = 'dayline_app_session';
 

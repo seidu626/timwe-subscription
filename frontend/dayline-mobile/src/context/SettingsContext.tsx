@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '@/utils/secureStorage';
 
 const DATA_SAVER_KEY = 'dayline_data_saver_enabled';
 
