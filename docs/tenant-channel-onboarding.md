@@ -100,6 +100,30 @@ Rotation evidence should record:
 - smoke command or validation result
 - activation or reactivation decision
 
+## SMS Gateway Credential (purpose `sms_api`)
+
+The Dayline app login OTP is delivered through a per-tenant SMS gateway credential with purpose `sms_api`.
+It uses the same table (`tenant_channel_credentials`), ACTIVE-status lifecycle, bind/rotate admin flow, and secret reference schemes (`secret://` decrypted from `tenant_channel_secrets`, `env://` read from the environment) as `provider_api`.
+The stored JSON blob describes a generic HTTP gateway, so onboarding any aggregator (Arkesel, Hubtel, mNotify, ...) is configuration only:
+
+```json
+{
+  "url": "https://sms.arkesel.com/api/v2/sms/send",
+  "method": "POST",
+  "headers": { "api-key": "<gateway api key>" },
+  "body_template": "{\"sender\":\"{{sender}}\",\"message\":\"{{text}}\",\"recipients\":[\"{{msisdn}}\"]}",
+  "sender_id": "Dayline",
+  "message_template": "Your Dayline login code is {{code}}. It expires in 5 minutes."
+}
+```
+
+- `body_template` placeholders: `{{msisdn}}` (E.164 without plus), `{{text}}` (rendered message), `{{sender}}` (from `sender_id`). Values are JSON-escaped at render time.
+- `message_template` is optional; `{{code}}` is its only placeholder. Omit it to use the default copy.
+- `url` and `body_template` are required; non-2xx gateway responses fail the OTP request with `PROVIDER_ERROR`.
+- A tenant with no ACTIVE `sms_api` credential fails closed: the OTP is persisted but not sent, and the app receives `PROVIDER_ERROR`.
+- At most one ACTIVE `sms_api` credential per tenant across ALL channels, enforced by a partial unique index (`add_tenant_sms_api_unique_active.sql`): OTP delivery resolves the gateway by tenant alone, so a second ACTIVE row would make routing ambiguous. Rotate with deactivate-then-activate in one transaction, same as `provider_api`.
+- The OTP code is never logged; MSISDNs are masked in logs.
+
 ## Callback Signing
 
 Callbacks use HMAC-SHA256 with a timestamped canonical payload.

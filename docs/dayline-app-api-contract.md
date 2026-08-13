@@ -17,7 +17,7 @@ Owner services: auth/catalog/subscriptions = acquisition-api; feed/devices/prefs
 - Login OTP is a DISTINCT credential from the TIMWE billing opt-in PIN. Never reuse tables/copy between them.
 
 ## Auth (acquisition-api)
-- `POST /v1/app/auth/otp/request` body `{"msisdn": "...", "tenant": "careerify"}` -> 204. Generates 6-digit code, 5 min TTL, max 3 active requests/msisdn/hour (else 429 RATE_LIMITED). Delivery: enqueue SMS via the notification service outbox (template key `APP_LOGIN_OTP`).
+- `POST /v1/app/auth/otp/request` body `{"msisdn": "...", "tenant": "careerify"}` -> 204. Generates 6-digit code, 5 min TTL, max 3 active requests/msisdn/hour (else 429 RATE_LIMITED). Delivery: direct send through the tenant's `sms_api` gateway credential (see docs/tenant-channel-onboarding.md, "SMS Gateway Credential"); the platform's TIMWE partner MT path cannot carry free text, so the outbox route was dropped.
 - `POST /v1/app/auth/otp/verify` body `{"msisdn": "...", "tenant": "...", "code": "123456"}` -> `{"token": "...", "expires_in": 86400}`. 5 attempts/code then OTP_INVALID + invalidate.
 - Storage: new table `app_login_otps` (msisdn, tenant_key, code_hash, expires_at, attempts, consumed_at).
 

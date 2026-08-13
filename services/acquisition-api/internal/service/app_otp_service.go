@@ -25,11 +25,9 @@ func ValidateAppMSISDN(msisdn string) bool {
 	return appMSISDNRe.MatchString(strings.TrimSpace(msisdn))
 }
 
-// OTPSender delivers a login OTP code by SMS. There is no production
-// implementation of this interface wired in cmd/main.go: acquisition-api has
-// no callable outbound SMS ingress (message_outbox requires an existing
-// subscriptions row; the notification service's HTTP surface is inbound
-// webhook receivers only). See the result capsule's blocked_on entry.
+// OTPSender delivers a login OTP code by SMS. The production implementation
+// is TenantSMSSender, which posts through the SMS gateway configured per
+// tenant in tenant_channel_credentials (purpose sms_api).
 type OTPSender interface {
 	SendLoginOTP(msisdn, tenantKey, code string) error
 }

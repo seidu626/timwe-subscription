@@ -170,11 +170,12 @@ func main() {
 		logger.Warn("DAYLINE_APP_JWT_SECRET not set: dayline app routes will reject all requests", zap.Error(err))
 	}
 	appOTPRepo := repository.NewAppOTPRepository(db, logger)
-	// No OTPSender implementation is wired: acquisition-api has no callable
-	// outbound SMS ingress for an anonymous login OTP (message_outbox
-	// requires an existing subscriptions row). RequestOTP fails closed with
-	// PROVIDER_ERROR rather than faking delivery. See the result capsule.
-	appOTPService := service.NewAppOTPService(appOTPRepo, nil, logger)
+	// OTP delivery goes through the tenant-configured SMS gateway credential
+	// (tenant_channel_credentials purpose 'sms_api', same bind/rotate flow as
+	// provider_api). Tenants without an ACTIVE sms_api credential fail closed:
+	// RequestOTP surfaces PROVIDER_ERROR and nothing is sent.
+	appOTPSender := service.NewTenantSMSSender(db, logger)
+	appOTPService := service.NewAppOTPService(appOTPRepo, appOTPSender, logger)
 	appCatalogService := service.NewAppCatalogService(campaignRepo)
 	appOptoutClient := service.NewAppOptoutClient(timweConfig.BaseURL, timweConfig.GatewayTrustSecret, logger)
 	appSubscriptionService := service.NewAppSubscriptionService(transactionService, transactionRepo, campaignRepo, appOptoutClient, logger)
