@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -122,7 +123,7 @@ func TestSMSGatewayConfigValidate(t *testing.T) {
 	}{
 		{"missing url", smsGatewayConfig{BodyTemplate: "{}"}, "url is required"},
 		{"bad scheme", smsGatewayConfig{URL: "ftp://x", BodyTemplate: "{}"}, "http(s)"},
-		{"missing body", smsGatewayConfig{URL: "https://x"}, "body_template is required"},
+		{"missing body and url placeholders", smsGatewayConfig{URL: "https://x"}, "either body_template or url placeholders"},
 		{"valid", smsGatewayConfig{URL: "https://x", BodyTemplate: "{}"}, ""},
 	}
 	for _, tc := range cases {
@@ -144,5 +145,89 @@ func TestRenderJSONTemplateEscapesValues(t *testing.T) {
 	}
 	if parsed["a"] != "he said \"hi\"\nline2" {
 		t.Errorf("round-trip = %q", parsed["a"])
+	}
+}
+
+func TestSendLoginOTPQueryParamGateway(t *testing.T) {
+	var gotQuery map[string][]string
+	var gotMethod, gotBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotQuery = r.URL.Query()
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		fmt.Fprint(w, `{"code":"ok","balance":9}`)
+	}))
+	defer srv.Close()
+
+	sender := newTestSMSSender(&smsGatewayConfig{
+		URL:                 srv.URL + "/sms/api?action=send-sms&api_key=k-123&to={{msisdn}}&from={{sender}}&sms={{text}}",
+		SenderID:            "Dayline",
+		MessageTemplate:     "code {{code}} & more",
+		SuccessBodyContains: `"code":"ok"`,
+	}, nil)
+
+	if err := sender.SendLoginOTP("233241234567", "careerify", "482913"); err != nil {
+		t.Fatalf("SendLoginOTP: %v", err)
+	}
+	if gotMethod != http.MethodGet {
+		t.Errorf("method = %s, want GET (no body_template)", gotMethod)
+	}
+	if gotBody != "" {
+		t.Errorf("unexpected request body %q", gotBody)
+	}
+	if got := gotQuery["to"]; len(got) != 1 || got[0] != "233241234567" {
+		t.Errorf("to = %v", gotQuery["to"])
+	}
+	// The ampersand in the message must be URL-encoded, not split the query.
+	if got := gotQuery["sms"]; len(got) != 1 || got[0] != "code 482913 & more" {
+		t.Errorf("sms = %v", gotQuery["sms"])
+	}
+}
+
+func TestSendLoginOTPSuccessMarkerMissing(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Arkesel v1 reports errors with HTTP 200 and a numeric code.
+		fmt.Fprint(w, `{"code":"105","message":"Insufficient balance"}`)
+	}))
+	defer srv.Close()
+
+	sender := newTestSMSSender(&smsGatewayConfig{
+		URL:                 srv.URL + "/sms/api?to={{msisdn}}&sms={{text}}",
+		SuccessBodyContains: `"code":"ok"`,
+	}, nil)
+
+	err := sender.SendLoginOTP("233241234567", "careerify", "482913")
+	if err == nil || !strings.Contains(err.Error(), "success marker") {
+		t.Fatalf("want success-marker error, got %v", err)
+	}
+}
+
+func TestSendLoginOTPErrorRedactsAPIKey(t *testing.T) {
+	// Unroutable port: client.Do fails and the url.Error embeds the full URL.
+	sender := newTestSMSSender(&smsGatewayConfig{
+		URL: "http://127.0.0.1:1/sms/api?api_key=SECRET-KEY-VALUE&to={{msisdn}}&sms={{text}}",
+	}, nil)
+
+	err := sender.SendLoginOTP("233241234567", "careerify", "482913")
+	if err == nil {
+		t.Fatal("want connection error")
+	}
+	if strings.Contains(err.Error(), "SECRET-KEY-VALUE") {
+		t.Fatalf("error leaks api key: %v", err)
+	}
+	if !strings.Contains(err.Error(), "REDACTED") {
+		t.Fatalf("error should carry redacted URL: %v", err)
+	}
+}
+
+func TestSMSGatewayConfigValidateURLPlaceholders(t *testing.T) {
+	cfg := smsGatewayConfig{URL: "https://x/sms/api?to={{msisdn}}&sms={{text}}"}
+	if err := cfg.validate(); err != nil {
+		t.Errorf("url-placeholder config should be valid, got %v", err)
+	}
+	bare := smsGatewayConfig{URL: "https://x/sms/api"}
+	if err := bare.validate(); err == nil {
+		t.Error("config without body_template or url placeholders should be invalid")
 	}
 }

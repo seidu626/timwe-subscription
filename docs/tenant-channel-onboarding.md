@@ -117,7 +117,19 @@ The stored JSON blob describes a generic HTTP gateway, so onboarding any aggrega
 }
 ```
 
-- `body_template` placeholders: `{{msisdn}}` (E.164 without plus), `{{text}}` (rendered message), `{{sender}}` (from `sender_id`). Values are JSON-escaped at render time.
+Query-param APIs (e.g. Arkesel v1) omit `body_template` and put placeholders in the `url` instead; values are URL-encoded and the request defaults to GET:
+
+```json
+{
+  "url": "https://sms.arkesel.com/sms/api?action=send-sms&api_key=<KEY>&to={{msisdn}}&from={{sender}}&sms={{text}}",
+  "sender_id": "Dayline",
+  "success_body_contains": "\"code\":\"ok\""
+}
+```
+
+- `body_template` placeholders: `{{msisdn}}` (E.164 without plus), `{{text}}` (rendered message), `{{sender}}` (from `sender_id`). Values are JSON-escaped at render time; the same placeholders in `url` are URL-encoded.
+- `success_body_contains` (optional) marks the send failed unless the 2xx response body contains the substring; required for gateways that report errors with HTTP 200 (Arkesel v1 does). Error text never includes the URL query string, so `api_key`-in-URL configs do not leak into logs.
+- Careerify binding: `seed_careerify_sms_gateway.sql` creates the credential row referencing `env://CAREERIFY_SMS_GATEWAY_CONFIG`; the operator sets that env var on acquisition-api with the blob above.
 - `message_template` is optional; `{{code}}` is its only placeholder. Omit it to use the default copy.
 - `url` and `body_template` are required; non-2xx gateway responses fail the OTP request with `PROVIDER_ERROR`.
 - A tenant with no ACTIVE `sms_api` credential fails closed: the OTP is persisted but not sent, and the app receives `PROVIDER_ERROR`.

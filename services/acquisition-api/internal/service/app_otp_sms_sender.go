@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -29,9 +30,13 @@ const defaultOTPMessageTemplate = "Your Dayline login code is {{code}}. It expir
 
 // smsGatewayConfig mirrors the JSON blob stored for an sms_api credential.
 // The gateway is deliberately generic: any HTTP SMS aggregator (Arkesel,
-// Hubtel, mNotify, ...) is described by url + headers + a body_template with
+// Hubtel, mNotify, ...) is described by url + headers + templates with
 // {{msisdn}}, {{text}} and {{sender}} placeholders, so onboarding a provider
-// is configuration, not code.
+// is configuration, not code. Two API shapes are supported:
+//   - JSON-body APIs (e.g. Arkesel v2): placeholders in body_template,
+//     values JSON-escaped.
+//   - Query-param APIs (e.g. Arkesel v1 /sms/api?...&to={{msisdn}}&sms={{text}}):
+//     placeholders in url, values URL-encoded; body_template omitted.
 type smsGatewayConfig struct {
 	URL             string            `json:"url"`
 	Method          string            `json:"method"`
@@ -39,6 +44,10 @@ type smsGatewayConfig struct {
 	BodyTemplate    string            `json:"body_template"`
 	SenderID        string            `json:"sender_id"`
 	MessageTemplate string            `json:"message_template"`
+	// SuccessBodyContains, when set, requires the gateway's 2xx response body
+	// to contain this substring. Needed for gateways that report errors with
+	// HTTP 200 and a code field (Arkesel v1 does).
+	SuccessBodyContains string `json:"success_body_contains"`
 }
 
 func (c *smsGatewayConfig) validate() error {
@@ -48,8 +57,8 @@ func (c *smsGatewayConfig) validate() error {
 	if !strings.HasPrefix(c.URL, "https://") && !strings.HasPrefix(c.URL, "http://") {
 		return fmt.Errorf("sms gateway config: url must be http(s)")
 	}
-	if strings.TrimSpace(c.BodyTemplate) == "" {
-		return fmt.Errorf("sms gateway config: body_template is required")
+	if strings.TrimSpace(c.BodyTemplate) == "" && !strings.Contains(c.URL, "{{") {
+		return fmt.Errorf("sms gateway config: either body_template or url placeholders are required")
 	}
 	return nil
 }
@@ -96,41 +105,69 @@ func (s *TenantSMSSender) SendLoginOTP(msisdn, tenantKey, code string) error {
 	}
 	text := strings.ReplaceAll(messageTemplate, "{{code}}", code)
 
-	body := renderJSONTemplate(cfg.BodyTemplate, map[string]string{
+	values := map[string]string{
 		"msisdn": msisdn,
 		"text":   text,
 		"sender": cfg.SenderID,
-	})
+	}
+	reqURL := renderURLTemplate(cfg.URL, values)
+
+	var bodyReader io.Reader
+	hasBody := strings.TrimSpace(cfg.BodyTemplate) != ""
+	if hasBody {
+		bodyReader = strings.NewReader(renderJSONTemplate(cfg.BodyTemplate, values))
+	}
 
 	method := strings.ToUpper(strings.TrimSpace(cfg.Method))
 	if method == "" {
-		method = http.MethodPost
+		if hasBody {
+			method = http.MethodPost
+		} else {
+			method = http.MethodGet
+		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, cfg.URL, strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, method, reqURL, bodyReader)
 	if err != nil {
-		return fmt.Errorf("build sms gateway request: %w", err)
+		// Never wrap the raw error: it can embed the full URL, whose query
+		// string may carry the gateway api key.
+		return fmt.Errorf("build sms gateway request: %s", redactURLInError(err, reqURL))
 	}
-	req.Header.Set("Content-Type", "application/json")
+	if hasBody {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	for k, v := range cfg.Headers {
 		req.Header.Set(k, v)
 	}
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("sms gateway request failed: %w", err)
+		return fmt.Errorf("sms gateway request failed: %s", redactURLInError(err, reqURL))
 	}
 	defer resp.Body.Close()
 
+	// The response snippet is for failure diagnostics only; scrub the OTP
+	// code in case the gateway echoes the message back.
+	snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+	safeSnippet := strings.ReplaceAll(string(snippet), code, "******")
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		s.logger.Warn("sms gateway rejected otp send",
 			zap.String("tenant_key", tenantKey),
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int("status", resp.StatusCode),
-			zap.ByteString("response", snippet),
+			zap.String("response", safeSnippet),
 		)
 		return fmt.Errorf("sms gateway status %d", resp.StatusCode)
+	}
+
+	if cfg.SuccessBodyContains != "" && !strings.Contains(string(snippet), cfg.SuccessBodyContains) {
+		s.logger.Warn("sms gateway response did not indicate success",
+			zap.String("tenant_key", tenantKey),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
+			zap.String("response", safeSnippet),
+		)
+		return fmt.Errorf("sms gateway response missing success marker")
 	}
 
 	s.logger.Info("app login otp sms dispatched",
@@ -190,6 +227,27 @@ func (s *TenantSMSSender) resolveGatewayConfig(ctx context.Context, tenantKey st
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// renderURLTemplate substitutes {{key}} placeholders with URL-encoded values
+// for query-param style gateways (Arkesel v1 and similar).
+func renderURLTemplate(template string, values map[string]string) string {
+	out := template
+	for k, v := range values {
+		out = strings.ReplaceAll(out, "{{"+k+"}}", url.QueryEscape(v))
+	}
+	return out
+}
+
+// redactURLInError strips the query string (where gateway api keys live) from
+// any occurrence of reqURL inside err's message.
+func redactURLInError(err error, reqURL string) string {
+	msg := err.Error()
+	if u, parseErr := url.Parse(reqURL); parseErr == nil && u.RawQuery != "" {
+		u.RawQuery = "REDACTED"
+		msg = strings.ReplaceAll(msg, reqURL, u.String())
+	}
+	return msg
 }
 
 // renderJSONTemplate substitutes {{key}} placeholders with JSON-escaped
