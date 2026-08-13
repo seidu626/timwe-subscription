@@ -1,0 +1,1 @@
+{"event_kind":"slice_state_transitioned","payload":{"actor":"xper626","attempt":0,"bindings":{},"event_kind":"slice_state_transitioned","evidence_refs":[],"fencing_epoch":1,"iteration":0,"producer_version":"0.2.0","schema_version":"slice.event.v1","slice_id":"partner-acquisition-reporting","state":"spec","topology_version":0,"wave":1},"schema_version":"ledger.event.v1"}
