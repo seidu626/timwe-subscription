@@ -1,0 +1,205 @@
+import { useState } from 'react';
+import { MaterialIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { Card } from '@/components/Card';
+import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
+import { ScreenContainer } from '@/components/ScreenContainer';
+import { useFeed } from '@/hooks/useFeed';
+import { useSetNotificationPref } from '@/hooks/useDevices';
+import { useSubscriptions } from '@/hooks/useSubscriptions';
+import { colors, radii, spacing, typography } from '@/theme/tokens';
+import { formatRelativeDay } from '@/utils/format';
+import type { NotificationChannel } from '@/api/types';
+
+const CHANNELS: { value: NotificationChannel; label: string }[] = [
+  { value: 'PUSH', label: 'Push' },
+  { value: 'SMS', label: 'SMS' },
+  { value: 'BOTH', label: 'Both' },
+];
+
+export default function NotificationsScreen() {
+  const subscriptions = useSubscriptions();
+  const feed = useFeed();
+  const setPref = useSetNotificationPref();
+  // The contract has no GET for current notification prefs, so each
+  // subscription starts on the conservative "Both" default locally and only
+  // diverges once the subscriber explicitly changes it on this device.
+  const [prefs, setPrefs] = useState<Record<string, NotificationChannel>>({});
+
+  function selectChannel(productSlug: string, channel: NotificationChannel) {
+    setPrefs((prev) => ({ ...prev, [productSlug]: channel }));
+    setPref.mutate({ productSlug, channel });
+  }
+
+  return (
+    <ScreenContainer scroll>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.headerButton}>
+          <MaterialIcons name="arrow-back" size={22} color={colors.onSurfaceVariant} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Notifications</Text>
+        <View style={styles.headerButton} />
+      </View>
+
+      <Text style={styles.sectionTitle}>Delivery preferences</Text>
+
+      {subscriptions.isPending ? <LoadingState label="Loading subscriptions…" /> : null}
+      {subscriptions.isError ? (
+        <ErrorState
+          title="Couldn't load preferences"
+          message={subscriptions.error instanceof Error ? subscriptions.error.message : undefined}
+          onRetry={() => subscriptions.refetch()}
+        />
+      ) : null}
+      {subscriptions.isSuccess && subscriptions.data.length === 0 ? (
+        <EmptyState
+          icon="notifications-none"
+          title="No active subscriptions"
+          message="Subscribe to a product to manage its delivery preferences."
+        />
+      ) : null}
+
+      <View style={styles.prefList}>
+        {subscriptions.data
+          ?.filter((s) => s.status === 'ACTIVE')
+          .map((subscription) => {
+            const current = prefs[subscription.product_slug] ?? 'BOTH';
+            return (
+              <Card key={subscription.ref} style={styles.prefCard}>
+                <Text style={styles.prefProductName}>{subscription.product_name}</Text>
+                <View style={styles.channelRow}>
+                  {CHANNELS.map((channel) => {
+                    const active = current === channel.value;
+                    return (
+                      <Pressable
+                        key={channel.value}
+                        onPress={() => selectChannel(subscription.product_slug, channel.value)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        style={[styles.channelPill, active && styles.channelPillActive]}
+                      >
+                        <Text style={[styles.channelPillText, active && styles.channelPillTextActive]}>
+                          {channel.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </Card>
+            );
+          })}
+      </View>
+
+      <Text style={[styles.sectionTitle, styles.historyTitle]}>Delivery history</Text>
+
+      {feed.isPending ? <LoadingState label="Loading history…" /> : null}
+      {feed.isError ? (
+        <ErrorState
+          title="Couldn't load delivery history"
+          message={feed.error instanceof Error ? feed.error.message : undefined}
+          onRetry={() => feed.refetch()}
+        />
+      ) : null}
+      {feed.isSuccess && feed.data.length === 0 ? (
+        <EmptyState icon="history" title="No deliveries yet" message="Delivered content will be listed here." />
+      ) : null}
+
+      <View style={styles.historyList}>
+        {feed.data?.map((item) => (
+          <View key={item.id} style={styles.historyRow}>
+            <MaterialIcons name="check-circle" size={16} color={colors.primary} />
+            <View style={styles.historyTextGroup}>
+              <Text style={styles.historyItemTitle}>{item.title}</Text>
+              <Text style={styles.historyMeta}>
+                {item.product_name} • {formatRelativeDay(item.published_at)}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.stackLg,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...typography.headlineMd,
+    fontSize: 18,
+    color: colors.primary,
+  },
+  sectionTitle: {
+    ...typography.headlineMd,
+    color: colors.onSurface,
+    marginBottom: spacing.stackMd,
+  },
+  historyTitle: {
+    marginTop: spacing.sectionGap - spacing.stackLg,
+  },
+  prefList: {
+    gap: spacing.stackMd,
+  },
+  prefCard: {
+    gap: spacing.stackMd,
+  },
+  prefProductName: {
+    ...typography.headlineMd,
+    fontSize: 16,
+    color: colors.onSurface,
+  },
+  channelRow: {
+    flexDirection: 'row',
+    gap: spacing.stackSm,
+  },
+  channelPill: {
+    paddingHorizontal: spacing.stackMd,
+    paddingVertical: 8,
+    borderRadius: radii.full,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  channelPillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  channelPillText: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
+  },
+  channelPillTextActive: {
+    color: colors.onPrimary,
+  },
+  historyList: {
+    gap: spacing.stackMd,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    gap: spacing.stackSm,
+    alignItems: 'flex-start',
+  },
+  historyTextGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  historyItemTitle: {
+    ...typography.bodyMd,
+    color: colors.onSurface,
+  },
+  historyMeta: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
+  },
+});
