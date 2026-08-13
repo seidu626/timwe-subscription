@@ -176,6 +176,10 @@ func main() {
 	// RequestOTP surfaces PROVIDER_ERROR and nothing is sent.
 	appOTPSender := service.NewTenantSMSSender(db, logger)
 	appOTPService := service.NewAppOTPService(appOTPRepo, appOTPSender, logger)
+	// Tenants that additionally hold an ACTIVE 'otp_api' credential delegate
+	// code custody and delivery to that provider instead; the rate limit and
+	// attempt ceiling stay here either way. Tenants without one are unaffected.
+	appOTPService.SetDelegatedProvider(service.NewArkeselOTPProvider(db, logger))
 	appCatalogService := service.NewAppCatalogService(campaignRepo)
 	appOptoutClient := service.NewAppOptoutClient(timweConfig.BaseURL, timweConfig.GatewayTrustSecret, logger)
 	appSubscriptionService := service.NewAppSubscriptionService(transactionService, transactionRepo, campaignRepo, appOptoutClient, logger)

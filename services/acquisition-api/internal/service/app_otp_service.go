@@ -1,10 +1,12 @@
 package service
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -32,6 +34,25 @@ type OTPSender interface {
 	SendLoginOTP(msisdn, tenantKey, code string) error
 }
 
+// DelegatedOTPProvider is an external service that owns OTP code generation,
+// delivery and verification for tenants configured to use it. The production
+// implementation is ArkeselOTPProvider.
+//
+// Delegation covers code custody only. This service keeps the request rate
+// limit and the per-OTP attempt ceiling in front of every Verify call, because
+// providers do not necessarily enforce one: Arkesel's verify endpoint accepts
+// unlimited wrong guesses against a live code, which without a local ceiling
+// would make a 6-digit code brute-forceable within its own lifetime.
+type DelegatedOTPProvider interface {
+	// Configured reports whether tenantKey delegates its OTP lifecycle.
+	Configured(ctx context.Context, tenantKey string) (bool, error)
+	// Generate asks the provider to mint and deliver a code.
+	Generate(ctx context.Context, msisdn, tenantKey string) error
+	// Verify submits a user-supplied code, returning
+	// ErrDelegatedOTPCodeInvalid or ErrDelegatedOTPExpired for those outcomes.
+	Verify(ctx context.Context, msisdn, tenantKey, code string) error
+}
+
 // AppOTPService implements the Dayline app login OTP lifecycle:
 // request (generate+persist+send), verify (check+consume), with TTL,
 // attempt-exhaustion, and per-msisdn rate limiting per the app API contract.
@@ -40,11 +61,41 @@ type AppOTPService struct {
 	sender OTPSender
 	clock  func() time.Time
 	logger *zap.Logger
+
+	// delegate is optional. When set, tenants holding an ACTIVE otp_api
+	// credential delegate code custody to it; every other tenant is unaffected.
+	delegate DelegatedOTPProvider
 }
 
 // NewAppOTPService creates a new AppOTPService. sender may be nil; see OTPSender.
 func NewAppOTPService(repo *repository.AppOTPRepository, sender OTPSender, logger *zap.Logger) *AppOTPService {
 	return &AppOTPService{repo: repo, sender: sender, clock: time.Now, logger: logger}
+}
+
+// SetDelegatedProvider enables delegated OTP for tenants that have an ACTIVE
+// otp_api credential. Leaving it unset keeps every tenant on the local
+// lifecycle, so the feature is off until an operator both wires the provider
+// and binds a credential.
+func (s *AppOTPService) SetDelegatedProvider(delegate DelegatedOTPProvider) {
+	s.delegate = delegate
+}
+
+// delegatedFor reports whether tenantKey's OTP lifecycle is delegated. A
+// resolution error is propagated rather than treated as "not delegated": a
+// broken credential must fail the request, not silently switch auth paths.
+func (s *AppOTPService) delegatedFor(tenantKey string) (bool, error) {
+	if s.delegate == nil {
+		return false, nil
+	}
+	ctx, cancel := otpProviderContext()
+	defer cancel()
+	return s.delegate.Configured(ctx, tenantKey)
+}
+
+// otpProviderContext bounds delegated-provider calls; the service API takes no
+// context of its own, matching how TenantSMSSender bounds gateway calls.
+func otpProviderContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 15*time.Second)
 }
 
 // SetClock overrides the service's time source (tests only).
@@ -75,6 +126,13 @@ func (s *AppOTPService) RequestOTP(msisdn, tenantKey string) error {
 		return domain.NewAppError(domain.AppErrRateLimited, "too many otp requests, try again later")
 	}
 
+	delegated, err := s.delegatedFor(tenantKey)
+	if err != nil {
+		s.logger.Error("failed to resolve delegated otp configuration",
+			zap.Error(err), zap.String("tenant_key", tenantKey))
+		return domain.NewAppError(domain.AppErrProviderError, "otp delivery is currently unavailable")
+	}
+
 	code, err := generateOTPCode(domain.AppLoginOTPCodeLength)
 	if err != nil {
 		return fmt.Errorf("failed to generate otp code: %w", err)
@@ -94,6 +152,23 @@ func (s *AppOTPService) RequestOTP(msisdn, tenantKey string) error {
 	}
 	if _, err := s.repo.Create(otp); err != nil {
 		return err
+	}
+
+	if delegated {
+		// In delegated mode the row exists purely for the rate limit and the
+		// attempt ceiling: the provider mints and holds the real code. The
+		// hash stored above is of a code that is discarded and never sent, so
+		// if the tenant is switched back to the local lifecycle while this OTP
+		// is still live, local verification fails closed instead of accepting
+		// a guess.
+		ctx, cancel := otpProviderContext()
+		defer cancel()
+		if err := s.delegate.Generate(ctx, msisdn, tenantKey); err != nil {
+			s.logger.Error("failed to generate delegated app login otp",
+				zap.Error(err), zap.String("tenant_key", tenantKey))
+			return domain.NewAppError(domain.AppErrProviderError, "failed to send otp")
+		}
+		return nil
 	}
 
 	if s.sender == nil {
@@ -141,19 +216,53 @@ func (s *AppOTPService) VerifyOTP(msisdn, tenantKey, code string) error {
 		return domain.NewAppError(domain.AppErrOTPInvalid, "otp has too many failed attempts")
 	}
 
-	expected := hashOTPCode(otp.CodeSalt, code)
-	if !hmac.Equal([]byte(expected), []byte(otp.CodeHash)) {
-		attempts, incErr := s.repo.IncrementAttempts(otp.ID)
-		if incErr == nil && attempts >= domain.AppLoginOTPMaxAttempts {
+	delegated, err := s.delegatedFor(tenantKey)
+	if err != nil {
+		s.logger.Error("failed to resolve delegated otp configuration",
+			zap.Error(err), zap.String("tenant_key", tenantKey))
+		return domain.NewAppError(domain.AppErrProviderError, "otp verification is currently unavailable")
+	}
+
+	if delegated {
+		// The expiry and attempt checks above already ran, so the provider,
+		// which enforces no ceiling of its own, is only ever reached while
+		// this OTP still has attempts left.
+		ctx, cancel := otpProviderContext()
+		defer cancel()
+		switch err := s.delegate.Verify(ctx, msisdn, tenantKey, code); {
+		case err == nil:
+		case errors.Is(err, ErrDelegatedOTPExpired):
 			_ = s.repo.MarkConsumed(otp.ID, now)
+			return domain.NewAppError(domain.AppErrOTPExpired, "otp has expired")
+		case errors.Is(err, ErrDelegatedOTPCodeInvalid):
+			return s.recordFailedAttempt(otp.ID, now)
+		default:
+			s.logger.Error("delegated app login otp verification failed",
+				zap.Error(err), zap.String("tenant_key", tenantKey))
+			return domain.NewAppError(domain.AppErrProviderError, "otp verification is currently unavailable")
 		}
-		return domain.NewAppError(domain.AppErrOTPInvalid, "invalid otp code")
+	} else {
+		expected := hashOTPCode(otp.CodeSalt, code)
+		if !hmac.Equal([]byte(expected), []byte(otp.CodeHash)) {
+			return s.recordFailedAttempt(otp.ID, now)
+		}
 	}
 
 	if err := s.repo.MarkConsumed(otp.ID, now); err != nil {
 		return err
 	}
 	return nil
+}
+
+// recordFailedAttempt increments the OTP's attempt counter, consuming the row
+// once the ceiling is reached, and returns the caller's invalid-code error.
+// This ceiling is the only brute-force protection in delegated mode.
+func (s *AppOTPService) recordFailedAttempt(otpID int64, now time.Time) error {
+	attempts, incErr := s.repo.IncrementAttempts(otpID)
+	if incErr == nil && attempts >= domain.AppLoginOTPMaxAttempts {
+		_ = s.repo.MarkConsumed(otpID, now)
+	}
+	return domain.NewAppError(domain.AppErrOTPInvalid, "invalid otp code")
 }
 
 func generateOTPCode(length int) (string, error) {

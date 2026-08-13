@@ -143,6 +143,30 @@ Query-param APIs (e.g. the legacy Arkesel v1 `/sms/api`) omit `body_template` an
 - At most one ACTIVE `sms_api` credential per tenant across ALL channels, enforced by a partial unique index (`add_tenant_sms_api_unique_active.sql`): OTP delivery resolves the gateway by tenant alone, so a second ACTIVE row would make routing ambiguous. Rotate with deactivate-then-activate in one transaction, same as `provider_api`.
 - The OTP code is never logged; MSISDNs are masked in logs.
 
+## Delegated OTP Credential (purpose `otp_api`)
+
+A tenant can instead delegate the whole code lifecycle to a provider that mints, delivers and verifies the code itself.
+Binding an ACTIVE `otp_api` credential is what switches a tenant into this mode; revoking it switches back.
+The two modes are alternatives rather than layers: in delegated mode the `sms_api` gateway is not used for login OTP at all.
+The only implementation is Arkesel's OTP endpoints, and the blob is deliberately provider-shaped rather than generic, because this is a two-call protocol whose outcomes are numeric body codes.
+
+```json
+{
+  "generate_url": "https://sms.arkesel.com/api/otp/generate",
+  "verify_url": "https://sms.arkesel.com/api/otp/verify",
+  "headers": { "api-key": "<KEY>" },
+  "sender_id": "Dayline"
+}
+```
+
+- Optional fields and their defaults: `message_template` (must contain the `%otp_code%` slot the provider substitutes; `%expiry%` is also available), `length` 6 (bounds 6 to 15), `expiry_minutes` 5 (bounds 1 to 10), `medium` `sms` (or `voice`), `type` `numeric` (or `alphanumeric`). A blob that would be rejected at call time is rejected at resolution instead, so misconfiguration surfaces as a clear error rather than an opaque login failure.
+- **The attempt ceiling stays local, and must.** Arkesel's verify endpoint enforces no ceiling of its own: 46 consecutive wrong codes against one live OTP each returned `1104` with no lockout and no per-attempt cost (measured 2026-08-13). `AppOTPService` therefore keeps its own row per request and applies the hourly rate limit and the 5-attempt ceiling *before* every provider call, exactly as in local mode. Without that, a 6-digit code is brute-forceable inside its own lifetime.
+- The row persisted in delegated mode is bookkeeping only: it stores the hash of a code that is generated, discarded and never sent. If a tenant is switched back to local mode while an OTP is live, verification fails closed rather than accepting a guess.
+- Only `1104` (invalid) and `1105` (expired) are treated as verdicts on the user's code. Every other provider failure returns `PROVIDER_ERROR` and burns no attempt, because the code was never actually judged. A credential that fails to resolve also fails the request rather than falling back to the local path, which would be a silent change of authentication path.
+- Arkesel specifics: OTP requires the account's **main** API key and does not work with additional keys, which rules out per-tenant key isolation; it is billed to the **main balance**, not the SMS balance (one generate cost GHS 0.035, verify is free). Generate also returns a `ussd_code` the user can dial to retrieve the code when the SMS does not arrive; that value is not currently surfaced to the app.
+- At most one ACTIVE `otp_api` credential per tenant across ALL channels (`add_tenant_otp_api_unique_active.sql`), for the same reason as `sms_api` and more sharply, since this row decides which authentication path the tenant is on.
+- Careerify binding: `seed_careerify_otp_gateway.sql` is opt-in and references `env://CAREERIFY_OTP_GATEWAY_CONFIG`. Running it moves the tenant off the local lifecycle.
+
 ## Callback Signing
 
 Callbacks use HMAC-SHA256 with a timestamped canonical payload.

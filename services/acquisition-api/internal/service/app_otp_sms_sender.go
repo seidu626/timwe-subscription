@@ -222,40 +222,12 @@ func (s *TenantSMSSender) SendLoginOTP(msisdn, tenantKey, code string) error {
 // resolver: secret:// decrypts from tenant_channel_secrets, env:// reads a
 // JSON blob from the named environment variable.
 func (s *TenantSMSSender) resolveGatewayConfig(ctx context.Context, tenantKey string) (*smsGatewayConfig, error) {
-	var tenantID, channelID, secretRef string
-	err := s.db.QueryRowContext(ctx, `
-		SELECT cred.tenant_id, cred.channel_id, cred.secret_ref
-		FROM tenant_channel_credentials cred
-		JOIN tenants t ON t.id = cred.tenant_id
-		WHERE t.tenant_key = $1
-		  AND cred.purpose = $2
-		  AND cred.status = 'ACTIVE'
-		ORDER BY cred.version DESC, cred.channel_id
-		LIMIT 1
-	`, tenantKey, tenantSMSCredentialPurpose).Scan(&tenantID, &channelID, &secretRef)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("no ACTIVE %s credential for tenant %q", tenantSMSCredentialPurpose, tenantKey)
-	}
+	plaintext, err := resolveTenantCredentialBlob(ctx, s.db, tenantKey, tenantSMSCredentialPurpose)
 	if err != nil {
-		return nil, fmt.Errorf("fetch %s credential: %w", tenantSMSCredentialPurpose, err)
+		return nil, err
 	}
-
-	var plaintext []byte
-	switch {
-	case strings.HasPrefix(secretRef, "secret://"):
-		plaintext, err = GetChannelCredentialSecret(ctx, s.db, strings.TrimPrefix(secretRef, "secret://"), tenantID, channelID)
-		if err != nil {
-			return nil, fmt.Errorf("decrypt %s credential: %w", tenantSMSCredentialPurpose, err)
-		}
-	case strings.HasPrefix(secretRef, "env://"):
-		name := strings.TrimPrefix(secretRef, "env://")
-		v := os.Getenv(name)
-		if v == "" {
-			return nil, fmt.Errorf("%s credential env reference %q is unset", tenantSMSCredentialPurpose, name)
-		}
-		plaintext = []byte(v)
-	default:
-		return nil, fmt.Errorf("unsupported secret ref scheme for %s credential", tenantSMSCredentialPurpose)
+	if plaintext == nil {
+		return nil, fmt.Errorf("no ACTIVE %s credential for tenant %q", tenantSMSCredentialPurpose, tenantKey)
 	}
 
 	var cfg smsGatewayConfig
@@ -266,6 +238,53 @@ func (s *TenantSMSSender) resolveGatewayConfig(ctx context.Context, tenantKey st
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// resolveTenantCredentialBlob loads and decrypts the plaintext blob of a
+// tenant's ACTIVE credential for purpose. Resolution order and semantics match
+// the provider_api pattern in GetChannelAccountConfig / subscription-external's
+// composite resolver: secret:// decrypts from tenant_channel_secrets, env://
+// reads a JSON blob from the named environment variable.
+//
+// A tenant with no ACTIVE credential for purpose yields (nil, nil), so callers
+// can treat absence as "this tenant does not use the feature" without
+// conflating it with a resolution failure, which must always surface.
+func resolveTenantCredentialBlob(ctx context.Context, db *sql.DB, tenantKey, purpose string) ([]byte, error) {
+	var tenantID, channelID, secretRef string
+	err := db.QueryRowContext(ctx, `
+		SELECT cred.tenant_id, cred.channel_id, cred.secret_ref
+		FROM tenant_channel_credentials cred
+		JOIN tenants t ON t.id = cred.tenant_id
+		WHERE t.tenant_key = $1
+		  AND cred.purpose = $2
+		  AND cred.status = 'ACTIVE'
+		ORDER BY cred.version DESC, cred.channel_id
+		LIMIT 1
+	`, tenantKey, purpose).Scan(&tenantID, &channelID, &secretRef)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("fetch %s credential: %w", purpose, err)
+	}
+
+	switch {
+	case strings.HasPrefix(secretRef, "secret://"):
+		plaintext, err := GetChannelCredentialSecret(ctx, db, strings.TrimPrefix(secretRef, "secret://"), tenantID, channelID)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt %s credential: %w", purpose, err)
+		}
+		return plaintext, nil
+	case strings.HasPrefix(secretRef, "env://"):
+		name := strings.TrimPrefix(secretRef, "env://")
+		v := os.Getenv(name)
+		if v == "" {
+			return nil, fmt.Errorf("%s credential env reference %q is unset", purpose, name)
+		}
+		return []byte(v), nil
+	default:
+		return nil, fmt.Errorf("unsupported secret ref scheme for %s credential", purpose)
+	}
 }
 
 // renderURLTemplate substitutes {{key}} placeholders with URL-encoded values
