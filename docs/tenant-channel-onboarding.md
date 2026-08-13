@@ -106,6 +106,8 @@ The Dayline app login OTP is delivered through a per-tenant SMS gateway credenti
 It uses the same table (`tenant_channel_credentials`), ACTIVE-status lifecycle, bind/rotate admin flow, and secret reference schemes (`secret://` decrypted from `tenant_channel_secrets`, `env://` read from the environment) as `provider_api`.
 The stored JSON blob describes a generic HTTP gateway, so onboarding any aggregator (Arkesel, Hubtel, mNotify, ...) is configuration only:
 
+The canonical binding is Arkesel SMS v2 (`POST /api/v2/sms/send`, key in the `api-key` header):
+
 ```json
 {
   "url": "https://sms.arkesel.com/api/v2/sms/send",
@@ -113,11 +115,15 @@ The stored JSON blob describes a generic HTTP gateway, so onboarding any aggrega
   "headers": { "api-key": "<gateway api key>" },
   "body_template": "{\"sender\":\"{{sender}}\",\"message\":\"{{text}}\",\"recipients\":[\"{{msisdn}}\"]}",
   "sender_id": "Dayline",
+  "success_field": "status",
+  "success_value": "success",
   "message_template": "Your Dayline login code is {{code}}. It expires in 5 minutes."
 }
 ```
 
-Query-param APIs (e.g. Arkesel v1) omit `body_template` and put placeholders in the `url` instead; values are URL-encoded and the request defaults to GET:
+Arkesel v2 specifics that are configuration, not code: `sender` is capped at 11 characters including spaces and longer values make sends fail; errors arrive as real HTTP statuses (402 insufficient balance or no coverage, 403 inactive gateway, 422 validation, 500 send failure) with an `{"status":"error","message":...}` body; adding `\"sandbox\":true` to `body_template` exercises the full path without billing or delivering.
+
+Query-param APIs (e.g. the legacy Arkesel v1 `/sms/api`) omit `body_template` and put placeholders in the `url` instead; values are URL-encoded and the request defaults to GET:
 
 ```json
 {
@@ -128,7 +134,8 @@ Query-param APIs (e.g. Arkesel v1) omit `body_template` and put placeholders in 
 ```
 
 - `body_template` placeholders: `{{msisdn}}` (E.164 without plus), `{{text}}` (rendered message), `{{sender}}` (from `sender_id`). Values are JSON-escaped at render time; the same placeholders in `url` are URL-encoded.
-- `success_body_contains` (optional) marks the send failed unless the 2xx response body contains the substring; required for gateways that report errors with HTTP 200 (Arkesel v1 does). Error text never includes the URL query string, so `api_key`-in-URL configs do not leak into logs.
+- Success markers are optional and both must pass when set; with neither, the HTTP status alone decides. Prefer `success_field` + `success_value` on JSON gateways: it reads one top-level field (numbers compare as written, so `"success_value": "200"` matches `{"code":200}`) and is immune to the key order and whitespace that Arkesel v2 varies between endpoints. `success_body_contains` is a raw substring match, for gateways whose body is not a JSON object or that report errors with HTTP 200 (Arkesel v1 does).
+- Prefer header auth over a key in the `url`: v2 keeps the key out of request URLs entirely. Error text never includes the URL query string either, so legacy `api_key`-in-URL configs still do not leak into logs.
 - Careerify binding: `seed_careerify_sms_gateway.sql` creates the credential row referencing `env://CAREERIFY_SMS_GATEWAY_CONFIG`; the operator sets that env var on acquisition-api with the blob above.
 - `message_template` is optional; `{{code}}` is its only placeholder. Omit it to use the default copy.
 - `url` and `body_template` are required; non-2xx gateway responses fail the OTP request with `PROVIDER_ERROR`.

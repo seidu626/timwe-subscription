@@ -3,9 +3,11 @@
 -- references env://CAREERIFY_SMS_GATEWAY_CONFIG, which must contain the
 -- gateway JSON blob (see docs/tenant-channel-onboarding.md, "SMS Gateway
 -- Credential") in the acquisition-api container environment, e.g. for
--- Arkesel v1:
---   {"url":"https://sms.arkesel.com/sms/api?action=send-sms&api_key=<KEY>&to={{msisdn}}&from={{sender}}&sms={{text}}",
---    "sender_id":"Dayline","success_body_contains":"\"code\":\"ok\""}
+-- Arkesel v2:
+--   {"url":"https://sms.arkesel.com/api/v2/sms/send","method":"POST",
+--    "headers":{"api-key":"<KEY>"},
+--    "body_template":"{\"sender\":\"{{sender}}\",\"message\":\"{{text}}\",\"recipients\":[\"{{msisdn}}\"]}",
+--    "sender_id":"Dayline","success_field":"status","success_value":"success"}
 -- Idempotent: skipped if the tenant already has an ACTIVE sms_api credential
 -- (also enforced by uniq_tenant_channel_credentials_sms_api_active).
 INSERT INTO tenant_channel_credentials

@@ -48,6 +48,13 @@ type smsGatewayConfig struct {
 	// to contain this substring. Needed for gateways that report errors with
 	// HTTP 200 and a code field (Arkesel v1 does).
 	SuccessBodyContains string `json:"success_body_contains"`
+	// SuccessField and SuccessValue, when set, require the gateway's 2xx JSON
+	// response to carry that top-level field with that value (Arkesel v2:
+	// status=success). Preferred over SuccessBodyContains on JSON gateways:
+	// a substring match depends on the gateway's key order and whitespace,
+	// which Arkesel v2 varies between endpoints.
+	SuccessField string `json:"success_field"`
+	SuccessValue string `json:"success_value"`
 }
 
 func (c *smsGatewayConfig) validate() error {
@@ -59,6 +66,34 @@ func (c *smsGatewayConfig) validate() error {
 	}
 	if strings.TrimSpace(c.BodyTemplate) == "" && !strings.Contains(c.URL, "{{") {
 		return fmt.Errorf("sms gateway config: either body_template or url placeholders are required")
+	}
+	if (c.SuccessField == "") != (c.SuccessValue == "") {
+		return fmt.Errorf("sms gateway config: success_field and success_value must be set together")
+	}
+	return nil
+}
+
+// checkSuccessBody applies the configured success markers to a 2xx response
+// body. Gateways that signal failure inside a 200 response are the reason
+// both markers exist; a config with neither trusts the HTTP status alone.
+func (c *smsGatewayConfig) checkSuccessBody(body []byte) error {
+	if c.SuccessBodyContains != "" && !strings.Contains(string(body), c.SuccessBodyContains) {
+		return fmt.Errorf("sms gateway response missing success marker")
+	}
+	if c.SuccessField == "" {
+		return nil
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return fmt.Errorf("sms gateway response is not JSON object")
+	}
+	got, ok := parsed[c.SuccessField]
+	if !ok {
+		return fmt.Errorf("sms gateway response has no %q field", c.SuccessField)
+	}
+	// fmt.Sprint so numeric status codes compare as written in config.
+	if fmt.Sprint(got) != c.SuccessValue {
+		return fmt.Errorf("sms gateway reported %s=%v", c.SuccessField, got)
 	}
 	return nil
 }
@@ -146,10 +181,14 @@ func (s *TenantSMSSender) SendLoginOTP(msisdn, tenantKey, code string) error {
 	}
 	defer resp.Body.Close()
 
-	// The response snippet is for failure diagnostics only; scrub the OTP
-	// code in case the gateway echoes the message back.
-	snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-	safeSnippet := strings.ReplaceAll(string(snippet), code, "******")
+	// Read enough of the body for the JSON success check; the scrubbed prefix
+	// is for failure diagnostics only. The OTP code is scrubbed in case the
+	// gateway echoes the message back.
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	safeSnippet := strings.ReplaceAll(string(body), code, "******")
+	if len(safeSnippet) > 512 {
+		safeSnippet = safeSnippet[:512]
+	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		s.logger.Warn("sms gateway rejected otp send",
@@ -161,13 +200,13 @@ func (s *TenantSMSSender) SendLoginOTP(msisdn, tenantKey, code string) error {
 		return fmt.Errorf("sms gateway status %d", resp.StatusCode)
 	}
 
-	if cfg.SuccessBodyContains != "" && !strings.Contains(string(snippet), cfg.SuccessBodyContains) {
+	if err := cfg.checkSuccessBody(body); err != nil {
 		s.logger.Warn("sms gateway response did not indicate success",
 			zap.String("tenant_key", tenantKey),
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("response", safeSnippet),
 		)
-		return fmt.Errorf("sms gateway response missing success marker")
+		return err
 	}
 
 	s.logger.Info("app login otp sms dispatched",

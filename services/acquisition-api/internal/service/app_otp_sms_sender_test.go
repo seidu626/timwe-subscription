@@ -203,6 +203,85 @@ func TestSendLoginOTPSuccessMarkerMissing(t *testing.T) {
 	}
 }
 
+func TestSendLoginOTPJSONSuccessFieldIndependentOfKeyOrder(t *testing.T) {
+	// Arkesel v2 puts "status" in a different position per endpoint, so the
+	// marker must survive key order and whitespace a substring match cannot.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "{\n  \"data\": [{\"id\":\"abc\"}],\n  \"status\" : \"success\"\n}")
+	}))
+	defer srv.Close()
+
+	sender := newTestSMSSender(&smsGatewayConfig{
+		URL:          srv.URL,
+		BodyTemplate: `{"message":"{{text}}"}`,
+		SuccessField: "status",
+		SuccessValue: "success",
+	}, nil)
+
+	if err := sender.SendLoginOTP("233241234567", "careerify", "482913"); err != nil {
+		t.Fatalf("SendLoginOTP: %v", err)
+	}
+}
+
+func TestSendLoginOTPJSONSuccessFieldRejectsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"status":"error","message":"Insufficient balance or invalid coverage!"}`)
+	}))
+	defer srv.Close()
+
+	sender := newTestSMSSender(&smsGatewayConfig{
+		URL:          srv.URL,
+		BodyTemplate: `{"message":"{{text}}"}`,
+		SuccessField: "status",
+		SuccessValue: "success",
+	}, nil)
+
+	err := sender.SendLoginOTP("233241234567", "careerify", "482913")
+	if err == nil || !strings.Contains(err.Error(), "status=error") {
+		t.Fatalf("want reported-status error, got %v", err)
+	}
+}
+
+func TestCheckSuccessBodyEdgeCases(t *testing.T) {
+	cases := []struct {
+		name    string
+		cfg     smsGatewayConfig
+		body    string
+		wantErr string
+	}{
+		{"no markers trusts http status", smsGatewayConfig{}, `anything`, ""},
+		{"numeric field compares as written",
+			smsGatewayConfig{SuccessField: "code", SuccessValue: "200"}, `{"code":200}`, ""},
+		{"missing field", smsGatewayConfig{SuccessField: "status", SuccessValue: "success"},
+			`{"message":"ok"}`, `no "status" field`},
+		{"non json body", smsGatewayConfig{SuccessField: "status", SuccessValue: "success"},
+			`OK`, "not JSON object"},
+		{"both markers must pass",
+			smsGatewayConfig{SuccessBodyContains: `"ok"`, SuccessField: "status", SuccessValue: "success"},
+			`{"status":"success"}`, "missing success marker"},
+	}
+	for _, tc := range cases {
+		err := tc.cfg.checkSuccessBody([]byte(tc.body))
+		if tc.wantErr == "" && err != nil {
+			t.Errorf("%s: unexpected error %v", tc.name, err)
+		}
+		if tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
+			t.Errorf("%s: got %v, want %q", tc.name, err, tc.wantErr)
+		}
+	}
+}
+
+func TestSMSGatewayConfigValidateSuccessFieldPairing(t *testing.T) {
+	fieldOnly := smsGatewayConfig{URL: "https://x", BodyTemplate: "{}", SuccessField: "status"}
+	if err := fieldOnly.validate(); err == nil || !strings.Contains(err.Error(), "must be set together") {
+		t.Errorf("success_field without success_value should be invalid, got %v", err)
+	}
+	valueOnly := smsGatewayConfig{URL: "https://x", BodyTemplate: "{}", SuccessValue: "success"}
+	if err := valueOnly.validate(); err == nil {
+		t.Error("success_value without success_field should be invalid")
+	}
+}
+
 func TestSendLoginOTPErrorRedactsAPIKey(t *testing.T) {
 	// Unroutable port: client.Do fails and the url.Error embeds the full URL.
 	sender := newTestSMSSender(&smsGatewayConfig{
