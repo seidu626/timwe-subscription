@@ -1,0 +1,72 @@
+// Shapes mirror docs/dayline-app-api-contract.md exactly (snake_case wire
+// fields kept as-is so payloads need no transform layer).
+
+export type FlowType = 'OTP' | 'DOUBLE_OPTIN' | 'AUTO';
+export type SubscriptionStatus = 'ACTIVE' | 'PENDING' | 'FAILED';
+export type NextAction = 'OTP' | 'CONFIRM' | 'SUBSCRIBED';
+export type NotificationChannel = 'PUSH' | 'SMS' | 'BOTH';
+export type DevicePlatform = 'android' | 'ios';
+
+export interface CatalogProduct {
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  category: string;
+  artwork_url: string | null;
+  sample_content: string | null;
+  price: number;
+  currency: string;
+  billing_cycle: string;
+  flow_type: FlowType;
+  subscriber_count: number | null;
+}
+
+export interface CatalogResponse {
+  products: CatalogProduct[];
+}
+
+export interface CreateSubscriptionResponse {
+  subscription_ref: string;
+  next_action: NextAction;
+  message: string;
+}
+
+export interface ConfirmSubscriptionResponse {
+  status: SubscriptionStatus;
+}
+
+export interface Subscription {
+  ref: string;
+  product_slug: string;
+  product_name: string;
+  status: SubscriptionStatus;
+  price: number;
+  currency: string;
+  billing_cycle: string;
+  next_charge_hint: string | null;
+  started_at: string;
+}
+
+export interface SubscriptionsResponse {
+  subscriptions: Subscription[];
+}
+
+export interface FeedItem {
+  id: string;
+  product_slug: string;
+  product_name: string;
+  title: string;
+  body: string;
+  published_at: string;
+  read: boolean;
+}
+
+export interface FeedResponse {
+  items: FeedItem[];
+}
+
+export interface OtpVerifyResponse {
+  token: string;
+  expires_in: number;
+}
