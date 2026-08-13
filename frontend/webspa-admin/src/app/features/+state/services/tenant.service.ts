@@ -10,7 +10,9 @@ import {
   ChannelListResponse,
   ChannelUpdatePayload,
   CredentialSecretValue,
+  OtpGatewaySecretValue,
   RevokeCredentialResponse,
+  SmsGatewaySecretValue,
   TenantMemberListResponse,
   TenantMemberMutationResponse,
   TenantMemberPayload,
@@ -149,7 +151,7 @@ export class TenantService {
   bindChannelCredentialValue(
     channelId: string,
     purpose: string,
-    value: CredentialSecretValue
+    value: CredentialSecretValue | SmsGatewaySecretValue | OtpGatewaySecretValue
   ): Observable<ChannelCredentialListResponse['credentials'][number]> {
     const payload: ChannelCredentialPayload = {
       purpose,

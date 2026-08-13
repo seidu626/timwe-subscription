@@ -12,8 +12,11 @@ import {
   ChannelCredentialPayload,
   ChannelCreatePayload,
   ChannelUpdatePayload,
+  CREDENTIAL_PURPOSES,
   CredentialSecretValue,
+  OtpGatewaySecretValue,
   RevokeCredentialResponse,
+  SmsGatewaySecretValue,
   TenantCreatePayload,
   TenantMemberPayload,
   TenantMemberRole,
@@ -78,6 +81,9 @@ export class TenantListComponent implements OnInit, OnDestroy {
   showApiKey = false;
   showMtApiKey = false;
   showPsk = false;
+  showSmsApiKey = false;
+  showOtpApiKey = false;
+  readonly credentialPurposes = CREDENTIAL_PURPOSES;
 
   editingTenantId: string | null = null;
   editingChannelId: string | null = null;
@@ -88,6 +94,8 @@ export class TenantListComponent implements OnInit, OnDestroy {
   channelEditForm = this.emptyChannelEditForm();
   credentialForm = this.emptyCredentialForm();
   credentialValueForm = this.emptyCredentialValueForm();
+  smsGatewayForm = this.emptySmsGatewayForm();
+  otpGatewayForm = this.emptyOtpGatewayForm();
   metadataText = '{}';
   private readonly destroy$ = new Subject<void>();
   private workspaceKey = '';
@@ -186,10 +194,14 @@ export class TenantListComponent implements OnInit, OnDestroy {
     this.channelEditForm = this.emptyChannelEditForm();
     this.credentialForm = this.emptyCredentialForm();
     this.credentialValueForm = this.emptyCredentialValueForm();
+    this.smsGatewayForm = this.emptySmsGatewayForm();
+    this.otpGatewayForm = this.emptyOtpGatewayForm();
     this.credentialMode = 'ref';
     this.showApiKey = false;
     this.showMtApiKey = false;
     this.showPsk = false;
+    this.showSmsApiKey = false;
+    this.showOtpApiKey = false;
     this.memberDataSource.data = [];
     this.channelDataSource.data = [];
     this.credentialDataSource.data = [];
@@ -492,6 +504,16 @@ export class TenantListComponent implements OnInit, OnDestroy {
       this.toast('Select a channel first');
       return;
     }
+    const purposeSelected = this.credentialValueForm.purpose.trim() || 'provider_api';
+    if (purposeSelected === 'sms_api') {
+      this.saveSmsGatewayCredential(purposeSelected);
+      return;
+    }
+    if (purposeSelected === 'otp_api') {
+      this.saveOtpGatewayCredential(purposeSelected);
+      return;
+    }
+
     const f = this.credentialValueForm;
     if (!f.base_url.trim() && !f.api_key.trim()) {
       this.toast('At least base_url or api_key is required');
@@ -544,6 +566,138 @@ export class TenantListComponent implements OnInit, OnDestroy {
         this.toast(this.extractErrorMessage(err, 'Failed to bind credential value'));
       }
     });
+  }
+
+  /**
+   * Bind the outbound SMS gateway used to deliver app login codes. The API key
+   * travels inside `headers` so any aggregator can be described by the same
+   * blob, and it is encrypted server-side along with the rest of it.
+   */
+  private saveSmsGatewayCredential(purpose: string): void {
+    const f = this.smsGatewayForm;
+    const url = f.url.trim();
+    if (!url) {
+      this.toast('Gateway URL is required');
+      return;
+    }
+    if (!f.body_template.trim() && !url.includes('{{')) {
+      this.toast('Provide a request body, or put {{msisdn}} and {{text}} placeholders in the URL');
+      return;
+    }
+    const message = f.message_template.trim();
+    if (message && !message.includes('{{code}}')) {
+      this.toast('Message must contain {{code}}');
+      return;
+    }
+    const successField = f.success_field.trim();
+    const successValue = f.success_value.trim();
+    if (!successField !== !successValue) {
+      this.toast('Success field and success value must be set together');
+      return;
+    }
+
+    const value: SmsGatewaySecretValue = { url };
+    if (f.method.trim()) { value.method = f.method.trim().toUpperCase(); }
+    if (f.api_key.trim()) { value.headers = { [f.api_key_header.trim() || 'api-key']: f.api_key.trim() }; }
+    if (f.body_template.trim()) { value.body_template = f.body_template.trim(); }
+    if (f.sender_id.trim()) { value.sender_id = f.sender_id.trim(); }
+    if (message) { value.message_template = message; }
+    if (successField) {
+      value.success_field = successField;
+      value.success_value = successValue;
+    }
+
+    this.submitCredentialValue(purpose, value, 'SMS gateway bound', () => {
+      this.smsGatewayForm = this.emptySmsGatewayForm();
+      this.showSmsApiKey = false;
+    });
+  }
+
+  /**
+   * Bind delegated OTP. This is a mode switch for the whole tenant rather than
+   * an additional layer: once active the provider mints and checks login codes
+   * instead of this platform, so the operator confirms before it takes effect.
+   */
+  private saveOtpGatewayCredential(purpose: string): void {
+    const f = this.otpGatewayForm;
+    const generateUrl = f.generate_url.trim();
+    const verifyUrl = f.verify_url.trim();
+    if (!generateUrl || !verifyUrl) {
+      this.toast('Both the generate and verify URLs are required');
+      return;
+    }
+    if (!f.api_key.trim()) {
+      this.toast('Provider API key is required');
+      return;
+    }
+    const message = f.message_template.trim();
+    if (message && !message.includes('%otp_code%')) {
+      this.toast('Message must contain %otp_code%, which the provider replaces with the code');
+      return;
+    }
+    if (f.sender_id.trim().length > 11) {
+      this.toast('Sender ID must be at most 11 characters');
+      return;
+    }
+    if (f.length !== null && (f.length < 6 || f.length > 15)) {
+      this.toast('Code length must be between 6 and 15');
+      return;
+    }
+    if (f.expiry_minutes !== null && (f.expiry_minutes < 1 || f.expiry_minutes > 10)) {
+      this.toast('Expiry must be between 1 and 10 minutes');
+      return;
+    }
+    const confirmed = window.confirm(
+      'Bind delegated OTP for this tenant?\n\nThe provider will mint, send and check login codes instead of this platform. ' +
+        'Revoke the credential to switch back; codes already in flight stop working.'
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const value: OtpGatewaySecretValue = {
+      generate_url: generateUrl,
+      verify_url: verifyUrl,
+      headers: { [f.api_key_header.trim() || 'api-key']: f.api_key.trim() }
+    };
+    if (f.sender_id.trim()) { value.sender_id = f.sender_id.trim(); }
+    if (message) { value.message_template = message; }
+    if (f.length !== null) { value.length = f.length; }
+    if (f.expiry_minutes !== null) { value.expiry_minutes = f.expiry_minutes; }
+    if (f.medium.trim()) { value.medium = f.medium.trim(); }
+    if (f.type.trim()) { value.type = f.type.trim(); }
+
+    this.submitCredentialValue(purpose, value, 'Delegated OTP bound', () => {
+      this.otpGatewayForm = this.emptyOtpGatewayForm();
+      this.showOtpApiKey = false;
+    });
+  }
+
+  /** POST a per-purpose blob and refresh the version history on success. */
+  private submitCredentialValue(
+    purpose: string,
+    value: SmsGatewaySecretValue | OtpGatewaySecretValue,
+    successMessage: string,
+    reset: () => void
+  ): void {
+    this.credentialSaving = true;
+    this.tenantService.bindChannelCredentialValue(this.selectedChannelId, purpose, value).subscribe({
+      next: () => {
+        this.credentialSaving = false;
+        reset();
+        this.toast(successMessage);
+        this.loadChannelCredentials(this.selectedChannelId);
+      },
+      error: (err) => {
+        this.credentialSaving = false;
+        this.toast(this.extractErrorMessage(err, 'Failed to bind credential'));
+      }
+    });
+  }
+
+  /** Operator-facing description of the selected credential purpose. */
+  purposeHint(purpose: string): string {
+    return this.credentialPurposes.find((p) => p.value === purpose)?.hint ?? '';
   }
 
   /** Parse a newline/comma-separated list of IDs; returns null on invalid entries. */
@@ -789,6 +943,58 @@ export class TenantListComponent implements OnInit, OnDestroy {
       mo_pricepoint_ids_text: '',
       billing_pricepoint_ids_text: '',
       he_iv_param_spec_key: ''
+    };
+  }
+
+  private emptySmsGatewayForm(): {
+    url: string;
+    method: string;
+    api_key: string;
+    api_key_header: string;
+    body_template: string;
+    sender_id: string;
+    message_template: string;
+    success_field: string;
+    success_value: string;
+  } {
+    // Defaults describe Arkesel SMS v2, the canonical binding; every field is
+    // editable so another aggregator is configuration rather than code.
+    return {
+      url: 'https://sms.arkesel.com/api/v2/sms/send',
+      method: 'POST',
+      api_key: '',
+      api_key_header: 'api-key',
+      body_template: '{"sender":"{{sender}}","message":"{{text}}","recipients":["{{msisdn}}"]}',
+      sender_id: '',
+      message_template: '',
+      success_field: 'status',
+      success_value: 'success'
+    };
+  }
+
+  private emptyOtpGatewayForm(): {
+    generate_url: string;
+    verify_url: string;
+    api_key: string;
+    api_key_header: string;
+    sender_id: string;
+    message_template: string;
+    length: number | null;
+    expiry_minutes: number | null;
+    medium: string;
+    type: string;
+  } {
+    return {
+      generate_url: 'https://sms.arkesel.com/api/otp/generate',
+      verify_url: 'https://sms.arkesel.com/api/otp/verify',
+      api_key: '',
+      api_key_header: 'api-key',
+      sender_id: '',
+      message_template: '',
+      length: 6,
+      expiry_minutes: 5,
+      medium: 'sms',
+      type: 'numeric'
     };
   }
 

@@ -272,3 +272,70 @@ func TestBindChannelCredentialRequiresBackendForRawSecret(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
+
+// An otp_api blob the OTP resolver would reject must fail at bind time in the
+// admin console, not silently store ciphertext that breaks every login for the
+// tenant once it goes ACTIVE.
+func TestBindChannelCredentialRejectsInvalidPurposeBlobBeforeSecretStore(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	channelID := "33333333-3333-3333-3333-333333333333"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at")).
+		WithArgs(tenantID, channelID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "channel_key", "provider", "country", "operator", "capabilities", "status", "created_at", "updated_at"}).
+			AddRow(channelID, tenantID, "timwe-gh-airteltigo", "timwe", "GH", nil, "{optin,mt}", domain.ChannelStatusActive, now, now))
+
+	store := &countingCredentialStore{}
+	svc := NewAdminManagementService(repository.NewAdminManagementRepository(db, zap.NewNop()), zap.NewNop())
+	svc.SetChannelCredentialSecretStore(store)
+
+	_, err = svc.BindChannelCredential(context.Background(), tenantID, channelID, &domain.ChannelCredentialBindInput{
+		Purpose:     "otp_api",
+		SecretValue: `{"generate_url":"https://x/gen","verify_url":"https://x/ver","sender_id":"WayTooLongSenderID"}`,
+	}, nil, nil)
+	if !errors.Is(err, ErrInvalidInput) || !strings.Contains(err.Error(), "at most 11 characters") {
+		t.Fatalf("expected invalid sender_id error, got %v", err)
+	}
+	if store.calls != 0 {
+		t.Fatalf("secret store was called for a blob the runtime would reject")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// A valid blob still reaches the secret store, so the guard above rejects bad
+// configuration rather than the purpose itself.
+func TestBindChannelCredentialAcceptsValidPurposeBlob(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	channelID := "33333333-3333-3333-3333-333333333333"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, channel_key, provider, country, operator, capabilities, status, created_at, updated_at")).
+		WithArgs(tenantID, channelID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "channel_key", "provider", "country", "operator", "capabilities", "status", "created_at", "updated_at"}).
+			AddRow(channelID, tenantID, "timwe-gh-airteltigo", "timwe", "GH", nil, "{optin,mt}", domain.ChannelStatusActive, now, now))
+
+	store := &countingCredentialStore{}
+	svc := NewAdminManagementService(repository.NewAdminManagementRepository(db, zap.NewNop()), zap.NewNop())
+	svc.SetChannelCredentialSecretStore(store)
+
+	_, _ = svc.BindChannelCredential(context.Background(), tenantID, channelID, &domain.ChannelCredentialBindInput{
+		Purpose:     "otp_api",
+		SecretValue: `{"generate_url":"https://x/gen","verify_url":"https://x/ver","sender_id":"Dayline"}`,
+	}, nil, nil)
+	if store.calls != 1 {
+		t.Fatalf("expected valid blob to reach the secret store, got %d calls", store.calls)
+	}
+}

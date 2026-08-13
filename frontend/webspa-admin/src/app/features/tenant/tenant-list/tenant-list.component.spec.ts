@@ -495,4 +495,162 @@ describe('TenantListComponent', () => {
       expect(component.parseIdList('a\n\nb')).toEqual(['a', 'b']);
     });
   });
+
+  describe('SMS gateway credential', () => {
+    it('binds the gateway blob with the api key carried in headers', () => {
+      const { component, tenantService } = createComponent();
+      component.selectedChannelId = 'channel-1';
+      component.credentialValueForm.purpose = 'sms_api';
+      component.smsGatewayForm = {
+        url: ' https://sms.arkesel.com/api/v2/sms/send ',
+        method: 'post',
+        api_key: ' gateway-key ',
+        api_key_header: 'api-key',
+        body_template: '{"sender":"{{sender}}","message":"{{text}}","recipients":["{{msisdn}}"]}',
+        sender_id: 'Dayline',
+        message_template: 'Your code is {{code}}.',
+        success_field: 'status',
+        success_value: 'success'
+      };
+
+      component.saveCredentialValue();
+
+      const call = (tenantService.bindChannelCredential as jasmine.Spy).calls.mostRecent();
+      expect(call.args[1].purpose).toBe('sms_api');
+      expect(JSON.parse(call.args[1].secret_value)).toEqual({
+        url: 'https://sms.arkesel.com/api/v2/sms/send',
+        method: 'POST',
+        headers: { 'api-key': 'gateway-key' },
+        body_template: '{"sender":"{{sender}}","message":"{{text}}","recipients":["{{msisdn}}"]}',
+        sender_id: 'Dayline',
+        message_template: 'Your code is {{code}}.',
+        success_field: 'status',
+        success_value: 'success'
+      });
+    });
+
+    it('rejects a message that would send without the code in it', () => {
+      const { component, tenantService } = createComponent();
+      component.selectedChannelId = 'channel-1';
+      component.credentialValueForm.purpose = 'sms_api';
+      component.smsGatewayForm.api_key = 'gateway-key';
+      component.smsGatewayForm.message_template = 'Welcome to Dayline';
+
+      component.saveCredentialValue();
+
+      expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    });
+
+    it('rejects a gateway that carries the message in neither the body nor the URL', () => {
+      const { component, tenantService } = createComponent();
+      component.selectedChannelId = 'channel-1';
+      component.credentialValueForm.purpose = 'sms_api';
+      component.smsGatewayForm.body_template = '';
+      component.smsGatewayForm.url = 'https://sms.example.com/send';
+
+      component.saveCredentialValue();
+
+      expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    });
+
+    it('rejects half a success marker', () => {
+      const { component, tenantService } = createComponent();
+      component.selectedChannelId = 'channel-1';
+      component.credentialValueForm.purpose = 'sms_api';
+      component.smsGatewayForm.success_value = '';
+
+      component.saveCredentialValue();
+
+      expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('delegated OTP credential', () => {
+    it('binds the provider blob after the operator confirms the mode switch', () => {
+      const { component, tenantService } = createComponent();
+      spyOn(window, 'confirm').and.returnValue(true);
+      component.selectedChannelId = 'channel-1';
+      component.credentialValueForm.purpose = 'otp_api';
+      component.otpGatewayForm = {
+        generate_url: 'https://sms.arkesel.com/api/otp/generate',
+        verify_url: 'https://sms.arkesel.com/api/otp/verify',
+        api_key: ' main-key ',
+        api_key_header: 'api-key',
+        sender_id: 'Dayline',
+        message_template: 'Your code is %otp_code%.',
+        length: 6,
+        expiry_minutes: 5,
+        medium: 'sms',
+        type: 'numeric'
+      };
+
+      component.saveCredentialValue();
+
+      const call = (tenantService.bindChannelCredential as jasmine.Spy).calls.mostRecent();
+      expect(call.args[1].purpose).toBe('otp_api');
+      expect(JSON.parse(call.args[1].secret_value)).toEqual({
+        generate_url: 'https://sms.arkesel.com/api/otp/generate',
+        verify_url: 'https://sms.arkesel.com/api/otp/verify',
+        headers: { 'api-key': 'main-key' },
+        sender_id: 'Dayline',
+        message_template: 'Your code is %otp_code%.',
+        length: 6,
+        expiry_minutes: 5,
+        medium: 'sms',
+        type: 'numeric'
+      });
+    });
+
+    // Binding switches where login codes come from for every user of the
+    // tenant, so declining the prompt must leave the tenant untouched.
+    it('binds nothing when the operator declines the mode switch', () => {
+      const { component, tenantService } = createComponent();
+      spyOn(window, 'confirm').and.returnValue(false);
+      component.selectedChannelId = 'channel-1';
+      component.credentialValueForm.purpose = 'otp_api';
+      component.otpGatewayForm.api_key = 'main-key';
+
+      component.saveCredentialValue();
+
+      expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    });
+
+    it('rejects a blob the provider would reject, before any confirmation', () => {
+      const { component, tenantService } = createComponent();
+      const confirmSpy = spyOn(window, 'confirm').and.returnValue(true);
+      component.selectedChannelId = 'channel-1';
+      component.credentialValueForm.purpose = 'otp_api';
+      component.otpGatewayForm.api_key = 'main-key';
+      component.otpGatewayForm.sender_id = 'TwelveCharsX';
+
+      component.saveCredentialValue();
+
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    });
+
+    it('rejects an expiry the provider does not support', () => {
+      const { component, tenantService } = createComponent();
+      spyOn(window, 'confirm').and.returnValue(true);
+      component.selectedChannelId = 'channel-1';
+      component.credentialValueForm.purpose = 'otp_api';
+      component.otpGatewayForm.api_key = 'main-key';
+      component.otpGatewayForm.expiry_minutes = 30;
+
+      component.saveCredentialValue();
+
+      expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    });
+
+    it('requires an api key, which the provider needs on every call', () => {
+      const { component, tenantService } = createComponent();
+      component.selectedChannelId = 'channel-1';
+      component.credentialValueForm.purpose = 'otp_api';
+      component.otpGatewayForm.api_key = '';
+
+      component.saveCredentialValue();
+
+      expect(tenantService.bindChannelCredential).not.toHaveBeenCalled();
+    });
+  });
 });

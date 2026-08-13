@@ -155,6 +155,30 @@ export interface ChannelCredentialPayload {
   performed_by?: string;
 }
 
+/**
+ * Credential purposes the platform gives meaning to. A tenant holds at most
+ * one ACTIVE credential per purpose, and binding an `otp_api` credential is
+ * what moves that tenant's app login from the local OTP lifecycle to the
+ * provider's, so this is a mode switch, not an extra layer.
+ */
+export const CREDENTIAL_PURPOSES: ReadonlyArray<{ value: string; label: string; hint: string }> = [
+  {
+    value: 'provider_api',
+    label: 'Provider API',
+    hint: 'Carrier opt-in and billing credentials for this channel.'
+  },
+  {
+    value: 'sms_api',
+    label: 'SMS gateway',
+    hint: 'Outbound SMS aggregator used to deliver app login codes.'
+  },
+  {
+    value: 'otp_api',
+    label: 'Delegated OTP',
+    hint: 'Provider mints, sends and checks login codes. Binding this replaces the built-in code delivery for the tenant.'
+  }
+];
+
 /** Per-field credential blob. Serialized to JSON and sent as secret_value. */
 export interface CredentialSecretValue {
   base_url?: string;
@@ -172,6 +196,31 @@ export interface CredentialSecretValue {
   mo_pricepoint_ids?: string[];
   billing_pricepoint_ids?: string[];
   he_iv_param_spec_key?: string;
+}
+
+/** Blob stored for an `sms_api` credential. */
+export interface SmsGatewaySecretValue {
+  url: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body_template?: string;
+  sender_id?: string;
+  message_template?: string;
+  success_field?: string;
+  success_value?: string;
+}
+
+/** Blob stored for an `otp_api` credential. */
+export interface OtpGatewaySecretValue {
+  generate_url: string;
+  verify_url: string;
+  headers?: Record<string, string>;
+  sender_id?: string;
+  message_template?: string;
+  length?: number;
+  expiry_minutes?: number;
+  medium?: string;
+  type?: string;
 }
 
 export interface RevokeCredentialResponse {

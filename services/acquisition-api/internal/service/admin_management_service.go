@@ -1124,6 +1124,10 @@ func (s *AdminManagementService) normalizeChannelCredentialBindInput(ctx context
 		}, nil
 	}
 
+	if err := validateCredentialSecretValue(purpose, secretValue); err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+
 	if s.credentialSecrets == nil {
 		return nil, fmt.Errorf("%w: secret_backend_unavailable", ErrAdminDependencyUnavailable)
 	}

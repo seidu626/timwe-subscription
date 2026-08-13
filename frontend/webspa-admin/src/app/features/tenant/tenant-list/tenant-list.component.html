@@ -330,7 +330,12 @@
           <div class="row">
             <mat-form-field appearance="outline">
               <mat-label>Purpose</mat-label>
-              <input matInput [(ngModel)]="credentialForm.purpose" />
+              <mat-select [(ngModel)]="credentialForm.purpose">
+                <mat-option *ngFor="let purpose of credentialPurposes" [value]="purpose.value">
+                  {{ purpose.label }}
+                </mat-option>
+              </mat-select>
+              <mat-hint>{{ purposeHint(credentialForm.purpose) }}</mat-hint>
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Secret Reference</mat-label>
@@ -349,8 +354,17 @@
           <div class="row">
             <mat-form-field appearance="outline">
               <mat-label>Purpose</mat-label>
-              <input matInput [(ngModel)]="credentialValueForm.purpose" />
+              <mat-select [(ngModel)]="credentialValueForm.purpose">
+                <mat-option *ngFor="let purpose of credentialPurposes" [value]="purpose.value">
+                  {{ purpose.label }}
+                </mat-option>
+              </mat-select>
+              <mat-hint>{{ purposeHint(credentialValueForm.purpose) }}</mat-hint>
             </mat-form-field>
+          </div>
+
+          <ng-container *ngIf="credentialValueForm.purpose === 'provider_api'">
+          <div class="row">
             <mat-form-field appearance="outline">
               <mat-label>Base URL</mat-label>
               <input matInput [(ngModel)]="credentialValueForm.base_url" placeholder="https://api.provider.example" />
@@ -431,6 +445,132 @@
               <textarea matInput rows="3" [(ngModel)]="credentialValueForm.billing_pricepoint_ids_text" placeholder="ppid-bill-1&#10;ppid-bill-2"></textarea>
             </mat-form-field>
           </div>
+          </ng-container>
+
+          <ng-container *ngIf="credentialValueForm.purpose === 'sms_api'">
+            <div class="row">
+              <mat-form-field appearance="outline">
+                <mat-label>Gateway URL</mat-label>
+                <input matInput [(ngModel)]="smsGatewayForm.url" placeholder="https://sms.arkesel.com/api/v2/sms/send" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Method</mat-label>
+                <mat-select [(ngModel)]="smsGatewayForm.method">
+                  <mat-option value="POST">POST</mat-option>
+                  <mat-option value="GET">GET</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+            <div class="row">
+              <mat-form-field appearance="outline">
+                <mat-label>API Key</mat-label>
+                <input matInput [type]="showSmsApiKey ? 'text' : 'password'" [(ngModel)]="smsGatewayForm.api_key" autocomplete="new-password" />
+                <button mat-icon-button matSuffix type="button" (click)="showSmsApiKey = !showSmsApiKey" [attr.aria-label]="showSmsApiKey ? 'Hide API key' : 'Show API key'">
+                  <mat-icon>{{ showSmsApiKey ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>API Key Header</mat-label>
+                <input matInput [(ngModel)]="smsGatewayForm.api_key_header" placeholder="api-key" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Sender ID</mat-label>
+                <input matInput [(ngModel)]="smsGatewayForm.sender_id" maxlength="11" />
+                <mat-hint>Shown as the SMS sender. Most networks cap this at 11 characters.</mat-hint>
+              </mat-form-field>
+            </div>
+            <div class="row">
+              <mat-form-field appearance="outline" class="metadata-field">
+                <mat-label>Request Body</mat-label>
+                <textarea matInput rows="3" [(ngModel)]="smsGatewayForm.body_template"></textarea>
+                <mat-hint>Placeholders: {{ '{{msisdn}}' }}, {{ '{{text}}' }}, {{ '{{sender}}' }}. Leave empty for gateways that take the message in the URL.</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="metadata-field">
+                <mat-label>Message</mat-label>
+                <textarea matInput rows="3" [(ngModel)]="smsGatewayForm.message_template" placeholder="Your Dayline login code is {{ '{{code}}' }}."></textarea>
+                <mat-hint>Must contain {{ '{{code}}' }}. Leave empty to use the built-in wording.</mat-hint>
+              </mat-form-field>
+            </div>
+            <div class="row">
+              <mat-form-field appearance="outline">
+                <mat-label>Success Field</mat-label>
+                <input matInput [(ngModel)]="smsGatewayForm.success_field" placeholder="status" />
+                <mat-hint>Response field that confirms delivery, for gateways that report failure with a 200.</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Success Value</mat-label>
+                <input matInput [(ngModel)]="smsGatewayForm.success_value" placeholder="success" />
+              </mat-form-field>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="credentialValueForm.purpose === 'otp_api'">
+            <p class="cred-hint">
+              Delegated OTP replaces built-in code delivery for this tenant: the provider mints, sends and checks
+              login codes. Request limits and the per-code attempt ceiling stay enforced here. Revoke the credential
+              to switch back.
+            </p>
+            <div class="row">
+              <mat-form-field appearance="outline">
+                <mat-label>Generate URL</mat-label>
+                <input matInput [(ngModel)]="otpGatewayForm.generate_url" placeholder="https://sms.arkesel.com/api/otp/generate" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Verify URL</mat-label>
+                <input matInput [(ngModel)]="otpGatewayForm.verify_url" placeholder="https://sms.arkesel.com/api/otp/verify" />
+              </mat-form-field>
+            </div>
+            <div class="row">
+              <mat-form-field appearance="outline">
+                <mat-label>API Key</mat-label>
+                <input matInput [type]="showOtpApiKey ? 'text' : 'password'" [(ngModel)]="otpGatewayForm.api_key" autocomplete="new-password" />
+                <button mat-icon-button matSuffix type="button" (click)="showOtpApiKey = !showOtpApiKey" [attr.aria-label]="showOtpApiKey ? 'Hide API key' : 'Show API key'">
+                  <mat-icon>{{ showOtpApiKey ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+                <mat-hint>Arkesel requires the account's main API key here; additional keys are rejected.</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>API Key Header</mat-label>
+                <input matInput [(ngModel)]="otpGatewayForm.api_key_header" placeholder="api-key" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Sender ID</mat-label>
+                <input matInput [(ngModel)]="otpGatewayForm.sender_id" maxlength="11" />
+              </mat-form-field>
+            </div>
+            <div class="row">
+              <mat-form-field appearance="outline">
+                <mat-label>Code Length</mat-label>
+                <input matInput type="number" min="6" max="15" [(ngModel)]="otpGatewayForm.length" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Expiry (minutes)</mat-label>
+                <input matInput type="number" min="1" max="10" [(ngModel)]="otpGatewayForm.expiry_minutes" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Delivery</mat-label>
+                <mat-select [(ngModel)]="otpGatewayForm.medium">
+                  <mat-option value="sms">SMS</mat-option>
+                  <mat-option value="voice">Voice call</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Code Type</mat-label>
+                <mat-select [(ngModel)]="otpGatewayForm.type">
+                  <mat-option value="numeric">Numeric</mat-option>
+                  <mat-option value="alphanumeric">Alphanumeric</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+            <div class="row">
+              <mat-form-field appearance="outline" class="metadata-field">
+                <mat-label>Message</mat-label>
+                <textarea matInput rows="2" [(ngModel)]="otpGatewayForm.message_template" placeholder="Your Dayline login code is %otp_code%."></textarea>
+                <mat-hint>Must contain %otp_code%, which the provider replaces with the code. Leave empty to use the built-in wording.</mat-hint>
+              </mat-form-field>
+            </div>
+          </ng-container>
+
           <p class="cred-hint">Sensitive fields (API Key, MT API Key, PSK) are masked. Values are encrypted server-side and never returned.</p>
           <div class="actions">
             <button mat-raised-button color="primary" (click)="saveCredentialValue()" [disabled]="credentialSaving || !selectedChannelId">

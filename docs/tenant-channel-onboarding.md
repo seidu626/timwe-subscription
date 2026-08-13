@@ -84,9 +84,10 @@ Global environment variables may still provide local-development or sandbox fall
 2. Add admin membership by Auth0 subject/email or approved bootstrap mechanism so the operator can manage only the intended tenant workspace unless platform scope is explicitly granted.
 3. Create the channel with `channel_key`, partner/provider mapping, gateway path, callback/postback URLs, and enabled capabilities.
 4. Attach the provider credential reference for `TIMWE_API_KEY`, `TIMWE_PSK`, callback signing material, postback signing material, and equivalent provider auth fields through the admin portal channel credential form.
-5. Set product defaults, userbase defaults, and cadence defaults for the tenant/channel before traffic is enabled.
-6. Run validation and smoke checks against sandbox or staging: tenant/channel resolution, capability refusal, signed callback handling, postback delivery, and cross-tenant rejection.
-7. Activate the tenant/channel only after the smoke evidence is recorded and any exposed credential-like values have been rotated.
+5. Bind the tenant's login-code delivery through the same credential form: purpose `sms_api` for the outbound SMS gateway, or purpose `otp_api` to delegate the whole code lifecycle to the provider instead. Configuration belongs in the portal, not in seed SQL or environment files; the form validates each blob against the same rules the runtime applies, so an invalid gateway is refused at bind time rather than at a user's first login.
+6. Set product defaults, userbase defaults, and cadence defaults for the tenant/channel before traffic is enabled.
+7. Run validation and smoke checks against sandbox or staging: tenant/channel resolution, capability refusal, signed callback handling, postback delivery, and cross-tenant rejection.
+8. Activate the tenant/channel only after the smoke evidence is recorded and any exposed credential-like values have been rotated.
 
 ## Credential Rotation Guidance
 
@@ -136,7 +137,7 @@ Query-param APIs (e.g. the legacy Arkesel v1 `/sms/api`) omit `body_template` an
 - `body_template` placeholders: `{{msisdn}}` (E.164 without plus), `{{text}}` (rendered message), `{{sender}}` (from `sender_id`). Values are JSON-escaped at render time; the same placeholders in `url` are URL-encoded.
 - Success markers are optional and both must pass when set; with neither, the HTTP status alone decides. Prefer `success_field` + `success_value` on JSON gateways: it reads one top-level field (numbers compare as written, so `"success_value": "200"` matches `{"code":200}`) and is immune to the key order and whitespace that Arkesel v2 varies between endpoints. `success_body_contains` is a raw substring match, for gateways whose body is not a JSON object or that report errors with HTTP 200 (Arkesel v1 does).
 - Prefer header auth over a key in the `url`: v2 keeps the key out of request URLs entirely. Error text never includes the URL query string either, so legacy `api_key`-in-URL configs still do not leak into logs.
-- Careerify binding: `seed_careerify_sms_gateway.sql` creates the credential row referencing `env://CAREERIFY_SMS_GATEWAY_CONFIG`; the operator sets that env var on acquisition-api with the blob above.
+- Binding: admin portal, tenant workspace, Credential binding, Direct value, purpose SMS gateway. The form defaults to the Arkesel v2 shape above and stores the key encrypted, so no gateway secret needs to reach an environment file. `seed_careerify_sms_gateway.sql` (row referencing `env://CAREERIFY_SMS_GATEWAY_CONFIG`) remains only as a local development convenience.
 - `message_template` is optional; `{{code}}` is its only placeholder. Omit it to use the default copy.
 - `url` and `body_template` are required; non-2xx gateway responses fail the OTP request with `PROVIDER_ERROR`.
 - A tenant with no ACTIVE `sms_api` credential fails closed: the OTP is persisted but not sent, and the app receives `PROVIDER_ERROR`.
@@ -165,7 +166,7 @@ The only implementation is Arkesel's OTP endpoints, and the blob is deliberately
 - Only `1104` (invalid) and `1105` (expired) are treated as verdicts on the user's code. Every other provider failure returns `PROVIDER_ERROR` and burns no attempt, because the code was never actually judged. A credential that fails to resolve also fails the request rather than falling back to the local path, which would be a silent change of authentication path.
 - Arkesel specifics: OTP requires the account's **main** API key and does not work with additional keys, which rules out per-tenant key isolation; it is billed to the **main balance**, not the SMS balance (one generate cost GHS 0.035, verify is free). Generate also returns a `ussd_code` the user can dial to retrieve the code when the SMS does not arrive; that value is not currently surfaced to the app.
 - At most one ACTIVE `otp_api` credential per tenant across ALL channels (`add_tenant_otp_api_unique_active.sql`), for the same reason as `sms_api` and more sharply, since this row decides which authentication path the tenant is on.
-- Careerify binding: `seed_careerify_otp_gateway.sql` is opt-in and references `env://CAREERIFY_OTP_GATEWAY_CONFIG`. Running it moves the tenant off the local lifecycle.
+- Binding: admin portal, tenant workspace, Credential binding, Direct value, purpose Delegated OTP. The form carries the provider defaults, validates the blob before it is stored, and asks the operator to confirm, because binding moves the tenant off the local lifecycle for every user at once. Revoking the credential switches it back.
 
 ## Callback Signing
 
