@@ -74,6 +74,19 @@
 {{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/acquisition/transactions/{id}/status" "METHOD" "GET" "BackendUrlPattern" "/v1/acquisition/transactions/{id}/status" "BackendHost" $service.acquisition_api_url) }},
 {{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/callbacks/{telco}" "METHOD" "POST" "BackendUrlPattern" "/v1/callbacks/{telco}" "BackendHost" $service.acquisition_api_url) }},
 
+{{/* Dayline mobile app routes. OTP request/verify and the catalog are unauthenticated
+     (verify is how the app obtains its session JWT in the first place); the
+     subscriptions routes require the Dayline app's own HS256 JWT, which
+     acquisition-api validates itself (DAYLINE_APP_JWT_SECRET) - the gateway only
+     passes Authorization through, it does not validate this token. */}}
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/app/auth/otp/request" "METHOD" "POST" "BackendUrlPattern" "/v1/app/auth/otp/request" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/app/auth/otp/verify" "METHOD" "POST" "BackendUrlPattern" "/v1/app/auth/otp/verify" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionApiEndpoint" (dict "Endpoint" "/v1/app/catalog" "METHOD" "GET" "BackendUrlPattern" "/v1/app/catalog" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionAppEndpoint" (dict "Endpoint" "/v1/app/subscriptions" "METHOD" "POST" "BackendUrlPattern" "/v1/app/subscriptions" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionAppEndpoint" (dict "Endpoint" "/v1/app/subscriptions" "METHOD" "GET" "BackendUrlPattern" "/v1/app/subscriptions" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionAppEndpoint" (dict "Endpoint" "/v1/app/subscriptions/{ref}/confirm" "METHOD" "POST" "BackendUrlPattern" "/v1/app/subscriptions/{ref}/confirm" "BackendHost" $service.acquisition_api_url) }},
+{{ template "AcquisitionAppEndpoint" (dict "Endpoint" "/v1/app/subscriptions/{ref}" "METHOD" "DELETE" "BackendUrlPattern" "/v1/app/subscriptions/{ref}" "BackendHost" $service.acquisition_api_url) }},
+
 {{/* Header Enrichment bootstrap and token exchange routes. */}}
 {{ template "HEApiEndpoint" (dict "Endpoint" "/v1/he/bootstrap" "METHOD" "GET" "BackendUrlPattern" "/v1/he/bootstrap" "BackendHost" $service.acquisition_api_url) }},
 {{ template "HEApiEndpoint" (dict "Endpoint" "/v1/he/bootstrap/campaign/{slug}" "METHOD" "GET" "BackendUrlPattern" "/v1/he/bootstrap/campaign/{slug}" "BackendHost" $service.acquisition_api_url) }},
