@@ -20,7 +20,7 @@ import (
 // stored channel preference) for a subscriber. Satisfied by
 // *repository.PushRepository; a narrow interface so tests can fake it.
 type PushRepo interface {
-	DeviceToken(ctx context.Context, msisdn string) (token string, found bool, err error)
+	DeviceToken(ctx context.Context, msisdn, tenantID string) (token string, found bool, err error)
 	PreferredChannel(ctx context.Context, msisdn string, partnerRoleID, productID int) (string, error)
 }
 
@@ -119,7 +119,11 @@ func (d *Dispatcher) resolveChannel(ctx context.Context, job domain.OutboxJob) (
 		return channelSMS, ""
 	}
 
-	token, hasDevice, err := d.pushRepo.DeviceToken(ctx, job.MSISDN)
+	var tenantID string
+	if job.TenantID != nil {
+		tenantID = *job.TenantID
+	}
+	token, hasDevice, err := d.pushRepo.DeviceToken(ctx, job.MSISDN, tenantID)
 	if err != nil {
 		d.logger.Warn("push device lookup failed, falling back to SMS", zap.String("job_id", job.JobID), zap.Error(err))
 		return channelSMS, ""

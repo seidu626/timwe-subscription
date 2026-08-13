@@ -23,7 +23,7 @@ func TestDeviceToken_ReturnsTokenWhenRegistered(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"fcm_token"}).AddRow("device-token-1")
 	mock.ExpectQuery("SELECT fcm_token").WithArgs("233241234567").WillReturnRows(rows)
 
-	token, found, err := repo.DeviceToken(context.Background(), "233241234567")
+	token, found, err := repo.DeviceToken(context.Background(), "233241234567", "")
 	if err != nil {
 		t.Fatalf("DeviceToken: %v", err)
 	}
@@ -40,7 +40,46 @@ func TestDeviceToken_NotFoundWhenNoDevice(t *testing.T) {
 	mock.ExpectQuery("SELECT fcm_token").WithArgs("233241234567").
 		WillReturnRows(sqlmock.NewRows([]string{"fcm_token"}))
 
-	token, found, err := repo.DeviceToken(context.Background(), "233241234567")
+	token, found, err := repo.DeviceToken(context.Background(), "233241234567", "")
+	if err != nil {
+		t.Fatalf("DeviceToken: %v", err)
+	}
+	if found || token != "" {
+		t.Errorf("got token=%q found=%v, want empty/false", token, found)
+	}
+}
+
+func TestDeviceToken_ScopesToTenantWhenTenantIDProvided(t *testing.T) {
+	repo, mock := newPushRepoWithMock(t)
+	tenantID := "11111111-1111-1111-1111-111111111111"
+	rows := sqlmock.NewRows([]string{"fcm_token"}).AddRow("tenant-a-token")
+	mock.ExpectQuery("SELECT ad.fcm_token").
+		WithArgs("233241234567", tenantID).
+		WillReturnRows(rows)
+
+	token, found, err := repo.DeviceToken(context.Background(), "233241234567", tenantID)
+	if err != nil {
+		t.Fatalf("DeviceToken: %v", err)
+	}
+	if !found || token != "tenant-a-token" {
+		t.Errorf("got token=%q found=%v, want tenant-a-token/true", token, found)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestDeviceToken_NotFoundWhenTenantScopedButNoMatchingDevice(t *testing.T) {
+	repo, mock := newPushRepoWithMock(t)
+	tenantID := "11111111-1111-1111-1111-111111111111"
+	mock.ExpectQuery("SELECT ad.fcm_token").
+		WithArgs("233241234567", tenantID).
+		WillReturnRows(sqlmock.NewRows([]string{"fcm_token"}))
+
+	// This is the cross-tenant misdelivery scenario: msisdn has a device,
+	// but it is registered under a different tenant_key than tenantID
+	// resolves to, so the tenant-scoped join returns no row.
+	token, found, err := repo.DeviceToken(context.Background(), "233241234567", tenantID)
 	if err != nil {
 		t.Fatalf("DeviceToken: %v", err)
 	}

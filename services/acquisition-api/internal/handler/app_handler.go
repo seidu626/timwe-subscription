@@ -96,6 +96,10 @@ func appErrorStatus(code domain.AppErrorCode) int {
 // On failure it writes the UNAUTHORIZED envelope itself and returns ok=false;
 // callers must return immediately when ok is false.
 func (h *AppHandler) authenticate(ctx *fasthttp.RequestCtx) (claims *appauth.Claims, ok bool) {
+	if h.jwtValidator == nil {
+		writeAppError(ctx, domain.AppErrUnauthorized, "session validation unavailable")
+		return nil, false
+	}
 	authHeader := string(ctx.Request.Header.Peek("Authorization"))
 	token := appauth.BearerToken(authHeader)
 	if token == "" {
@@ -149,6 +153,11 @@ func (h *AppHandler) VerifyOTP(ctx *fasthttp.RequestCtx) {
 	}
 	if err := h.otpService.VerifyOTP(req.MSISDN, req.Tenant, req.Code); err != nil {
 		writeAppErr(ctx, err)
+		return
+	}
+
+	if h.jwtValidator == nil {
+		writeAppError(ctx, domain.AppErrUnauthorized, "session issuance unavailable")
 		return
 	}
 

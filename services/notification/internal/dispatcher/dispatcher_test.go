@@ -10,17 +10,19 @@ import (
 )
 
 type fakePushRepo struct {
-	token       string
-	hasDevice   bool
-	deviceErr   error
-	preferred   string
-	prefErr     error
-	deviceCalls int
-	prefCalls   int
+	token        string
+	hasDevice    bool
+	deviceErr    error
+	preferred    string
+	prefErr      error
+	deviceCalls  int
+	prefCalls    int
+	lastTenantID string
 }
 
-func (f *fakePushRepo) DeviceToken(ctx context.Context, msisdn string) (string, bool, error) {
+func (f *fakePushRepo) DeviceToken(ctx context.Context, msisdn, tenantID string) (string, bool, error) {
 	f.deviceCalls++
+	f.lastTenantID = tenantID
 	if f.deviceErr != nil {
 		return "", false, f.deviceErr
 	}
@@ -122,5 +124,29 @@ func TestResolveChannel_SMSWhenPushNotWired(t *testing.T) {
 	channel, token := d.resolveChannel(context.Background(), testJob())
 	if channel != channelSMS || token != "" {
 		t.Errorf("got channel=%q token=%q, want SMS/empty", channel, token)
+	}
+}
+
+func TestResolveChannel_PassesJobTenantIDToDeviceLookup(t *testing.T) {
+	repo := &fakePushRepo{token: "device-token", hasDevice: true, preferred: "PUSH"}
+	d := NewDispatcher(nil, zap.NewNop(), Config{}).WithPush(repo, &fakePushSender{})
+
+	tenantID := "11111111-1111-1111-1111-111111111111"
+	job := testJob()
+	job.TenantID = &tenantID
+
+	d.resolveChannel(context.Background(), job)
+	if repo.lastTenantID != tenantID {
+		t.Errorf("lastTenantID = %q, want %q", repo.lastTenantID, tenantID)
+	}
+}
+
+func TestResolveChannel_EmptyTenantIDWhenJobHasNone(t *testing.T) {
+	repo := &fakePushRepo{token: "device-token", hasDevice: true, preferred: "PUSH"}
+	d := NewDispatcher(nil, zap.NewNop(), Config{}).WithPush(repo, &fakePushSender{})
+
+	d.resolveChannel(context.Background(), testJob())
+	if repo.lastTenantID != "" {
+		t.Errorf("lastTenantID = %q, want empty (no tenant on job)", repo.lastTenantID)
 	}
 }
