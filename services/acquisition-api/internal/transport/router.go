@@ -564,8 +564,16 @@ func NewRouter(
 			}
 			return
 
-		// Dayline mobile app endpoints
+		// Dayline mobile app endpoints. The Expo web build calls these
+		// cross-origin, so browsers preflight the JSON/Authorization
+		// requests; native app clients are unaffected by the CORS headers.
+		case strings.HasPrefix(path, "/v1/app/") && method == fasthttp.MethodOptions:
+			setAppCORS(ctx)
+			ctx.SetStatusCode(fasthttp.StatusNoContent)
+			return
+
 		case strings.EqualFold(path, "/v1/app/auth/otp/request"):
+			setAppCORS(ctx)
 			if method == fasthttp.MethodPost {
 				appHandler.RequestOTP(ctx)
 			} else {
@@ -574,6 +582,7 @@ func NewRouter(
 			return
 
 		case strings.EqualFold(path, "/v1/app/auth/otp/verify"):
+			setAppCORS(ctx)
 			if method == fasthttp.MethodPost {
 				appHandler.VerifyOTP(ctx)
 			} else {
@@ -582,6 +591,7 @@ func NewRouter(
 			return
 
 		case strings.EqualFold(path, "/v1/app/catalog"):
+			setAppCORS(ctx)
 			if method == fasthttp.MethodGet {
 				appHandler.Catalog(ctx)
 			} else {
@@ -590,6 +600,7 @@ func NewRouter(
 			return
 
 		case strings.EqualFold(path, "/v1/app/subscriptions"):
+			setAppCORS(ctx)
 			switch method {
 			case fasthttp.MethodPost:
 				appHandler.CreateSubscription(ctx)
@@ -601,6 +612,7 @@ func NewRouter(
 			return
 
 		case strings.HasPrefix(path, "/v1/app/subscriptions/") && strings.HasSuffix(path, "/confirm"):
+			setAppCORS(ctx)
 			if method == fasthttp.MethodPost {
 				appHandler.ConfirmSubscription(ctx)
 			} else {
@@ -609,6 +621,7 @@ func NewRouter(
 			return
 
 		case strings.HasPrefix(path, "/v1/app/subscriptions/"):
+			setAppCORS(ctx)
 			if method == fasthttp.MethodDelete {
 				appHandler.CancelSubscription(ctx)
 			} else {
@@ -626,6 +639,22 @@ func NewRouter(
 func isTenantCampaignPath(path string) bool {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	return len(parts) == 4 && parts[0] == "v1" && parts[1] == "campaigns"
+}
+
+// setAppCORS sets CORS headers for the Dayline app endpoints, which the Expo
+// web build consumes cross-origin with JSON bodies and bearer tokens. Auth is
+// carried by the Authorization header (never cookies), so echoing the origin
+// grants nothing an attacker's site could not already do without credentials.
+func setAppCORS(ctx *fasthttp.RequestCtx) {
+	origin := string(ctx.Request.Header.Peek("Origin"))
+	if origin == "" {
+		origin = "*"
+	}
+	ctx.Response.Header.Set("Access-Control-Allow-Origin", origin)
+	ctx.Response.Header.Set("Vary", "Origin")
+	ctx.Response.Header.Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+	ctx.Response.Header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	ctx.Response.Header.Set("Access-Control-Max-Age", "600")
 }
 
 // setPublicCORS sets permissive CORS headers for public endpoints (like analytics)
