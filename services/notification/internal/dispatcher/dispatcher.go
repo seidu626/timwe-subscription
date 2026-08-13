@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
@@ -14,6 +15,20 @@ import (
 	"github.com/seidu626/subscription-manager/notification/internal/repository"
 	"go.uber.org/zap"
 )
+
+// PushRepo resolves the Dayline app push-routing inputs (registered device,
+// stored channel preference) for a subscriber. Satisfied by
+// *repository.PushRepository; a narrow interface so tests can fake it.
+type PushRepo interface {
+	DeviceToken(ctx context.Context, msisdn string) (token string, found bool, err error)
+	PreferredChannel(ctx context.Context, msisdn string, partnerRoleID, productID int) (string, error)
+}
+
+// PushSender delivers a message via FCM. Satisfied by *push.FCMSender; a
+// narrow interface so tests can fake it without real Google credentials.
+type PushSender interface {
+	Send(ctx context.Context, deviceToken, body string) error
+}
 
 type Config struct {
 	BatchSize    int
@@ -31,6 +46,10 @@ type Dispatcher struct {
 	logger     *zap.Logger
 	httpClient *http.Client
 	cfg        Config
+
+	pushRepo     PushRepo
+	pushSender   PushSender
+	pushWarnOnce sync.Once
 }
 
 func NewDispatcher(repo *repository.OutboxRepository, logger *zap.Logger, cfg Config) *Dispatcher {
@@ -42,6 +61,19 @@ func NewDispatcher(repo *repository.OutboxRepository, logger *zap.Logger, cfg Co
 		},
 		cfg: cfg,
 	}
+}
+
+// WithPush wires PUSH-channel routing into the dispatcher. It is a separate,
+// chainable step (rather than a NewDispatcher parameter) so existing callers
+// that construct a Dispatcher without push support, including
+// metrics_test.go, keep compiling unchanged. pushSender may be nil when FCM
+// credentials are not configured (see docs/dayline-app-api-contract.md):
+// PUSH-eligible jobs then fall back to SMS with a once-per-process warning,
+// never dropped.
+func (d *Dispatcher) WithPush(pushRepo PushRepo, pushSender PushSender) *Dispatcher {
+	d.pushRepo = pushRepo
+	d.pushSender = pushSender
+	return d
 }
 
 func (d *Dispatcher) Run(ctx context.Context) error {
@@ -78,12 +110,59 @@ func (d *Dispatcher) processBatch(ctx context.Context) error {
 	return nil
 }
 
+// resolveChannel decides how job should be delivered: PUSH (with the
+// device token to send to) when the subscriber prefers PUSH, has a
+// registered device, and FCM is configured; SMS otherwise. Lookup failures
+// fail safe to SMS rather than blocking delivery.
+func (d *Dispatcher) resolveChannel(ctx context.Context, job domain.OutboxJob) (channel string, deviceToken string) {
+	if d.pushRepo == nil {
+		return channelSMS, ""
+	}
+
+	token, hasDevice, err := d.pushRepo.DeviceToken(ctx, job.MSISDN)
+	if err != nil {
+		d.logger.Warn("push device lookup failed, falling back to SMS", zap.String("job_id", job.JobID), zap.Error(err))
+		return channelSMS, ""
+	}
+
+	preferred, err := d.pushRepo.PreferredChannel(ctx, job.MSISDN, job.PartnerRoleID, job.ProductID)
+	if err != nil {
+		d.logger.Warn("push preference lookup failed, falling back to SMS", zap.String("job_id", job.JobID), zap.Error(err))
+		return channelSMS, ""
+	}
+
+	pushConfigured := d.pushSender != nil
+	decision := decideChannel(channelDecisionInput{
+		preferredChannel: preferred,
+		hasDevice:        hasDevice,
+		pushConfigured:   pushConfigured,
+	})
+	if decision == channelPush {
+		return channelPush, token
+	}
+
+	if hasDevice && preferred == channelPush && !pushConfigured {
+		d.pushWarnOnce.Do(func() {
+			d.logger.Warn("FCM_CREDENTIALS_JSON_PATH not set: PUSH-preferred jobs are falling back to SMS")
+		})
+	}
+	return channelSMS, ""
+}
+
 func (d *Dispatcher) processJob(ctx context.Context, job domain.OutboxJob) error {
-	err := d.sendMT(ctx, job)
+	channel, deviceToken := d.resolveChannel(ctx, job)
+
+	var err error
+	if channel == channelPush {
+		err = d.pushSender.Send(ctx, deviceToken, job.MessageText)
+	} else {
+		err = d.sendMT(ctx, job)
+	}
+
 	if err == nil {
 		recordDispatch(job, "sent")
-		d.logger.Info("dispatcher job sent", d.jobFields(job)...)
-		return d.repo.MarkSent(ctx, job.JobID)
+		d.logger.Info("dispatcher job sent", append(d.jobFields(job), zap.String("delivery_channel", channel))...)
+		return d.repo.MarkSent(ctx, job.JobID, channel)
 	}
 
 	if job.Attempt >= d.cfg.MaxAttempts {

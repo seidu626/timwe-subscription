@@ -77,6 +77,7 @@ import (
 	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/common/config"
 	_ "github.com/seidu626/subscription-manager/subscription-external/docs"
+	"github.com/seidu626/subscription-manager/subscription-external/internal/appauth"
 	renewalconfig "github.com/seidu626/subscription-manager/subscription-external/internal/config"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/handler"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/logging"
@@ -503,6 +504,17 @@ func main() {
 	acquisitionClient := service.NewAcquisitionClient(logger)
 	partnerHandler := handler.NewPartnerHandler(logger, svc, cfg).WithTenantRepo(repo).WithAcquisitionClient(acquisitionClient)
 
+	// Dayline app: feed, device registration, notification prefs.
+	// See docs/dayline-app-api-contract.md. The JWT validator fails closed:
+	// if DAYLINE_APP_JWT_SECRET is unset, AppHandler rejects every request
+	// with 401 UNAUTHORIZED instead of skipping authentication.
+	appFeedRepo := repository.NewAppFeedRepository(db, logger)
+	appJWTValidator, err := appauth.NewFromEnv()
+	if err != nil {
+		logger.Warn("DAYLINE_APP_JWT_SECRET not set: dayline app routes will reject all requests", zap.Error(err))
+	}
+	appHandler := handler.NewAppHandler(appFeedRepo, appJWTValidator, logger)
+
 	// Initialize monitoring and worker components
 	monitor := monitoring.NewChargingFailureMonitor(logger)
 
@@ -648,7 +660,7 @@ func main() {
 		}
 	}()
 
-	router := transport.NewRouter(subscriptionHandler, userBaseHandler, partnerHandler, monitoringHandler, workerHandler, renewalHandler)
+	router := transport.NewRouter(subscriptionHandler, userBaseHandler, partnerHandler, monitoringHandler, workerHandler, renewalHandler, appHandler)
 
 	// Wrap router with panic recovery middleware
 	panicMiddleware := middleware.NewPanicRecoveryMiddleware(logger, utils.GetGlobalPanicHandler())

@@ -80,15 +80,18 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 	return jobs, rows.Err()
 }
 
-func (r *OutboxRepository) MarkSent(ctx context.Context, jobID string) error {
+// MarkSent marks jobID delivered via channel ("SMS" or "PUSH"; see
+// docs/dayline-app-api-contract.md).
+func (r *OutboxRepository) MarkSent(ctx context.Context, jobID, channel string) error {
 	query := `
 		UPDATE message_outbox
 		SET status = 'SENT',
 		    sent_at = NOW(),
-		    last_error = NULL
+		    last_error = NULL,
+		    channel = $2
 		WHERE job_id = $1
 	`
-	_, err := r.db.ExecContext(ctx, query, jobID)
+	_, err := r.db.ExecContext(ctx, query, jobID, channel)
 	return err
 }
 
