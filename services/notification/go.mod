@@ -3,6 +3,7 @@ module github.com/seidu626/subscription-manager/notification
 go 1.24.2
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/lib/pq v1.10.9
@@ -14,11 +15,13 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/valyala/fasthttp v1.56.0
 	go.uber.org/zap v1.27.0
+	golang.org/x/oauth2 v0.24.0
 )
 
 replace github.com/seidu626/subscription-manager/common => ../../common
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/MicahParks/keyfunc/v2 v2.1.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

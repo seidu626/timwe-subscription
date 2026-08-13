@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/seidu626/subscription-manager/notification/internal/config"
 	"github.com/seidu626/subscription-manager/notification/internal/dispatcher"
+	"github.com/seidu626/subscription-manager/notification/internal/push"
 	"github.com/seidu626/subscription-manager/notification/internal/repository"
 	"go.uber.org/zap"
 )
@@ -43,7 +44,24 @@ func main() {
 	repo := repository.NewOutboxRepository(db, logger)
 	workerCfg := loadWorkerConfig()
 	dispatcher.RegisterMetrics()
-	worker := dispatcher.NewDispatcher(repo, logger, workerCfg)
+
+	// Dayline app PUSH channel. See docs/dayline-app-api-contract.md: when
+	// FCM_CREDENTIALS_JSON_PATH is unset, fcmSender stays nil and the
+	// dispatcher falls back to SMS for every job (with a once-per-process
+	// warning) instead of skipping delivery. pushSender is left as a true
+	// nil interface (not a nil *push.FCMSender) so the dispatcher's
+	// "is push configured" check behaves correctly.
+	pushRepo := repository.NewPushRepository(db, logger)
+	fcmSender, err := push.NewFCMSenderFromEnv(context.Background())
+	if err != nil {
+		logger.Warn("FCM not configured: dayline app PUSH jobs will fall back to SMS", zap.Error(err))
+	}
+	var pushSender dispatcher.PushSender
+	if fcmSender != nil {
+		pushSender = fcmSender
+	}
+
+	worker := dispatcher.NewDispatcher(repo, logger, workerCfg).WithPush(pushRepo, pushSender)
 	metricsAddr := getEnvString("NOTIFICATION_WORKER_METRICS_ADDR", defaultMetricsAddr)
 	metricsSrv := startMetricsServer(logger, metricsAddr)
 
