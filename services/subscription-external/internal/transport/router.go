@@ -11,7 +11,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler *handler.UserBaseHandler, partnerHandler *handler.PartnerHandler, monitoringHandler *handler.MonitoringHandler, workerHandler *handler.WorkerHandler, renewalHandler *handler.RenewalHandler) fasthttp.RequestHandler {
+func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler *handler.UserBaseHandler, partnerHandler *handler.PartnerHandler, monitoringHandler *handler.MonitoringHandler, workerHandler *handler.WorkerHandler, renewalHandler *handler.RenewalHandler, appHandler *handler.AppHandler) fasthttp.RequestHandler {
 	router := func(ctx *fasthttp.RequestCtx) {
 		path := string(ctx.Path())
 		method := string(ctx.Method())
@@ -630,6 +630,47 @@ func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler
 				return
 			}
 			partnerHandler.PartnerOptinConfirmHandler(ctx)
+
+		// Dayline app: content feed, device registration, notification prefs.
+		// See docs/dayline-app-api-contract.md. Auth: Authorization: Bearer <jwt>
+		// (HS256, DAYLINE_APP_JWT_SECRET), enforced inside AppHandler.
+		case strings.EqualFold(path, "/v1/app/feed"):
+			if method == fasthttp.MethodGet {
+				appHandler.GetFeed(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+		case strings.HasPrefix(path, "/v1/app/feed/items/") && strings.HasSuffix(path, "/read"):
+			if method == fasthttp.MethodPost {
+				id := strings.TrimSuffix(strings.TrimPrefix(path, "/v1/app/feed/items/"), "/read")
+				appHandler.MarkFeedItemRead(ctx, id)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+		case strings.HasPrefix(path, "/v1/app/feed/items/"):
+			if method == fasthttp.MethodGet {
+				id := strings.TrimPrefix(path, "/v1/app/feed/items/")
+				appHandler.GetFeedItem(ctx, id)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+		case strings.EqualFold(path, "/v1/app/devices"):
+			if method == fasthttp.MethodPost {
+				appHandler.RegisterDevice(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+		case strings.EqualFold(path, "/v1/app/notification-prefs"):
+			if method == fasthttp.MethodPut {
+				appHandler.SetNotificationPrefs(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
 
 		default:
 			log.Printf("Processing unknown request: %s", ctx.Request.String())
