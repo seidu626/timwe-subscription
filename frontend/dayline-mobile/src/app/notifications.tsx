@@ -27,6 +27,9 @@ export default function NotificationsScreen() {
   // subscription starts on the conservative "Both" default locally and only
   // diverges once the subscriber explicitly changes it on this device.
   const [prefs, setPrefs] = useState<Record<string, NotificationChannel>>({});
+  // Prefs only apply to active subscriptions; cancelled/failed rows must not
+  // leave the section silently blank.
+  const activeSubscriptions = subscriptions.data?.filter((s) => s.status === 'ACTIVE') ?? [];
 
   function selectChannel(productSlug: string, channel: NotificationChannel) {
     setPrefs((prev) => ({ ...prev, [productSlug]: channel }));
@@ -53,7 +56,7 @@ export default function NotificationsScreen() {
           onRetry={() => subscriptions.refetch()}
         />
       ) : null}
-      {subscriptions.isSuccess && subscriptions.data.length === 0 ? (
+      {subscriptions.isSuccess && activeSubscriptions.length === 0 ? (
         <EmptyState
           icon="notifications-none"
           title="No active subscriptions"
@@ -62,9 +65,7 @@ export default function NotificationsScreen() {
       ) : null}
 
       <View style={styles.prefList}>
-        {subscriptions.data
-          ?.filter((s) => s.status === 'ACTIVE')
-          .map((subscription) => {
+        {activeSubscriptions.map((subscription) => {
             const current = prefs[subscription.product_slug] ?? 'BOTH';
             return (
               <Card key={subscription.ref} style={styles.prefCard}>
