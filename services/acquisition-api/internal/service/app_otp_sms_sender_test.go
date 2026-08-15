@@ -310,3 +310,58 @@ func TestSMSGatewayConfigValidateURLPlaceholders(t *testing.T) {
 		t.Error("config without body_template or url placeholders should be invalid")
 	}
 }
+
+func TestSendTestMessageUsesDefaultTextAndNormalizesMSISDN(t *testing.T) {
+	var gotBody map[string]interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			t.Errorf("gateway received invalid JSON: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	sender := newTestSMSSender(&smsGatewayConfig{
+		URL:          srv.URL,
+		BodyTemplate: `{"message":"{{text}}","recipients":["{{msisdn}}"]}`,
+		SenderID:     "Dayline",
+	}, nil)
+
+	if err := sender.SendTestMessage("0241234567", "careerify", "GH", ""); err != nil {
+		t.Fatalf("SendTestMessage: %v", err)
+	}
+	if gotBody["message"] != defaultTestMessage {
+		t.Errorf("message = %v, want the default test message", gotBody["message"])
+	}
+	recipients, _ := gotBody["recipients"].([]interface{})
+	if len(recipients) != 1 || recipients[0] != "233241234567" {
+		t.Errorf("recipients = %v, want normalized [233241234567]", gotBody["recipients"])
+	}
+}
+
+func TestSendTestMessageCustomTextAndGatewayFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+
+	sender := newTestSMSSender(&smsGatewayConfig{
+		URL:          srv.URL,
+		BodyTemplate: `{"message":"{{text}}"}`,
+	}, nil)
+
+	err := sender.SendTestMessage("233241234567", "careerify", "GH", "hello binding")
+	if err == nil {
+		t.Fatal("expected gateway failure error")
+	}
+	if !strings.Contains(err.Error(), "403") {
+		t.Errorf("error %q should mention the gateway status", err)
+	}
+}
+
+func TestSendTestMessageRejectsInvalidMSISDN(t *testing.T) {
+	sender := newTestSMSSender(&smsGatewayConfig{URL: "http://unused", BodyTemplate: "{}"}, nil)
+	if err := sender.SendTestMessage("12ab", "careerify", "GH", ""); err == nil {
+		t.Fatal("expected msisdn validation error")
+	}
+}

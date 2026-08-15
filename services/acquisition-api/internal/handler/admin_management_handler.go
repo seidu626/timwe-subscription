@@ -17,18 +17,31 @@ import (
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/valyala/fasthttp"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
 )
 
 type AdminManagementHandler struct {
-	service *service.AdminManagementService
-	logger  *zap.Logger
+	service   *service.AdminManagementService
+	logger    *zap.Logger
+	smsTester SMSTester
+}
+
+// SMSTester sends an operator-triggered test SMS through the tenant's bound
+// gateway; implemented by service.TenantSMSSender.
+type SMSTester interface {
+	SendTestMessage(msisdn, tenantKey, country, message string) error
 }
 
 func NewAdminManagementHandler(service *service.AdminManagementService, logger *zap.Logger) *AdminManagementHandler {
 	return &AdminManagementHandler{service: service, logger: logger}
+}
+
+// SetSMSTester wires the tenant SMS gateway sender used by SendTestSMS.
+func (h *AdminManagementHandler) SetSMSTester(t SMSTester) {
+	h.smsTester = t
 }
 
 type listProductsResponse struct {
@@ -648,6 +661,50 @@ func (h *AdminManagementHandler) BindChannelCredential(ctx *fasthttp.RequestCtx)
 		return
 	}
 	writeJSON(ctx, fasthttp.StatusCreated, credential)
+}
+
+type testSMSPayload struct {
+	MSISDN  string `json:"msisdn"`
+	Message string `json:"message,omitempty"`
+}
+
+// SendTestSMS pushes one operator-triggered SMS through the tenant's bound
+// sms_api gateway so a credential binding can be proven from the console.
+func (h *AdminManagementHandler) SendTestSMS(ctx *fasthttp.RequestCtx) {
+	tenant, _, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	if h.smsTester == nil {
+		ctx.Error("SMS test sender is not configured", fasthttp.StatusServiceUnavailable)
+		return
+	}
+	var req testSMSPayload
+	decoder := json.NewDecoder(bytes.NewReader(ctx.PostBody()))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.MSISDN) == "" {
+		ctx.Error("msisdn is required", fasthttp.StatusBadRequest)
+		return
+	}
+	if err := h.smsTester.SendTestMessage(req.MSISDN, tenant.TenantKey, tenant.DefaultCountry, req.Message); err != nil {
+		h.logger.Warn("admin test sms failed",
+			zap.String("tenant_key", tenant.TenantKey),
+			zap.String("msisdn", pii.MaskMSISDN(req.MSISDN)),
+			zap.Error(err))
+		// Sender errors already redact secrets/URLs; surface them so the
+		// operator sees why the gateway rejected the send.
+		writeJSON(ctx, fasthttp.StatusBadGateway, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, map[string]string{
+		"status": "sent",
+		"msisdn": pii.MaskMSISDN(req.MSISDN),
+	})
 }
 
 type channelUpdatePayload struct {

@@ -96,6 +96,9 @@ export class TenantListComponent implements OnInit, OnDestroy {
   credentialValueForm = this.emptyCredentialValueForm();
   smsGatewayForm = this.emptySmsGatewayForm();
   otpGatewayForm = this.emptyOtpGatewayForm();
+  testSmsMsisdn = '';
+  testSmsMessage = '';
+  testSmsSending = false;
   metadataText = '{}';
   private readonly destroy$ = new Subject<void>();
   private workspaceKey = '';
@@ -670,6 +673,26 @@ export class TenantListComponent implements OnInit, OnDestroy {
     this.submitCredentialValue(purpose, value, 'Delegated OTP bound', () => {
       this.otpGatewayForm = this.emptyOtpGatewayForm();
       this.showOtpApiKey = false;
+    });
+  }
+
+  /** Send one test SMS through the tenant's bound sms_api gateway. */
+  sendTestSms(): void {
+    const msisdn = this.testSmsMsisdn.trim();
+    if (!msisdn) {
+      this.toast('Enter a phone number to send the test SMS to');
+      return;
+    }
+    this.testSmsSending = true;
+    this.tenantService.sendTestSMS(msisdn, this.testSmsMessage).subscribe({
+      next: (res) => {
+        this.testSmsSending = false;
+        this.toast(`Test SMS sent to ${res.msisdn}`);
+      },
+      error: (err) => {
+        this.testSmsSending = false;
+        this.toast(this.extractErrorMessage(err, 'Test SMS failed'));
+      }
     });
   }
 

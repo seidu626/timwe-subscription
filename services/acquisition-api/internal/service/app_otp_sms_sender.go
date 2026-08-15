@@ -139,7 +139,38 @@ func (s *TenantSMSSender) SendLoginOTP(msisdn, tenantKey, code string) error {
 		messageTemplate = defaultOTPMessageTemplate
 	}
 	text := strings.ReplaceAll(messageTemplate, "{{code}}", code)
+	return s.dispatch(ctx, cfg, tenantKey, msisdn, text, code, "app login otp sms dispatched")
+}
 
+// defaultTestMessage is sent by the admin console's gateway test button when
+// the operator does not type their own text.
+const defaultTestMessage = "Test message from the admin console: this SMS gateway binding is working."
+
+// SendTestMessage delivers an operator-triggered test SMS through the
+// tenant's bound gateway so a binding is proven before subscribers depend on
+// it. It uses the exact same resolution and dispatch path as login OTPs; only
+// the message differs. country drives MSISDN normalization (tenant default).
+func (s *TenantSMSSender) SendTestMessage(msisdn, tenantKey, country, message string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	normalized, err := normalizeMSISDNForCountry(msisdn, country)
+	if err != nil {
+		return err
+	}
+	cfg, err := s.resolveConfig(ctx, tenantKey)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(message) == "" {
+		message = defaultTestMessage
+	}
+	return s.dispatch(ctx, cfg, tenantKey, normalized, message, "", "admin test sms dispatched")
+}
+
+// dispatch renders the gateway templates and performs one send. scrub, when
+// non-empty, is removed from logged response snippets (the OTP code).
+func (s *TenantSMSSender) dispatch(ctx context.Context, cfg *smsGatewayConfig, tenantKey, msisdn, text, scrub, successLog string) error {
 	values := map[string]string{
 		"msisdn": msisdn,
 		"text":   text,
@@ -185,7 +216,10 @@ func (s *TenantSMSSender) SendLoginOTP(msisdn, tenantKey, code string) error {
 	// is for failure diagnostics only. The OTP code is scrubbed in case the
 	// gateway echoes the message back.
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-	safeSnippet := strings.ReplaceAll(string(body), code, "******")
+	safeSnippet := string(body)
+	if scrub != "" {
+		safeSnippet = strings.ReplaceAll(safeSnippet, scrub, "******")
+	}
 	if len(safeSnippet) > 512 {
 		safeSnippet = safeSnippet[:512]
 	}
@@ -209,7 +243,7 @@ func (s *TenantSMSSender) SendLoginOTP(msisdn, tenantKey, code string) error {
 		return err
 	}
 
-	s.logger.Info("app login otp sms dispatched",
+	s.logger.Info(successLog,
 		zap.String("tenant_key", tenantKey),
 		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 	)

@@ -258,6 +258,15 @@ func NewRouter(
 			}
 			return
 
+		// Operator-triggered test SMS through the tenant's bound gateway
+		case strings.EqualFold(path, "/v1/admin/sms/test"):
+			if method == fasthttp.MethodPost {
+				adminManagementHandler.SendTestSMS(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		// Admin channel catalog
 		case strings.EqualFold(path, "/v1/admin/channels"):
 			switch method {

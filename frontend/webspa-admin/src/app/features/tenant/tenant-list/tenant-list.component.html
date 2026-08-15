@@ -632,6 +632,34 @@
             <tr mat-row *matRowDef="let row; columns: credentialDisplayedColumns;"></tr>
           </table>
         </div>
+
+        <!-- Prove the SMS gateway binding with a real send -->
+        <div class="section-title cred-history-title">
+          <div>
+            <p class="eyebrow">Prove the binding</p>
+            <h4>Send test SMS</h4>
+          </div>
+        </div>
+        <p class="cred-hint">
+          Sends one real SMS through this tenant's bound SMS gateway credential, on the exact path
+          login codes take. Use your own number; the send costs one gateway credit.
+        </p>
+        <div class="row">
+          <mat-form-field appearance="outline">
+            <mat-label>Phone number</mat-label>
+            <input matInput [(ngModel)]="testSmsMsisdn" placeholder="0241234567" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="metadata-field">
+            <mat-label>Message (optional)</mat-label>
+            <input matInput [(ngModel)]="testSmsMessage" placeholder="Defaults to a standard test message" />
+          </mat-form-field>
+        </div>
+        <div class="actions">
+          <button mat-stroked-button color="primary" (click)="sendTestSms()"
+            [disabled]="testSmsSending || !testSmsMsisdn.trim()">
+            {{ testSmsSending ? 'Sending...' : 'Send test SMS' }}
+          </button>
+        </div>
       </section>
     </mat-card-content>
   </mat-card>

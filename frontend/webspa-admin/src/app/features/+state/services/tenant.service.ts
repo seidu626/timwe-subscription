@@ -160,6 +160,18 @@ export class TenantService {
     return this.bindChannelCredential(channelId, payload);
   }
 
+  /** Push one operator-triggered SMS through the tenant's bound sms_api gateway. */
+  sendTestSMS(msisdn: string, message?: string): Observable<{ status: string; msisdn: string }> {
+    const body: { msisdn: string; message?: string } = { msisdn };
+    if (message?.trim()) {
+      body.message = message.trim();
+    }
+    return this.http.post<{ status: string; msisdn: string }>(
+      `${environment.acquisitionApiEndpoint}/v1/admin/sms/test`,
+      body
+    );
+  }
+
   revokeChannelCredential(channelId: string, credentialId: string): Observable<RevokeCredentialResponse> {
     return this.http.delete<RevokeCredentialResponse>(
       `${this.channelsUrl}/${encodeURIComponent(channelId)}/credentials/${encodeURIComponent(credentialId)}`

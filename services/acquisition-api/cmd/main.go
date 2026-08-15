@@ -175,6 +175,9 @@ func main() {
 	// provider_api). Tenants without an ACTIVE sms_api credential fail closed:
 	// RequestOTP surfaces PROVIDER_ERROR and nothing is sent.
 	appOTPSender := service.NewTenantSMSSender(db, logger)
+	// The admin console's "send test SMS" button reuses the same gateway
+	// sender so a binding is proven on the exact path OTPs take.
+	adminManagementHandler.SetSMSTester(appOTPSender)
 	appOTPService := service.NewAppOTPService(appOTPRepo, appOTPSender, logger)
 	// Tenants that additionally hold an ACTIVE 'otp_api' credential delegate
 	// code custody and delivery to that provider instead; the rate limit and
