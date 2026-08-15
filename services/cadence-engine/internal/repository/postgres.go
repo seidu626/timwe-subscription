@@ -708,6 +708,21 @@ func (r *CadenceRepository) AdvanceStateTx(ctx context.Context, tx *sql.Tx, subs
 	return err
 }
 
+// RescheduleStateTx moves a state to its next slot after a FAILED job without
+// advancing the content cursor: the content was never delivered, so the same
+// item is due again at the next scheduled occurrence.
+func (r *CadenceRepository) RescheduleStateTx(ctx context.Context, tx *sql.Tx, subscriptionID int64, seriesID int64, nextSendAt time.Time) error {
+	query := `
+		UPDATE subscription_message_state
+		SET next_send_at = $1,
+		    inflight_job_id = NULL,
+		    inflight_until = NULL
+		WHERE subscription_id = $2 AND series_id = $3
+	`
+	_, err := tx.ExecContext(ctx, query, nextSendAt, subscriptionID, seriesID)
+	return err
+}
+
 func (r *CadenceRepository) ListMissingStates(ctx context.Context, limit int) ([]domain.MissingState, error) {
 	query := `
 		SELECT s.id, pms.tenant_id::text, pms.channel_id::text, pms.id, s.start_date,
@@ -780,6 +795,39 @@ func (r *CadenceRepository) ClaimSentOutboxTx(ctx context.Context, tx *sql.Tx, l
 		SELECT job_id, tenant_id::text, channel_id::text, subscription_id, series_id, planned_send_at, sent_at
 		FROM message_outbox
 		WHERE status = 'SENT' AND processed_at IS NULL
+		ORDER BY planned_send_at
+		LIMIT $1
+		FOR UPDATE SKIP LOCKED
+	`
+	rows, err := tx.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []domain.OutboxJob
+	for rows.Next() {
+		var job domain.OutboxJob
+		var sentAt sql.NullTime
+		var tenantID, channelID sql.NullString
+		if err := rows.Scan(&job.JobID, &tenantID, &channelID, &job.SubscriptionID, &job.SeriesID, &job.PlannedSendAt, &sentAt); err != nil {
+			return nil, err
+		}
+		job.TenantID = nullStringPtr(tenantID)
+		job.ChannelID = nullStringPtr(channelID)
+		if sentAt.Valid {
+			job.SentAt = &sentAt.Time
+		}
+		jobs = append(jobs, job)
+	}
+	return jobs, rows.Err()
+}
+
+func (r *CadenceRepository) ClaimFailedOutboxTx(ctx context.Context, tx *sql.Tx, limit int) ([]domain.OutboxJob, error) {
+	query := `
+		SELECT job_id, tenant_id::text, channel_id::text, subscription_id, series_id, planned_send_at, sent_at
+		FROM message_outbox
+		WHERE status = 'FAILED' AND processed_at IS NULL
 		ORDER BY planned_send_at
 		LIMIT $1
 		FOR UPDATE SKIP LOCKED
