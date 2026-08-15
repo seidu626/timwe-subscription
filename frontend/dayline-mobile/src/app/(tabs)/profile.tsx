@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { Alert, Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
 import { Divider } from '@/components/Divider';
@@ -15,7 +15,17 @@ export default function ProfileScreen() {
   const { dataSaverEnabled, setDataSaverEnabled } = useSettings();
 
   function handleSignOut() {
-    Alert.alert('Sign out?', 'You can sign back in anytime with your phone number.', [
+    const title = 'Sign out?';
+    const body = 'You can sign back in anytime with your phone number.';
+    // Alert.alert with buttons is a no-op on react-native-web, so the web
+    // build must confirm through the browser dialog instead.
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n${body}`)) {
+        signOut();
+      }
+      return;
+    }
+    Alert.alert(title, body, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
     ]);
