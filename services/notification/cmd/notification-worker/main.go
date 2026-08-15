@@ -61,7 +61,15 @@ func main() {
 		pushSender = fcmSender
 	}
 
-	worker := dispatcher.NewDispatcher(repo, logger, workerCfg).WithPush(pushRepo, pushSender)
+	// Tenants with an ACTIVE sms_api gateway credential (tenant_channel_credentials)
+	// send content SMS through that HTTP gateway instead of the TIMWE MT
+	// endpoint, which has been failing on prod since May. See
+	// internal/dispatcher/tenant_gateway.go.
+	tenantGateway := dispatcher.NewTenantGatewaySender(db, logger)
+
+	worker := dispatcher.NewDispatcher(repo, logger, workerCfg).
+		WithPush(pushRepo, pushSender).
+		WithTenantGateway(tenantGateway)
 	metricsAddr := getEnvString("NOTIFICATION_WORKER_METRICS_ADDR", defaultMetricsAddr)
 	metricsSrv := startMetricsServer(logger, metricsAddr)
 

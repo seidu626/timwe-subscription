@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
 	"github.com/seidu626/subscription-manager/notification/internal/observability"
 	"github.com/seidu626/subscription-manager/notification/internal/repository"
@@ -28,6 +29,16 @@ type PushRepo interface {
 // narrow interface so tests can fake it without real Google credentials.
 type PushSender interface {
 	Send(ctx context.Context, deviceToken, body string) error
+}
+
+// TenantGateway resolves and sends content SMS through a tenant's configured
+// HTTP gateway (tenant_channel_credentials purpose sms_api). Satisfied by
+// *TenantGatewaySender; a narrow interface so tests can fake it without a
+// real DB. Resolve returning (nil, nil) means the tenant has no ACTIVE
+// sms_api binding, and the caller should fall back to the TIMWE MT path.
+type TenantGateway interface {
+	Resolve(ctx context.Context, tenantID string) (*smsGatewayConfig, error)
+	Send(ctx context.Context, cfg *smsGatewayConfig, msisdn, text string) error
 }
 
 type Config struct {
@@ -50,6 +61,8 @@ type Dispatcher struct {
 	pushRepo     PushRepo
 	pushSender   PushSender
 	pushWarnOnce sync.Once
+
+	tenantGateway TenantGateway
 }
 
 func NewDispatcher(repo *repository.OutboxRepository, logger *zap.Logger, cfg Config) *Dispatcher {
@@ -73,6 +86,16 @@ func NewDispatcher(repo *repository.OutboxRepository, logger *zap.Logger, cfg Co
 func (d *Dispatcher) WithPush(pushRepo PushRepo, pushSender PushSender) *Dispatcher {
 	d.pushRepo = pushRepo
 	d.pushSender = pushSender
+	return d
+}
+
+// WithTenantGateway wires per-tenant SMS gateway routing into the
+// dispatcher. It is chainable like WithPush so existing callers that
+// construct a Dispatcher without it keep compiling unchanged. When gateway
+// is nil, or a job's TenantID is unset, SMS keeps going through the TIMWE MT
+// path exactly as before.
+func (d *Dispatcher) WithTenantGateway(gateway TenantGateway) *Dispatcher {
+	d.tenantGateway = gateway
 	return d
 }
 
@@ -168,7 +191,7 @@ func (d *Dispatcher) processJob(ctx context.Context, job domain.OutboxJob) error
 	if channel == channelPush {
 		err = d.pushSender.Send(ctx, deviceToken, job.MessageText)
 	} else {
-		err = d.sendMT(ctx, job)
+		err = d.sendSMS(ctx, job)
 	}
 
 	if err == nil {
@@ -198,6 +221,30 @@ func (d *Dispatcher) jobFields(job domain.OutboxJob) []zap.Field {
 		zap.String("worker", labels.Worker),
 		zap.Int("attempt", job.Attempt),
 	}
+}
+
+// sendSMS routes a content SMS job. A tenant with an ACTIVE sms_api gateway
+// binding sends through that HTTP gateway (e.g. Arkesel v2); every other
+// tenant keeps going through the TIMWE MT path, which has been failing on
+// prod since May (106k FAILED jobs, "MT status 400/403").
+func (d *Dispatcher) sendSMS(ctx context.Context, job domain.OutboxJob) error {
+	if d.tenantGateway != nil && job.TenantID != nil && *job.TenantID != "" {
+		cfg, err := d.tenantGateway.Resolve(ctx, *job.TenantID)
+		if err != nil {
+			return err
+		}
+		if cfg != nil {
+			if err := d.tenantGateway.Send(ctx, cfg, job.MSISDN, job.MessageText); err != nil {
+				return err
+			}
+			d.logger.Info("content sms dispatched via tenant gateway",
+				zap.String("tenant_id", *job.TenantID),
+				zap.String("msisdn", pii.MaskMSISDN(job.MSISDN)),
+			)
+			return nil
+		}
+	}
+	return d.sendMT(ctx, job)
 }
 
 func (d *Dispatcher) sendMT(ctx context.Context, job domain.OutboxJob) error {
