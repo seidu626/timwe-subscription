@@ -34,6 +34,7 @@ function RootNavigator() {
         <Stack.Screen name="product/[slug]/confirm" options={{ presentation: 'formSheet' }} />
         <Stack.Screen name="product/[slug]/success" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="content/[id]" />
+        <Stack.Screen name="tenant/[tenantKey]" />
         <Stack.Screen name="notifications" />
       </Stack.Protected>
       <Stack.Protected guard={status !== 'signedIn'}>

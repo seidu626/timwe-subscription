@@ -3,13 +3,19 @@ import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
+import { ProductRow } from '@/components/ProductRow';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
 import { useMarketplace } from '@/hooks/useCatalog';
 import { useFeed } from '@/hooks/useFeed';
 import { colors, radii, spacing, typography } from '@/theme/tokens';
-import { formatBillingCycle, formatCurrency } from '@/utils/format';
-import type { CatalogProduct, MarketplaceTenant } from '@/api/types';
+import { pluralize } from '@/utils/format';
+import type { MarketplaceTenant } from '@/api/types';
+
+// A tenant section previews at most this many products before the shopper
+// must open the full storefront; keeps Discover a single bounded stream
+// regardless of catalog size.
+const TENANT_PREVIEW_LIMIT = 3;
 
 export default function DiscoverScreen() {
   const catalog = useMarketplace();
@@ -65,6 +71,9 @@ export default function DiscoverScreen() {
 }
 
 function TenantSection({ tenant }: { tenant: MarketplaceTenant }) {
+  const previewProducts = tenant.products.slice(0, TENANT_PREVIEW_LIMIT);
+  const remaining = tenant.products.length - previewProducts.length;
+
   return (
     <View style={styles.tenantSection}>
       <View style={styles.tenantHeader}>
@@ -72,47 +81,26 @@ function TenantSection({ tenant }: { tenant: MarketplaceTenant }) {
           <MaterialIcons name="storefront" size={18} color={colors.primary} />
         </View>
         <View style={styles.tenantTextGroup}>
-          <Text style={styles.tenantName}>{tenant.tenant_name}</Text>
-          <Text style={styles.tenantMeta}>
-            {tenant.products.length === 1 ? '1 product' : `${tenant.products.length} products`}
+          <Text style={styles.tenantName} numberOfLines={1} ellipsizeMode="tail">
+            {tenant.tenant_name}
           </Text>
+          <Text style={styles.tenantMeta}>{pluralize(tenant.products.length, 'product')}</Text>
         </View>
       </View>
       <View style={styles.productList}>
-        {tenant.products.map((product) => (
+        {previewProducts.map((product) => (
           <ProductRow key={product.slug} product={product} />
         ))}
       </View>
+      {remaining > 0 ? (
+        <Link href={{ pathname: '/tenant/[tenantKey]', params: { tenantKey: tenant.tenant_key } }} asChild>
+          <Pressable accessibilityRole="button" style={styles.viewAllRow}>
+            <Text style={styles.viewAllText}>View all {pluralize(tenant.products.length, 'product')}</Text>
+            <MaterialIcons name="chevron-right" size={20} color={colors.primary} />
+          </Pressable>
+        </Link>
+      ) : null}
     </View>
-  );
-}
-
-function ProductRow({ product }: { product: CatalogProduct }) {
-  return (
-    <Link href={{ pathname: '/product/[slug]', params: { slug: product.slug } }} asChild>
-      <Pressable accessibilityRole="button">
-        <Card style={styles.productRow}>
-          <View style={styles.productLeft}>
-            <View style={styles.productIcon}>
-              <MaterialIcons name="menu-book" size={22} color={colors.primary} />
-            </View>
-            <View>
-              <Text style={styles.productName}>{product.name}</Text>
-              <Text style={styles.productTagline}>{product.tagline}</Text>
-            </View>
-          </View>
-          <View style={styles.productRight}>
-            <View style={styles.priceChip}>
-              <Text style={styles.priceChipText}>
-                {formatCurrency(product.price, product.currency)}
-                {formatBillingCycle(product.billing_cycle)}
-              </Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={22} color={colors.onSurfaceVariant} />
-          </View>
-        </Card>
-      </Pressable>
-    </Link>
   );
 }
 
@@ -187,9 +175,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15,110,82,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   tenantTextGroup: {
     gap: 0,
+    flex: 1,
+    minWidth: 0,
   },
   tenantName: {
     ...typography.headlineMd,
@@ -204,52 +195,15 @@ const styles = StyleSheet.create({
   productList: {
     gap: spacing.stackMd,
   },
-  productRow: {
+  viewAllRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  productLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.stackMd,
-    flexShrink: 1,
-  },
-  productIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceVariant,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.stackSm,
+    paddingVertical: spacing.stackSm,
   },
-  productName: {
-    ...typography.headlineMd,
-    fontSize: 18,
-    lineHeight: 24,
-    color: colors.onSurface,
-  },
-  productTagline: {
-    ...typography.bodyMd,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.onSurfaceVariant,
-  },
-  productRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.stackMd,
-  },
-  priceChip: {
-    backgroundColor: 'rgba(253,183,65,0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(253,183,65,0.3)',
-    borderRadius: 9999,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  priceChipText: {
-    ...typography.labelSm,
-    color: colors.secondary,
+  viewAllText: {
+    ...typography.labelMd,
+    color: colors.primary,
   },
 });

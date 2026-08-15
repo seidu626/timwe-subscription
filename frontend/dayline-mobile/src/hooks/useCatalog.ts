@@ -21,3 +21,9 @@ export function useCatalogProduct(slug: string | undefined) {
     : undefined;
   return { ...marketplace, product };
 }
+
+export function useMarketplaceTenant(tenantKey: string | undefined) {
+  const marketplace = useMarketplace();
+  const tenant = tenantKey ? marketplace.data?.find((item) => item.tenant_key === tenantKey) : undefined;
+  return { ...marketplace, tenant };
+}

@@ -69,7 +69,9 @@ export default function NotificationsScreen() {
             const current = prefs[subscription.product_slug] ?? 'BOTH';
             return (
               <Card key={subscription.ref} style={styles.prefCard}>
-                <Text style={styles.prefProductName}>{subscription.product_name}</Text>
+                <Text style={styles.prefProductName} numberOfLines={2} ellipsizeMode="tail">
+                  {subscription.product_name}
+                </Text>
                 <View style={styles.channelRow}>
                   {CHANNELS.map((channel) => {
                     const active = current === channel.value;
@@ -112,8 +114,10 @@ export default function NotificationsScreen() {
           <View key={item.id} style={styles.historyRow}>
             <MaterialIcons name="check-circle" size={16} color={colors.primary} />
             <View style={styles.historyTextGroup}>
-              <Text style={styles.historyItemTitle}>{item.title}</Text>
-              <Text style={styles.historyMeta}>
+              <Text style={styles.historyItemTitle} numberOfLines={2} ellipsizeMode="tail">
+                {item.title}
+              </Text>
+              <Text style={styles.historyMeta} numberOfLines={1} ellipsizeMode="tail">
                 {item.product_name} • {formatRelativeDay(item.published_at)}
               </Text>
             </View>
@@ -193,6 +197,7 @@ const styles = StyleSheet.create({
   },
   historyTextGroup: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   historyItemTitle: {

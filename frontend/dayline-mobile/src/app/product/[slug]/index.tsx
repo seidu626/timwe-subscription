@@ -23,7 +23,9 @@ export default function ProductDetailScreen() {
         <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.headerButton}>
           <MaterialIcons name="arrow-back" size={22} color={colors.onSurfaceVariant} />
         </Pressable>
-        <Text style={styles.headerTitle}>{product?.name ?? 'Product'}</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+          {product?.name ?? 'Product'}
+        </Text>
         <View style={styles.headerButton} />
       </View>
 
@@ -109,11 +111,15 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   headerTitle: {
     ...typography.headlineMd,
     fontSize: 18,
     color: colors.primary,
+    flex: 1,
+    minWidth: 0,
+    textAlign: 'center',
   },
   scrollContent: {
     paddingHorizontal: spacing.containerMargin,

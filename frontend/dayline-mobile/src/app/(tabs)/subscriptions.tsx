@@ -10,13 +10,21 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { useCancelSubscription, useSubscriptions } from '@/hooks/useSubscriptions';
 import { colors, spacing, typography } from '@/theme/tokens';
-import { formatBillingCycle, formatCurrency } from '@/utils/format';
+import { formatBillingCycle, formatCurrency, pluralize } from '@/utils/format';
 import type { Subscription } from '@/api/types';
+
+const PAST_STATUSES: Subscription['status'][] = ['CANCELLED', 'FAILED'];
 
 export default function SubscriptionsScreen() {
   const subscriptions = useSubscriptions();
   const cancelSubscription = useCancelSubscription();
   const [cancelingRef, setCancelingRef] = useState<string | null>(null);
+  const [pastExpanded, setPastExpanded] = useState(false);
+  // Low-signal CANCELLED/FAILED records collapse into "Past subscriptions" so
+  // the list stays scannable as history accumulates; ACTIVE/PENDING keep
+  // rendering as cards exactly as before.
+  const activeSubscriptions = subscriptions.data?.filter((s) => !PAST_STATUSES.includes(s.status)) ?? [];
+  const pastSubscriptions = subscriptions.data?.filter((s) => PAST_STATUSES.includes(s.status)) ?? [];
 
   async function runCancel(subscription: Subscription) {
     setCancelingRef(subscription.ref);
@@ -80,32 +88,48 @@ export default function SubscriptionsScreen() {
         />
       ) : null}
 
-      <View style={styles.list}>
-        {subscriptions.data?.map((subscription) => (
-          <Card key={subscription.ref} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.productName}>{subscription.product_name}</Text>
-              <StatusPill status={subscription.status} />
+      {activeSubscriptions.length > 0 ? (
+        <View style={styles.list}>
+          {activeSubscriptions.map((subscription) => (
+            <SubscriptionCard
+              key={subscription.ref}
+              subscription={subscription}
+              cancelingRef={cancelingRef}
+              onCancel={confirmCancel}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {pastSubscriptions.length > 0 ? (
+        <View style={styles.pastGroup}>
+          <Pressable
+            onPress={() => setPastExpanded((value) => !value)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: pastExpanded }}
+            style={styles.pastToggle}
+          >
+            <Text style={styles.pastToggleText}>{pluralize(pastSubscriptions.length, 'past subscription')}</Text>
+            <MaterialIcons
+              name={pastExpanded ? 'expand-less' : 'expand-more'}
+              size={22}
+              color={colors.onSurfaceVariant}
+            />
+          </Pressable>
+          {pastExpanded ? (
+            <View style={styles.list}>
+              {pastSubscriptions.map((subscription) => (
+                <SubscriptionCard
+                  key={subscription.ref}
+                  subscription={subscription}
+                  cancelingRef={cancelingRef}
+                  onCancel={confirmCancel}
+                />
+              ))}
             </View>
-            {subscription.tenant_name ? (
-              <Text style={styles.providerLine}>by {subscription.tenant_name}</Text>
-            ) : null}
-            <Text style={styles.priceLine}>
-              {subscription.next_charge_hint ? `${subscription.next_charge_hint} • ` : ''}
-              {formatCurrency(subscription.price, subscription.currency)}
-              {formatBillingCycle(subscription.billing_cycle)}
-            </Text>
-            {subscription.status === 'ACTIVE' ? (
-              <Button
-                label="Cancel subscription"
-                variant="secondary"
-                onPress={() => confirmCancel(subscription)}
-                loading={cancelingRef === subscription.ref}
-              />
-            ) : null}
-          </Card>
-        ))}
-      </View>
+          ) : null}
+        </View>
+      ) : null}
 
       <Link href="/(tabs)/discover" asChild>
         <Pressable accessibilityRole="button" style={styles.browseMore}>
@@ -122,6 +146,45 @@ export default function SubscriptionsScreen() {
         </Text>
       </View>
     </ScreenContainer>
+  );
+}
+
+function SubscriptionCard({
+  subscription,
+  cancelingRef,
+  onCancel,
+}: {
+  subscription: Subscription;
+  cancelingRef: string | null;
+  onCancel: (subscription: Subscription) => void;
+}) {
+  return (
+    <Card style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.productName} numberOfLines={2} ellipsizeMode="tail">
+          {subscription.product_name}
+        </Text>
+        <StatusPill status={subscription.status} />
+      </View>
+      {subscription.tenant_name ? (
+        <Text style={styles.providerLine} numberOfLines={1} ellipsizeMode="tail">
+          by {subscription.tenant_name}
+        </Text>
+      ) : null}
+      <Text style={styles.priceLine}>
+        {subscription.next_charge_hint ? `${subscription.next_charge_hint} • ` : ''}
+        {formatCurrency(subscription.price, subscription.currency)}
+        {formatBillingCycle(subscription.billing_cycle)}
+      </Text>
+      {subscription.status === 'ACTIVE' ? (
+        <Button
+          label="Cancel subscription"
+          variant="secondary"
+          onPress={() => onCancel(subscription)}
+          loading={cancelingRef === subscription.ref}
+        />
+      ) : null}
+    </Card>
   );
 }
 
@@ -155,12 +218,15 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: spacing.stackSm,
   },
   productName: {
     ...typography.headlineMd,
     fontSize: 20,
     color: colors.onSurface,
+    flex: 1,
+    minWidth: 0,
   },
   providerLine: {
     ...typography.labelSm,
@@ -174,6 +240,21 @@ const styles = StyleSheet.create({
     borderRadius: 9999,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    flexShrink: 0,
+  },
+  pastGroup: {
+    gap: spacing.stackMd,
+    marginTop: spacing.stackLg,
+  },
+  pastToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.stackSm,
+  },
+  pastToggleText: {
+    ...typography.labelMd,
+    color: colors.onSurfaceVariant,
   },
   statusPillText: {
     ...typography.labelSm,
