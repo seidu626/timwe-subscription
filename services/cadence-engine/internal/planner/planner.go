@@ -102,15 +102,7 @@ func (p *Planner) planForState(ctx context.Context, tx *sql.Tx, state domain.Due
 	jobID := uuid.New().String()
 	tenantID := firstStringPtr(state.TenantID, subscription.TenantID, series.TenantID)
 	channelID := firstStringPtr(state.ChannelID, subscription.ChannelID, series.ChannelID)
-	idempotencyKey := fmt.Sprintf("%s:%s:%d:%d:%d:%d:%d",
-		idempotencyPart(tenantID),
-		idempotencyPart(channelID),
-		subscription.PartnerRoleID,
-		subscription.ID,
-		series.ID,
-		series.ContentVersion,
-		state.CursorSeq,
-	)
+	idempotencyKey := outboxIdempotencyKey(tenantID, channelID, subscription, series, state)
 
 	job := domain.OutboxJob{
 		JobID:          jobID,
@@ -147,6 +139,24 @@ func firstStringPtr(values ...*string) *string {
 		}
 	}
 	return nil
+}
+
+// outboxIdempotencyKey scopes dedupe to one job per scheduled slot. The
+// occurrence timestamp is load-bearing: without it a terminal FAILED job
+// would block every future retry of the same cursor, because the advancer
+// reschedules the state without advancing the cursor and the next occurrence
+// would recompute an identical key and conflict with the old row forever.
+func outboxIdempotencyKey(tenantID, channelID *string, subscription *domain.Subscription, series *domain.MessageSeries, state domain.DueState) string {
+	return fmt.Sprintf("%s:%s:%d:%d:%d:%d:%d:%d",
+		idempotencyPart(tenantID),
+		idempotencyPart(channelID),
+		subscription.PartnerRoleID,
+		subscription.ID,
+		series.ID,
+		series.ContentVersion,
+		state.CursorSeq,
+		state.NextSendAt.UTC().Unix(),
+	)
 }
 
 func idempotencyPart(value *string) string {
