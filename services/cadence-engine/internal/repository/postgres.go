@@ -341,6 +341,105 @@ func (r *CadenceRepository) ListSeries(ctx context.Context, tenantID, channelID 
 	return res, rows.Err()
 }
 
+// SeriesHealth aggregates delivery state per series for the tenant scope.
+// The outbox laterals rely on idx_message_outbox_series_status_created
+// (migration 028); without it each series costs a full outbox scan.
+func (r *CadenceRepository) SeriesHealth(ctx context.Context, tenantID, channelID string) ([]domain.SeriesHealth, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	channelID = strings.TrimSpace(channelID)
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required")
+	}
+	where := "s.tenant_id::text = $1"
+	args := []any{tenantID}
+	if channelID != "" {
+		where += " AND s.channel_id::text = $2"
+		args = append(args, channelID)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT s.id, s.name, s.is_active, s.delivery_channel, s.product_id, s.partner_role_id,
+		       COALESCE(st.active_states, 0), COALESCE(st.paused_states, 0), COALESCE(st.stopped_states, 0),
+		       st.next_due_at, st.last_sent_at,
+		       COALESCE(o.sent_24h, 0), COALESCE(o.failed_24h, 0),
+		       COALESCE(o.sent_7d, 0), COALESCE(o.failed_7d, 0),
+		       COALESCE(o.sent_total, 0), COALESCE(o.failed_total, 0),
+		       f.last_error, f.last_failed_at
+		FROM product_message_series s
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*) FILTER (WHERE ms.status = 'ACTIVE')  AS active_states,
+			       COUNT(*) FILTER (WHERE ms.status = 'PAUSED')  AS paused_states,
+			       COUNT(*) FILTER (WHERE ms.status = 'STOPPED') AS stopped_states,
+			       MIN(ms.next_send_at) FILTER (WHERE ms.status = 'ACTIVE') AS next_due_at,
+			       MAX(ms.last_sent_at) AS last_sent_at
+			FROM subscription_message_state ms
+			WHERE ms.series_id = s.id
+		) st ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*) FILTER (WHERE mo.status = 'SENT'   AND mo.created_at >= NOW() - INTERVAL '24 hours') AS sent_24h,
+			       COUNT(*) FILTER (WHERE mo.status = 'FAILED' AND mo.created_at >= NOW() - INTERVAL '24 hours') AS failed_24h,
+			       COUNT(*) FILTER (WHERE mo.status = 'SENT'   AND mo.created_at >= NOW() - INTERVAL '7 days')   AS sent_7d,
+			       COUNT(*) FILTER (WHERE mo.status = 'FAILED' AND mo.created_at >= NOW() - INTERVAL '7 days')   AS failed_7d,
+			       COUNT(*) FILTER (WHERE mo.status = 'SENT')   AS sent_total,
+			       COUNT(*) FILTER (WHERE mo.status = 'FAILED') AS failed_total
+			FROM message_outbox mo
+			WHERE mo.series_id = s.id
+		) o ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT mo2.last_error, mo2.created_at AS last_failed_at
+			FROM message_outbox mo2
+			WHERE mo2.series_id = s.id AND mo2.status = 'FAILED'
+			ORDER BY mo2.created_at DESC
+			LIMIT 1
+		) f ON TRUE
+		WHERE %s
+		ORDER BY s.created_at DESC
+		LIMIT 200
+	`, where)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []domain.SeriesHealth
+	for rows.Next() {
+		var h domain.SeriesHealth
+		var nextDue, lastSent, lastFailed sql.NullTime
+		var lastError sql.NullString
+		if err := rows.Scan(
+			&h.SeriesID, &h.Name, &h.IsActive, &h.DeliveryChannel, &h.ProductID, &h.PartnerRoleID,
+			&h.ActiveStates, &h.PausedStates, &h.StoppedStates,
+			&nextDue, &lastSent,
+			&h.Sent24h, &h.Failed24h,
+			&h.Sent7d, &h.Failed7d,
+			&h.SentTotal, &h.FailedTotal,
+			&lastError, &lastFailed,
+		); err != nil {
+			return nil, err
+		}
+		if nextDue.Valid {
+			t := nextDue.Time
+			h.NextDueAt = &t
+		}
+		if lastSent.Valid {
+			t := lastSent.Time
+			h.LastSentAt = &t
+		}
+		if lastFailed.Valid {
+			t := lastFailed.Time
+			h.LastFailedAt = &t
+		}
+		if lastError.Valid && strings.TrimSpace(lastError.String) != "" {
+			s := lastError.String
+			h.LastError = &s
+		}
+		res = append(res, h)
+	}
+	return res, rows.Err()
+}
+
 func (r *CadenceRepository) UpsertSeries(ctx context.Context, tenantID, channelID string, partnerRoleID int, productID int, name string, mode string, contentVersion int, deliveryChannel string, isActive bool) (*domain.MessageSeries, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {

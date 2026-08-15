@@ -92,6 +92,30 @@ type MissingState struct {
 	Rule           ScheduleRule
 }
 
+// SeriesHealth is a read-only delivery aggregate per series; counts come
+// from subscription_message_state and message_outbox, never the series row.
+type SeriesHealth struct {
+	SeriesID        int64      `json:"series_id"`
+	Name            string     `json:"name"`
+	IsActive        bool       `json:"is_active"`
+	DeliveryChannel string     `json:"delivery_channel"`
+	ProductID       int        `json:"product_id"`
+	PartnerRoleID   int        `json:"partner_role_id"`
+	ActiveStates    int64      `json:"active_states"`
+	PausedStates    int64      `json:"paused_states"`
+	StoppedStates   int64      `json:"stopped_states"`
+	NextDueAt       *time.Time `json:"next_due_at"`
+	LastSentAt      *time.Time `json:"last_sent_at"`
+	Sent24h         int64      `json:"sent_24h"`
+	Failed24h       int64      `json:"failed_24h"`
+	Sent7d          int64      `json:"sent_7d"`
+	Failed7d        int64      `json:"failed_7d"`
+	SentTotal       int64      `json:"sent_total"`
+	FailedTotal     int64      `json:"failed_total"`
+	LastError       *string    `json:"last_error,omitempty"`
+	LastFailedAt    *time.Time `json:"last_failed_at,omitempty"`
+}
+
 type DueState struct {
 	SubscriptionID int64
 	TenantID       *string

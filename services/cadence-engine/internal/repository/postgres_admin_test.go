@@ -357,3 +357,70 @@ func TestListMissingStatesRequiresTenantCompatibleSeries(t *testing.T) {
 		t.Fatalf("ExpectationsWereMet: %v", err)
 	}
 }
+
+func TestSeriesHealthScopesTenantAndMapsAggregates(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewCadenceRepository(db, zap.NewNop())
+	now := time.Now().UTC()
+	lastErr := "MT 403"
+
+	mock.ExpectQuery("FROM product_message_series s").
+		WithArgs("tenant-1", "channel-1").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "name", "is_active", "delivery_channel", "product_id", "partner_role_id",
+			"active_states", "paused_states", "stopped_states",
+			"next_due_at", "last_sent_at",
+			"sent_24h", "failed_24h", "sent_7d", "failed_7d",
+			"sent_total", "failed_total",
+			"last_error", "last_failed_at",
+		}).AddRow(
+			int64(1), "daily-tips", true, "SMS", 14392, 3,
+			int64(53000), int64(0), int64(12),
+			now, nil,
+			int64(0), int64(14139), int64(0), int64(41000),
+			int64(4900), int64(107000),
+			lastErr, now,
+		))
+
+	items, err := repo.SeriesHealth(context.Background(), "tenant-1", "channel-1")
+	if err != nil {
+		t.Fatalf("SeriesHealth: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected one row, got %d", len(items))
+	}
+	h := items[0]
+	if h.ActiveStates != 53000 || h.Failed24h != 14139 || h.FailedTotal != 107000 {
+		t.Fatalf("unexpected aggregates: %+v", h)
+	}
+	if h.LastSentAt != nil {
+		t.Fatalf("expected nil last_sent_at, got %v", h.LastSentAt)
+	}
+	if h.NextDueAt == nil || h.LastFailedAt == nil {
+		t.Fatalf("expected next_due_at and last_failed_at to map")
+	}
+	if h.LastError == nil || *h.LastError != lastErr {
+		t.Fatalf("expected last_error %q, got %v", lastErr, h.LastError)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
+	}
+}
+
+func TestSeriesHealthRequiresTenant(t *testing.T) {
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewCadenceRepository(db, zap.NewNop())
+	if _, err := repo.SeriesHealth(context.Background(), "  ", ""); err == nil {
+		t.Fatal("expected error for blank tenant")
+	}
+}

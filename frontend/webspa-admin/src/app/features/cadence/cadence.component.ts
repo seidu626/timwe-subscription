@@ -5,6 +5,8 @@ import {
   CadenceContentItem,
   CadenceCsvImportResult,
   CadenceSeries,
+  CadenceSeriesHealth,
+  CadenceSeriesPreview,
   CadenceScheduleRule,
 } from '../+state/models/cadence.model';
 
@@ -73,6 +75,19 @@ export class CadenceComponent implements OnInit {
   selectedSeriesId: number | null = null;
   selectedSeries: CadenceSeries | null = null;
 
+  health: CadenceSeriesHealth[] = [];
+  healthLoading = false;
+  healthError: string | null = null;
+  displayedHealthColumns: string[] = [
+    'status',
+    'name',
+    'subscribers',
+    'sent_24h',
+    'failed_24h',
+    'last_sent',
+    'next_due',
+  ];
+
   rule: CadenceScheduleRule | null = null;
   contentItems: CadenceContentItem[] = [];
 
@@ -87,6 +102,9 @@ export class CadenceComponent implements OnInit {
 
   publishVersionInput: number = 1;
   publishingVersion = false;
+  preview: CadenceSeriesPreview | null = null;
+  previewLoading = false;
+  previewError: string | null = null;
   publishResult: { previous_version: number; published_version: number } | null = null;
 
   displayedContentColumns: string[] = [
@@ -174,9 +192,65 @@ export class CadenceComponent implements OnInit {
     control?.setValue(mask ^ bit);
   }
 
+  loadHealth(): void {
+    this.healthLoading = true;
+    this.healthError = null;
+    this.cadenceApi.seriesHealth().subscribe({
+      next: (res) => {
+        this.health = res.series || [];
+        this.healthLoading = false;
+      },
+      error: (err) => {
+        console.error('Failed to load series health:', err);
+        this.healthError = err.status === 401
+          ? 'Unauthorized. Please log in again with Auth0.'
+          : 'Failed to load delivery health.';
+        this.healthLoading = false;
+      },
+    });
+  }
+
+  // Status is derived from the last 24h of outbox activity so a series that
+  // silently stops sending (the May-August blackout mode) surfaces as
+  // critical, not merely idle.
+  healthStatus(row: CadenceSeriesHealth): 'healthy' | 'warning' | 'critical' | 'idle' | 'inactive' {
+    if (!row.is_active) return 'inactive';
+    const total = row.sent_24h + row.failed_24h;
+    if (total === 0) {
+      const overdue = row.next_due_at && new Date(row.next_due_at).getTime() < Date.now() - 60 * 60 * 1000;
+      return row.active_states > 0 && overdue ? 'critical' : 'idle';
+    }
+    const failureRatio = row.failed_24h / total;
+    if (failureRatio >= 0.5) return 'critical';
+    if (failureRatio > 0.05) return 'warning';
+    return 'healthy';
+  }
+
+  healthStatusLabel(row: CadenceSeriesHealth): string {
+    switch (this.healthStatus(row)) {
+      case 'healthy': return 'Healthy';
+      case 'warning': return 'Degraded';
+      case 'critical': return 'Failing';
+      case 'idle': return 'Idle';
+      default: return 'Inactive';
+    }
+  }
+
+  healthTooltip(row: CadenceSeriesHealth): string {
+    const parts = [
+      `7 days: ${row.sent_7d.toLocaleString()} sent, ${row.failed_7d.toLocaleString()} failed`,
+      `All time: ${row.sent_total.toLocaleString()} sent, ${row.failed_total.toLocaleString()} failed`,
+    ];
+    if (row.last_error) {
+      parts.push(`Last error: ${row.last_error}`);
+    }
+    return parts.join('\n');
+  }
+
   loadSeries(): void {
     this.loading = true;
     this.error = null;
+    this.loadHealth();
     this.cadenceApi.listSeries({ limit: 500 }).subscribe({
       next: (res) => {
         this.series = res.series || [];
@@ -198,6 +272,8 @@ export class CadenceComponent implements OnInit {
     this.rule = null;
     this.contentItems = [];
     this.importResult = null;
+    this.preview = null;
+    this.previewError = null;
 
     if (!seriesId) {
       return;
@@ -344,6 +420,27 @@ export class CadenceComponent implements OnInit {
         this.importResult = err?.error || null;
         this.error = 'CSV import failed. Check the result/error details.';
         this.importing = false;
+      },
+    });
+  }
+
+  /** Simulate the next sends for the version selected in the publish picker. */
+  loadPreview(): void {
+    if (!this.selectedSeriesId) return;
+    this.previewLoading = true;
+    this.previewError = null;
+    this.preview = null;
+    this.cadenceApi.previewSeries(this.selectedSeriesId, {
+      count: 7,
+      contentVersion: this.publishVersionInput > 0 ? this.publishVersionInput : undefined,
+    }).subscribe({
+      next: (res) => {
+        this.preview = res;
+        this.previewLoading = false;
+      },
+      error: (err) => {
+        this.previewError = err?.error?.error || 'Failed to load preview. Define a schedule rule first.';
+        this.previewLoading = false;
       },
     });
   }

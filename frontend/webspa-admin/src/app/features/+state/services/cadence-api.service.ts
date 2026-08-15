@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import {
   CadenceSeries,
+  CadenceSeriesHealth,
+  CadenceSeriesPreview,
   CadenceScheduleRule,
   CadenceContentItem,
   CadenceCsvImportResult,
@@ -32,6 +34,17 @@ export class CadenceApiService {
     if (typeof filters?.active === 'boolean') params = params.set('active', String(filters.active));
     if (filters?.limit) params = params.set('limit', String(filters.limit));
     return this.http.get<{ series: CadenceSeries[] }>(`${this.baseUrl}/series`, { params, headers: this.cadenceHeaders });
+  }
+
+  seriesHealth(): Observable<{ series: CadenceSeriesHealth[] }> {
+    return this.http.get<{ series: CadenceSeriesHealth[] }>(`${this.baseUrl}/series/health`, { headers: this.cadenceHeaders });
+  }
+
+  previewSeries(seriesId: number, options?: { count?: number; contentVersion?: number }): Observable<CadenceSeriesPreview> {
+    let params = new HttpParams();
+    if (options?.count) params = params.set('count', String(options.count));
+    if (options?.contentVersion) params = params.set('contentVersion', String(options.contentVersion));
+    return this.http.get<CadenceSeriesPreview>(`${this.baseUrl}/series/${seriesId}/preview`, { params, headers: this.cadenceHeaders });
   }
 
   upsertSeries(payload: {

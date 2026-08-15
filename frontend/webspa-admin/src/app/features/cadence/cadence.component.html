@@ -53,6 +53,89 @@
   </mat-card>
 
   <mat-tab-group class="cadence-tabs">
+    <mat-tab label="Delivery Health">
+      <mat-card class="cadence-card">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">Last 24 hours</p>
+            <h3>Delivery health by series</h3>
+          </div>
+          <button mat-stroked-button color="primary" (click)="loadHealth()" [disabled]="healthLoading">
+            <mat-icon>refresh</mat-icon>
+            Refresh
+          </button>
+        </div>
+
+        <div *ngIf="healthError" class="error-alert">
+          <mat-icon>error_outline</mat-icon>
+          <div>
+            <strong>Delivery health unavailable</strong>
+            <span>{{ healthError }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="healthLoading" class="health-loading">
+          <mat-spinner diameter="36"></mat-spinner>
+        </div>
+
+        <p *ngIf="!healthLoading && !healthError && health.length === 0" class="health-empty">
+          No series yet. Create a series to start tracking delivery health.
+        </p>
+
+        <div *ngIf="!healthLoading && health.length > 0" class="health-table-wrap">
+          <table mat-table [dataSource]="health" class="health-table">
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="health-pill" [ngClass]="'health-' + healthStatus(row)" [matTooltip]="healthTooltip(row)">
+                  {{ healthStatusLabel(row) }}
+                </span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="name">
+              <th mat-header-cell *matHeaderCellDef>Series</th>
+              <td mat-cell *matCellDef="let row">
+                <div class="health-name">{{ row.name }}</div>
+                <div class="health-sub">{{ getDeliveryChannelLabel(row.delivery_channel) }}</div>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="subscribers">
+              <th mat-header-cell *matHeaderCellDef>Active subscribers</th>
+              <td mat-cell *matCellDef="let row" class="num">{{ row.active_states | number }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="sent_24h">
+              <th mat-header-cell *matHeaderCellDef>Sent (24h)</th>
+              <td mat-cell *matCellDef="let row" class="num">{{ row.sent_24h | number }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="failed_24h">
+              <th mat-header-cell *matHeaderCellDef>Failed (24h)</th>
+              <td mat-cell *matCellDef="let row" class="num" [class.num-bad]="row.failed_24h > 0"
+                  [matTooltip]="row.last_error ? 'Last error: ' + row.last_error : ''">
+                {{ row.failed_24h | number }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="last_sent">
+              <th mat-header-cell *matHeaderCellDef>Last sent</th>
+              <td mat-cell *matCellDef="let row">{{ row.last_sent_at ? (row.last_sent_at | date:'MMM d, HH:mm') : 'Never' }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="next_due">
+              <th mat-header-cell *matHeaderCellDef>Next due</th>
+              <td mat-cell *matCellDef="let row">{{ row.next_due_at ? (row.next_due_at | date:'MMM d, HH:mm') : '-' }}</td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedHealthColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedHealthColumns;"></tr>
+          </table>
+        </div>
+      </mat-card>
+    </mat-tab>
+
     <mat-tab label="Create Series">
       <mat-card class="cadence-card">
         <div class="card-heading">
@@ -353,10 +436,44 @@
               </mat-select>
             </mat-form-field>
 
+            <button mat-stroked-button color="primary" (click)="loadPreview()" [disabled]="previewLoading">
+              <mat-icon>visibility</mat-icon>
+              Preview schedule
+            </button>
+
             <button mat-raised-button color="accent" (click)="onPublishVersion()" [disabled]="publishingVersion">
               <mat-icon>publish</mat-icon>
               Publish Version
             </button>
+          </div>
+
+          <div class="preview-panel" *ngIf="previewLoading || previewError || preview">
+            <mat-progress-spinner *ngIf="previewLoading" diameter="30"></mat-progress-spinner>
+            <div class="error-alert" *ngIf="previewError">{{ previewError }}</div>
+            <ng-container *ngIf="preview">
+              <p class="preview-caption">
+                Next {{ preview.occurrences.length }} sends for a subscriber starting today
+                (version {{ preview.content_version }}, {{ preview.timezone }} time<span *ngIf="preview.mode === 'POOL'">,
+                one of {{ preview.pool_size }} pool messages picked at random per send</span>).
+              </p>
+              <ol class="preview-timeline">
+                <li *ngFor="let occ of preview.occurrences" [class.preview-end]="occ.ends_series">
+                  <span class="preview-when">{{ occ.send_at | date:'EEE, MMM d, HH:mm' }}</span>
+                  <ng-container *ngIf="occ.ends_series; else previewMsg">
+                    <span class="preview-stop">
+                      Series stops here: no active content at position {{ occ.n }} in this version.
+                    </span>
+                  </ng-container>
+                  <ng-template #previewMsg>
+                    <span class="preview-text" *ngIf="preview.mode !== 'POOL'">{{ occ.message_text }}</span>
+                    <span class="preview-text preview-pool" *ngIf="preview.mode === 'POOL'">Random pool message</span>
+                    <a class="preview-link" *ngIf="occ.link_url" [href]="occ.link_url" target="_blank" rel="noopener">
+                      {{ occ.cta_label || occ.link_url }}
+                    </a>
+                  </ng-template>
+                </li>
+              </ol>
+            </ng-container>
           </div>
 
           <mat-progress-spinner *ngIf="publishingVersion" diameter="30"></mat-progress-spinner>

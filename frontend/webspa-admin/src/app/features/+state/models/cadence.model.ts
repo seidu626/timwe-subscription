@@ -49,3 +49,45 @@ export interface CadenceCsvImportResult {
   errors?: Array<{ line: number; error: string }>;
 }
 
+
+export interface CadenceSeriesHealth {
+  series_id: number;
+  name: string;
+  is_active: boolean;
+  delivery_channel: string;
+  product_id: number;
+  partner_role_id: number;
+  active_states: number;
+  paused_states: number;
+  stopped_states: number;
+  next_due_at?: string | null;
+  last_sent_at?: string | null;
+  sent_24h: number;
+  failed_24h: number;
+  sent_7d: number;
+  failed_7d: number;
+  sent_total: number;
+  failed_total: number;
+  last_error?: string | null;
+  last_failed_at?: string | null;
+}
+
+export interface CadencePreviewOccurrence {
+  n: number;
+  send_at: string;
+  seq_no?: number;
+  message_text?: string;
+  content_kind?: string;
+  link_url?: string;
+  cta_label?: string;
+  ends_series?: boolean;
+}
+
+export interface CadenceSeriesPreview {
+  series_id: number;
+  mode: string;
+  content_version: number;
+  timezone: string;
+  pool_size: number;
+  occurrences: CadencePreviewOccurrence[];
+}

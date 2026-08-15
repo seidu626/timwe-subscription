@@ -1,13 +1,16 @@
 package adminhttp
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/seidu626/subscription-manager/cadence-engine/internal/domain"
 	"github.com/seidu626/subscription-manager/cadence-engine/internal/repository"
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"go.uber.org/zap"
@@ -211,5 +214,101 @@ func TestHealthReportsObservabilityStatus(t *testing.T) {
 	}
 	if observability["tenant_labels"] != "enabled" || observability["pii_labels"] != "rejected" {
 		t.Fatalf("unexpected observability status: %#v", observability)
+	}
+}
+
+func TestHandleSeriesPreviewSequential(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	s := &Server{
+		logger: zap.NewNop(),
+		repo:   repository.NewCadenceRepository(db, zap.NewNop()),
+	}
+
+	prefTime := time.Date(2000, 1, 1, 8, 0, 0, 0, time.UTC)
+	mock.ExpectQuery("FROM message_schedule_rules").
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"series_id", "rule_kind", "preferred_time", "days_of_week", "n_days",
+			"send_start_time", "send_end_time", "timezone", "max_per_day", "catchup_mode",
+		}).AddRow(int64(7), "DAILY", prefTime, 0, 0, prefTime, prefTime.Add(14*time.Hour), "Africa/Accra", 1, "SKIP"))
+
+	created := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	mock.ExpectQuery("FROM message_content_items").
+		WithArgs(int64(7), 2, true).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "tenant_id", "channel_id", "series_id", "content_version", "seq_no", "message_text",
+			"content_kind", "link_url", "cta_label", "is_active", "created_at",
+		}).
+			AddRow(int64(1), nil, nil, int64(7), 2, 1, "Day one tip", "TEXT", nil, nil, true, created).
+			AddRow(int64(2), nil, nil, int64(7), 2, 2, "Day two tip", "TEXT", nil, nil, true, created))
+
+	series := &domain.MessageSeries{ID: 7, Mode: "SEQUENTIAL", ContentVersion: 2}
+	req := httptest.NewRequest(http.MethodGet, "/v1/admin/cadence/series/7/preview?count=3", nil)
+	rr := httptest.NewRecorder()
+
+	s.handleSeriesPreview(rr, req, series)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var body struct {
+		Mode        string `json:"mode"`
+		PoolSize    int    `json:"pool_size"`
+		Occurrences []struct {
+			N           int    `json:"n"`
+			SendAt      string `json:"send_at"`
+			SeqNo       int    `json:"seq_no"`
+			MessageText string `json:"message_text"`
+			EndsSeries  bool   `json:"ends_series"`
+		} `json:"occurrences"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid json: %v body=%s", err, rr.Body.String())
+	}
+	if len(body.Occurrences) != 3 {
+		t.Fatalf("occurrences = %d, want 3 (two content + end marker)", len(body.Occurrences))
+	}
+	if body.Occurrences[0].MessageText != "Day one tip" || body.Occurrences[1].MessageText != "Day two tip" {
+		t.Errorf("content pairing wrong: %+v", body.Occurrences)
+	}
+	if !body.Occurrences[2].EndsSeries {
+		t.Errorf("third occurrence should mark series end: %+v", body.Occurrences[2])
+	}
+	if body.Occurrences[0].SendAt == "" || body.Occurrences[0].SendAt == body.Occurrences[1].SendAt {
+		t.Errorf("send times must be distinct ascending: %+v", body.Occurrences)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
+	}
+}
+
+func TestHandleSeriesPreviewRequiresRule(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	s := &Server{
+		logger: zap.NewNop(),
+		repo:   repository.NewCadenceRepository(db, zap.NewNop()),
+	}
+	mock.ExpectQuery("FROM message_schedule_rules").
+		WithArgs(int64(7)).
+		WillReturnError(sql.ErrNoRows)
+
+	series := &domain.MessageSeries{ID: 7, Mode: "SEQUENTIAL", ContentVersion: 1}
+	req := httptest.NewRequest(http.MethodGet, "/v1/admin/cadence/series/7/preview", nil)
+	rr := httptest.NewRecorder()
+
+	s.handleSeriesPreview(rr, req, series)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
 }

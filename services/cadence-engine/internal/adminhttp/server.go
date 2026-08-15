@@ -18,6 +18,7 @@ import (
 	"github.com/seidu626/subscription-manager/cadence-engine/internal/domain"
 	"github.com/seidu626/subscription-manager/cadence-engine/internal/observability"
 	"github.com/seidu626/subscription-manager/cadence-engine/internal/repository"
+	"github.com/seidu626/subscription-manager/cadence-engine/internal/scheduler"
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"go.uber.org/zap"
 )
@@ -47,6 +48,7 @@ func NewServer(repo *repository.CadenceRepository, logger *zap.Logger, cfg Confi
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/admin/cadence/series", s.handleSeries)                // GET, POST
+	mux.HandleFunc("/v1/admin/cadence/series/health", s.handleSeriesHealth)   // GET
 	mux.HandleFunc("/v1/admin/cadence/series/", s.handleSeriesByID)           // GET, PATCH + nested
 	mux.HandleFunc("/v1/admin/cadence/content/import/csv", s.handleCSVImport) // POST
 
@@ -207,6 +209,31 @@ func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) handleSeriesHealth(w http.ResponseWriter, r *http.Request) {
+	if s.access.handlePreflight(w, r) {
+		return
+	}
+	if !s.access.require(w, r) {
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	tenantID, channelID, ok := s.tenantScope(w, r)
+	if !ok {
+		return
+	}
+
+	items, err := s.repo.SeriesHealth(r.Context(), tenantID, channelID)
+	if err != nil {
+		s.logger.Error("series health failed", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "failed to load series health")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"series": items})
+}
+
 func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 	if s.access.handlePreflight(w, r) {
 		return
@@ -331,6 +358,16 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 				return
 			}
+		case "preview":
+			// GET /v1/admin/cadence/series/{id}/preview?count=7&contentVersion=N
+			// Simulates the next N sends for a subscriber starting now, pairing
+			// each occurrence with the content the planner would pick.
+			if r.Method != http.MethodGet {
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			s.handleSeriesPreview(w, r, series)
+			return
 		case "publish":
 			// POST /v1/admin/cadence/series/{id}/publish
 			// Body: { "content_version": N }
@@ -1018,4 +1055,108 @@ func parseCSVImport(r io.Reader) (*csvImportRequest, []map[string]any) {
 		out.Series = append(out.Series, *seriesMap[k])
 	}
 	return out, nil
+}
+
+// previewOccurrence is one simulated send in the schedule preview.
+type previewOccurrence struct {
+	N           int       `json:"n"`
+	SendAt      time.Time `json:"send_at"`
+	SeqNo       int       `json:"seq_no,omitempty"`
+	MessageText string    `json:"message_text,omitempty"`
+	ContentKind string    `json:"content_kind,omitempty"`
+	LinkURL     *string   `json:"link_url,omitempty"`
+	CTALabel    *string   `json:"cta_label,omitempty"`
+	EndsSeries  bool      `json:"ends_series,omitempty"`
+}
+
+// handleSeriesPreview simulates the next N sends for a subscriber starting
+// now, using the exact scheduler and content-cursor semantics the planner
+// applies (exact seq match; a seq gap stops the series with "no_content").
+func (s *Server) handleSeriesPreview(w http.ResponseWriter, r *http.Request, series *domain.MessageSeries) {
+	q := r.URL.Query()
+	count := 7
+	if v := strings.TrimSpace(q.Get("count")); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 30 {
+			writeError(w, http.StatusBadRequest, "count must be between 1 and 30")
+			return
+		}
+		count = n
+	}
+	contentVersion := series.ContentVersion
+	if v := strings.TrimSpace(q.Get("contentVersion")); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid contentVersion")
+			return
+		}
+		contentVersion = n
+	}
+
+	rule, err := s.repo.GetScheduleRule(r.Context(), series.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "no schedule rule: define one before previewing")
+			return
+		}
+		s.logger.Error("get rule failed", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "failed to get rule")
+		return
+	}
+
+	activeOnly := true
+	items, err := s.repo.ListContentItems(r.Context(), series.ID, &contentVersion, &activeOnly, 500)
+	if err != nil {
+		s.logger.Error("list content failed", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "failed to list content")
+		return
+	}
+	bySeq := make(map[int]domain.ContentItem, len(items))
+	for _, it := range items {
+		bySeq[it.SeqNo] = it
+	}
+
+	// Anchor = now: the preview shows the cadence a subscriber starting today
+	// would experience; EVERY_N_DAYS counts from the subscription start date.
+	now := time.Now()
+	sendAt, err := scheduler.FirstSendAt(*rule, now, now)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("schedule rule is invalid: %v", err))
+		return
+	}
+
+	pool := strings.EqualFold(series.Mode, "POOL")
+	occurrences := make([]previewOccurrence, 0, count)
+	for i := 1; i <= count; i++ {
+		occ := previewOccurrence{N: i, SendAt: sendAt}
+		if !pool {
+			item, ok := bySeq[i]
+			if !ok {
+				occ.EndsSeries = true
+				occurrences = append(occurrences, occ)
+				break
+			}
+			occ.SeqNo = item.SeqNo
+			occ.MessageText = item.MessageText
+			occ.ContentKind = item.ContentKind
+			occ.LinkURL = item.LinkURL
+			occ.CTALabel = item.CTALabel
+		}
+		occurrences = append(occurrences, occ)
+		next, err := scheduler.NextSendAt(*rule, sendAt, sendAt, now)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("schedule rule is invalid: %v", err))
+			return
+		}
+		sendAt = next
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"series_id":       series.ID,
+		"mode":            series.Mode,
+		"content_version": contentVersion,
+		"timezone":        rule.Timezone,
+		"pool_size":       len(items),
+		"occurrences":     occurrences,
+	})
 }
