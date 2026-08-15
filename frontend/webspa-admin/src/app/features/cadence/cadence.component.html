@@ -47,7 +47,39 @@
           <span>{{ selectedSeries ? getModeLabel(selectedSeries.mode) : 'Mode pending' }}</span>
           <span>Version {{ selectedSeries?.content_version || '-' }}</span>
           <span *ngIf="selectedSeries">{{ getDeliveryChannelLabel(selectedSeries.delivery_channel) }}</span>
+          <span *ngIf="selectedSeries && !selectedSeries.is_active" class="series-inactive-chip">Deactivated</span>
         </div>
+      </div>
+
+      <div class="reactivate-banner" *ngIf="selectedSeries && !selectedSeries.is_active">
+        <div class="reactivate-copy">
+          <strong>This series is deactivated.</strong>
+          Subscribers stopped by the deactivation stay paused until you reactivate.
+        </div>
+        <button mat-stroked-button color="primary"
+                *ngIf="reactivateResumable === null"
+                [disabled]="reactivateBusy"
+                (click)="checkReactivate()">
+          Reactivate series
+        </button>
+        <div class="reactivate-confirm" *ngIf="reactivateResumable !== null">
+          <span>
+            This marks the series active and resumes
+            <strong>{{ reactivateResumable | number }}</strong>
+            {{ reactivateResumable === 1 ? 'stopped subscriber' : 'stopped subscribers' }}
+            at their next scheduled slot. No messages are sent immediately.
+          </span>
+          <button mat-flat-button color="primary" [disabled]="reactivateBusy" (click)="confirmReactivate()">
+            Confirm reactivation
+          </button>
+          <button mat-button [disabled]="reactivateBusy" (click)="cancelReactivate()">Cancel</button>
+        </div>
+      </div>
+      <div class="error-alert" *ngIf="reactivateError">{{ reactivateError }}</div>
+      <div class="success-alert" *ngIf="reactivateResult">
+        Series reactivated. {{ reactivateResult.resumed_states | number }}
+        {{ reactivateResult.resumed_states === 1 ? 'subscriber resumes' : 'subscribers resume' }}
+        at the next scheduled slot.
       </div>
     </mat-card-content>
   </mat-card>

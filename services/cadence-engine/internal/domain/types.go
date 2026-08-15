@@ -92,6 +92,13 @@ type MissingState struct {
 	Rule           ScheduleRule
 }
 
+// ResumableState is a state stopped by series deactivation whose subscription
+// is still active; StartDate anchors the recomputed next send slot.
+type ResumableState struct {
+	SubscriptionID int64
+	StartDate      time.Time
+}
+
 // SeriesHealth is a read-only delivery aggregate per series; counts come
 // from subscription_message_state and message_outbox, never the series row.
 type SeriesHealth struct {

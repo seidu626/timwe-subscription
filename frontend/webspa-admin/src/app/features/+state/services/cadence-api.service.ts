@@ -47,6 +47,24 @@ export class CadenceApiService {
     return this.http.get<CadenceSeriesPreview>(`${this.baseUrl}/series/${seriesId}/preview`, { params, headers: this.cadenceHeaders });
   }
 
+  reactivateSeries(seriesId: number, dryRun = false): Observable<{
+    status?: string;
+    dry_run?: boolean;
+    series_id: number;
+    is_active?: boolean;
+    resumable_states?: number;
+    resumed_states?: number;
+  }> {
+    return this.http.post<{
+      status?: string;
+      dry_run?: boolean;
+      series_id: number;
+      is_active?: boolean;
+      resumable_states?: number;
+      resumed_states?: number;
+    }>(`${this.baseUrl}/series/${seriesId}/reactivate`, dryRun ? { dry_run: true } : {}, { headers: this.cadenceHeaders });
+  }
+
   upsertSeries(payload: {
     partner_role_id: number;
     product_id: number;

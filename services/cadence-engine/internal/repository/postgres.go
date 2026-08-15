@@ -784,13 +784,94 @@ func (r *CadenceRepository) ClearInflightTx(ctx context.Context, tx *sql.Tx, sub
 func (r *CadenceRepository) StopStateTx(ctx context.Context, tx *sql.Tx, subscriptionID int64, seriesID int64, reason string) error {
 	query := `
 		UPDATE subscription_message_state
-		SET status = 'STOPPED', inflight_job_id = NULL, inflight_until = NULL
+		SET status = 'STOPPED', stop_reason = $3, inflight_job_id = NULL, inflight_until = NULL
 		WHERE subscription_id = $1 AND series_id = $2
 	`
-	if _, err := tx.ExecContext(ctx, query, subscriptionID, seriesID); err != nil {
+	if _, err := tx.ExecContext(ctx, query, subscriptionID, seriesID, reason); err != nil {
 		return fmt.Errorf("stop state (%s): %w", reason, err)
 	}
 	return nil
+}
+
+// CountResumableStates counts states stopped by a series deactivation whose
+// subscription is still active, i.e. what a reactivation would resume.
+func (r *CadenceRepository) CountResumableStates(ctx context.Context, seriesID int64) (int64, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM subscription_message_state sms
+		JOIN subscriptions s ON s.id = sms.subscription_id
+		WHERE sms.series_id = $1
+		  AND sms.status = 'STOPPED'
+		  AND sms.stop_reason = 'series_inactive'
+		  AND s.status = 'active'
+		  AND s.renewal_status = 'active'
+	`
+	var count int64
+	err := r.db.QueryRowContext(ctx, query, seriesID).Scan(&count)
+	return count, err
+}
+
+func (r *CadenceRepository) ListResumableStates(ctx context.Context, seriesID int64, afterSubscriptionID int64, limit int) ([]domain.ResumableState, error) {
+	query := `
+		SELECT sms.subscription_id, s.start_date
+		FROM subscription_message_state sms
+		JOIN subscriptions s ON s.id = sms.subscription_id
+		WHERE sms.series_id = $1
+		  AND sms.status = 'STOPPED'
+		  AND sms.stop_reason = 'series_inactive'
+		  AND s.status = 'active'
+		  AND s.renewal_status = 'active'
+		  AND sms.subscription_id > $2
+		ORDER BY sms.subscription_id
+		LIMIT $3
+	`
+	rows, err := r.db.QueryContext(ctx, query, seriesID, afterSubscriptionID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var states []domain.ResumableState
+	for rows.Next() {
+		var st domain.ResumableState
+		if err := rows.Scan(&st.SubscriptionID, &st.StartDate); err != nil {
+			return nil, err
+		}
+		states = append(states, st)
+	}
+	return states, rows.Err()
+}
+
+// ResumeStates flips stopped states back to ACTIVE with per-subscription next
+// send slots. Only rows still STOPPED match, so the call is idempotent.
+func (r *CadenceRepository) ResumeStates(ctx context.Context, seriesID int64, subscriptionIDs []int64, nextSendAts []time.Time) (int64, error) {
+	if len(subscriptionIDs) == 0 || len(subscriptionIDs) != len(nextSendAts) {
+		return 0, fmt.Errorf("resume states: mismatched batch (%d ids, %d slots)", len(subscriptionIDs), len(nextSendAts))
+	}
+	slots := make([]string, len(nextSendAts))
+	for i, t := range nextSendAts {
+		slots[i] = t.UTC().Format(time.RFC3339Nano)
+	}
+	query := `
+		UPDATE subscription_message_state sms
+		SET status = 'ACTIVE',
+		    stop_reason = NULL,
+		    next_send_at = v.next_send_at,
+		    inflight_job_id = NULL,
+		    inflight_until = NULL
+		FROM (
+			SELECT UNNEST($2::bigint[]) AS subscription_id,
+			       UNNEST($3::timestamptz[]) AS next_send_at
+		) v
+		WHERE sms.series_id = $1
+		  AND sms.subscription_id = v.subscription_id
+		  AND sms.status = 'STOPPED'
+	`
+	res, err := r.db.ExecContext(ctx, query, seriesID, pq.Array(subscriptionIDs), pq.Array(slots))
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 func (r *CadenceRepository) AdvanceStateTx(ctx context.Context, tx *sql.Tx, subscriptionID int64, seriesID int64, nextSendAt time.Time, sentAt time.Time) error {

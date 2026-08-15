@@ -107,6 +107,11 @@ export class CadenceComponent implements OnInit {
   previewError: string | null = null;
   publishResult: { previous_version: number; published_version: number } | null = null;
 
+  reactivateResumable: number | null = null;
+  reactivateBusy = false;
+  reactivateError: string | null = null;
+  reactivateResult: { resumed_states: number } | null = null;
+
   displayedContentColumns: string[] = [
     'content_version',
     'seq_no',
@@ -274,6 +279,9 @@ export class CadenceComponent implements OnInit {
     this.importResult = null;
     this.preview = null;
     this.previewError = null;
+    this.reactivateResumable = null;
+    this.reactivateError = null;
+    this.reactivateResult = null;
 
     if (!seriesId) {
       return;
@@ -293,6 +301,51 @@ export class CadenceComponent implements OnInit {
         console.error('Failed to load series:', err);
         this.error = 'Failed to load series.';
         this.loading = false;
+      },
+    });
+  }
+
+  checkReactivate(): void {
+    if (!this.selectedSeriesId) return;
+    this.reactivateBusy = true;
+    this.reactivateError = null;
+    this.reactivateResult = null;
+    this.cadenceApi.reactivateSeries(this.selectedSeriesId, true).subscribe({
+      next: (res) => {
+        this.reactivateResumable = res.resumable_states ?? 0;
+        this.reactivateBusy = false;
+      },
+      error: (err) => {
+        console.error('Failed to check reactivation:', err);
+        this.reactivateError = 'Failed to check what reactivation would resume.';
+        this.reactivateBusy = false;
+      },
+    });
+  }
+
+  cancelReactivate(): void {
+    this.reactivateResumable = null;
+    this.reactivateError = null;
+  }
+
+  confirmReactivate(): void {
+    if (!this.selectedSeriesId) return;
+    this.reactivateBusy = true;
+    this.reactivateError = null;
+    this.cadenceApi.reactivateSeries(this.selectedSeriesId, false).subscribe({
+      next: (res) => {
+        this.reactivateBusy = false;
+        this.reactivateResumable = null;
+        this.onSeriesSelected(this.selectedSeriesId!);
+        // onSeriesSelected resets the panel state; restore the result banner.
+        this.reactivateResult = { resumed_states: res.resumed_states ?? 0 };
+      },
+      error: (err) => {
+        console.error('Failed to reactivate series:', err);
+        this.reactivateError = err?.error?.error === 'no schedule rule: define one before reactivating'
+          ? 'No schedule rule is defined. Save a schedule rule first, then reactivate.'
+          : 'Failed to reactivate the series.';
+        this.reactivateBusy = false;
       },
     });
   }

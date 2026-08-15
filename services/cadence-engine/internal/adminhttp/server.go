@@ -358,6 +358,17 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 				return
 			}
+		case "reactivate":
+			// POST /v1/admin/cadence/series/{id}/reactivate
+			// Body: { "dry_run": bool } (optional). Marks the series active and
+			// resumes states stopped by a previous deactivation at their next
+			// scheduled slot. dry_run only reports the resumable count.
+			if r.Method != http.MethodPost {
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			s.handleSeriesReactivate(w, r, series)
+			return
 		case "preview":
 			// GET /v1/admin/cadence/series/{id}/preview?count=7&contentVersion=N
 			// Simulates the next N sends for a subscriber starting now, pairing
@@ -1158,5 +1169,109 @@ func (s *Server) handleSeriesPreview(w http.ResponseWriter, r *http.Request, ser
 		"timezone":        rule.Timezone,
 		"pool_size":       len(items),
 		"occurrences":     occurrences,
+	})
+}
+
+const reactivateBatchSize = 500
+
+func (s *Server) handleSeriesReactivate(w http.ResponseWriter, r *http.Request, series *domain.MessageSeries) {
+	var req struct {
+		DryRun bool `json:"dry_run"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+
+	resumable, err := s.repo.CountResumableStates(r.Context(), series.ID)
+	if err != nil {
+		s.logger.Error("count resumable states failed", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "failed to count resumable states")
+		return
+	}
+
+	if req.DryRun {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"dry_run":          true,
+			"series_id":        series.ID,
+			"is_active":        series.IsActive,
+			"resumable_states": resumable,
+		})
+		return
+	}
+
+	var rule *domain.ScheduleRule
+	if resumable > 0 {
+		rule, err = s.repo.GetScheduleRule(r.Context(), series.ID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				writeError(w, http.StatusConflict, "no schedule rule: define one before reactivating")
+				return
+			}
+			s.logger.Error("get rule failed", zap.Error(err))
+			writeError(w, http.StatusInternalServerError, "failed to get rule")
+			return
+		}
+	}
+
+	if !series.IsActive {
+		active := true
+		if err := s.repo.PatchSeries(r.Context(), series.ID, &active, nil, nil, nil); err != nil {
+			s.logger.Error("activate series failed", zap.Error(err))
+			writeError(w, http.StatusInternalServerError, "failed to activate series")
+			return
+		}
+	}
+
+	// Resume in keyset batches; lastSentAt=now pushes each slot into the
+	// future so reactivation never triggers an immediate catch-up blast.
+	var resumed int64
+	now := time.Now()
+	after := int64(0)
+	for resumable > 0 {
+		states, err := s.repo.ListResumableStates(r.Context(), series.ID, after, reactivateBatchSize)
+		if err != nil {
+			s.logger.Error("list resumable states failed", zap.Error(err))
+			writeError(w, http.StatusInternalServerError, "failed to list resumable states")
+			return
+		}
+		if len(states) == 0 {
+			break
+		}
+		after = states[len(states)-1].SubscriptionID
+
+		ids := make([]int64, 0, len(states))
+		slots := make([]time.Time, 0, len(states))
+		for _, st := range states {
+			next, err := scheduler.NextSendAt(*rule, now, now, st.StartDate)
+			if err != nil {
+				s.logger.Warn("reactivate schedule failed",
+					zap.Int64("subscription_id", st.SubscriptionID), zap.Error(err))
+				continue
+			}
+			ids = append(ids, st.SubscriptionID)
+			slots = append(slots, next)
+		}
+		if len(ids) > 0 {
+			n, err := s.repo.ResumeStates(r.Context(), series.ID, ids, slots)
+			if err != nil {
+				s.logger.Error("resume states failed", zap.Error(err))
+				writeError(w, http.StatusInternalServerError, "failed to resume states")
+				return
+			}
+			resumed += n
+		}
+		if len(states) < reactivateBatchSize {
+			break
+		}
+	}
+
+	s.logger.Info("series reactivated",
+		zap.Int64("series_id", series.ID),
+		zap.Int64("resumed_states", resumed))
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":         "reactivated",
+		"series_id":      series.ID,
+		"resumed_states": resumed,
 	})
 }

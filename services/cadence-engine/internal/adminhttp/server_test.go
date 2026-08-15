@@ -312,3 +312,130 @@ func TestHandleSeriesPreviewRequiresRule(t *testing.T) {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestHandleSeriesReactivateDryRun(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	s := &Server{logger: zap.NewNop(), repo: repository.NewCadenceRepository(db, zap.NewNop())}
+
+	mock.ExpectQuery("FROM subscription_message_state sms").
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(int64(42)))
+
+	series := &domain.MessageSeries{ID: 7, IsActive: false}
+	req := httptest.NewRequest(http.MethodPost, "/v1/admin/cadence/series/7/reactivate", strings.NewReader(`{"dry_run":true}`))
+	rr := httptest.NewRecorder()
+
+	s.handleSeriesReactivate(rr, req, series)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var body struct {
+		DryRun          bool  `json:"dry_run"`
+		ResumableStates int64 `json:"resumable_states"`
+		IsActive        bool  `json:"is_active"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid json: %v body=%s", err, rr.Body.String())
+	}
+	if !body.DryRun || body.ResumableStates != 42 || body.IsActive {
+		t.Errorf("unexpected body: %s", rr.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestHandleSeriesReactivateResumesStoppedStates(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	s := &Server{logger: zap.NewNop(), repo: repository.NewCadenceRepository(db, zap.NewNop())}
+
+	mock.ExpectQuery("FROM subscription_message_state sms").
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(int64(2)))
+
+	prefTime := time.Date(2000, 1, 1, 8, 0, 0, 0, time.UTC)
+	mock.ExpectQuery("FROM message_schedule_rules").
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"series_id", "rule_kind", "preferred_time", "days_of_week", "n_days",
+			"send_start_time", "send_end_time", "timezone", "max_per_day", "catchup_mode",
+		}).AddRow(int64(7), "DAILY", prefTime, 0, 0, prefTime, prefTime.Add(14*time.Hour), "Africa/Accra", 1, "SKIP"))
+
+	mock.ExpectExec("UPDATE product_message_series").
+		WithArgs(true, int64(7)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	mock.ExpectQuery("FROM subscription_message_state sms").
+		WithArgs(int64(7), int64(0), 500).
+		WillReturnRows(sqlmock.NewRows([]string{"subscription_id", "start_date"}).
+			AddRow(int64(11), start).
+			AddRow(int64(12), start))
+
+	mock.ExpectExec("UPDATE subscription_message_state sms").
+		WillReturnResult(sqlmock.NewResult(0, 2))
+
+	series := &domain.MessageSeries{ID: 7, IsActive: false}
+	req := httptest.NewRequest(http.MethodPost, "/v1/admin/cadence/series/7/reactivate", nil)
+	rr := httptest.NewRecorder()
+
+	s.handleSeriesReactivate(rr, req, series)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var body struct {
+		Status        string `json:"status"`
+		ResumedStates int64  `json:"resumed_states"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid json: %v body=%s", err, rr.Body.String())
+	}
+	if body.Status != "reactivated" || body.ResumedStates != 2 {
+		t.Errorf("unexpected body: %s", rr.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestHandleSeriesReactivateRequiresRuleWhenResuming(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	s := &Server{logger: zap.NewNop(), repo: repository.NewCadenceRepository(db, zap.NewNop())}
+
+	mock.ExpectQuery("FROM subscription_message_state sms").
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(int64(5)))
+	mock.ExpectQuery("FROM message_schedule_rules").
+		WithArgs(int64(7)).
+		WillReturnError(sql.ErrNoRows)
+
+	series := &domain.MessageSeries{ID: 7, IsActive: false}
+	req := httptest.NewRequest(http.MethodPost, "/v1/admin/cadence/series/7/reactivate", nil)
+	rr := httptest.NewRecorder()
+
+	s.handleSeriesReactivate(rr, req, series)
+
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("status=%d, want 409; body=%s", rr.Code, rr.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
