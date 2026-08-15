@@ -107,6 +107,16 @@
             <td mat-cell *matCellDef="let row">{{ row.short_code }}</td>
           </ng-container>
 
+          <ng-container matColumnDef="subscriptions">
+            <th mat-header-cell *matHeaderCellDef>Subscriptions</th>
+            <td mat-cell *matCellDef="let row" [matTooltip]="(row.subscription_active | number) + ' active of ' + (row.subscription_total | number) + ' total'">
+              <span class="sub-count">
+                <span class="sub-active">{{ row.subscription_active | number }}</span>
+                <span class="sub-total">/ {{ row.subscription_total | number }}</span>
+              </span>
+            </td>
+          </ng-container>
+
           <ng-container matColumnDef="created_at">
             <th mat-header-cell *matHeaderCellDef>Created</th>
             <td mat-cell *matCellDef="let row">{{ row.created_at | date:'short' }}</td>

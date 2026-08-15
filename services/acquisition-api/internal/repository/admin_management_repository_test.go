@@ -434,3 +434,34 @@ func tenantRows(now time.Time) *sqlmock.Rows {
 	return sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
 		AddRow("22222222-2222-2222-2222-222222222222", "tenant-a", "Tenant A", domain.TenantStatusActive, "GH", []byte(`{"tier":"gold"}`), now, now)
 }
+
+func TestAttachSubscriptionCountsMapsNumericProductsAndSkipsOthers(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	numeric := &domain.AdminProduct{ProductID: "32535"}
+	nonNumeric := &domain.AdminProduct{ProductID: "not-a-number"}
+	uncounted := &domain.AdminProduct{ProductID: "14392"}
+
+	mock.ExpectQuery(`FROM subscriptions`).
+		WithArgs("tenant-1", sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"product_id", "count", "count"}).
+			AddRow(int64(32535), 7, 5))
+
+	if err := repo.attachSubscriptionCounts("tenant-1", []*domain.AdminProduct{numeric, nonNumeric, uncounted}); err != nil {
+		t.Fatalf("attachSubscriptionCounts: %v", err)
+	}
+	if numeric.SubscriptionTotal != 7 || numeric.SubscriptionActive != 5 {
+		t.Fatalf("numeric product counts = %d/%d, want 7/5", numeric.SubscriptionTotal, numeric.SubscriptionActive)
+	}
+	if nonNumeric.SubscriptionTotal != 0 || uncounted.SubscriptionTotal != 0 {
+		t.Fatalf("products without subscription rows must keep zero counts")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sqlmock expectations: %v", err)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -510,7 +511,62 @@ func (r *AdminManagementRepository) ListProducts(filter *domain.ProductListFilte
 		return nil, 0, fmt.Errorf("failed to iterate products: %w", err)
 	}
 
+	if err := r.attachSubscriptionCounts(tenantID, products); err != nil {
+		return nil, 0, err
+	}
+
 	return products, total, nil
+}
+
+// attachSubscriptionCounts fills the read-only subscription aggregates for a
+// page of products. subscriptions.product_id is an integer while
+// products.product_id is text, so only numeric product IDs can have
+// subscriptions; non-numeric ones keep zero counts.
+func (r *AdminManagementRepository) attachSubscriptionCounts(tenantID string, products []*domain.AdminProduct) error {
+	byID := make(map[int64][]*domain.AdminProduct, len(products))
+	ids := make([]int64, 0, len(products))
+	for _, p := range products {
+		id, err := strconv.ParseInt(strings.TrimSpace(p.ProductID), 10, 64)
+		if err != nil {
+			continue
+		}
+		if _, seen := byID[id]; !seen {
+			ids = append(ids, id)
+		}
+		byID[id] = append(byID[id], p)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	rows, err := r.db.Query(`
+		SELECT product_id,
+		       COUNT(*),
+		       COUNT(*) FILTER (WHERE LOWER(status) = 'active')
+		FROM subscriptions
+		WHERE tenant_id = $1::uuid AND product_id = ANY($2)
+		GROUP BY product_id
+	`, tenantID, pq.Array(ids))
+	if err != nil {
+		return fmt.Errorf("failed to count product subscriptions: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var productID int64
+		var totalCount, activeCount int
+		if err := rows.Scan(&productID, &totalCount, &activeCount); err != nil {
+			return fmt.Errorf("failed to scan product subscription counts: %w", err)
+		}
+		for _, p := range byID[productID] {
+			p.SubscriptionTotal = totalCount
+			p.SubscriptionActive = activeCount
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed to iterate product subscription counts: %w", err)
+	}
+	return nil
 }
 
 func (r *AdminManagementRepository) GetProductByID(tenantID string, id int) (*domain.AdminProduct, error) {

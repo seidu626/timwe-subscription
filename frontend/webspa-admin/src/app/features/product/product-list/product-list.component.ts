@@ -26,6 +26,7 @@ export class ProductListComponent implements OnInit {
     'price_point_id',
     'price_point_value',
     'short_code',
+    'subscriptions',
     'created_at',
     'actions'
   ];

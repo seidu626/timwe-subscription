@@ -6,6 +6,8 @@ export interface AdminProduct {
   price_point_value: number;
   short_code: string;
   created_at: string;
+  subscription_total: number;
+  subscription_active: number;
 }
 
 export interface ProductListResponse {

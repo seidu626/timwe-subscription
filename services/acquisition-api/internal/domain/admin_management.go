@@ -108,6 +108,10 @@ type AdminProduct struct {
 	PricePointValue float64   `json:"price_point_value"`
 	ShortCode       string    `json:"short_code"`
 	CreatedAt       time.Time `json:"created_at"`
+	// Subscription counts are read-only aggregates populated on list/detail
+	// reads; they are never written back to the products table.
+	SubscriptionTotal  int `json:"subscription_total"`
+	SubscriptionActive int `json:"subscription_active"`
 }
 
 // ProductListFilter is used to filter and paginate products.

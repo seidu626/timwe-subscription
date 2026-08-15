@@ -37,6 +37,15 @@ table {
   width: 100%;
 }
 
+.sub-count {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sub-total {
+  color: var(--admin-text-muted);
+}
+
 .loading {
   display: flex;
   justify-content: center;
