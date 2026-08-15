@@ -8,7 +8,7 @@ import (
 )
 
 var appCatalogColumns = []string{
-	"slug", "price", "billing_cycle", "flow_type", "country",
+	"tenant_key", "name", "slug", "price", "billing_cycle", "flow_type", "country",
 	"app_name", "app_tagline", "app_description", "app_category",
 	"app_artwork_url", "app_sample_content", "lp_copy",
 }
@@ -24,7 +24,7 @@ func TestListAppCatalog_PrefersAppColumnsOverLPCopyFallback(t *testing.T) {
 	mock.ExpectQuery(`FROM campaigns c`).
 		WithArgs("nrg").
 		WillReturnRows(sqlmock.NewRows(appCatalogColumns).
-			AddRow("daily-tips", 2.5, "DAILY", "OTP", "GH",
+			AddRow("nrg", "NRG", "daily-tips", 2.5, "DAILY", "OTP", "GH",
 				"App Name", "App Tagline", "App Description", "wellness",
 				"https://cdn/art.png", "sample text", lpCopy))
 
@@ -65,7 +65,7 @@ func TestListAppCatalog_FallsBackToLPCopyWhenAppColumnsNull(t *testing.T) {
 	mock.ExpectQuery(`FROM campaigns c`).
 		WithArgs("nrg").
 		WillReturnRows(sqlmock.NewRows(appCatalogColumns).
-			AddRow("daily-tips", nil, nil, "OTP", "NG",
+			AddRow("nrg", "NRG", "daily-tips", nil, nil, "OTP", "NG",
 				nil, nil, nil, nil, nil, nil, lpCopy))
 
 	repo := NewCampaignRepository(db, zap.NewNop())
@@ -101,7 +101,7 @@ func TestListAppCatalog_FallsBackToSlugWhenNoNameSource(t *testing.T) {
 	mock.ExpectQuery(`FROM campaigns c`).
 		WithArgs("nrg").
 		WillReturnRows(sqlmock.NewRows(appCatalogColumns).
-			AddRow("daily-tips", nil, nil, "OTP", "ZZ",
+			AddRow("nrg", "NRG", "daily-tips", nil, nil, "OTP", "ZZ",
 				nil, nil, nil, nil, nil, nil, nil))
 
 	repo := NewCampaignRepository(db, zap.NewNop())

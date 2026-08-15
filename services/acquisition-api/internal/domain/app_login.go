@@ -62,6 +62,8 @@ func NewAppError(code AppErrorCode, message string) *AppError {
 // AppCatalogProduct is a single catalog entry for GET /v1/app/catalog.
 type AppCatalogProduct struct {
 	Slug            string   `json:"slug"`
+	Tenant          string   `json:"tenant"`
+	TenantName      string   `json:"tenant_name"`
 	Name            string   `json:"name"`
 	Tagline         string   `json:"tagline,omitempty"`
 	Description     string   `json:"description,omitempty"`
@@ -92,9 +94,19 @@ func MapTransactionStatusToApp(status TransactionStatus) string {
 	}
 }
 
+// AppMarketplaceTenant is one tenant's storefront section in the marketplace
+// response of GET /v1/app/catalog (no tenant filter).
+type AppMarketplaceTenant struct {
+	TenantKey  string               `json:"tenant_key"`
+	TenantName string               `json:"tenant_name"`
+	Products   []*AppCatalogProduct `json:"products"`
+}
+
 // AppSubscription is a single entry for GET /v1/app/subscriptions.
 type AppSubscription struct {
 	Ref            string    `json:"ref"`
+	Tenant         string    `json:"tenant"`
+	TenantName     string    `json:"tenant_name"`
 	ProductSlug    string    `json:"product_slug"`
 	ProductName    string    `json:"product_name"`
 	Status         string    `json:"status"`

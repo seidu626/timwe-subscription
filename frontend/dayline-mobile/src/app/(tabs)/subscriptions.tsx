@@ -87,6 +87,9 @@ export default function SubscriptionsScreen() {
               <Text style={styles.productName}>{subscription.product_name}</Text>
               <StatusPill status={subscription.status} />
             </View>
+            {subscription.tenant_name ? (
+              <Text style={styles.providerLine}>by {subscription.tenant_name}</Text>
+            ) : null}
             <Text style={styles.priceLine}>
               {subscription.next_charge_hint ? `${subscription.next_charge_hint} • ` : ''}
               {formatCurrency(subscription.price, subscription.currency)}
@@ -158,6 +161,10 @@ const styles = StyleSheet.create({
     ...typography.headlineMd,
     fontSize: 20,
     color: colors.onSurface,
+  },
+  providerLine: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
   },
   priceLine: {
     ...typography.bodyMd,

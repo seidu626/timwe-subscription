@@ -61,9 +61,24 @@ func TestMapTransactionServiceError_NilIsNil(t *testing.T) {
 	}
 }
 
+// expectAuthorize wires the marketplace ownership lookups: the transaction's
+// tenant comes from its own row (GetTenantIDByID + GetByIDForTenant), never
+// from the caller's JWT tenant.
+func expectAuthorize(mock sqlmock.Sqlmock, txID uuid.UUID, ownerMSISDN string, status domain.TransactionStatus, now time.Time) {
+	mock.ExpectQuery(`SELECT tenant_id FROM acquisition_transactions WHERE id = \$1`).
+		WithArgs(txID).
+		WillReturnRows(sqlmock.NewRows([]string{"tenant_id"}).AddRow(testTenantID))
+	mock.ExpectQuery(`FROM acquisition_transactions\s+WHERE id = \$1\s+AND tenant_id = \$2::uuid`).
+		WithArgs(txID, testTenantID).
+		WillReturnRows(sqlmock.NewRows(acquisitionTransactionColumns()).
+			AddRow(txID, uuid.New(), "daily", ownerMSISDN, status, nil,
+				nil, nil, nil, nil, nil, nil, false, true, nil, nil, nil, nil, nil, nil,
+				nil, nil, nil, nil, nil, nil, nil, nil, false, now, now))
+}
+
 func TestAppSubscriptionService_Confirm_RejectsInvalidRef(t *testing.T) {
 	svc, mock := newAppSubscriptionTestService(t, nil)
-	_, err := svc.Confirm("not-a-uuid", "233241234567", "nrg", "1234")
+	_, err := svc.Confirm("not-a-uuid", "233241234567", "1234")
 	requireAppError(t, err, domain.AppErrNotFound)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("expected no db calls, got: %v", err)
@@ -73,64 +88,66 @@ func TestAppSubscriptionService_Confirm_RejectsInvalidRef(t *testing.T) {
 func TestAppSubscriptionService_Confirm_RejectsMismatchedMSISDN(t *testing.T) {
 	svc, mock := newAppSubscriptionTestService(t, nil)
 	txID := uuid.New()
-	now := time.Now()
 
-	mock.ExpectQuery(`FROM tenants`).
-		WithArgs("nrg").
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(testTenantID))
-	mock.ExpectQuery(`FROM acquisition_transactions\s+WHERE id = \$1\s+AND tenant_id = \$2::uuid`).
-		WithArgs(txID, testTenantID).
-		WillReturnRows(sqlmock.NewRows(acquisitionTransactionColumns()).
-			AddRow(txID, uuid.New(), "daily", "233299999999", domain.StatusConfirmRequired, nil,
-				nil, nil, nil, nil, nil, nil, false, true, nil, nil, nil, nil, nil, nil,
-				nil, nil, nil, nil, nil, nil, nil, nil, false, now, now))
+	expectAuthorize(mock, txID, "233299999999", domain.StatusConfirmRequired, time.Now())
 
 	// A different caller (msisdn 233241234567) tries to confirm a
 	// transaction that belongs to 233299999999: must not reach
 	// TransactionService.ConfirmTransaction (txService is nil here).
-	_, err := svc.Confirm(txID.String(), "233241234567", "nrg", "1234")
+	_, err := svc.Confirm(txID.String(), "233241234567", "1234")
 	requireAppError(t, err, domain.AppErrNotFound)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
 
-func TestAppSubscriptionService_List_UnauthorizedForUnknownTenant(t *testing.T) {
+func TestAppSubscriptionService_Confirm_RejectsUnownedTransaction(t *testing.T) {
 	svc, mock := newAppSubscriptionTestService(t, nil)
-	mock.ExpectQuery(`FROM tenants`).
-		WithArgs("unknown-tenant").
+	txID := uuid.New()
+
+	mock.ExpectQuery(`SELECT tenant_id FROM acquisition_transactions WHERE id = \$1`).
+		WithArgs(txID).
 		WillReturnError(sql.ErrNoRows)
 
-	_, err := svc.List("233241234567", "unknown-tenant")
-	requireAppError(t, err, domain.AppErrUnauthorized)
+	_, err := svc.Confirm(txID.String(), "233241234567", "1234")
+	requireAppError(t, err, domain.AppErrNotFound)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
 
-func TestAppSubscriptionService_List_DelegatesToRepository(t *testing.T) {
+func TestAppSubscriptionService_List_SpansTenants(t *testing.T) {
 	svc, mock := newAppSubscriptionTestService(t, nil)
 	now := time.Now()
 
-	mock.ExpectQuery(`FROM tenants`).
-		WithArgs("nrg").
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(testTenantID))
-	mock.ExpectQuery(`FROM acquisition_transactions t\s+JOIN campaigns c`).
-		WithArgs(testTenantID, "233241234567").
+	mock.ExpectQuery(`FROM acquisition_transactions t\s+JOIN campaigns c ON c.slug = t.campaign_slug\s+JOIN tenants tn`).
+		WithArgs("233241234567").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "campaign_slug", "status", "created_at",
 			"price", "billing_cycle", "app_name", "lp_copy", "country",
+			"tenant_key", "name",
 		}).AddRow(
 			uuid.New().String(), "daily", "SUBSCRIBED", now,
 			2.0, "DAILY", "Daily Tips", nil, "GH",
+			"nrg", "NRG",
+		).AddRow(
+			uuid.New().String(), "careers", "SUBSCRIBED", now,
+			1.0, "DAILY", "Career Boost", nil, "GH",
+			"careerify", "Careerify",
 		))
 
-	subs, err := svc.List("233241234567", "nrg")
+	subs, err := svc.List("233241234567")
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(subs) != 1 || subs[0].ProductName != "Daily Tips" || subs[0].Status != "ACTIVE" {
-		t.Fatalf("unexpected subscriptions: %+v", subs)
+	if len(subs) != 2 {
+		t.Fatalf("expected 2 subscriptions, got %+v", subs)
+	}
+	if subs[0].Tenant != "nrg" || subs[0].TenantName != "NRG" || subs[0].Status != "ACTIVE" {
+		t.Fatalf("unexpected first subscription: %+v", subs[0])
+	}
+	if subs[1].Tenant != "careerify" || subs[1].ProductName != "Career Boost" {
+		t.Fatalf("unexpected second subscription: %+v", subs[1])
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -139,7 +156,7 @@ func TestAppSubscriptionService_List_DelegatesToRepository(t *testing.T) {
 
 func TestAppSubscriptionService_Cancel_RejectsInvalidRef(t *testing.T) {
 	svc, mock := newAppSubscriptionTestService(t, nil)
-	err := svc.Cancel("not-a-uuid", "233241234567", "nrg")
+	err := svc.Cancel("not-a-uuid", "233241234567")
 	requireAppError(t, err, domain.AppErrNotFound)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("expected no db calls, got: %v", err)
@@ -149,19 +166,10 @@ func TestAppSubscriptionService_Cancel_RejectsInvalidRef(t *testing.T) {
 func TestAppSubscriptionService_Cancel_RejectsMismatchedMSISDN(t *testing.T) {
 	svc, mock := newAppSubscriptionTestService(t, nil)
 	txID := uuid.New()
-	now := time.Now()
 
-	mock.ExpectQuery(`FROM tenants`).
-		WithArgs("nrg").
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(testTenantID))
-	mock.ExpectQuery(`FROM acquisition_transactions\s+WHERE id = \$1\s+AND tenant_id = \$2::uuid`).
-		WithArgs(txID, testTenantID).
-		WillReturnRows(sqlmock.NewRows(acquisitionTransactionColumns()).
-			AddRow(txID, uuid.New(), "daily", "233299999999", domain.StatusSubscribed, nil,
-				nil, nil, nil, nil, nil, nil, false, true, nil, nil, nil, nil, nil, nil,
-				nil, nil, nil, nil, nil, nil, nil, nil, false, now, now))
+	expectAuthorize(mock, txID, "233299999999", domain.StatusSubscribed, time.Now())
 
-	err := svc.Cancel(txID.String(), "233241234567", "nrg")
+	err := svc.Cancel(txID.String(), "233241234567")
 	requireAppError(t, err, domain.AppErrNotFound)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -173,15 +181,10 @@ func TestAppSubscriptionService_Cancel_FailsWhenCampaignHasNoChannel(t *testing.
 	txID := uuid.New()
 	now := time.Now()
 
-	mock.ExpectQuery(`FROM tenants`).
-		WithArgs("nrg").
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(testTenantID))
-	mock.ExpectQuery(`FROM acquisition_transactions\s+WHERE id = \$1\s+AND tenant_id = \$2::uuid`).
-		WithArgs(txID, testTenantID).
-		WillReturnRows(sqlmock.NewRows(acquisitionTransactionColumns()).
-			AddRow(txID, uuid.New(), "daily", "233241234567", domain.StatusSubscribed, nil,
-				nil, nil, nil, nil, nil, nil, false, true, nil, nil, nil, nil, nil, nil,
-				nil, nil, nil, nil, nil, nil, nil, nil, false, now, now))
+	expectAuthorize(mock, txID, "233241234567", domain.StatusSubscribed, now)
+	mock.ExpectQuery(`SELECT tenant_key\s+FROM tenants\s+WHERE id = \$1::uuid`).
+		WithArgs(testTenantID).
+		WillReturnRows(sqlmock.NewRows([]string{"tenant_key"}).AddRow(testTenantKey))
 
 	campaignID := 1
 	expectTenantCampaign(mock, testTenantKey, "daily",
@@ -192,7 +195,7 @@ func TestAppSubscriptionService_Cancel_FailsWhenCampaignHasNoChannel(t *testing.
 		true, now, now, nil, nil,
 	)
 
-	err := svc.Cancel(txID.String(), "233241234567", "nrg")
+	err := svc.Cancel(txID.String(), "233241234567")
 	requireAppError(t, err, domain.AppErrProviderError)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

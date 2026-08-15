@@ -235,6 +235,32 @@ func (r *TransactionRepository) GetByIDForTenant(id uuid.UUID, tenantID string) 
 	return tx, nil
 }
 
+// TenantKeyByID resolves an active tenant's UUID back to its tenant key.
+// Used by the Dayline app's cross-tenant subscription paths, where the
+// authoritative tenant comes from the transaction row rather than the JWT.
+func (r *TransactionRepository) TenantKeyByID(tenantID string) (string, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return "", fmt.Errorf("tenant_id is required")
+	}
+
+	var tenantKey string
+	err := r.db.QueryRow(`
+		SELECT tenant_key
+		FROM tenants
+		WHERE id = $1::uuid
+		  AND status = 'ACTIVE'
+		LIMIT 1
+	`, tenantID).Scan(&tenantKey)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", ErrAdminNotFound
+		}
+		return "", fmt.Errorf("failed to resolve tenant by id: %w", err)
+	}
+	return tenantKey, nil
+}
+
 func (r *TransactionRepository) GetTenantIDByID(id uuid.UUID) (string, error) {
 	var tenantID sql.NullString
 	if err := r.db.QueryRow(`SELECT tenant_id FROM acquisition_transactions WHERE id = $1`, id).Scan(&tenantID); err != nil {

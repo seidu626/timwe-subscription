@@ -1,19 +1,23 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { getCatalog } from '@/api/catalog';
-import { COUNTRY_CODE, TENANT_KEY } from '@/config';
+import { getMarketplace } from '@/api/catalog';
+import { COUNTRY_CODE } from '@/config';
 import { queryKeys } from './queryKeys';
 
-export function useCatalog() {
+export function useMarketplace() {
   return useQuery({
-    queryKey: queryKeys.catalog(TENANT_KEY, COUNTRY_CODE),
-    queryFn: () => getCatalog(TENANT_KEY, COUNTRY_CODE),
-    select: (data) => data.products,
+    queryKey: queryKeys.marketplace(COUNTRY_CODE),
+    queryFn: () => getMarketplace(COUNTRY_CODE),
+    select: (data) => data.tenants,
   });
 }
 
+// Campaign slugs are globally unique (enforced by a DB unique index), so a
+// slug alone identifies a product anywhere in the marketplace.
 export function useCatalogProduct(slug: string | undefined) {
-  const catalog = useCatalog();
-  const product = slug ? catalog.data?.find((item) => item.slug === slug) : undefined;
-  return { ...catalog, product };
+  const marketplace = useMarketplace();
+  const product = slug
+    ? marketplace.data?.flatMap((tenant) => tenant.products).find((item) => item.slug === slug)
+    : undefined;
+  return { ...marketplace, product };
 }

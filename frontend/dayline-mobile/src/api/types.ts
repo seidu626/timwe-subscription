@@ -9,13 +9,17 @@ export type DevicePlatform = 'android' | 'ios';
 
 export interface CatalogProduct {
   slug: string;
+  tenant: string;
+  tenant_name: string;
   name: string;
   tagline: string;
   description: string;
   category: string;
   artwork_url: string | null;
   sample_content: string | null;
-  price: number;
+  // Omitted on the wire when a campaign has no price; the backend excludes
+  // such campaigns from the app catalog, but the type reflects the payload.
+  price?: number;
   currency: string;
   billing_cycle: string;
   flow_type: FlowType;
@@ -24,6 +28,16 @@ export interface CatalogProduct {
 
 export interface CatalogResponse {
   products: CatalogProduct[];
+}
+
+export interface MarketplaceTenant {
+  tenant_key: string;
+  tenant_name: string;
+  products: CatalogProduct[];
+}
+
+export interface MarketplaceResponse {
+  tenants: MarketplaceTenant[];
 }
 
 export interface CreateSubscriptionResponse {
@@ -38,6 +52,8 @@ export interface ConfirmSubscriptionResponse {
 
 export interface Subscription {
   ref: string;
+  tenant: string;
+  tenant_name: string;
   product_slug: string;
   product_name: string;
   status: SubscriptionStatus;

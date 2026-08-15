@@ -18,7 +18,8 @@ export function useSubscriptions() {
 
 export function useCreateSubscription() {
   return useMutation({
-    mutationFn: (campaignSlug: string) => createSubscription(campaignSlug),
+    mutationFn: ({ campaignSlug, tenant }: { campaignSlug: string; tenant: string }) =>
+      createSubscription(campaignSlug, tenant),
   });
 }
 

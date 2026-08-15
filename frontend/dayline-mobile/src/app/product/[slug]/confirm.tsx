@@ -41,7 +41,10 @@ export default function ConfirmSubscriptionScreen() {
     if (!product) return;
     setErrorMessage(null);
     try {
-      const result = await createSubscription.mutateAsync(product.slug);
+      const result = await createSubscription.mutateAsync({
+        campaignSlug: product.slug,
+        tenant: product.tenant,
+      });
       setSubscriptionRef(result.subscription_ref);
       if (result.next_action === 'SUBSCRIBED') {
         router.replace({ pathname: '/product/[slug]/success', params: { slug: product.slug } });

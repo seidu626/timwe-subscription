@@ -63,13 +63,15 @@ func (s *AppSubscriptionService) Create(msisdn, tenantKey, campaignSlug string) 
 }
 
 // Confirm wraps TransactionService.ConfirmTransaction after verifying the
-// transaction belongs to the caller's msisdn+tenant.
-func (s *AppSubscriptionService) Confirm(ref, msisdn, tenantKey, pin string) (*domain.TransactionStatusResponse, error) {
+// transaction belongs to the caller's msisdn. The tenant is resolved from
+// the transaction row itself, not the caller's JWT: in the marketplace a
+// user subscribes across tenants under one msisdn identity.
+func (s *AppSubscriptionService) Confirm(ref, msisdn, pin string) (*domain.TransactionStatusResponse, error) {
 	transactionID, err := uuid.Parse(strings.TrimSpace(ref))
 	if err != nil {
 		return nil, domain.NewAppError(domain.AppErrNotFound, "subscription not found")
 	}
-	if err := s.authorize(transactionID, msisdn, tenantKey); err != nil {
+	if _, _, err := s.authorize(transactionID, msisdn); err != nil {
 		return nil, err
 	}
 	resp, err := s.txService.ConfirmTransaction(transactionID, pin)
@@ -79,13 +81,9 @@ func (s *AppSubscriptionService) Confirm(ref, msisdn, tenantKey, pin string) (*d
 	return resp, nil
 }
 
-// List returns the caller's subscriptions.
-func (s *AppSubscriptionService) List(msisdn, tenantKey string) ([]*domain.AppSubscription, error) {
-	tenantID, err := s.txRepo.TenantIDByKey(tenantKey)
-	if err != nil || strings.TrimSpace(tenantID) == "" {
-		return nil, domain.NewAppError(domain.AppErrUnauthorized, "unknown tenant")
-	}
-	subs, err := s.txRepo.ListAppSubscriptionsByTenantAndMSISDN(tenantID, msisdn)
+// List returns the caller's subscriptions across every tenant.
+func (s *AppSubscriptionService) List(msisdn string) ([]*domain.AppSubscription, error) {
+	subs, err := s.txRepo.ListAppSubscriptionsByMSISDN(msisdn)
 	if err != nil {
 		return nil, err
 	}
@@ -94,21 +92,19 @@ func (s *AppSubscriptionService) List(msisdn, tenantKey string) ([]*domain.AppSu
 
 // Cancel triggers the existing opt-out path in subscription-external via a
 // direct in-cluster gateway-trust call, after verifying the transaction
-// belongs to the caller's msisdn+tenant.
-func (s *AppSubscriptionService) Cancel(ref, msisdn, tenantKey string) error {
+// belongs to the caller's msisdn. The opt-out is routed through the
+// transaction's own tenant, which may differ from the login tenant.
+func (s *AppSubscriptionService) Cancel(ref, msisdn string) error {
 	transactionID, err := uuid.Parse(strings.TrimSpace(ref))
 	if err != nil {
 		return domain.NewAppError(domain.AppErrNotFound, "subscription not found")
 	}
-	tenantID, err := s.txRepo.TenantIDByKey(tenantKey)
-	if err != nil || strings.TrimSpace(tenantID) == "" {
-		return domain.NewAppError(domain.AppErrUnauthorized, "unknown tenant")
-	}
-	tx, err := s.txRepo.GetByIDForTenant(transactionID, tenantID)
+	tx, tenantID, err := s.authorize(transactionID, msisdn)
 	if err != nil {
-		return domain.NewAppError(domain.AppErrNotFound, "subscription not found")
+		return err
 	}
-	if tx.MSISDN != msisdn {
+	tenantKey, err := s.txRepo.TenantKeyByID(tenantID)
+	if err != nil || strings.TrimSpace(tenantKey) == "" {
 		return domain.NewAppError(domain.AppErrNotFound, "subscription not found")
 	}
 
@@ -140,19 +136,23 @@ func (s *AppSubscriptionService) Cancel(ref, msisdn, tenantKey string) error {
 	return nil
 }
 
-func (s *AppSubscriptionService) authorize(transactionID uuid.UUID, msisdn, tenantKey string) error {
-	tenantID, err := s.txRepo.TenantIDByKey(tenantKey)
+// authorize loads the transaction and verifies it belongs to the caller's
+// msisdn, returning the transaction and its owning tenant's UUID. Ownership
+// is keyed on msisdn alone; the tenant comes from the transaction row so
+// cross-tenant marketplace subscriptions stay manageable after login.
+func (s *AppSubscriptionService) authorize(transactionID uuid.UUID, msisdn string) (*domain.AcquisitionTransaction, string, error) {
+	tenantID, err := s.txRepo.GetTenantIDByID(transactionID)
 	if err != nil || strings.TrimSpace(tenantID) == "" {
-		return domain.NewAppError(domain.AppErrUnauthorized, "unknown tenant")
+		return nil, "", domain.NewAppError(domain.AppErrNotFound, "subscription not found")
 	}
 	tx, err := s.txRepo.GetByIDForTenant(transactionID, tenantID)
 	if err != nil {
-		return domain.NewAppError(domain.AppErrNotFound, "subscription not found")
+		return nil, "", domain.NewAppError(domain.AppErrNotFound, "subscription not found")
 	}
 	if tx.MSISDN != msisdn {
-		return domain.NewAppError(domain.AppErrNotFound, "subscription not found")
+		return nil, "", domain.NewAppError(domain.AppErrNotFound, "subscription not found")
 	}
-	return nil
+	return tx, tenantID, nil
 }
 
 // mapTransactionServiceError translates TransactionService's plain-string

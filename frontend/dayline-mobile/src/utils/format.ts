@@ -1,4 +1,7 @@
-export function formatCurrency(amount: number, currency: string): string {
+// amount is optional defensively: the backend excludes un-priced campaigns
+// from the app catalog, but a data gap must degrade to blank, not crash.
+export function formatCurrency(amount: number | null | undefined, currency: string): string {
+  if (amount == null || !Number.isFinite(amount)) return '';
   return `${currency} ${amount.toFixed(2)}`;
 }
 

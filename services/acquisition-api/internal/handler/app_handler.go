@@ -180,10 +180,28 @@ type appCatalogResponse struct {
 	Products []*domain.AppCatalogProduct `json:"products"`
 }
 
+type appMarketplaceResponse struct {
+	Tenants []*domain.AppMarketplaceTenant `json:"tenants"`
+}
+
 // Catalog handles GET /v1/app/catalog. No auth required per the contract.
+// With a tenant query arg it returns that tenant's flat product list; without
+// one it returns the marketplace view, grouped per tenant.
 func (h *AppHandler) Catalog(ctx *fasthttp.RequestCtx) {
-	tenant := string(ctx.QueryArgs().Peek("tenant"))
+	tenant := strings.TrimSpace(string(ctx.QueryArgs().Peek("tenant")))
 	country := string(ctx.QueryArgs().Peek("country"))
+
+	ctx.SetContentType("application/json")
+	if tenant == "" {
+		tenants, err := h.catalog.Marketplace(country)
+		if err != nil {
+			writeAppErr(ctx, err)
+			return
+		}
+		ctx.SetStatusCode(fasthttp.StatusOK)
+		_ = json.NewEncoder(ctx).Encode(appMarketplaceResponse{Tenants: tenants})
+		return
+	}
 
 	products, err := h.catalog.List(tenant, country)
 	if err != nil {
@@ -191,13 +209,16 @@ func (h *AppHandler) Catalog(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	_ = json.NewEncoder(ctx).Encode(appCatalogResponse{Products: products})
 }
 
 type appCreateSubscriptionBody struct {
 	CampaignSlug string `json:"campaign_slug"`
+	// Tenant optionally names the tenant that owns campaign_slug. The
+	// marketplace sells across tenants, so the product's tenant wins over
+	// the login tenant; empty keeps the JWT tenant for older clients.
+	Tenant string `json:"tenant"`
 }
 
 type appCreateSubscriptionResponse struct {
@@ -220,7 +241,11 @@ func (h *AppHandler) CreateSubscription(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	resp, err := h.subs.Create(claims.MSISDN, claims.Tenant, req.CampaignSlug)
+	tenant := strings.TrimSpace(req.Tenant)
+	if tenant == "" {
+		tenant = claims.Tenant
+	}
+	resp, err := h.subs.Create(claims.MSISDN, tenant, req.CampaignSlug)
 	if err != nil {
 		writeAppErr(ctx, err)
 		return
@@ -262,7 +287,7 @@ func (h *AppHandler) ConfirmSubscription(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	resp, err := h.subs.Confirm(ref, claims.MSISDN, claims.Tenant, req.PIN)
+	resp, err := h.subs.Confirm(ref, claims.MSISDN, req.PIN)
 	if err != nil {
 		writeAppErr(ctx, err)
 		return
@@ -286,7 +311,7 @@ func (h *AppHandler) ListSubscriptions(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	subs, err := h.subs.List(claims.MSISDN, claims.Tenant)
+	subs, err := h.subs.List(claims.MSISDN)
 	if err != nil {
 		writeAppErr(ctx, err)
 		return
@@ -310,7 +335,7 @@ func (h *AppHandler) CancelSubscription(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	if err := h.subs.Cancel(ref, claims.MSISDN, claims.Tenant); err != nil {
+	if err := h.subs.Cancel(ref, claims.MSISDN); err != nil {
 		writeAppErr(ctx, err)
 		return
 	}

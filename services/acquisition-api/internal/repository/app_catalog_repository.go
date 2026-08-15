@@ -42,30 +42,35 @@ func currencyForCountry(country string) string {
 	}
 }
 
-// ListAppCatalog returns the Dayline app catalog for a tenant, optionally
-// filtered by country. Only enabled campaigns on an active tenant are
-// listed, matching GetEnabledBySlug's existing public-visibility semantics.
+// ListAppCatalog returns the Dayline app catalog, optionally filtered by
+// tenant and country. An empty tenantKey lists every active tenant's enabled
+// campaigns (the marketplace view); rows always carry the owning tenant so
+// products stay attributable across tenants. Only enabled campaigns on an
+// active tenant are listed, matching GetEnabledBySlug's existing
+// public-visibility semantics. Campaigns without a price are excluded: the
+// app's confirm screen must disclose the charge before subscribing, so an
+// un-priced campaign is not app-sellable.
 func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domain.AppCatalogProduct, error) {
-	tenantKey = strings.TrimSpace(tenantKey)
-	if tenantKey == "" {
-		return nil, fmt.Errorf("tenant is required")
-	}
-
 	query := `
-		SELECT c.slug, c.price, c.billing_cycle, c.flow_type, c.country,
+		SELECT t.tenant_key, t.name, c.slug, c.price, c.billing_cycle, c.flow_type, c.country,
 		       c.app_name, c.app_tagline, c.app_description, c.app_category,
 		       c.app_artwork_url, c.app_sample_content, c.lp_copy
 		FROM campaigns c
 		JOIN tenants t ON t.id = c.tenant_id
-		WHERE c.enabled = true AND t.status = 'ACTIVE' AND t.tenant_key = $1
+		WHERE c.enabled = true AND t.status = 'ACTIVE' AND c.price IS NOT NULL
 	`
-	args := []interface{}{tenantKey}
+	args := []interface{}{}
+	tenantKey = strings.TrimSpace(tenantKey)
+	if tenantKey != "" {
+		args = append(args, tenantKey)
+		query += fmt.Sprintf(" AND t.tenant_key = $%d", len(args))
+	}
 	country = strings.TrimSpace(country)
 	if country != "" {
-		query += " AND c.country = $2"
 		args = append(args, country)
+		query += fmt.Sprintf(" AND c.country = $%d", len(args))
 	}
-	query += " ORDER BY c.slug"
+	query += " ORDER BY t.tenant_key, c.slug"
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -76,13 +81,13 @@ func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domai
 	products := make([]*domain.AppCatalogProduct, 0)
 	for rows.Next() {
 		var (
-			slug, flowType, rowCountry                                     string
+			rowTenantKey, rowTenantName, slug, flowType, rowCountry        string
 			billingCycle, appName, appTagline, appDescription, appCategory sql.NullString
 			appArtworkURL, appSampleContent                                sql.NullString
 			lpCopy                                                         sql.NullString
 			price                                                          sql.NullFloat64
 		)
-		if err := rows.Scan(&slug, &price, &billingCycle, &flowType, &rowCountry,
+		if err := rows.Scan(&rowTenantKey, &rowTenantName, &slug, &price, &billingCycle, &flowType, &rowCountry,
 			&appName, &appTagline, &appDescription, &appCategory,
 			&appArtworkURL, &appSampleContent, &lpCopy); err != nil {
 			r.logger.Error("failed to scan app catalog row", zap.Error(err))
@@ -99,6 +104,8 @@ func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domai
 
 		product := &domain.AppCatalogProduct{
 			Slug:            slug,
+			Tenant:          rowTenantKey,
+			TenantName:      rowTenantName,
 			Name:            firstNonEmpty(appName.String, lpTitleOf(lpEn), slug),
 			Tagline:         firstNonEmpty(appTagline.String, lpDescriptionOf(lpEn)),
 			Description:     firstNonEmpty(appDescription.String, lpSuccessBodyOf(lpEn)),

@@ -5,10 +5,12 @@ import type {
   SubscriptionsResponse,
 } from './types';
 
-export function createSubscription(campaignSlug: string): Promise<CreateSubscriptionResponse> {
+// tenant is the product's owning tenant: the marketplace sells across
+// tenants, so the subscription follows the product, not the login tenant.
+export function createSubscription(campaignSlug: string, tenant: string): Promise<CreateSubscriptionResponse> {
   return apiRequest<CreateSubscriptionResponse>('/v1/app/subscriptions', {
     method: 'POST',
-    body: { campaign_slug: campaignSlug },
+    body: { campaign_slug: campaignSlug, tenant },
   });
 }
 

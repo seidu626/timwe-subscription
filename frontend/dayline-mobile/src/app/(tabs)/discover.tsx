@@ -5,14 +5,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/Card';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
-import { useCatalog } from '@/hooks/useCatalog';
+import { useMarketplace } from '@/hooks/useCatalog';
 import { useFeed } from '@/hooks/useFeed';
 import { colors, radii, spacing, typography } from '@/theme/tokens';
 import { formatBillingCycle, formatCurrency } from '@/utils/format';
-import type { CatalogProduct } from '@/api/types';
+import type { CatalogProduct, MarketplaceTenant } from '@/api/types';
 
 export default function DiscoverScreen() {
-  const catalog = useCatalog();
+  const catalog = useMarketplace();
   const feed = useFeed();
   const unreadCount = feed.data?.filter((item) => !item.read).length ?? 0;
 
@@ -39,13 +39,13 @@ export default function DiscoverScreen() {
         </Pressable>
       </Link>
 
-      <Text style={styles.sectionTitle}>Discover products</Text>
+      <Text style={styles.sectionTitle}>Marketplace</Text>
 
-      {catalog.isPending ? <LoadingState label="Loading products…" /> : null}
+      {catalog.isPending ? <LoadingState label="Loading marketplace…" /> : null}
 
       {catalog.isError ? (
         <ErrorState
-          title="Couldn't load products"
+          title="Couldn't load the marketplace"
           message={catalog.error instanceof Error ? catalog.error.message : undefined}
           onRetry={() => catalog.refetch()}
         />
@@ -55,12 +55,35 @@ export default function DiscoverScreen() {
         <EmptyState icon="explore" title="No products available yet" message="Check back soon for new content." />
       ) : null}
 
-      <View style={styles.productList}>
-        {catalog.data?.map((product) => (
-          <ProductRow key={product.slug} product={product} />
+      <View style={styles.tenantList}>
+        {catalog.data?.map((tenant) => (
+          <TenantSection key={tenant.tenant_key} tenant={tenant} />
         ))}
       </View>
     </ScreenContainer>
+  );
+}
+
+function TenantSection({ tenant }: { tenant: MarketplaceTenant }) {
+  return (
+    <View style={styles.tenantSection}>
+      <View style={styles.tenantHeader}>
+        <View style={styles.tenantBadge}>
+          <MaterialIcons name="storefront" size={18} color={colors.primary} />
+        </View>
+        <View style={styles.tenantTextGroup}>
+          <Text style={styles.tenantName}>{tenant.tenant_name}</Text>
+          <Text style={styles.tenantMeta}>
+            {tenant.products.length === 1 ? '1 product' : `${tenant.products.length} products`}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.productList}>
+        {tenant.products.map((product) => (
+          <ProductRow key={product.slug} product={product} />
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -145,6 +168,38 @@ const styles = StyleSheet.create({
     ...typography.headlineMd,
     color: colors.onSurface,
     marginBottom: spacing.stackMd,
+  },
+  tenantList: {
+    gap: spacing.sectionGap,
+  },
+  tenantSection: {
+    gap: spacing.stackMd,
+  },
+  tenantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.stackSm,
+  },
+  tenantBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(15,110,82,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tenantTextGroup: {
+    gap: 0,
+  },
+  tenantName: {
+    ...typography.headlineMd,
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.onSurface,
+  },
+  tenantMeta: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
   },
   productList: {
     gap: spacing.stackMd,
