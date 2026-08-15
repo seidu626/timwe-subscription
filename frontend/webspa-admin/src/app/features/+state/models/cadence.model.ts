@@ -1,3 +1,7 @@
+export type CadenceDeliveryChannel = 'USER_PREF' | 'SMS' | 'PUSH';
+
+export type CadenceContentKind = 'TEXT' | 'LINK';
+
 export interface CadenceSeries {
   id: number;
   partner_role_id: number;
@@ -6,6 +10,7 @@ export interface CadenceSeries {
   mode: 'SEQUENTIAL' | 'POOL' | string;
   content_version: number;
   is_active: boolean;
+  delivery_channel: CadenceDeliveryChannel | string;
   created_at?: string;
 }
 
@@ -28,6 +33,9 @@ export interface CadenceContentItem {
   content_version: number;
   seq_no: number;
   message_text: string;
+  content_kind: CadenceContentKind | string;
+  link_url?: string;
+  cta_label?: string;
   is_active: boolean;
   created_at?: string;
 }

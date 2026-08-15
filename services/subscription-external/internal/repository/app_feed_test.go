@@ -59,10 +59,10 @@ func TestListFeed_OrdersByPublishedAtDescAndAppliesReadState(t *testing.T) {
 	now := time.Now()
 	older := now.Add(-time.Hour)
 	rows := sqlmock.NewRows([]string{
-		"content_item_id", "product_slug", "product_name", "title", "message_text", "published_at", "is_read",
+		"content_item_id", "product_slug", "product_name", "title", "message_text", "content_kind", "link_url", "cta_label", "published_at", "is_read",
 	}).
-		AddRow(int64(2), "careerify-tips", "Careerify Tips", nil, "Newer item body", now, false).
-		AddRow(int64(1), "careerify-tips", "Careerify Tips", "Custom Title", "Older item body", older, true)
+		AddRow(int64(2), "careerify-tips", "Careerify Tips", nil, "Newer item body", "LINK", "https://careerify.example/app", "Open", now, false).
+		AddRow(int64(1), "careerify-tips", "Careerify Tips", "Custom Title", "Older item body", "TEXT", nil, nil, older, true)
 
 	mock.ExpectQuery(`SELECT \* FROM \(`).
 		WithArgs("233241234567", 50).
@@ -84,6 +84,12 @@ func TestListFeed_OrdersByPublishedAtDescAndAppliesReadState(t *testing.T) {
 	if items[0].Title != "Newer item body" {
 		t.Errorf("expected fallback title from body, got %q", items[0].Title)
 	}
+	if items[0].ContentKind != "LINK" || items[0].LinkURL == nil || *items[0].LinkURL != "https://careerify.example/app" || items[0].CTALabel == nil || *items[0].CTALabel != "Open" {
+		t.Errorf("expected link fields on first item, got %+v", items[0])
+	}
+	if items[1].ContentKind != "TEXT" || items[1].LinkURL != nil || items[1].CTALabel != nil {
+		t.Errorf("expected null link fields on text item, got %+v", items[1])
+	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)
 	}
@@ -93,7 +99,7 @@ func TestListFeed_EmptyWhenNoDeliveredContent(t *testing.T) {
 	repo, mock := newAppFeedRepoForTest(t)
 
 	rows := sqlmock.NewRows([]string{
-		"content_item_id", "product_slug", "product_name", "title", "message_text", "published_at", "is_read",
+		"content_item_id", "product_slug", "product_name", "title", "message_text", "content_kind", "link_url", "cta_label", "published_at", "is_read",
 	})
 	mock.ExpectQuery(`SELECT \* FROM \(`).
 		WithArgs("233241234567", 50).

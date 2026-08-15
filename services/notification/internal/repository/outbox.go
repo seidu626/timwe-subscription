@@ -40,10 +40,12 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 		)
 		SELECT u.job_id, mo.tenant_id::text, mo.channel_id::text, u.subscription_id, COALESCE(u.content_item_id, 0), u.attempt, u.planned_send_at,
 		       s.partner_role_id, s.product_id, s.user_identifier, COALESCE(s.entry_channel, ''),
+		       COALESCE(pms.delivery_channel, 'USER_PREF'),
 		       COALESCE(mo.message_text, ci.message_text)
 		FROM updated u
 		JOIN message_outbox mo ON mo.job_id = u.job_id
 		JOIN subscriptions s ON s.id = u.subscription_id
+		LEFT JOIN product_message_series pms ON pms.id = mo.series_id
 		LEFT JOIN message_content_items ci ON ci.id = u.content_item_id
 	`
 
@@ -69,6 +71,7 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 			&job.ProductID,
 			&job.MSISDN,
 			&job.EntryChannel,
+			&job.DeliveryChannel,
 			&job.MessageText,
 		); err != nil {
 			return nil, err

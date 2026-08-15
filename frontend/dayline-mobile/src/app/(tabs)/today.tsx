@@ -78,6 +78,9 @@ function FeedCard({ item }: { item: FeedItem }) {
             <Text style={styles.cardMeta}>{estimateReadTime(item.body)}</Text>
             <Text style={styles.cardMetaDot}>•</Text>
             <Text style={styles.cardMeta}>{formatRelativeDay(item.published_at)}</Text>
+            {item.content_kind === 'LINK' ? (
+              <MaterialIcons name="open-in-new" size={14} color={colors.onSurfaceVariant} style={styles.linkGlyph} />
+            ) : null}
           </View>
         </Card>
       </Pressable>
@@ -148,5 +151,8 @@ const styles = StyleSheet.create({
   },
   cardMetaDot: {
     color: colors.onSurfaceVariant,
+  },
+  linkGlyph: {
+    flexShrink: 0,
   },
 });

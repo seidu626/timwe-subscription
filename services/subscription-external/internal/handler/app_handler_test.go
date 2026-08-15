@@ -100,6 +100,8 @@ func TestGetFeed_ReturnsItemsForAuthenticatedSubject(t *testing.T) {
 	claims.Tenant = "careerify"
 
 	published := time.Now()
+	linkURL := "https://careerify.example/app"
+	ctaLabel := "Open"
 	repo := &fakeAppRepo{
 		listFeedFn: func(ctx context.Context, msisdn string, limit int) ([]domain.AppFeedItem, error) {
 			if msisdn != "233241234567" {
@@ -108,7 +110,7 @@ func TestGetFeed_ReturnsItemsForAuthenticatedSubject(t *testing.T) {
 			if limit != feedListLimit {
 				t.Errorf("limit = %d, want %d", limit, feedListLimit)
 			}
-			return []domain.AppFeedItem{{ID: 1, Title: "Hi", Body: "Hi", PublishedAt: published}}, nil
+			return []domain.AppFeedItem{{ID: 1, Title: "Hi", Body: "Hi", ContentKind: "LINK", LinkURL: &linkURL, CTALabel: &ctaLabel, PublishedAt: published}}, nil
 		},
 	}
 	h := NewAppHandler(repo, &fakeValidator{claims: claims}, zap.NewNop())
@@ -124,6 +126,9 @@ func TestGetFeed_ReturnsItemsForAuthenticatedSubject(t *testing.T) {
 	}
 	if len(parsed.Items) != 1 || parsed.Items[0].ID != 1 {
 		t.Errorf("unexpected items: %+v", parsed.Items)
+	}
+	if parsed.Items[0].ContentKind != "LINK" || parsed.Items[0].LinkURL == nil || *parsed.Items[0].LinkURL != linkURL || parsed.Items[0].CTALabel == nil || *parsed.Items[0].CTALabel != ctaLabel {
+		t.Errorf("missing link fields: %+v", parsed.Items[0])
 	}
 }
 

@@ -81,6 +81,61 @@ partner_role_id,product_id,series_name,mode,content_version,seq_no,message_text,
 	}
 }
 
+func TestValidateContentFields_ContentKindContract(t *testing.T) {
+	link := "https://careerify.example/app"
+	cta := "Open app"
+	longCTA := strings.Repeat("x", 41)
+	cases := []struct {
+		name      string
+		kind      string
+		linkURL   *string
+		ctaLabel  *string
+		wantKind  string
+		wantError bool
+	}{
+		{name: "default text", wantKind: "TEXT"},
+		{name: "text rejects link", kind: "TEXT", linkURL: &link, wantError: true},
+		{name: "text rejects cta", kind: "TEXT", ctaLabel: &cta, wantError: true},
+		{name: "link accepts http URL", kind: "LINK", linkURL: &link, ctaLabel: &cta, wantKind: "LINK"},
+		{name: "link requires URL", kind: "LINK", wantError: true},
+		{name: "link rejects non-http URL", kind: "LINK", linkURL: ptrString("ftp://example.com"), wantError: true},
+		{name: "link rejects long cta", kind: "LINK", linkURL: &link, ctaLabel: &longCTA, wantError: true},
+		{name: "rejects unknown kind", kind: "VIDEO", wantError: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotKind, _, _, err := validateContentFields(tc.kind, tc.linkURL, tc.ctaLabel)
+			if tc.wantError {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if gotKind != tc.wantKind {
+				t.Fatalf("kind = %q, want %q", gotKind, tc.wantKind)
+			}
+		})
+	}
+}
+
+func TestNormalizeDeliveryChannel(t *testing.T) {
+	for _, value := range []string{"", "USER_PREF", "sms", " push "} {
+		if _, err := normalizeDeliveryChannel(value); err != nil {
+			t.Fatalf("normalizeDeliveryChannel(%q): %v", value, err)
+		}
+	}
+	if _, err := normalizeDeliveryChannel("EMAIL"); err == nil {
+		t.Fatal("expected invalid delivery_channel error")
+	}
+}
+
+func ptrString(value string) *string {
+	return &value
+}
+
 func TestHandleSeriesReturnsErrWhenTenantMissing(t *testing.T) {
 	const ErrTenantScope = "tenant context required"
 

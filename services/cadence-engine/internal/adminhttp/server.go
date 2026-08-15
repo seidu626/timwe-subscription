@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -160,13 +161,14 @@ func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
 		return
 	case http.MethodPost:
 		var req struct {
-			PartnerRoleID  int    `json:"partner_role_id"`
-			ProductID      int    `json:"product_id"`
-			ChannelID      string `json:"channel_id"`
-			Name           string `json:"name"`
-			Mode           string `json:"mode"`
-			ContentVersion int    `json:"content_version"`
-			IsActive       *bool  `json:"is_active"`
+			PartnerRoleID   int    `json:"partner_role_id"`
+			ProductID       int    `json:"product_id"`
+			ChannelID       string `json:"channel_id"`
+			Name            string `json:"name"`
+			Mode            string `json:"mode"`
+			ContentVersion  int    `json:"content_version"`
+			IsActive        *bool  `json:"is_active"`
+			DeliveryChannel string `json:"delivery_channel"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid json body")
@@ -174,6 +176,11 @@ func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
 		}
 		req.Name = strings.TrimSpace(req.Name)
 		req.Mode = strings.TrimSpace(req.Mode)
+		deliveryChannel, err := normalizeDeliveryChannel(req.DeliveryChannel)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid delivery_channel")
+			return
+		}
 		if req.PartnerRoleID <= 0 || req.ProductID <= 0 || req.Name == "" {
 			writeError(w, http.StatusBadRequest, "partner_role_id, product_id, name are required")
 			return
@@ -186,7 +193,7 @@ func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
 			active = *req.IsActive
 		}
 
-		series, err := s.repo.UpsertSeries(r.Context(), tenantID, firstNonBlank(req.ChannelID, channelID), req.PartnerRoleID, req.ProductID, req.Name, req.Mode, req.ContentVersion, active)
+		series, err := s.repo.UpsertSeries(r.Context(), tenantID, firstNonBlank(req.ChannelID, channelID), req.PartnerRoleID, req.ProductID, req.Name, req.Mode, req.ContentVersion, deliveryChannel, active)
 		if err != nil {
 			s.logger.Error("upsert series failed", zap.Error(err))
 			writeError(w, http.StatusInternalServerError, "failed to upsert series")
@@ -357,7 +364,7 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// Update series content_version
-			if err := s.repo.PatchSeries(r.Context(), seriesID, nil, nil, &req.ContentVersion); err != nil {
+			if err := s.repo.PatchSeries(r.Context(), seriesID, nil, nil, &req.ContentVersion, nil); err != nil {
 				s.logger.Error("patch series failed", zap.Error(err))
 				writeError(w, http.StatusInternalServerError, "failed to publish version")
 				return
@@ -416,10 +423,13 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 				return
 			case http.MethodPost:
 				var req struct {
-					ContentVersion int    `json:"content_version"`
-					SeqNo          int    `json:"seq_no"`
-					MessageText    string `json:"message_text"`
-					IsActive       *bool  `json:"is_active"`
+					ContentVersion int     `json:"content_version"`
+					SeqNo          int     `json:"seq_no"`
+					MessageText    string  `json:"message_text"`
+					ContentKind    string  `json:"content_kind"`
+					LinkURL        *string `json:"link_url"`
+					CTALabel       *string `json:"cta_label"`
+					IsActive       *bool   `json:"is_active"`
 				}
 				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 					writeError(w, http.StatusBadRequest, "invalid json body")
@@ -428,6 +438,11 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 				req.MessageText = strings.TrimSpace(req.MessageText)
 				if req.ContentVersion <= 0 || req.SeqNo <= 0 || req.MessageText == "" {
 					writeError(w, http.StatusBadRequest, "content_version, seq_no, message_text are required")
+					return
+				}
+				contentKind, linkURL, ctaLabel, err := validateContentFields(req.ContentKind, req.LinkURL, req.CTALabel)
+				if err != nil {
+					writeError(w, http.StatusBadRequest, err.Error())
 					return
 				}
 				active := true
@@ -443,7 +458,7 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 				}
 				defer func() { _ = tx.Rollback() }()
 
-				if _, err := s.repo.UpsertContentItemTx(r.Context(), tx, tenantID, seriesChannelID(series, channelID), seriesID, req.ContentVersion, req.SeqNo, req.MessageText, active); err != nil {
+				if _, err := s.repo.UpsertContentItemTx(r.Context(), tx, tenantID, seriesChannelID(series, channelID), seriesID, req.ContentVersion, req.SeqNo, req.MessageText, contentKind, linkURL, ctaLabel, active); err != nil {
 					s.logger.Error("upsert content failed", zap.Error(err))
 					writeError(w, http.StatusInternalServerError, "failed to save content")
 					return
@@ -471,15 +486,25 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 		return
 	case http.MethodPatch:
 		var req struct {
-			IsActive       *bool   `json:"is_active"`
-			Mode           *string `json:"mode"`
-			ContentVersion *int    `json:"content_version"`
+			IsActive        *bool   `json:"is_active"`
+			Mode            *string `json:"mode"`
+			ContentVersion  *int    `json:"content_version"`
+			DeliveryChannel *string `json:"delivery_channel"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid json body")
 			return
 		}
-		if err := s.repo.PatchSeries(r.Context(), seriesID, req.IsActive, req.Mode, req.ContentVersion); err != nil {
+		var deliveryChannel *string
+		if req.DeliveryChannel != nil {
+			normalized, err := normalizeDeliveryChannel(*req.DeliveryChannel)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid delivery_channel")
+				return
+			}
+			deliveryChannel = &normalized
+		}
+		if err := s.repo.PatchSeries(r.Context(), seriesID, req.IsActive, req.Mode, req.ContentVersion, deliveryChannel); err != nil {
 			s.logger.Error("patch series failed", zap.Error(err))
 			writeError(w, http.StatusInternalServerError, "failed to patch series")
 			return
@@ -570,7 +595,7 @@ func (s *Server) handleCSVImport(w http.ResponseWriter, r *http.Request) {
 		series, err := s.repo.GetSeriesByKey(r.Context(), tenantID, group.PartnerRoleID, group.ProductID, group.SeriesName)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				created, err := s.repo.UpsertSeries(r.Context(), tenantID, channelID, group.PartnerRoleID, group.ProductID, group.SeriesName, group.Mode, 1, true)
+				created, err := s.repo.UpsertSeries(r.Context(), tenantID, channelID, group.PartnerRoleID, group.ProductID, group.SeriesName, group.Mode, 1, "USER_PREF", true)
 				if err != nil {
 					s.logger.Error("ensure series failed", zap.Error(err))
 					writeError(w, http.StatusInternalServerError, "failed to import")
@@ -588,7 +613,7 @@ func (s *Server) handleCSVImport(w http.ResponseWriter, r *http.Request) {
 			keep := make([]int, 0, len(items))
 			for _, item := range items {
 				keep = append(keep, item.SeqNo)
-				if _, err := s.repo.UpsertContentItemTx(r.Context(), tx, tenantID, seriesChannelID(series, channelID), series.ID, contentVersion, item.SeqNo, item.MessageText, item.IsActive); err != nil {
+				if _, err := s.repo.UpsertContentItemTx(r.Context(), tx, tenantID, seriesChannelID(series, channelID), series.ID, contentVersion, item.SeqNo, item.MessageText, "TEXT", nil, nil, item.IsActive); err != nil {
 					s.logger.Error("upsert content item failed", zap.Error(err))
 					writeError(w, http.StatusInternalServerError, "failed to import")
 					return
@@ -712,6 +737,71 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]any{"error": msg})
+}
+
+func normalizeDeliveryChannel(value string) (string, error) {
+	channel := strings.ToUpper(strings.TrimSpace(value))
+	if channel == "" {
+		return "USER_PREF", nil
+	}
+	switch channel {
+	case "USER_PREF", "SMS", "PUSH":
+		return channel, nil
+	default:
+		return "", fmt.Errorf("invalid delivery_channel")
+	}
+}
+
+func validateContentFields(kind string, rawLinkURL *string, rawCTALabel *string) (string, *string, *string, error) {
+	contentKind := strings.ToUpper(strings.TrimSpace(kind))
+	if contentKind == "" {
+		contentKind = "TEXT"
+	}
+	switch contentKind {
+	case "TEXT":
+		if rawLinkURL != nil || rawCTALabel != nil {
+			return "", nil, nil, fmt.Errorf("link_url and cta_label are only valid for LINK content")
+		}
+		return contentKind, nil, nil, nil
+	case "LINK":
+		linkURL, err := validateHTTPURL(rawLinkURL)
+		if err != nil {
+			return "", nil, nil, err
+		}
+		ctaLabel := trimStringPtr(rawCTALabel)
+		if ctaLabel != nil && len([]rune(*ctaLabel)) > 40 {
+			return "", nil, nil, fmt.Errorf("cta_label must be 40 chars or fewer")
+		}
+		return contentKind, linkURL, ctaLabel, nil
+	default:
+		return "", nil, nil, fmt.Errorf("invalid content_kind")
+	}
+}
+
+func validateHTTPURL(raw *string) (*string, error) {
+	if raw == nil {
+		return nil, fmt.Errorf("link_url is required for LINK content")
+	}
+	link := strings.TrimSpace(*raw)
+	if link == "" {
+		return nil, fmt.Errorf("link_url is required for LINK content")
+	}
+	parsed, err := url.ParseRequestURI(link)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return nil, fmt.Errorf("link_url must be an http or https URL")
+	}
+	return &link, nil
+}
+
+func trimStringPtr(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*raw)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func parseBool(s string) (bool, error) {

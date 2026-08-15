@@ -3,16 +3,17 @@ package domain
 import "time"
 
 type MessageSeries struct {
-	ID             int64     `json:"id"`
-	TenantID       *string   `json:"tenant_id,omitempty"`
-	ChannelID      *string   `json:"channel_id,omitempty"`
-	PartnerRoleID  int       `json:"partner_role_id"`
-	ProductID      int       `json:"product_id"`
-	Name           string    `json:"name"`
-	Mode           string    `json:"mode"`
-	ContentVersion int       `json:"content_version"`
-	IsActive       bool      `json:"is_active"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID              int64     `json:"id"`
+	TenantID        *string   `json:"tenant_id,omitempty"`
+	ChannelID       *string   `json:"channel_id,omitempty"`
+	PartnerRoleID   int       `json:"partner_role_id"`
+	ProductID       int       `json:"product_id"`
+	Name            string    `json:"name"`
+	Mode            string    `json:"mode"`
+	ContentVersion  int       `json:"content_version"`
+	DeliveryChannel string    `json:"delivery_channel"`
+	IsActive        bool      `json:"is_active"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 type ScheduleRule struct {
@@ -36,6 +37,9 @@ type ContentItem struct {
 	ContentVersion int       `json:"content_version"`
 	SeqNo          int       `json:"seq_no"`
 	MessageText    string    `json:"message_text"`
+	ContentKind    string    `json:"content_kind"`
+	LinkURL        *string   `json:"link_url"`
+	CTALabel       *string   `json:"cta_label"`
 	IsActive       bool      `json:"is_active"`
 	CreatedAt      time.Time `json:"created_at"`
 }
@@ -71,6 +75,7 @@ type OutboxJob struct {
 	SeriesID       int64
 	ContentItemID  int64
 	PlannedSendAt  time.Time
+	MessageText    *string
 	Status         string
 	Attempt        int
 	SentAt         *time.Time

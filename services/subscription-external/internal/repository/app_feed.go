@@ -19,6 +19,9 @@ const feedSelectColumns = `
     COALESCE(p.name, '') AS product_name,
     ci.title,
     ci.message_text,
+    ci.content_kind,
+    ci.link_url,
+    ci.cta_label,
     COALESCE(mo.sent_at, mo.planned_send_at) AS published_at,
     (rs.content_item_id IS NOT NULL) AS is_read
 FROM message_outbox mo
@@ -78,10 +81,13 @@ func scanFeedItem(row interface {
 		productName string
 		title       sql.NullString
 		body        string
+		contentKind string
+		linkURL     sql.NullString
+		ctaLabel    sql.NullString
 		publishedAt time.Time
 		read        bool
 	)
-	if err := row.Scan(&id, &productSlug, &productName, &title, &body, &publishedAt, &read); err != nil {
+	if err := row.Scan(&id, &productSlug, &productName, &title, &body, &contentKind, &linkURL, &ctaLabel, &publishedAt, &read); err != nil {
 		return domain.AppFeedItem{}, err
 	}
 	return domain.AppFeedItem{
@@ -90,9 +96,20 @@ func scanFeedItem(row interface {
 		ProductName: productName,
 		Title:       deriveTitle(title, body),
 		Body:        body,
+		ContentKind: contentKind,
+		LinkURL:     appFeedNullStringPtr(linkURL),
+		CTALabel:    appFeedNullStringPtr(ctaLabel),
 		PublishedAt: publishedAt,
 		Read:        read,
 	}, nil
+}
+
+func appFeedNullStringPtr(val sql.NullString) *string {
+	if !val.Valid || strings.TrimSpace(val.String) == "" {
+		return nil
+	}
+	s := val.String
+	return &s
 }
 
 // ListFeed returns delivered feed items for msisdn, most recent first,

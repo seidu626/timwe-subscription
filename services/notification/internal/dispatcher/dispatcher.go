@@ -115,6 +115,9 @@ func (d *Dispatcher) processBatch(ctx context.Context) error {
 // registered device, and FCM is configured; SMS otherwise. Lookup failures
 // fail safe to SMS rather than blocking delivery.
 func (d *Dispatcher) resolveChannel(ctx context.Context, job domain.OutboxJob) (channel string, deviceToken string) {
+	if job.DeliveryChannel == channelSMS {
+		return channelSMS, ""
+	}
 	if d.pushRepo == nil {
 		return channelSMS, ""
 	}
@@ -129,10 +132,14 @@ func (d *Dispatcher) resolveChannel(ctx context.Context, job domain.OutboxJob) (
 		return channelSMS, ""
 	}
 
-	preferred, err := d.pushRepo.PreferredChannel(ctx, job.MSISDN, job.PartnerRoleID, job.ProductID)
-	if err != nil {
-		d.logger.Warn("push preference lookup failed, falling back to SMS", zap.String("job_id", job.JobID), zap.Error(err))
-		return channelSMS, ""
+	preferred := ""
+	if job.DeliveryChannel != channelPush {
+		var err error
+		preferred, err = d.pushRepo.PreferredChannel(ctx, job.MSISDN, job.PartnerRoleID, job.ProductID)
+		if err != nil {
+			d.logger.Warn("push preference lookup failed, falling back to SMS", zap.String("job_id", job.JobID), zap.Error(err))
+			return channelSMS, ""
+		}
 	}
 
 	pushConfigured := d.pushSender != nil
@@ -140,12 +147,13 @@ func (d *Dispatcher) resolveChannel(ctx context.Context, job domain.OutboxJob) (
 		preferredChannel: preferred,
 		hasDevice:        hasDevice,
 		pushConfigured:   pushConfigured,
+		deliveryChannel:  job.DeliveryChannel,
 	})
 	if decision == channelPush {
 		return channelPush, token
 	}
 
-	if hasDevice && preferred == channelPush && !pushConfigured {
+	if hasDevice && (job.DeliveryChannel == channelPush || preferred == channelPush) && !pushConfigured {
 		d.pushWarnOnce.Do(func() {
 			d.logger.Warn("FCM_CREDENTIALS_JSON_PATH not set: PUSH-preferred jobs are falling back to SMS")
 		})

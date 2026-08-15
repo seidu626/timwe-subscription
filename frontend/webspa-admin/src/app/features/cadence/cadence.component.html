@@ -38,14 +38,15 @@
           <mat-select [value]="selectedSeriesId" (selectionChange)="onSeriesSelected($event.value)">
             <mat-option [value]="null">Select series...</mat-option>
             <mat-option *ngFor="let s of series" [value]="s.id">
-              {{ s.name }} (PR {{ s.partner_role_id }} / P {{ s.product_id }})
+              {{ s.name }} (PR {{ s.partner_role_id }} / P {{ s.product_id }}) &middot; {{ getDeliveryChannelLabel(s.delivery_channel) }}
             </mat-option>
           </mat-select>
         </mat-form-field>
 
         <div class="series-summary">
-          <span>{{ selectedSeries?.mode || 'Mode pending' }}</span>
+          <span>{{ selectedSeries ? getModeLabel(selectedSeries.mode) : 'Mode pending' }}</span>
           <span>Version {{ selectedSeries?.content_version || '-' }}</span>
+          <span *ngIf="selectedSeries">{{ getDeliveryChannelLabel(selectedSeries.delivery_channel) }}</span>
         </div>
       </div>
     </mat-card-content>
@@ -80,9 +81,18 @@
             <mat-form-field appearance="outline">
               <mat-label>Mode</mat-label>
               <mat-select formControlName="mode">
-                <mat-option value="SEQUENTIAL">SEQUENTIAL</mat-option>
-                <mat-option value="POOL">POOL</mat-option>
+                <mat-option *ngFor="let o of modeOptions" [value]="o.value">{{ o.label }}</mat-option>
               </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="wide">
+              <mat-label>Delivery channel</mat-label>
+              <mat-select formControlName="delivery_channel">
+                <mat-option *ngFor="let o of deliveryChannelOptions" [value]="o.value">
+                  {{ o.label }}
+                </mat-option>
+              </mat-select>
+              <mat-hint>Controls which channel carries this series' messages.</mat-hint>
             </mat-form-field>
 
             <div class="actions">
@@ -109,35 +119,43 @@
             <mat-form-field appearance="outline">
               <mat-label>Rule Kind</mat-label>
               <mat-select formControlName="rule_kind">
-                <mat-option value="DAILY">DAILY</mat-option>
-                <mat-option value="WEEKLY">WEEKLY</mat-option>
-                <mat-option value="EVERY_N_DAYS">EVERY_N_DAYS</mat-option>
+                <mat-option *ngFor="let o of ruleKindOptions" [value]="o.value">{{ o.label }}</mat-option>
               </mat-select>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
-              <mat-label>Preferred Time (HH:MM)</mat-label>
-              <input matInput type="text" formControlName="preferred_time" />
+              <mat-label>Preferred Time</mat-label>
+              <input matInput type="time" formControlName="preferred_time" />
             </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Days Of Week (bitmask)</mat-label>
-              <input matInput type="number" formControlName="days_of_week" />
-            </mat-form-field>
+            <div class="weekday-picker wide" *ngIf="ruleKind === 'WEEKLY'">
+              <span class="weekday-picker-label">Days Of Week</span>
+              <div class="weekday-chips">
+                <button
+                  type="button"
+                  *ngFor="let d of weekdayOptions"
+                  class="weekday-chip"
+                  [class.active]="isWeekdaySelected(d.bit)"
+                  (click)="toggleWeekday(d.bit)"
+                >
+                  {{ d.label }}
+                </button>
+              </div>
+            </div>
 
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" *ngIf="ruleKind === 'EVERY_N_DAYS'">
               <mat-label>Every N Days</mat-label>
-              <input matInput type="number" formControlName="n_days" />
+              <input matInput type="number" min="1" formControlName="n_days" />
             </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>Send Window Start</mat-label>
-              <input matInput type="text" formControlName="send_start_time" />
+              <input matInput type="time" formControlName="send_start_time" />
             </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>Send Window End</mat-label>
-              <input matInput type="text" formControlName="send_end_time" />
+              <input matInput type="time" formControlName="send_end_time" />
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="wide">
@@ -153,9 +171,7 @@
             <mat-form-field appearance="outline">
               <mat-label>Catchup Mode</mat-label>
               <mat-select formControlName="catchup_mode">
-                <mat-option value="THROTTLE">THROTTLE</mat-option>
-                <mat-option value="SEND">SEND</mat-option>
-                <mat-option value="SKIP">SKIP</mat-option>
+                <mat-option *ngFor="let o of catchupModeOptions" [value]="o.value">{{ o.label }}</mat-option>
               </mat-select>
             </mat-form-field>
 
@@ -190,16 +206,41 @@
               <input matInput type="number" formControlName="seq_no" />
             </mat-form-field>
 
+            <mat-form-field appearance="outline">
+              <mat-label>Content type</mat-label>
+              <mat-select formControlName="content_kind">
+                <mat-option *ngFor="let o of contentKindOptions" [value]="o.value">
+                  {{ o.label }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
             <mat-form-field appearance="outline" class="wide">
               <mat-label>Message Text</mat-label>
               <textarea matInput rows="3" formControlName="message_text"></textarea>
             </mat-form-field>
 
+            <ng-container *ngIf="contentKind === 'LINK'">
+              <mat-form-field appearance="outline" class="wide">
+                <mat-label>Link URL</mat-label>
+                <input matInput type="url" formControlName="link_url" placeholder="https://" />
+                <mat-hint>Must start with http:// or https://</mat-hint>
+                <mat-error *ngIf="contentForm.get('link_url')?.hasError('required')">Link URL is required for link content.</mat-error>
+                <mat-error *ngIf="contentForm.get('link_url')?.hasError('pattern')">Enter a valid http or https URL.</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Button label</mat-label>
+                <input matInput type="text" maxlength="40" formControlName="cta_label" placeholder="Optional, e.g. Open" />
+                <mat-hint>Up to 40 characters, optional.</mat-hint>
+              </mat-form-field>
+            </ng-container>
+
             <mat-form-field appearance="outline">
               <mat-label>Active</mat-label>
               <mat-select formControlName="is_active">
-                <mat-option [value]="true">true</mat-option>
-                <mat-option [value]="false">false</mat-option>
+                <mat-option [value]="true">Active</mat-option>
+                <mat-option [value]="false">Inactive</mat-option>
               </mat-select>
             </mat-form-field>
 
@@ -225,12 +266,32 @@
 
               <ng-container matColumnDef="is_active">
                 <th mat-header-cell *matHeaderCellDef>Active</th>
-                <td mat-cell *matCellDef="let row">{{ row.is_active }}</td>
+                <td mat-cell *matCellDef="let row">{{ row.is_active ? 'Active' : 'Inactive' }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="content_kind">
+                <th mat-header-cell *matHeaderCellDef>Type</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="content-kind-badge" [class.kind-link]="row.content_kind === 'LINK'">
+                    {{ getContentKindLabel(row.content_kind) }}
+                  </span>
+                </td>
               </ng-container>
 
               <ng-container matColumnDef="message_text">
                 <th mat-header-cell *matHeaderCellDef>Message</th>
                 <td mat-cell *matCellDef="let row" class="message-cell">{{ row.message_text }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="link">
+                <th mat-header-cell *matHeaderCellDef>Link</th>
+                <td mat-cell *matCellDef="let row" class="link-cell">
+                  <ng-container *ngIf="row.content_kind === 'LINK'; else noLink">
+                    <a [href]="row.link_url" target="_blank" rel="noopener">{{ row.link_url }}</a>
+                    <span *ngIf="row.cta_label" class="cta-label-hint">{{ row.cta_label }}</span>
+                  </ng-container>
+                  <ng-template #noLink>-</ng-template>
+                </td>
               </ng-container>
 
               <tr mat-header-row *matHeaderRowDef="displayedContentColumns"></tr>

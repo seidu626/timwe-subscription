@@ -27,10 +27,10 @@ func TestUpsertContentItemTx_ReturnsID(t *testing.T) {
 	}
 
 	mock.ExpectQuery("INSERT INTO message_content_items").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), int64(123), 1, 7, "hello", true).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), int64(123), 1, 7, "hello", "TEXT", nil, nil, true).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(999)))
 
-	id, err := repo.UpsertContentItemTx(context.Background(), tx, "tenant-1", "channel-1", 123, 1, 7, "hello", true)
+	id, err := repo.UpsertContentItemTx(context.Background(), tx, "tenant-1", "channel-1", 123, 1, 7, "hello", "TEXT", nil, nil, true)
 	if err != nil {
 		t.Fatalf("UpsertContentItemTx: %v", err)
 	}
@@ -141,8 +141,8 @@ func TestListSeries_DefaultLimitClamp(t *testing.T) {
 	// limit should clamp to 200 when <=0
 	mock.ExpectQuery("FROM product_message_series").
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "tenant_id", "channel_id", "partner_role_id", "product_id", "name", "mode", "content_version", "is_active", "created_at",
-		}).AddRow(int64(1), "tenant-1", "channel-1", 1, 10, "News", "SEQUENTIAL", 1, true, time.Now().UTC()))
+			"id", "tenant_id", "channel_id", "partner_role_id", "product_id", "name", "mode", "content_version", "delivery_channel", "is_active", "created_at",
+		}).AddRow(int64(1), "tenant-1", "channel-1", 1, 10, "News", "SEQUENTIAL", 1, "USER_PREF", true, time.Now().UTC()))
 
 	series, err := repo.ListSeries(context.Background(), "tenant-1", "", nil, nil, nil, 0)
 	if err != nil {
@@ -231,7 +231,7 @@ func TestInsertOutboxTxReturnsFalseForDuplicateIdempotencyKey(t *testing.T) {
 	tenantID := "tenant-1"
 	channelID := "channel-1"
 	mock.ExpectExec("INSERT INTO message_outbox").
-		WithArgs("job-1", "tenant-1:channel-1:2117:42:7:1:1", sqlmock.AnyArg(), sqlmock.AnyArg(), int64(42), int64(7), int64(99), sqlmock.AnyArg(), "PENDING", 0).
+		WithArgs("job-1", "tenant-1:channel-1:2117:42:7:1:1", sqlmock.AnyArg(), sqlmock.AnyArg(), int64(42), int64(7), int64(99), sqlmock.AnyArg(), nil, "PENDING", 0).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	inserted, err := repo.InsertOutboxTx(context.Background(), tx, domain.OutboxJob{

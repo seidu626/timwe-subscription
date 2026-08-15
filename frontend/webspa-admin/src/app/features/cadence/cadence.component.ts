@@ -8,12 +8,64 @@ import {
   CadenceScheduleRule,
 } from '../+state/models/cadence.model';
 
+const LINK_URL_PATTERN = /^https?:\/\/.+/i;
+
+export interface CadenceSelectOption {
+  value: string;
+  label: string;
+  help?: string;
+}
+
+const DELIVERY_CHANNEL_OPTIONS: CadenceSelectOption[] = [
+  { value: 'USER_PREF', label: 'Subscriber preference (default)' },
+  { value: 'SMS', label: 'Always SMS' },
+  { value: 'PUSH', label: 'Push to app, SMS fallback' },
+];
+
+const CONTENT_KIND_OPTIONS: CadenceSelectOption[] = [
+  { value: 'TEXT', label: 'Text message' },
+  { value: 'LINK', label: 'Link / service resource' },
+];
+
+const MODE_OPTIONS: CadenceSelectOption[] = [
+  { value: 'SEQUENTIAL', label: 'Sequential (fixed order)' },
+  { value: 'POOL', label: 'Pool (randomized)' },
+];
+
+const RULE_KIND_OPTIONS: CadenceSelectOption[] = [
+  { value: 'DAILY', label: 'Daily' },
+  { value: 'WEEKLY', label: 'Weekly (choose days)' },
+  { value: 'EVERY_N_DAYS', label: 'Every N days' },
+];
+
+const CATCHUP_MODE_OPTIONS: CadenceSelectOption[] = [
+  { value: 'THROTTLE', label: 'Throttle (spread out catch-up sends)' },
+  { value: 'SEND', label: 'Send immediately' },
+  { value: 'SKIP', label: 'Skip missed sends' },
+];
+
+const WEEKDAY_OPTIONS: Array<{ bit: number; label: string }> = [
+  { bit: 1, label: 'Mon' },
+  { bit: 2, label: 'Tue' },
+  { bit: 4, label: 'Wed' },
+  { bit: 8, label: 'Thu' },
+  { bit: 16, label: 'Fri' },
+  { bit: 32, label: 'Sat' },
+  { bit: 64, label: 'Sun' },
+];
+
 @Component({
   selector: 'app-cadence',
   templateUrl: './cadence.component.html',
   styleUrls: ['./cadence.component.scss'],
 })
 export class CadenceComponent implements OnInit {
+  readonly deliveryChannelOptions = DELIVERY_CHANNEL_OPTIONS;
+  readonly contentKindOptions = CONTENT_KIND_OPTIONS;
+  readonly modeOptions = MODE_OPTIONS;
+  readonly ruleKindOptions = RULE_KIND_OPTIONS;
+  readonly catchupModeOptions = CATCHUP_MODE_OPTIONS;
+  readonly weekdayOptions = WEEKDAY_OPTIONS;
   loading = false;
   error: string | null = null;
 
@@ -41,7 +93,9 @@ export class CadenceComponent implements OnInit {
     'content_version',
     'seq_no',
     'is_active',
+    'content_kind',
     'message_text',
+    'link',
   ];
 
   constructor(
@@ -55,6 +109,7 @@ export class CadenceComponent implements OnInit {
       product_id: [null, [Validators.required, Validators.min(1)]],
       name: ['', [Validators.required]],
       mode: ['SEQUENTIAL', [Validators.required]],
+      delivery_channel: ['USER_PREF', [Validators.required]],
     });
 
     this.ruleForm = this.fb.group({
@@ -74,9 +129,49 @@ export class CadenceComponent implements OnInit {
       seq_no: [1, [Validators.required, Validators.min(1)]],
       is_active: [true],
       message_text: ['', [Validators.required]],
+      content_kind: ['TEXT', [Validators.required]],
+      link_url: [''],
+      cta_label: ['', [Validators.maxLength(40)]],
     });
 
+    this.contentForm.get('content_kind')?.valueChanges.subscribe((kind) => {
+      this.applyContentKindValidators(kind);
+    });
+    this.applyContentKindValidators(this.contentForm.get('content_kind')?.value);
+
     this.loadSeries();
+  }
+
+  private applyContentKindValidators(kind: string): void {
+    const linkUrlControl = this.contentForm.get('link_url');
+    const ctaLabelControl = this.contentForm.get('cta_label');
+    if (kind === 'LINK') {
+      linkUrlControl?.setValidators([Validators.required, Validators.pattern(LINK_URL_PATTERN)]);
+    } else {
+      linkUrlControl?.setValue('');
+      linkUrlControl?.setValidators([]);
+      ctaLabelControl?.setValue('');
+    }
+    linkUrlControl?.updateValueAndValidity({ emitEvent: false });
+  }
+
+  get contentKind(): string {
+    return this.contentForm?.get('content_kind')?.value || 'TEXT';
+  }
+
+  get ruleKind(): string {
+    return this.ruleForm?.get('rule_kind')?.value || 'DAILY';
+  }
+
+  isWeekdaySelected(bit: number): boolean {
+    const mask = Number(this.ruleForm?.get('days_of_week')?.value) || 0;
+    return (mask & bit) !== 0;
+  }
+
+  toggleWeekday(bit: number): void {
+    const control = this.ruleForm.get('days_of_week');
+    const mask = Number(control?.value) || 0;
+    control?.setValue(mask ^ bit);
   }
 
   loadSeries(): void {
@@ -180,7 +275,18 @@ export class CadenceComponent implements OnInit {
   saveContent(): void {
     if (!this.selectedSeriesId) return;
     if (this.contentForm.invalid) return;
-    const payload = this.contentForm.value;
+    const formValue = this.contentForm.value;
+    const payload = {
+      content_version: formValue.content_version,
+      seq_no: formValue.seq_no,
+      message_text: formValue.message_text,
+      is_active: formValue.is_active,
+      content_kind: formValue.content_kind,
+      // Link fields only apply to LINK content; never submitted for TEXT.
+      ...(formValue.content_kind === 'LINK'
+        ? { link_url: formValue.link_url, cta_label: formValue.cta_label || undefined }
+        : {}),
+    };
     this.cadenceApi.upsertContent(this.selectedSeriesId, payload).subscribe({
       next: () => {
         this.loadContent(this.selectedSeriesId!);
@@ -282,6 +388,18 @@ export class CadenceComponent implements OnInit {
       versions.add(item.content_version);
     }
     return Array.from(versions).sort((a, b) => a - b);
+  }
+
+  getDeliveryChannelLabel(channel: string | null | undefined): string {
+    return DELIVERY_CHANNEL_OPTIONS.find((o) => o.value === channel)?.label || channel || '-';
+  }
+
+  getContentKindLabel(kind: string | null | undefined): string {
+    return CONTENT_KIND_OPTIONS.find((o) => o.value === kind)?.label || kind || 'Text message';
+  }
+
+  getModeLabel(mode: string | null | undefined): string {
+    return MODE_OPTIONS.find((o) => o.value === mode)?.label || mode || '-';
   }
 
   private extractClock(value: string): string {

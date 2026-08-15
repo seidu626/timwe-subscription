@@ -121,6 +121,9 @@ export default function NotificationsScreen() {
                 {item.product_name} • {formatRelativeDay(item.published_at)}
               </Text>
             </View>
+            {item.content_kind === 'LINK' ? (
+              <MaterialIcons name="open-in-new" size={14} color={colors.onSurfaceVariant} style={styles.linkGlyph} />
+            ) : null}
           </View>
         ))}
       </View>
@@ -207,5 +210,9 @@ const styles = StyleSheet.create({
   historyMeta: {
     ...typography.labelSm,
     color: colors.onSurfaceVariant,
+  },
+  linkGlyph: {
+    flexShrink: 0,
+    marginTop: 2,
   },
 });

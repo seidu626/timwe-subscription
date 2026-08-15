@@ -40,3 +40,17 @@ export function pluralize(count: number, singular: string, plural?: string): str
   const word = count === 1 ? singular : (plural ?? `${singular}s`);
   return `${count} ${word}`;
 }
+
+// LINK content items carry an external destination; only http/https URLs are
+// safe to hand to Linking.openURL/window.open, so this returns null for
+// anything else (custom schemes, malformed strings) and callers must render
+// no CTA in that case.
+export function parseHttpUrl(url: string): URL | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}

@@ -41,6 +41,7 @@ export class CadenceApiService {
     mode?: string;
     content_version?: number;
     is_active?: boolean;
+    delivery_channel?: string;
   }): Observable<CadenceSeries> {
     return this.http.post<CadenceSeries>(`${this.baseUrl}/series`, payload, { headers: this.cadenceHeaders });
   }
@@ -53,6 +54,7 @@ export class CadenceApiService {
     is_active?: boolean;
     mode?: string;
     content_version?: number;
+    delivery_channel?: string;
   }): Observable<CadenceSeries> {
     return this.http.patch<CadenceSeries>(`${this.baseUrl}/series/${seriesId}`, payload, { headers: this.cadenceHeaders });
   }
@@ -91,6 +93,9 @@ export class CadenceApiService {
     content_version: number;
     seq_no: number;
     message_text: string;
+    content_kind?: string;
+    link_url?: string;
+    cta_label?: string;
     is_active?: boolean;
   }): Observable<{ status: string }> {
     return this.http.post<{ status: string }>(`${this.baseUrl}/series/${seriesId}/content`, payload, { headers: this.cadenceHeaders });

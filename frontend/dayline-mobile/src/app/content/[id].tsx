@@ -1,14 +1,15 @@
 import { useEffect } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { ErrorState, LoadingState } from '@/components/AsyncState';
 import { useFeedItem, useMarkFeedItemRead } from '@/hooks/useFeed';
 import { colors, spacing, typography } from '@/theme/tokens';
-import { estimateReadTime, formatRelativeDay } from '@/utils/format';
+import { estimateReadTime, formatRelativeDay, parseHttpUrl } from '@/utils/format';
 
 export default function ContentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,6 +30,22 @@ export default function ContentDetailScreen() {
       await Share.share({ message: `${item.title}\n\n${item.body}` });
     } catch {
       // Share sheet dismissal/errors are non-fatal; no feedback needed.
+    }
+  }
+
+  // Only http/https destinations are safe to hand to Linking/window.open;
+  // anything else (missing link_url, custom scheme, malformed string)
+  // renders no CTA at all rather than a broken button.
+  const linkUrl =
+    item?.content_kind === 'LINK' && item.link_url && parseHttpUrl(item.link_url) ? item.link_url : null;
+  const linkHost = linkUrl ? parseHttpUrl(linkUrl)?.hostname : null;
+
+  function handleOpenLink() {
+    if (!linkUrl) return;
+    if (Platform.OS === 'web') {
+      window.open(linkUrl, '_blank', 'noopener');
+    } else {
+      Linking.openURL(linkUrl);
     }
   }
 
@@ -69,6 +86,12 @@ export default function ContentDetailScreen() {
             <Text style={styles.metaText}>{formatRelativeDay(item.published_at)}</Text>
           </View>
           <Text style={styles.body}>{item.body}</Text>
+          {linkUrl ? (
+            <View style={styles.linkCta}>
+              <Button label={item.cta_label || 'Open link'} onPress={handleOpenLink} style={styles.linkCtaButton} />
+              {linkHost ? <Text style={styles.linkHost}>Opens {linkHost}</Text> : null}
+            </View>
+          ) : null}
         </ScrollView>
       ) : null}
     </SafeAreaView>
@@ -118,5 +141,18 @@ const styles = StyleSheet.create({
     ...typography.bodyLg,
     color: colors.onSurfaceVariant,
     marginTop: spacing.stackSm,
+  },
+  linkCta: {
+    width: '100%',
+    marginTop: spacing.stackSm,
+    alignItems: 'center',
+    gap: spacing.stackSm,
+  },
+  linkCtaButton: {
+    width: '100%',
+  },
+  linkHost: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
   },
 });

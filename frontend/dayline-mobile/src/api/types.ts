@@ -68,6 +68,8 @@ export interface SubscriptionsResponse {
   subscriptions: Subscription[];
 }
 
+export type ContentKind = 'TEXT' | 'LINK';
+
 export interface FeedItem {
   id: string;
   product_slug: string;
@@ -76,6 +78,11 @@ export interface FeedItem {
   body: string;
   published_at: string;
   read: boolean;
+  // Optional-tolerant: older payloads omit these fields entirely, which
+  // must behave the same as an explicit content_kind of "TEXT".
+  content_kind?: ContentKind;
+  link_url?: string | null;
+  cta_label?: string | null;
 }
 
 export interface FeedResponse {

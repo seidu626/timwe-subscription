@@ -150,3 +150,33 @@ func TestResolveChannel_EmptyTenantIDWhenJobHasNone(t *testing.T) {
 		t.Errorf("lastTenantID = %q, want empty (no tenant on job)", repo.lastTenantID)
 	}
 }
+
+func TestResolveChannel_SeriesSMSOverrideSkipsPushLookups(t *testing.T) {
+	repo := &fakePushRepo{token: "device-token", hasDevice: true, preferred: "PUSH"}
+	d := NewDispatcher(nil, zap.NewNop(), Config{}).WithPush(repo, &fakePushSender{})
+	job := testJob()
+	job.DeliveryChannel = channelSMS
+
+	channel, token := d.resolveChannel(context.Background(), job)
+	if channel != channelSMS || token != "" {
+		t.Errorf("got channel=%q token=%q, want SMS/empty", channel, token)
+	}
+	if repo.deviceCalls != 0 || repo.prefCalls != 0 {
+		t.Errorf("expected no push lookups, got device=%d pref=%d", repo.deviceCalls, repo.prefCalls)
+	}
+}
+
+func TestResolveChannel_SeriesPUSHOverrideIgnoresSubscriberPreference(t *testing.T) {
+	repo := &fakePushRepo{token: "device-token", hasDevice: true, preferred: "SMS", prefErr: errors.New("pref unavailable")}
+	d := NewDispatcher(nil, zap.NewNop(), Config{}).WithPush(repo, &fakePushSender{})
+	job := testJob()
+	job.DeliveryChannel = channelPush
+
+	channel, token := d.resolveChannel(context.Background(), job)
+	if channel != channelPush || token != "device-token" {
+		t.Errorf("got channel=%q token=%q, want PUSH/device-token", channel, token)
+	}
+	if repo.prefCalls != 0 {
+		t.Errorf("expected preference lookup skipped, got %d calls", repo.prefCalls)
+	}
+}

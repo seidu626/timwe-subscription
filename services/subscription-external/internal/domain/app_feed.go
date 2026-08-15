@@ -12,6 +12,9 @@ type AppFeedItem struct {
 	ProductName string    `json:"product_name"`
 	Title       string    `json:"title"`
 	Body        string    `json:"body"`
+	ContentKind string    `json:"content_kind"`
+	LinkURL     *string   `json:"link_url"`
+	CTALabel    *string   `json:"cta_label"`
 	PublishedAt time.Time `json:"published_at"`
 	Read        bool      `json:"read"`
 }
