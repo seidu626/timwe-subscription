@@ -431,6 +431,11 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		case "content":
+			// /v1/admin/cadence/series/{id}/content/{impact|clone|itemId}
+			if len(parts) >= 7 {
+				s.handleContentSubroute(w, r, series, parts[6])
+				return
+			}
 			switch r.Method {
 			case http.MethodGet:
 				q := r.URL.Query()
@@ -506,6 +511,11 @@ func (s *Server) handleSeriesByID(w http.ResponseWriter, r *http.Request) {
 				}
 				defer func() { _ = tx.Rollback() }()
 
+				if actor := requestActor(r); actor != "" {
+					if err := s.repo.SetTxActor(r.Context(), tx, actor); err != nil {
+						s.logger.Warn("set tx actor failed", zap.Error(err))
+					}
+				}
 				if _, err := s.repo.UpsertContentItemTx(r.Context(), tx, tenantID, seriesChannelID(series, channelID), seriesID, req.ContentVersion, req.SeqNo, req.MessageText, contentKind, linkURL, ctaLabel, active); err != nil {
 					s.logger.Error("upsert content failed", zap.Error(err))
 					writeError(w, http.StatusInternalServerError, "failed to save content")
@@ -635,6 +645,12 @@ func (s *Server) handleCSVImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	if actor := requestActor(r); actor != "" {
+		if err := s.repo.SetTxActor(r.Context(), tx, actor); err != nil {
+			s.logger.Warn("set tx actor failed", zap.Error(err))
+		}
+	}
 
 	var upserted int64
 	var deactivated int64

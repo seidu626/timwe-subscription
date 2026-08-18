@@ -38,6 +38,23 @@ export interface CadenceContentItem {
   cta_label?: string;
   is_active: boolean;
   created_at?: string;
+  updated_at?: string;
+}
+
+export interface CadenceContentImpact {
+  series_id: number;
+  content_version: number;
+  is_live: boolean;
+  active_states: number;
+  pending_jobs: number;
+}
+
+export interface CadenceCloneResult {
+  status: string;
+  series_id: number;
+  from_version: number;
+  to_version: number;
+  items_copied: number;
 }
 
 export interface CadenceCsvImportResult {

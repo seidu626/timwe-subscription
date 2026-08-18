@@ -242,10 +242,10 @@ func TestHandleSeriesPreviewSequential(t *testing.T) {
 		WithArgs(int64(7), 2, true).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "tenant_id", "channel_id", "series_id", "content_version", "seq_no", "message_text",
-			"content_kind", "link_url", "cta_label", "is_active", "created_at",
+			"content_kind", "link_url", "cta_label", "is_active", "created_at", "updated_at",
 		}).
-			AddRow(int64(1), nil, nil, int64(7), 2, 1, "Day one tip", "TEXT", nil, nil, true, created).
-			AddRow(int64(2), nil, nil, int64(7), 2, 2, "Day two tip", "TEXT", nil, nil, true, created))
+			AddRow(int64(1), nil, nil, int64(7), 2, 1, "Day one tip", "TEXT", nil, nil, true, created, created).
+			AddRow(int64(2), nil, nil, int64(7), 2, 2, "Day two tip", "TEXT", nil, nil, true, created, created))
 
 	series := &domain.MessageSeries{ID: 7, Mode: "SEQUENTIAL", ContentVersion: 2}
 	req := httptest.NewRequest(http.MethodGet, "/v1/admin/cadence/series/7/preview?count=3", nil)

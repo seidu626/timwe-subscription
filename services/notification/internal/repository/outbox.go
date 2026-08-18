@@ -18,6 +18,9 @@ func NewOutboxRepository(db *sql.DB, logger *zap.Logger) *OutboxRepository {
 	return &OutboxRepository{db: db, logger: logger}
 }
 
+// ClaimPendingJobs resolves message text from message_content_items at send
+// time (LINK items get the URL appended here), so admin edits to a published
+// content item reach every not-yet-sent job, including already-planned ones.
 func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]domain.OutboxJob, error) {
 	query := `
 		WITH claimed AS (
@@ -41,7 +44,9 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 		SELECT u.job_id, mo.tenant_id::text, mo.channel_id::text, u.subscription_id, COALESCE(u.content_item_id, 0), u.attempt, u.planned_send_at,
 		       s.partner_role_id, s.product_id, s.user_identifier, COALESCE(s.entry_channel, ''),
 		       COALESCE(pms.delivery_channel, 'USER_PREF'),
-		       COALESCE(mo.message_text, ci.message_text)
+		       CASE WHEN ci.content_kind = 'LINK' AND COALESCE(ci.link_url, '') <> ''
+		            THEN TRIM(ci.message_text) || ' ' || TRIM(ci.link_url)
+		            ELSE ci.message_text END
 		FROM updated u
 		JOIN message_outbox mo ON mo.job_id = u.job_id
 		JOIN subscriptions s ON s.id = u.subscription_id

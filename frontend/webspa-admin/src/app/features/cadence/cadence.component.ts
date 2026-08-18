@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { CadenceApiService } from '../+state/services/cadence-api.service';
 import {
+  CadenceCloneResult,
+  CadenceContentImpact,
   CadenceContentItem,
   CadenceCsvImportResult,
   CadenceSeries,
@@ -11,6 +13,18 @@ import {
 } from '../+state/models/cadence.model';
 
 const LINK_URL_PATTERN = /^https?:\/\/.+/i;
+
+// GSM-7 basic character set; anything outside forces UCS-2 encoding.
+const GSM7_BASIC = /^[@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./0-9:;<=>?¡A-ZÄÖÑÜ§¿a-zäöñüà]*$/;
+// These GSM-7 extension characters are allowed but cost two septets each.
+const GSM7_EXTENDED = new Set(['^', '{', '}', '\\', '[', ']', '~', '|', '€']);
+
+export interface SmsSegmentInfo {
+  chars: number;
+  segments: number;
+  encoding: 'GSM-7' | 'Unicode';
+  perSegment: number;
+}
 
 export interface CadenceSelectOption {
   value: string;
@@ -119,7 +133,20 @@ export class CadenceComponent implements OnInit {
     'content_kind',
     'message_text',
     'link',
+    'actions',
   ];
+
+  editingItem: CadenceContentItem | null = null;
+  contentSaving = false;
+  contentError: string | null = null;
+  togglingItemId: number | null = null;
+
+  liveImpact: CadenceContentImpact | null = null;
+  impactLoading = false;
+
+  cloneBusy = false;
+  cloneResult: CadenceCloneResult | null = null;
+  cloneError: string | null = null;
 
   constructor(
     private cadenceApi: CadenceApiService,
@@ -282,6 +309,11 @@ export class CadenceComponent implements OnInit {
     this.reactivateResumable = null;
     this.reactivateError = null;
     this.reactivateResult = null;
+    this.cancelEditContent();
+    this.contentError = null;
+    this.liveImpact = null;
+    this.cloneResult = null;
+    this.cloneError = null;
 
     if (!seriesId) {
       return;
@@ -296,6 +328,7 @@ export class CadenceComponent implements OnInit {
         this.loading = false;
         this.loadRule(seriesId);
         this.loadContent(seriesId);
+        this.loadLiveImpact(seriesId, s.content_version);
       },
       error: (err) => {
         console.error('Failed to load series:', err);
@@ -404,7 +437,35 @@ export class CadenceComponent implements OnInit {
   saveContent(): void {
     if (!this.selectedSeriesId) return;
     if (this.contentForm.invalid) return;
-    const formValue = this.contentForm.value;
+    const formValue = this.contentForm.getRawValue();
+    this.contentSaving = true;
+    this.contentError = null;
+
+    if (this.editingItem) {
+      const patch = {
+        message_text: formValue.message_text,
+        content_kind: formValue.content_kind,
+        is_active: formValue.is_active,
+        // Link fields only apply to LINK content; never submitted for TEXT.
+        ...(formValue.content_kind === 'LINK'
+          ? { link_url: formValue.link_url, cta_label: formValue.cta_label || null }
+          : {}),
+      };
+      this.cadenceApi.patchContent(this.selectedSeriesId, this.editingItem.id, patch).subscribe({
+        next: () => {
+          this.contentSaving = false;
+          this.cancelEditContent();
+          this.loadContent(this.selectedSeriesId!);
+        },
+        error: (err) => {
+          console.error('Failed to update content:', err);
+          this.contentError = err?.error?.error || 'Failed to update content item.';
+          this.contentSaving = false;
+        },
+      });
+      return;
+    }
+
     const payload = {
       content_version: formValue.content_version,
       seq_no: formValue.seq_no,
@@ -418,11 +479,71 @@ export class CadenceComponent implements OnInit {
     };
     this.cadenceApi.upsertContent(this.selectedSeriesId, payload).subscribe({
       next: () => {
+        this.contentSaving = false;
         this.loadContent(this.selectedSeriesId!);
       },
       error: (err) => {
         console.error('Failed to save content:', err);
-        this.error = 'Failed to save content item.';
+        this.contentError = err?.error?.error || 'Failed to save content item.';
+        this.contentSaving = false;
+      },
+    });
+  }
+
+  /** Load a row into the form for in-place editing (version/seq stay fixed). */
+  startEditItem(item: CadenceContentItem): void {
+    this.editingItem = item;
+    this.contentError = null;
+    this.contentForm.patchValue({
+      content_version: item.content_version,
+      seq_no: item.seq_no,
+      is_active: item.is_active,
+      message_text: item.message_text,
+      content_kind: item.content_kind || 'TEXT',
+      link_url: item.link_url || '',
+      cta_label: item.cta_label || '',
+    });
+    // Version and sequence are immutable on edit: renumbering a published
+    // version would skip or repeat messages for mid-series subscribers.
+    this.contentForm.get('content_version')?.disable();
+    this.contentForm.get('seq_no')?.disable();
+  }
+
+  cancelEditContent(): void {
+    this.editingItem = null;
+    this.contentForm?.get('content_version')?.enable();
+    this.contentForm?.get('seq_no')?.enable();
+  }
+
+  /** Flip a row's active flag directly from the table. */
+  toggleItemActive(item: CadenceContentItem): void {
+    if (!this.selectedSeriesId || this.togglingItemId) return;
+    this.togglingItemId = item.id;
+    this.contentError = null;
+    this.cadenceApi.patchContent(this.selectedSeriesId, item.id, { is_active: !item.is_active }).subscribe({
+      next: () => {
+        this.togglingItemId = null;
+        this.loadContent(this.selectedSeriesId!);
+      },
+      error: (err) => {
+        console.error('Failed to toggle content item:', err);
+        this.contentError = err?.error?.error || 'Failed to toggle content item.';
+        this.togglingItemId = null;
+      },
+    });
+  }
+
+  loadLiveImpact(seriesId: number, contentVersion: number): void {
+    this.impactLoading = true;
+    this.cadenceApi.contentImpact(seriesId, contentVersion).subscribe({
+      next: (res) => {
+        this.liveImpact = res;
+        this.impactLoading = false;
+      },
+      error: (err) => {
+        console.warn('Failed to load content impact:', err);
+        this.liveImpact = null;
+        this.impactLoading = false;
       },
     });
   }
@@ -519,6 +640,7 @@ export class CadenceComponent implements OnInit {
           this.cadenceApi.getSeries(this.selectedSeriesId).subscribe({
             next: (s) => {
               this.selectedSeries = s;
+              this.loadLiveImpact(s.id, s.content_version);
             },
           });
           this.loadSeries();
@@ -530,6 +652,78 @@ export class CadenceComponent implements OnInit {
         this.publishingVersion = false;
       },
     });
+  }
+
+  /** True when the version in the content form is the published (live) one. */
+  get formTargetsLiveVersion(): boolean {
+    if (!this.selectedSeries) return false;
+    const version = Number(this.contentForm?.getRawValue()?.content_version) || 0;
+    return version === this.selectedSeries.content_version;
+  }
+
+  /** In add mode, the existing item that a save would overwrite (same version+seq). */
+  get addOverwriteTarget(): CadenceContentItem | null {
+    if (this.editingItem || !this.contentForm) return null;
+    const value = this.contentForm.getRawValue();
+    const version = Number(value.content_version) || 0;
+    const seq = Number(value.seq_no) || 0;
+    return this.contentItems.find((i) => i.content_version === version && i.seq_no === seq) || null;
+  }
+
+  /** Copy an existing version's items into a fresh draft version for staged edits. */
+  cloneVersion(fromVersion: number): void {
+    if (!this.selectedSeriesId || this.cloneBusy) return;
+    this.cloneBusy = true;
+    this.cloneError = null;
+    this.cloneResult = null;
+    this.cadenceApi.cloneVersion(this.selectedSeriesId, fromVersion).subscribe({
+      next: (res) => {
+        this.cloneBusy = false;
+        this.cloneResult = res;
+        this.publishVersionInput = res.to_version;
+        this.loadContent(this.selectedSeriesId!);
+      },
+      error: (err) => {
+        console.error('Failed to clone version:', err);
+        this.cloneError = err?.error?.error || 'Failed to clone content version.';
+        this.cloneBusy = false;
+      },
+    });
+  }
+
+  /** Segment accounting for the SMS the subscriber will actually receive. */
+  get formSmsInfo(): SmsSegmentInfo | null {
+    if (!this.contentForm) return null;
+    const value = this.contentForm.getRawValue();
+    let text: string = (value.message_text || '').trim();
+    if (!text) return null;
+    if (value.content_kind === 'LINK' && (value.link_url || '').trim()) {
+      // The sender appends the link after a space at send time.
+      text = `${text} ${(value.link_url || '').trim()}`;
+    }
+    return this.smsSegmentInfo(text);
+  }
+
+  smsSegmentInfo(text: string): SmsSegmentInfo {
+    let septets = 0;
+    let gsm7 = true;
+    for (const ch of text) {
+      if (GSM7_EXTENDED.has(ch)) {
+        septets += 2;
+      } else if (GSM7_BASIC.test(ch)) {
+        septets += 1;
+      } else {
+        gsm7 = false;
+        break;
+      }
+    }
+    if (gsm7) {
+      const segments = septets <= 160 ? 1 : Math.ceil(septets / 153);
+      return { chars: septets, segments, encoding: 'GSM-7', perSegment: segments === 1 ? 160 : 153 };
+    }
+    const chars = [...text].length;
+    const segments = chars <= 70 ? 1 : Math.ceil(chars / 67);
+    return { chars, segments, encoding: 'Unicode', perSegment: segments === 1 ? 70 : 67 };
   }
 
   getAvailableVersions(): number[] {

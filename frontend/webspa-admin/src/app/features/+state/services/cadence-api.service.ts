@@ -8,6 +8,8 @@ import {
   CadenceSeriesPreview,
   CadenceScheduleRule,
   CadenceContentItem,
+  CadenceContentImpact,
+  CadenceCloneResult,
   CadenceCsvImportResult,
 } from '../models/cadence.model';
 
@@ -130,6 +132,28 @@ export class CadenceApiService {
     is_active?: boolean;
   }): Observable<{ status: string }> {
     return this.http.post<{ status: string }>(`${this.baseUrl}/series/${seriesId}/content`, payload, { headers: this.cadenceHeaders });
+  }
+
+  patchContent(seriesId: number, itemId: number, payload: {
+    message_text?: string;
+    content_kind?: string;
+    link_url?: string | null;
+    cta_label?: string | null;
+    is_active?: boolean;
+  }): Observable<CadenceContentItem> {
+    return this.http.patch<CadenceContentItem>(`${this.baseUrl}/series/${seriesId}/content/${itemId}`, payload, { headers: this.cadenceHeaders });
+  }
+
+  contentImpact(seriesId: number, contentVersion?: number): Observable<CadenceContentImpact> {
+    let params = new HttpParams();
+    if (contentVersion) params = params.set('contentVersion', String(contentVersion));
+    return this.http.get<CadenceContentImpact>(`${this.baseUrl}/series/${seriesId}/content/impact`, { params, headers: this.cadenceHeaders });
+  }
+
+  cloneVersion(seriesId: number, fromVersion: number, toVersion?: number): Observable<CadenceCloneResult> {
+    const body: { from_version: number; to_version?: number } = { from_version: fromVersion };
+    if (toVersion) body.to_version = toVersion;
+    return this.http.post<CadenceCloneResult>(`${this.baseUrl}/series/${seriesId}/content/clone`, body, { headers: this.cadenceHeaders });
   }
 
   importCsv(file: File, dryRun: boolean): Observable<CadenceCsvImportResult> {

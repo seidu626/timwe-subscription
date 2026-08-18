@@ -42,6 +42,7 @@ type ContentItem struct {
 	CTALabel       *string   `json:"cta_label"`
 	IsActive       bool      `json:"is_active"`
 	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type Subscription struct {
@@ -75,7 +76,6 @@ type OutboxJob struct {
 	SeriesID       int64
 	ContentItemID  int64
 	PlannedSendAt  time.Time
-	MessageText    *string
 	Status         string
 	Attempt        int
 	SentAt         *time.Time

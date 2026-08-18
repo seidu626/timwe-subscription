@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -104,6 +103,9 @@ func (p *Planner) planForState(ctx context.Context, tx *sql.Tx, state domain.Due
 	channelID := firstStringPtr(state.ChannelID, subscription.ChannelID, series.ChannelID)
 	idempotencyKey := outboxIdempotencyKey(tenantID, channelID, subscription, series, state)
 
+	// Message text is intentionally NOT snapshotted here: the notification
+	// sender resolves it from message_content_items at send time, so admin
+	// edits to published content reach every not-yet-sent job.
 	job := domain.OutboxJob{
 		JobID:          jobID,
 		IdempotencyKey: idempotencyKey,
@@ -113,7 +115,6 @@ func (p *Planner) planForState(ctx context.Context, tx *sql.Tx, state domain.Due
 		SeriesID:       series.ID,
 		ContentItemID:  item.ID,
 		PlannedSendAt:  state.NextSendAt,
-		MessageText:    plannedMessageText(item),
 		Status:         "PENDING",
 		Attempt:        0,
 	}
@@ -164,12 +165,4 @@ func idempotencyPart(value *string) string {
 		return "legacy"
 	}
 	return *value
-}
-
-func plannedMessageText(item *domain.ContentItem) *string {
-	if item == nil || item.ContentKind != "LINK" || item.LinkURL == nil {
-		return nil
-	}
-	text := strings.TrimSpace(item.MessageText) + " " + strings.TrimSpace(*item.LinkURL)
-	return &text
 }

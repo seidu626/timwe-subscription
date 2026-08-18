@@ -306,10 +306,48 @@
         <div class="card-heading">
           <div>
             <p class="eyebrow">Message library</p>
-            <mat-card-title>Content items</mat-card-title>
+            <mat-card-title>
+              {{ editingItem ? 'Edit item #' + editingItem.seq_no + ' (v' + editingItem.content_version + ')' : 'Content items' }}
+            </mat-card-title>
           </div>
+          <button
+            mat-stroked-button
+            *ngIf="selectedSeries"
+            (click)="cloneVersion(selectedSeries.content_version)"
+            [disabled]="cloneBusy"
+            matTooltip="Copy the live version's items into a new draft version for staged edits"
+          >
+            <mat-icon>content_copy</mat-icon>
+            Clone live version
+          </button>
         </div>
         <mat-card-content>
+          <div class="error-alert" *ngIf="contentError">{{ contentError }}</div>
+          <div class="error-alert" *ngIf="cloneError">{{ cloneError }}</div>
+          <div class="success-alert" *ngIf="cloneResult">
+            Copied {{ cloneResult.items_copied }} item(s) from v{{ cloneResult.from_version }}
+            into new draft v{{ cloneResult.to_version }}. Edit the draft, then publish it from the Publish tab.
+          </div>
+
+          <div class="reactivate-banner" *ngIf="formTargetsLiveVersion">
+            <div class="reactivate-copy">
+              <strong>Editing the live version (v{{ selectedSeries?.content_version }}).</strong>
+              Saved changes reach subscribers on their next send, including messages already planned but not yet sent.
+              <ng-container *ngIf="liveImpact">
+                Affects {{ liveImpact.active_states }} active subscriber(s), {{ liveImpact.pending_jobs }} pending send(s).
+              </ng-container>
+              <ng-container *ngIf="impactLoading">Loading impact&hellip;</ng-container>
+            </div>
+          </div>
+
+          <div class="reactivate-banner" *ngIf="addOverwriteTarget as target">
+            <div class="reactivate-copy">
+              <strong>Heads up:</strong> v{{ target.content_version }} seq {{ target.seq_no }} already exists.
+              Saving will overwrite "{{ target.message_text | slice:0:60 }}{{ target.message_text.length > 60 ? '…' : '' }}".
+              Use the row's edit button to make that intent explicit.
+            </div>
+          </div>
+
           <form [formGroup]="contentForm" class="form-grid">
             <mat-form-field appearance="outline">
               <mat-label>Content Version</mat-label>
@@ -333,6 +371,11 @@
             <mat-form-field appearance="outline" class="wide">
               <mat-label>Message Text</mat-label>
               <textarea matInput rows="3" formControlName="message_text"></textarea>
+              <mat-hint *ngIf="formSmsInfo as sms">
+                {{ sms.chars }} chars ({{ sms.encoding }}) &middot;
+                {{ sms.segments }} SMS segment{{ sms.segments === 1 ? '' : 's' }}
+                <ng-container *ngIf="contentKind === 'LINK'">(link included)</ng-container>
+              </mat-hint>
             </mat-form-field>
 
             <ng-container *ngIf="contentKind === 'LINK'">
@@ -360,9 +403,12 @@
             </mat-form-field>
 
             <div class="actions">
-              <button mat-raised-button color="primary" (click)="saveContent()" [disabled]="contentForm.invalid">
+              <button mat-raised-button color="primary" (click)="saveContent()" [disabled]="contentForm.invalid || contentSaving">
                 <mat-icon>save</mat-icon>
-                Save Content Item
+                {{ editingItem ? 'Update Item' : 'Save Content Item' }}
+              </button>
+              <button mat-stroked-button *ngIf="editingItem" (click)="cancelEditContent()" [disabled]="contentSaving">
+                Cancel Edit
               </button>
             </div>
           </form>
@@ -381,7 +427,14 @@
 
               <ng-container matColumnDef="is_active">
                 <th mat-header-cell *matHeaderCellDef>Active</th>
-                <td mat-cell *matCellDef="let row">{{ row.is_active ? 'Active' : 'Inactive' }}</td>
+                <td mat-cell *matCellDef="let row">
+                  <mat-slide-toggle
+                    [checked]="row.is_active"
+                    [disabled]="togglingItemId === row.id"
+                    (change)="toggleItemActive(row)"
+                    [matTooltip]="row.is_active ? 'Deactivate: skipped in sends' : 'Activate'"
+                  ></mat-slide-toggle>
+                </td>
               </ng-container>
 
               <ng-container matColumnDef="content_kind">
@@ -406,6 +459,20 @@
                     <span *ngIf="row.cta_label" class="cta-label-hint">{{ row.cta_label }}</span>
                   </ng-container>
                   <ng-template #noLink>-</ng-template>
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button
+                    mat-icon-button
+                    color="primary"
+                    (click)="startEditItem(row)"
+                    matTooltip="Edit this message (applies to future sends)"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
                 </td>
               </ng-container>
 

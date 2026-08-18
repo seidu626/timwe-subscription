@@ -231,7 +231,7 @@ func TestInsertOutboxTxReturnsFalseForDuplicateIdempotencyKey(t *testing.T) {
 	tenantID := "tenant-1"
 	channelID := "channel-1"
 	mock.ExpectExec("INSERT INTO message_outbox").
-		WithArgs("job-1", "tenant-1:channel-1:2117:42:7:1:1", sqlmock.AnyArg(), sqlmock.AnyArg(), int64(42), int64(7), int64(99), sqlmock.AnyArg(), nil, "PENDING", 0).
+		WithArgs("job-1", "tenant-1:channel-1:2117:42:7:1:1", sqlmock.AnyArg(), sqlmock.AnyArg(), int64(42), int64(7), int64(99), sqlmock.AnyArg(), "PENDING", 0).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	inserted, err := repo.InsertOutboxTx(context.Background(), tx, domain.OutboxJob{

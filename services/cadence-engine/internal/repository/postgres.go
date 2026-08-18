@@ -642,7 +642,7 @@ func (r *CadenceRepository) ListContentItems(ctx context.Context, seriesID int64
 	}
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id::text, channel_id::text, series_id, content_version, COALESCE(seq_no, 0), message_text,
-		       content_kind, link_url, cta_label, is_active, created_at
+		       content_kind, link_url, cta_label, is_active, created_at, updated_at
 		FROM message_content_items
 		WHERE %s
 		ORDER BY content_version DESC, COALESCE(seq_no, 0) ASC, created_at ASC
@@ -660,7 +660,7 @@ func (r *CadenceRepository) ListContentItems(ctx context.Context, seriesID int64
 		var c domain.ContentItem
 		var tenantID, channelID sql.NullString
 		var linkURL, ctaLabel sql.NullString
-		if err := rows.Scan(&c.ID, &tenantID, &channelID, &c.SeriesID, &c.ContentVersion, &c.SeqNo, &c.MessageText, &c.ContentKind, &linkURL, &ctaLabel, &c.IsActive, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &tenantID, &channelID, &c.SeriesID, &c.ContentVersion, &c.SeqNo, &c.MessageText, &c.ContentKind, &linkURL, &ctaLabel, &c.IsActive, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
 		c.TenantID = nullStringPtr(tenantID)
@@ -734,8 +734,8 @@ func (r *CadenceRepository) InsertOutboxTx(ctx context.Context, tx *sql.Tx, job 
 	query := `
 		INSERT INTO message_outbox (
 			job_id, idempotency_key, tenant_id, channel_id, subscription_id, series_id, content_item_id,
-			planned_send_at, message_text, status, attempt
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			planned_send_at, status, attempt
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (idempotency_key) DO NOTHING
 	`
 	res, err := tx.ExecContext(ctx, query,
@@ -747,7 +747,6 @@ func (r *CadenceRepository) InsertOutboxTx(ctx context.Context, tx *sql.Tx, job 
 		job.SeriesID,
 		job.ContentItemID,
 		job.PlannedSendAt,
-		nullStringPtrValue(job.MessageText),
 		job.Status,
 		job.Attempt,
 	)
