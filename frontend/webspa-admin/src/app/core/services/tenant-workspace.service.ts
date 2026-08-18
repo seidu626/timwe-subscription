@@ -58,6 +58,7 @@ export class TenantWorkspaceService {
   private readonly backendWorkspaceSubject = new BehaviorSubject<BackendWorkspaceSnapshot | null | undefined>(undefined);
   private readonly workspaceEndpoint = `${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`;
   private backendHttp: HttpClient | null = null;
+  private workspaceFetchInFlight = false;
 
   readonly workspace$: Observable<TenantWorkspaceState> = this.workspaceSubject.asObservable();
 
@@ -106,6 +107,16 @@ export class TenantWorkspaceService {
     this.selectionSubject.next(option.identifier);
     sessionStorage.setItem(TENANT_SELECTION_STORAGE_KEY, option.identifier);
     return true;
+  }
+
+  /**
+   * Re-fetches tenant workspaces from the backend. The automatic fetch runs
+   * only on auth transitions, so a single failure (expired Auth0 session,
+   * transient API error) would otherwise pin the workspace on
+   * 'missing-tenant' until the user signs out and back in.
+   */
+  refreshWorkspace(): void {
+    this.refreshBackendWorkspace();
   }
 
   clearTenantSelection(): void {
@@ -281,16 +292,60 @@ export class TenantWorkspaceService {
       this.backendWorkspaceSubject.next(null);
       return;
     }
+
+    if (this.workspaceFetchInFlight) {
+      return;
+    }
+    this.workspaceFetchInFlight = true;
+
+    // A failed fetch leaves null in the subject; flip it back to undefined so
+    // guards treat the workspace as loading until this retry resolves instead
+    // of denying on the stale failure.
+    if (this.backendWorkspaceSubject.value === null) {
+      this.backendWorkspaceSubject.next(undefined);
+    }
+
     this.auth.getAccessTokenSilently().pipe(
       switchMap((token) => http.get<AdminTenantWorkspaceResponse>(this.workspaceEndpoint, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       })),
-      catchError(() => of(null))
+      catchError((error: unknown) => {
+        if (this.requiresInteractiveLogin(error)) {
+          // The Auth0 session can no longer mint tokens silently; only a
+          // fresh interactive login recovers, so start it rather than
+          // dead-ending the user on the 403 page.
+          this.auth.loginWithRedirect({
+            appState: { target: this.currentRouterTarget() }
+          });
+        }
+        return of(null);
+      })
     ).subscribe((response) => {
+      this.workspaceFetchInFlight = false;
       this.backendWorkspaceSubject.next(this.toBackendWorkspaceSnapshot(response));
     });
+  }
+
+  private requiresInteractiveLogin(error: unknown): boolean {
+    const code = this.isRecord(error)
+      ? this.extractSingleString(error['error'] ?? error['code'])
+      : null;
+    return code !== null && [
+      'login_required',
+      'consent_required',
+      'interaction_required',
+      'mfa_required',
+      'missing_refresh_token',
+      'invalid_grant'
+    ].includes(code);
+  }
+
+  private currentRouterTarget(): string {
+    // Hash-based routing: the hash fragment is the router URL.
+    const hash = typeof window === 'undefined' ? '' : window.location.hash;
+    return hash.startsWith('#') && hash.length > 1 ? hash.slice(1) : '/';
   }
 
   private getBackendHttp(): HttpClient | null {

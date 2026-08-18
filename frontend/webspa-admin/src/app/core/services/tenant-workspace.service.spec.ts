@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AuthService } from '@auth0/auth0-angular';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 
@@ -416,5 +416,87 @@ describe('TenantWorkspaceService', () => {
     const selectedWorkspace = service.getCurrentWorkspace();
     expect(selectedWorkspace.status).toBe('ready');
     expect(selectedWorkspace.currentTenant?.tenantKey).toBe('careerify');
+  });
+
+  // Regression: the backend workspace fetch only ran on auth transitions, so a
+  // single failed call pinned the workspace on missing-tenant until the user
+  // signed out and back in.
+  it('recovers from a failed backend workspace fetch via refreshWorkspace', () => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              email: 'tenant.admin@example.com',
+              email_verified: true,
+              name: 'Tenant Admin'
+            }),
+            getAccessTokenSilently: jasmine.createSpy('getAccessTokenSilently').and.returnValue(of('workspace-token'))
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const http = TestBed.inject(HttpTestingController);
+
+    http.expectOne(`${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`)
+      .flush('unavailable', { status: 503, statusText: 'Service Unavailable' });
+    expect(service.getCurrentWorkspace().status).toBe('missing-tenant');
+
+    service.refreshWorkspace();
+    expect(service.getCurrentWorkspace().status).toBe('loading');
+
+    http.expectOne(`${environment.acquisitionApiEndpoint}/v1/admin/tenants/workspaces`).flush({
+      platform_scoped: false,
+      tenants: [
+        {
+          id: '66d39a9a-f1ef-4721-a31c-5bb966d25c3d',
+          tenant_key: 'nrg',
+          name: 'NRG'
+        }
+      ]
+    });
+    http.verify();
+
+    const workspace = service.getCurrentWorkspace();
+    expect(workspace.status).toBe('ready');
+    expect(workspace.currentTenant?.tenantKey).toBe('nrg');
+  });
+
+  it('starts an interactive login when the session can no longer mint tokens silently', () => {
+    const loginWithRedirect = jasmine.createSpy('loginWithRedirect');
+
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            isLoading$: of(false),
+            isAuthenticated$: of(true),
+            user$: of({
+              email: 'tenant.admin@example.com',
+              email_verified: true,
+              name: 'Tenant Admin'
+            }),
+            getAccessTokenSilently: jasmine.createSpy('getAccessTokenSilently')
+              .and.returnValue(throwError(() => ({ error: 'login_required' }))),
+            loginWithRedirect
+          }
+        }
+      ]
+    });
+
+    const service = TestBed.inject(TenantWorkspaceService);
+    const http = TestBed.inject(HttpTestingController);
+    http.verify();
+
+    expect(loginWithRedirect).toHaveBeenCalled();
+    expect(service.getCurrentWorkspace().status).toBe('missing-tenant');
   });
 });

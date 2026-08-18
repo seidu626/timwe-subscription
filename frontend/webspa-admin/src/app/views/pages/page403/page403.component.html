@@ -19,7 +19,7 @@
                     Retry
                   </button>
                   <ng-template #dashboardLink>
-                    <button cButton color="primary" type="button" routerLink="/dashboard">Go to dashboard</button>
+                    <button cButton color="primary" type="button" (click)="retry()">Go to dashboard</button>
                   </ng-template>
                   <button cButton color="secondary" variant="outline" type="button" *ngIf="(isAuthenticated$ | async)" (click)="logout()">Sign out</button>
                   <button cButton color="secondary" variant="outline" type="button" *ngIf="!(isAuthenticated$ | async)" (click)="login()">Sign in</button>

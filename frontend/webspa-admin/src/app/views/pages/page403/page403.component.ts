@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '@auth0/auth0-angular';
 import { IconDirective } from '@coreui/icons-angular';
 import {
@@ -53,8 +53,7 @@ export interface Page403View {
     CardComponent,
     CardBodyComponent,
     ButtonDirective,
-    IconDirective,
-    RouterLink
+    IconDirective
   ]
 })
 export class Page403Component {
@@ -65,6 +64,13 @@ export class Page403Component {
 
   readonly workspace$: Observable<TenantWorkspaceState> = this.tenantWorkspace.workspace$;
   readonly isAuthenticated$: Observable<boolean> = this.auth.isAuthenticated$;
+
+  constructor() {
+    // A denial can stem from a one-shot workspace fetch that failed (expired
+    // session, transient API error); re-fetch on arrival so the page can
+    // self-heal instead of requiring a sign-out/sign-in cycle.
+    this.tenantWorkspace.refreshWorkspace();
+  }
 
   readonly view$: Observable<Page403View> = combineLatest([
     this.route.queryParamMap,
@@ -90,6 +96,7 @@ export class Page403Component {
   }
 
   retry(): void {
+    this.tenantWorkspace.refreshWorkspace();
     void this.router.navigate(['/dashboard'], { replaceUrl: true });
   }
 

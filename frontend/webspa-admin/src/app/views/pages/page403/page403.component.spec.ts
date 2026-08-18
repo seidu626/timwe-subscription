@@ -49,7 +49,8 @@ describe('Page403Component', () => {
           provide: TenantWorkspaceService,
           useValue: {
             workspace$: workspace$.asObservable(),
-            selectTenant: jasmine.createSpy('selectTenant').and.returnValue(true)
+            selectTenant: jasmine.createSpy('selectTenant').and.returnValue(true),
+            refreshWorkspace: jasmine.createSpy('refreshWorkspace')
           }
         },
         {
@@ -71,6 +72,23 @@ describe('Page403Component', () => {
 
   it('creates the denial page', () => {
     expect(component).toBeTruthy();
+  });
+
+  // Regression: a failed one-shot workspace fetch pinned the app on
+  // missing-tenant until sign-out/sign-in; the page must re-fetch on arrival
+  // and before re-attempting the dashboard.
+  it('refreshes the tenant workspace on arrival', () => {
+    const tenantWorkspace = TestBed.inject(TenantWorkspaceService);
+    expect(tenantWorkspace.refreshWorkspace).toHaveBeenCalled();
+  });
+
+  it('refreshes the tenant workspace before navigating back to the dashboard', () => {
+    const tenantWorkspace = TestBed.inject(TenantWorkspaceService);
+    (tenantWorkspace.refreshWorkspace as jasmine.Spy).calls.reset();
+
+    component.retry();
+
+    expect(tenantWorkspace.refreshWorkspace).toHaveBeenCalled();
   });
 
   it('derives a stable monogram for tenant cards', () => {
