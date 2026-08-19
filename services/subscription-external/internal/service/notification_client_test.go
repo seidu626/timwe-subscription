@@ -7,10 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 )
 
 func TestNotificationClientNotifyUserOptin(t *testing.T) {
+	t.Setenv("GATEWAY_TRUST_SECRET", "test-gateway-secret")
 	var got domain.NotificationRequest
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -21,6 +23,11 @@ func TestNotificationClientNotifyUserOptin(t *testing.T) {
 		}
 		if r.URL.Query().Get("tenant_key") != "careerify" || r.URL.Query().Get("channel_key") != "web-gh-airteltigo" {
 			t.Errorf("unexpected tenant route query: %s", r.URL.RawQuery)
+		}
+		// notification-service enforces the gateway-trust marker; the client
+		// must derive it from GATEWAY_TRUST_SECRET or the call 403s in prod.
+		if marker := r.Header.Get(tenantctx.HeaderGatewayTrust); marker != tenantctx.GatewayTrustToken("test-gateway-secret") {
+			t.Errorf("gateway trust header = %q, want derived token", marker)
 		}
 		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
 			t.Fatalf("decode request: %v", err)

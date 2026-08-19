@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 )
 
@@ -23,17 +24,27 @@ const defaultNotificationAPIURL = "http://notification:8082"
 // creation.
 type NotificationClient struct {
 	baseURL    string
+	trustToken string
 	httpClient *http.Client
 }
 
 // NewNotificationClient creates the internal notification-service client.
+// notification-service enforces the KrakenD gateway-trust marker on its
+// partner-callback endpoints when GATEWAY_TRUST_REQUIRED=true, so this
+// service-to-service client derives the same static token from the shared
+// GATEWAY_TRUST_SECRET (see tenantctx.GatewayTrustToken).
 func NewNotificationClient() *NotificationClient {
 	baseURL := strings.TrimSpace(os.Getenv("NOTIFICATION_API_URL"))
 	if baseURL == "" {
 		baseURL = defaultNotificationAPIURL
 	}
+	trustToken := ""
+	if secret := strings.TrimSpace(os.Getenv("GATEWAY_TRUST_SECRET")); secret != "" {
+		trustToken = tenantctx.GatewayTrustToken(secret)
+	}
 	return &NotificationClient{
-		baseURL: strings.TrimRight(baseURL, "/"),
+		baseURL:    strings.TrimRight(baseURL, "/"),
+		trustToken: trustToken,
 		httpClient: &http.Client{
 			Timeout: 3 * time.Second,
 		},
@@ -79,6 +90,9 @@ func (c *NotificationClient) NotifyUserOptin(ctx context.Context, route domain.T
 		return fmt.Errorf("create user opt-in notification request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if c.trustToken != "" {
+		req.Header.Set(tenantctx.HeaderGatewayTrust, c.trustToken)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
