@@ -377,6 +377,7 @@ func TestSeriesHealthScopesTenantAndMapsAggregates(t *testing.T) {
 			"next_due_at", "last_sent_at",
 			"sent_24h", "failed_24h", "sent_7d", "failed_7d",
 			"sent_total", "failed_total",
+			"delivered_24h", "undelivered_24h", "delivered_7d", "undelivered_7d",
 			"last_error", "last_failed_at",
 		}).AddRow(
 			int64(1), "daily-tips", true, "SMS", 14392, 3,
@@ -384,6 +385,7 @@ func TestSeriesHealthScopesTenantAndMapsAggregates(t *testing.T) {
 			now, nil,
 			int64(0), int64(14139), int64(0), int64(41000),
 			int64(4900), int64(107000),
+			int64(320), int64(4), int64(2100), int64(9),
 			lastErr, now,
 		))
 
@@ -397,6 +399,9 @@ func TestSeriesHealthScopesTenantAndMapsAggregates(t *testing.T) {
 	h := items[0]
 	if h.ActiveStates != 53000 || h.Failed24h != 14139 || h.FailedTotal != 107000 {
 		t.Fatalf("unexpected aggregates: %+v", h)
+	}
+	if h.Delivered24h != 320 || h.Undelivered24h != 4 || h.Delivered7d != 2100 || h.Undelivered7d != 9 {
+		t.Fatalf("unexpected delivery aggregates: %+v", h)
 	}
 	if h.LastSentAt != nil {
 		t.Fatalf("expected nil last_sent_at, got %v", h.LastSentAt)

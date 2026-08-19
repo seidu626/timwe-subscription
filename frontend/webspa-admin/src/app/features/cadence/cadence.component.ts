@@ -97,6 +97,7 @@ export class CadenceComponent implements OnInit {
     'name',
     'subscribers',
     'sent_24h',
+    'delivered_24h',
     'failed_24h',
     'last_sent',
     'next_due',
@@ -256,6 +257,24 @@ export class CadenceComponent implements OnInit {
     if (failureRatio >= 0.5) return 'critical';
     if (failureRatio > 0.05) return 'warning';
     return 'healthy';
+  }
+
+  // Delivery counts only exist for gateways with a status endpoint configured;
+  // TIMWE MT sends have no provider message id and stay untracked, so their
+  // Delivered cell renders as a dash instead of a misleading zero.
+  hasDeliveryTracking(row: CadenceSeriesHealth): boolean {
+    return (row.delivered_24h ?? 0) + (row.undelivered_24h ?? 0) > 0;
+  }
+
+  deliveryTooltip(row: CadenceSeriesHealth): string {
+    if (!this.hasDeliveryTracking(row)) {
+      return row.sent_24h > 0
+        ? 'No delivery confirmations yet: gateway has no status endpoint configured, or reports are still pending'
+        : '';
+    }
+    return row.undelivered_24h > 0
+      ? `${row.undelivered_24h} message(s) not confirmed delivered in the last 24h`
+      : 'Confirmed delivered to handsets by the SMS gateway';
   }
 
   healthStatusLabel(row: CadenceSeriesHealth): string {

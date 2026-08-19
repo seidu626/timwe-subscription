@@ -364,6 +364,8 @@ func (r *CadenceRepository) SeriesHealth(ctx context.Context, tenantID, channelI
 		       COALESCE(o.sent_24h, 0), COALESCE(o.failed_24h, 0),
 		       COALESCE(o.sent_7d, 0), COALESCE(o.failed_7d, 0),
 		       COALESCE(o.sent_total, 0), COALESCE(o.failed_total, 0),
+		       COALESCE(o.delivered_24h, 0), COALESCE(o.undelivered_24h, 0),
+		       COALESCE(o.delivered_7d, 0), COALESCE(o.undelivered_7d, 0),
 		       f.last_error, f.last_failed_at
 		FROM product_message_series s
 		LEFT JOIN LATERAL (
@@ -381,7 +383,11 @@ func (r *CadenceRepository) SeriesHealth(ctx context.Context, tenantID, channelI
 			       COUNT(*) FILTER (WHERE mo.status = 'SENT'   AND mo.created_at >= NOW() - INTERVAL '7 days')   AS sent_7d,
 			       COUNT(*) FILTER (WHERE mo.status = 'FAILED' AND mo.created_at >= NOW() - INTERVAL '7 days')   AS failed_7d,
 			       COUNT(*) FILTER (WHERE mo.status = 'SENT')   AS sent_total,
-			       COUNT(*) FILTER (WHERE mo.status = 'FAILED') AS failed_total
+			       COUNT(*) FILTER (WHERE mo.status = 'FAILED') AS failed_total,
+			       COUNT(*) FILTER (WHERE mo.delivery_status = 'DELIVERED' AND mo.created_at >= NOW() - INTERVAL '24 hours') AS delivered_24h,
+			       COUNT(*) FILTER (WHERE mo.delivery_status IN ('FAILED', 'UNCONFIRMED') AND mo.created_at >= NOW() - INTERVAL '24 hours') AS undelivered_24h,
+			       COUNT(*) FILTER (WHERE mo.delivery_status = 'DELIVERED' AND mo.created_at >= NOW() - INTERVAL '7 days') AS delivered_7d,
+			       COUNT(*) FILTER (WHERE mo.delivery_status IN ('FAILED', 'UNCONFIRMED') AND mo.created_at >= NOW() - INTERVAL '7 days') AS undelivered_7d
 			FROM message_outbox mo
 			WHERE mo.series_id = s.id
 		) o ON TRUE
@@ -415,6 +421,8 @@ func (r *CadenceRepository) SeriesHealth(ctx context.Context, tenantID, channelI
 			&h.Sent24h, &h.Failed24h,
 			&h.Sent7d, &h.Failed7d,
 			&h.SentTotal, &h.FailedTotal,
+			&h.Delivered24h, &h.Undelivered24h,
+			&h.Delivered7d, &h.Undelivered7d,
 			&lastError, &lastFailed,
 		); err != nil {
 			return nil, err
