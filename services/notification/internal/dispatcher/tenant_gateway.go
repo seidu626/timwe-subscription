@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -54,6 +55,24 @@ type smsGatewayConfig struct {
 	// a substring match depends on the gateway's key order and whitespace.
 	SuccessField string `json:"success_field"`
 	SuccessValue string `json:"success_value"`
+	// MessageIDPath, when set, is a dot path (array indices as numbers, e.g.
+	// "data.0.id") into the send response JSON naming the gateway's message
+	// id. The id is stored on the outbox job so the delivery poller can
+	// resolve the true handset delivery outcome later; a 2xx "accepted"
+	// response alone has been observed on prod to not mean delivered.
+	MessageIDPath string `json:"message_id_path"`
+	// StatusURL, when set, enables delivery polling: a GET endpoint template
+	// with a {{message_id}} placeholder (e.g. Arkesel v2
+	// "https://sms.arkesel.com/api/v2/sms/{{message_id}}"), called with the
+	// same Headers as the send.
+	StatusURL string `json:"status_url"`
+	// StatusPath is the dot path into the status response JSON naming the
+	// delivery state string (e.g. "data.0.status").
+	StatusPath string `json:"status_path"`
+	// StatusDeliveredValues / StatusFailedValues classify the StatusPath
+	// value (case-insensitive). Anything else counts as still pending.
+	StatusDeliveredValues []string `json:"status_delivered_values"`
+	StatusFailedValues    []string `json:"status_failed_values"`
 }
 
 func (c *smsGatewayConfig) validate() error {
@@ -259,8 +278,10 @@ func fetchTenantGatewaySecret(ctx context.Context, db *sql.DB, id, tenantID, cha
 
 // Send posts text to msisdn through the gateway described by cfg. The full
 // request URL and headers are never logged: query strings and headers can
-// carry the gateway API key. Only a masked msisdn is logged.
-func (s *TenantGatewaySender) Send(ctx context.Context, cfg *smsGatewayConfig, msisdn, text string) error {
+// carry the gateway API key. Only a masked msisdn is logged. On success it
+// returns the gateway's message id when cfg.MessageIDPath resolves one;
+// otherwise the id is empty and the job stays delivery-untracked.
+func (s *TenantGatewaySender) Send(ctx context.Context, cfg *smsGatewayConfig, msisdn, text string) (string, error) {
 	values := map[string]string{
 		"msisdn": msisdn,
 		"text":   text,
@@ -287,7 +308,7 @@ func (s *TenantGatewaySender) Send(ctx context.Context, cfg *smsGatewayConfig, m
 	if err != nil {
 		// Never wrap the raw error: it can embed the full URL, whose query
 		// string may carry the gateway api key.
-		return fmt.Errorf("build sms gateway request: %s", redactURLInError(err, reqURL))
+		return "", fmt.Errorf("build sms gateway request: %s", redactURLInError(err, reqURL))
 	}
 	if hasBody {
 		req.Header.Set("Content-Type", "application/json")
@@ -298,7 +319,7 @@ func (s *TenantGatewaySender) Send(ctx context.Context, cfg *smsGatewayConfig, m
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("sms gateway request failed: %s", redactURLInError(err, reqURL))
+		return "", fmt.Errorf("sms gateway request failed: %s", redactURLInError(err, reqURL))
 	}
 	defer resp.Body.Close()
 
@@ -316,7 +337,7 @@ func (s *TenantGatewaySender) Send(ctx context.Context, cfg *smsGatewayConfig, m
 			zap.Int("status", resp.StatusCode),
 			zap.String("response", safeSnippet),
 		)
-		return fmt.Errorf("sms gateway status %d", resp.StatusCode)
+		return "", fmt.Errorf("sms gateway status %d", resp.StatusCode)
 	}
 
 	if err := cfg.checkSuccessBody(body); err != nil {
@@ -324,10 +345,25 @@ func (s *TenantGatewaySender) Send(ctx context.Context, cfg *smsGatewayConfig, m
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.String("response", safeSnippet),
 		)
-		return err
+		return "", err
 	}
 
-	return nil
+	messageID := ""
+	if cfg.MessageIDPath != "" {
+		messageID, err = extractJSONPath(body, cfg.MessageIDPath)
+		if err != nil {
+			// The send itself succeeded; a missing id only loses delivery
+			// tracking for this one message, so log rather than fail the job
+			// (failing would resend an SMS the subscriber already got).
+			s.logger.Warn("tenant sms gateway response missing message id",
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
+				zap.String("message_id_path", cfg.MessageIDPath),
+				zap.String("response", safeSnippet),
+			)
+			messageID = ""
+		}
+	}
+	return messageID, nil
 }
 
 // renderURLTemplate substitutes {{key}} placeholders with URL-encoded values
@@ -362,4 +398,104 @@ func renderJSONTemplate(template string, values map[string]string) string {
 		out = strings.ReplaceAll(out, "{{"+k+"}}", string(escaped[1:len(escaped)-1]))
 	}
 	return out
+}
+
+// deliveryStatusMaxBody bounds how much of a gateway status response is read.
+const deliveryStatusMaxBody = 8192
+
+// DeliveryStatus queries the gateway for the handset delivery state of a
+// previously sent message. It returns one of "DELIVERED", "FAILED" or
+// "PENDING" plus the gateway's raw status string for diagnostics. Requires
+// cfg.StatusURL and cfg.StatusPath; callers must not poll configs without
+// them.
+func (s *TenantGatewaySender) DeliveryStatus(ctx context.Context, cfg *smsGatewayConfig, messageID string) (string, string, error) {
+	if strings.TrimSpace(cfg.StatusURL) == "" || strings.TrimSpace(cfg.StatusPath) == "" {
+		return "", "", fmt.Errorf("sms gateway config has no delivery status endpoint")
+	}
+	reqURL := renderURLTemplate(cfg.StatusURL, map[string]string{"message_id": messageID})
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return "", "", fmt.Errorf("build sms gateway status request: %s", redactURLInError(err, reqURL))
+	}
+	for k, v := range cfg.Headers {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", "", fmt.Errorf("sms gateway status request failed: %s", redactURLInError(err, reqURL))
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, deliveryStatusMaxBody))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		snippet := string(body)
+		if len(snippet) > 256 {
+			snippet = snippet[:256]
+		}
+		return "", "", fmt.Errorf("sms gateway status endpoint returned %d: %s", resp.StatusCode, snippet)
+	}
+
+	raw, err := extractJSONPath(body, cfg.StatusPath)
+	if err != nil {
+		return "", "", fmt.Errorf("sms gateway status response: %w", err)
+	}
+	return classifyDeliveryStatus(cfg, raw), raw, nil
+}
+
+// classifyDeliveryStatus maps a gateway status string onto our tri-state via
+// the configured value lists (case-insensitive). Unrecognized values stay
+// PENDING so a new gateway wording never falsely finalizes a job; the poller
+// stops rechecking on its age cutoff regardless.
+func classifyDeliveryStatus(cfg *smsGatewayConfig, raw string) string {
+	for _, v := range cfg.StatusDeliveredValues {
+		if strings.EqualFold(strings.TrimSpace(raw), strings.TrimSpace(v)) {
+			return deliveryStatusDelivered
+		}
+	}
+	for _, v := range cfg.StatusFailedValues {
+		if strings.EqualFold(strings.TrimSpace(raw), strings.TrimSpace(v)) {
+			return deliveryStatusFailed
+		}
+	}
+	return deliveryStatusPending
+}
+
+// extractJSONPath resolves a dot path ("data.0.id") through nested JSON
+// objects and arrays and returns the value at the leaf rendered as a string.
+func extractJSONPath(body []byte, path string) (string, error) {
+	var current any
+	if err := json.Unmarshal(body, &current); err != nil {
+		return "", fmt.Errorf("response is not JSON")
+	}
+	for _, segment := range strings.Split(path, ".") {
+		switch node := current.(type) {
+		case map[string]any:
+			val, ok := node[segment]
+			if !ok {
+				return "", fmt.Errorf("path %q not found in response", path)
+			}
+			current = val
+		case []any:
+			idx, err := strconv.Atoi(segment)
+			if err != nil || idx < 0 || idx >= len(node) {
+				return "", fmt.Errorf("path %q not found in response", path)
+			}
+			current = node[idx]
+		default:
+			return "", fmt.Errorf("path %q not found in response", path)
+		}
+	}
+	switch leaf := current.(type) {
+	case string:
+		if strings.TrimSpace(leaf) == "" {
+			return "", fmt.Errorf("path %q resolved to empty value", path)
+		}
+		return leaf, nil
+	case float64, bool:
+		return fmt.Sprint(leaf), nil
+	default:
+		return "", fmt.Errorf("path %q resolved to a non-scalar value", path)
+	}
 }

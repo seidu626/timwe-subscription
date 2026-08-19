@@ -185,12 +185,13 @@ func TestResolveChannel_SeriesPUSHOverrideIgnoresSubscriberPreference(t *testing
 }
 
 type fakeTenantGateway struct {
-	cfg          *smsGatewayConfig
-	resolveErr   error
-	sendErr      error
-	resolveCalls int
-	sendCalls    int
-	lastTenantID string
+	cfg           *smsGatewayConfig
+	resolveErr    error
+	sendErr       error
+	sendMessageID string
+	resolveCalls  int
+	sendCalls     int
+	lastTenantID  string
 }
 
 func (f *fakeTenantGateway) Resolve(ctx context.Context, tenantID string) (*smsGatewayConfig, error) {
@@ -202,9 +203,13 @@ func (f *fakeTenantGateway) Resolve(ctx context.Context, tenantID string) (*smsG
 	return f.cfg, nil
 }
 
-func (f *fakeTenantGateway) Send(ctx context.Context, cfg *smsGatewayConfig, msisdn, text string) error {
+func (f *fakeTenantGateway) Send(ctx context.Context, cfg *smsGatewayConfig, msisdn, text string) (string, error) {
 	f.sendCalls++
-	return f.sendErr
+	return f.sendMessageID, f.sendErr
+}
+
+func (f *fakeTenantGateway) DeliveryStatus(ctx context.Context, cfg *smsGatewayConfig, messageID string) (string, string, error) {
+	return deliveryStatusPending, "", nil
 }
 
 // mtTestServer returns an httptest server that answers the TIMWE MT contract
@@ -231,7 +236,7 @@ func TestSendSMS_RoutesToTenantGatewayWhenBound(t *testing.T) {
 	job.TenantID = &tenantID
 	job.MessageText = "hello"
 
-	if err := d.sendSMS(context.Background(), job); err != nil {
+	if _, err := d.sendSMS(context.Background(), job); err != nil {
 		t.Fatalf("sendSMS() error = %v", err)
 	}
 	if gateway.sendCalls != 1 {
@@ -254,7 +259,7 @@ func TestSendSMS_FallsBackToMTWhenNoGatewayBinding(t *testing.T) {
 	job := testJob()
 	job.TenantID = &tenantID
 
-	if err := d.sendSMS(context.Background(), job); err != nil {
+	if _, err := d.sendSMS(context.Background(), job); err != nil {
 		t.Fatalf("sendSMS() error = %v", err)
 	}
 	if gateway.sendCalls != 0 {
@@ -272,7 +277,7 @@ func TestSendSMS_FallsBackToMTWhenJobHasNoTenantID(t *testing.T) {
 
 	job := testJob() // TenantID left nil
 
-	if err := d.sendSMS(context.Background(), job); err != nil {
+	if _, err := d.sendSMS(context.Background(), job); err != nil {
 		t.Fatalf("sendSMS() error = %v", err)
 	}
 	if gateway.resolveCalls != 0 {
@@ -292,7 +297,7 @@ func TestSendSMS_GatewayResolveErrorSurfacesWithoutMTFallback(t *testing.T) {
 	job := testJob()
 	job.TenantID = &tenantID
 
-	err := d.sendSMS(context.Background(), job)
+	_, err := d.sendSMS(context.Background(), job)
 	if err == nil {
 		t.Fatal("sendSMS() error = nil, want resolve error to surface")
 	}
@@ -313,7 +318,7 @@ func TestSendSMS_GatewaySendErrorSurfacesWithoutMTFallback(t *testing.T) {
 	job := testJob()
 	job.TenantID = &tenantID
 
-	err := d.sendSMS(context.Background(), job)
+	_, err := d.sendSMS(context.Background(), job)
 	if err == nil {
 		t.Fatal("sendSMS() error = nil, want gateway send error to surface for the retry path")
 	}
@@ -330,7 +335,7 @@ func TestSendSMS_UnwiredGatewayKeepsMTPath(t *testing.T) {
 	job := testJob()
 	job.TenantID = &tenantID
 
-	if err := d.sendSMS(context.Background(), job); err != nil {
+	if _, err := d.sendSMS(context.Background(), job); err != nil {
 		t.Fatalf("sendSMS() error = %v", err)
 	}
 	if !*mtCalled {

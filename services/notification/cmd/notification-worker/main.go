@@ -83,6 +83,22 @@ func main() {
 		}
 	}()
 
+	// Delivery poller: upgrades gateway-accepted (SENT) jobs to their true
+	// handset outcome (DELIVERED/FAILED/UNCONFIRMED) by querying the tenant
+	// gateway's status endpoint with the provider message id captured at send
+	// time. See internal/dispatcher/delivery_poller.go.
+	deliveryPoller := dispatcher.NewDeliveryPoller(repo, tenantGateway, logger, dispatcher.DeliveryPollerConfig{
+		PollInterval: getEnvDuration("NOTIFICATION_DELIVERY_POLL_INTERVAL", time.Minute),
+		BatchSize:    getEnvInt("NOTIFICATION_DELIVERY_POLL_BATCH", 100),
+		RecheckAfter: getEnvDuration("NOTIFICATION_DELIVERY_RECHECK_AFTER", 2*time.Minute),
+		GiveUpAfter:  getEnvDuration("NOTIFICATION_DELIVERY_GIVE_UP_AFTER", 24*time.Hour),
+	})
+	go func() {
+		if err := deliveryPoller.Run(ctx); err != nil && err != context.Canceled {
+			logger.Error("delivery poller stopped", zap.Error(err))
+		}
+	}()
+
 	logger.Info("notification worker started",
 		zap.Int("batch_size", workerCfg.BatchSize),
 		zap.Duration("poll_interval", workerCfg.PollInterval),

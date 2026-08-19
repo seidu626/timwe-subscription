@@ -88,18 +88,92 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 	return jobs, rows.Err()
 }
 
-// MarkSent marks jobID delivered via channel ("SMS" or "PUSH"; see
-// docs/dayline-app-api-contract.md).
-func (r *OutboxRepository) MarkSent(ctx context.Context, jobID, channel string) error {
+// MarkSent marks jobID accepted for delivery via channel ("SMS" or "PUSH";
+// see docs/dayline-app-api-contract.md). A non-empty providerMessageID (the
+// SMS gateway's message id) also arms delivery polling: the job enters
+// delivery_status PENDING and the DeliveryPoller resolves its true handset
+// outcome later.
+func (r *OutboxRepository) MarkSent(ctx context.Context, jobID, channel, providerMessageID string) error {
 	query := `
 		UPDATE message_outbox
 		SET status = 'SENT',
 		    sent_at = NOW(),
 		    last_error = NULL,
-		    channel = $2
+		    channel = $2,
+		    provider_message_id = NULLIF($3, ''),
+		    delivery_status = CASE WHEN $3 <> '' THEN 'PENDING' ELSE delivery_status END
 		WHERE job_id = $1
 	`
-	_, err := r.db.ExecContext(ctx, query, jobID, channel)
+	_, err := r.db.ExecContext(ctx, query, jobID, channel, providerMessageID)
+	return err
+}
+
+// ClaimDeliveryChecks returns SENT gateway jobs still awaiting a delivery
+// verdict and stamps delivery_checked_at so concurrent pollers (and the next
+// batch) skip them for recheckAfter. Jobs older than giveUpAfter are closed
+// out as UNCONFIRMED in the same statement instead of being returned:
+// accepted by the gateway, but handset delivery never confirmed.
+func (r *OutboxRepository) ClaimDeliveryChecks(ctx context.Context, limit int, recheckAfter, giveUpAfter time.Duration) ([]domain.DeliveryCheck, error) {
+	expireQuery := `
+		UPDATE message_outbox
+		SET delivery_status = 'UNCONFIRMED'
+		WHERE status = 'SENT'
+		  AND provider_message_id IS NOT NULL
+		  AND delivery_status = 'PENDING'
+		  AND sent_at < NOW() - $1::interval
+	`
+	if _, err := r.db.ExecContext(ctx, expireQuery, giveUpAfter.String()); err != nil {
+		return nil, err
+	}
+
+	query := `
+		WITH claimed AS (
+			SELECT job_id
+			FROM message_outbox
+			WHERE status = 'SENT'
+			  AND provider_message_id IS NOT NULL
+			  AND delivery_status = 'PENDING'
+			  AND (delivery_checked_at IS NULL OR delivery_checked_at < NOW() - $2::interval)
+			ORDER BY sent_at
+			LIMIT $1
+			FOR UPDATE SKIP LOCKED
+		)
+		UPDATE message_outbox mo
+		SET delivery_checked_at = NOW()
+		FROM claimed
+		WHERE mo.job_id = claimed.job_id
+		RETURNING mo.job_id, COALESCE(mo.tenant_id::text, ''), mo.provider_message_id, mo.sent_at,
+		          COALESCE((SELECT s.user_identifier FROM subscriptions s WHERE s.id = mo.subscription_id), '')
+	`
+	rows, err := r.db.QueryContext(ctx, query, limit, recheckAfter.String())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checks []domain.DeliveryCheck
+	for rows.Next() {
+		var check domain.DeliveryCheck
+		if err := rows.Scan(&check.JobID, &check.TenantID, &check.ProviderMessageID, &check.SentAt, &check.MSISDN); err != nil {
+			return nil, err
+		}
+		checks = append(checks, check)
+	}
+	return checks, rows.Err()
+}
+
+// UpdateDeliveryStatus records the gateway's delivery verdict for a job.
+// rawStatus preserves the gateway's own wording for diagnostics.
+func (r *OutboxRepository) UpdateDeliveryStatus(ctx context.Context, jobID, status, rawStatus string, deliveredAt *time.Time) error {
+	query := `
+		UPDATE message_outbox
+		SET delivery_status = $2,
+		    delivery_detail = NULLIF($3, ''),
+		    delivery_checked_at = NOW(),
+		    delivered_at = COALESCE($4, delivered_at)
+		WHERE job_id = $1
+	`
+	_, err := r.db.ExecContext(ctx, query, jobID, status, rawStatus, deliveredAt)
 	return err
 }
 
