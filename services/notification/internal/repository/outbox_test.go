@@ -11,10 +11,10 @@ import (
 	"go.uber.org/zap"
 )
 
-// The claim query must compose message text from message_content_items at
-// send time (never from a snapshot on message_outbox), so admin edits to
-// published content reach every not-yet-sent job. LINK items get the URL
-// appended in SQL.
+// The claim query must compose series message text from message_content_items
+// at send time, so admin edits to published content reach every not-yet-sent
+// job. Direct opt-in confirmations have no content item and fall back to the
+// text stored on message_outbox. LINK items get the URL appended in SQL.
 func TestClaimPendingJobsResolvesTextAtSendTime(t *testing.T) {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	if err != nil {
@@ -55,21 +55,20 @@ func TestClaimPendingJobsResolvesTextAtSendTime(t *testing.T) {
 	}
 }
 
-// Guard against reintroducing a snapshot read: the claim query must not read
-// message_outbox.message_text.
-func TestClaimPendingJobsDoesNotReadOutboxSnapshotText(t *testing.T) {
-	// Match only if the query does NOT read the outbox snapshot column and
-	// DOES read the content item's text.
-	noSnapshotMatcher := sqlmock.QueryMatcherFunc(func(expected, actual string) error {
-		if strings.Contains(actual, "mo.message_text") {
-			return errors.New("claim query reads message_outbox.message_text snapshot")
-		}
+// Guard both message sources: series jobs use the editable content item while
+// direct opt-in confirmations fall back to their outbox text.
+func TestClaimPendingJobsFallsBackToDirectOutboxText(t *testing.T) {
+	directFallbackMatcher := sqlmock.QueryMatcherFunc(func(expected, actual string) error {
 		if !strings.Contains(actual, "ci.message_text") {
 			return errors.New("claim query does not read message_content_items text")
 		}
+		normalized := strings.Join(strings.Fields(actual), " ")
+		if !strings.Contains(normalized, "COALESCE(ci.message_text, mo.message_text)") {
+			return errors.New("claim query does not fall back to direct outbox text")
+		}
 		return nil
 	})
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(noSnapshotMatcher))
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(directFallbackMatcher))
 	if err != nil {
 		t.Fatalf("sqlmock.New: %v", err)
 	}

@@ -66,6 +66,9 @@ func TestSendMTWithRetry_UsesUniqueExternalTxIDPerAttempt(t *testing.T) {
 		t.Fatalf("expected SUCCESS response, got %+v", resp)
 	}
 	assertUniqueIDs(t, externalIDs, 2)
+	if got, _ := resp.ResponseData["externalTxId"].(string); got != externalIDs[1] {
+		t.Fatalf("response externalTxId = %q, want successful request id %q", got, externalIDs[1])
+	}
 }
 
 func TestSendOptoutWithRetry_UsesUniqueExternalTxIDPerAttempt(t *testing.T) {
