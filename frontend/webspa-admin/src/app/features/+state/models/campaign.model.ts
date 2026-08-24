@@ -71,6 +71,13 @@ export interface Campaign {
   landing_page_urls?: string[];
   tracking_config?: CampaignTrackingConfig;
   lp_copy?: CampaignLPCopy;
+  app_name?: string;
+  app_tagline?: string;
+  app_description?: string;
+  app_category?: string;
+  app_artwork_url?: string;
+  app_sample_content?: string;
+  app_featured_rank?: number;
   enabled: boolean;
   created_at: string;
   updated_at: string;
@@ -109,6 +116,13 @@ export interface CampaignCreateRequest {
   landing_page_urls?: string[];
   tracking_config?: CampaignTrackingConfig;
   lp_copy?: CampaignLPCopy;
+  app_name?: string;
+  app_tagline?: string;
+  app_description?: string;
+  app_category?: string;
+  app_artwork_url?: string;
+  app_sample_content?: string;
+  app_featured_rank?: number;
   enabled: boolean;
   created_by?: string;
   updated_by?: string;

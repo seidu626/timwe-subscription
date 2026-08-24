@@ -192,6 +192,32 @@ ON CONFLICT (fcm_token) DO UPDATE SET
 	return err
 }
 
+// ListNotificationPrefs returns msisdn's stored delivery-channel preferences,
+// one row per product, ordered by product slug for a stable response.
+func (r *AppFeedRepository) ListNotificationPrefs(ctx context.Context, msisdn string) ([]domain.AppNotificationPref, error) {
+	query := `SELECT product_slug, channel FROM app_notification_prefs
+WHERE msisdn = $1
+ORDER BY product_slug`
+	rows, err := r.db.QueryContext(ctx, query, msisdn)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	prefs := make([]domain.AppNotificationPref, 0)
+	for rows.Next() {
+		var pref domain.AppNotificationPref
+		if err := rows.Scan(&pref.ProductSlug, &pref.Channel); err != nil {
+			return nil, err
+		}
+		prefs = append(prefs, pref)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return prefs, nil
+}
+
 // UpsertNotificationPref sets msisdn's delivery-channel preference for a
 // product.
 func (r *AppFeedRepository) UpsertNotificationPref(ctx context.Context, msisdn, productSlug, channel string) error {

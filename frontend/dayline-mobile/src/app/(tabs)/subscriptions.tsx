@@ -66,7 +66,12 @@ export default function SubscriptionsScreen() {
   }
 
   return (
-    <ScreenContainer scroll withTabBarClearance>
+    <ScreenContainer
+      scroll
+      withTabBarClearance
+      refreshing={subscriptions.isRefetching}
+      onRefresh={() => void subscriptions.refetch()}
+    >
       <Text style={styles.pageTitle}>My Subscriptions</Text>
       <Text style={styles.pageSubtitle}>Manage your active plans and billing.</Text>
 
@@ -176,9 +181,9 @@ function SubscriptionCard({
         {formatCurrency(subscription.price, subscription.currency)}
         {formatBillingCycle(subscription.billing_cycle)}
       </Text>
-      {subscription.status === 'ACTIVE' ? (
+      {subscription.status === 'ACTIVE' || subscription.status === 'PENDING' ? (
         <Button
-          label="Cancel subscription"
+          label={subscription.status === 'PENDING' ? 'Cancel request' : 'Cancel subscription'}
           variant="secondary"
           onPress={() => onCancel(subscription)}
           loading={cancelingRef === subscription.ref}

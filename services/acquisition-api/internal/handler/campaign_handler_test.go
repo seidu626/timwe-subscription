@@ -451,3 +451,46 @@ func TestMapCampaignCloneErrorStatus(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateAdminUpsert_AppCategoryLengthCap(t *testing.T) {
+	tooLong := strings.Repeat("x", 81)
+	atCap := strings.Repeat("x", 80)
+	req := &adminCampaignUpsertRequest{
+		Slug:           "gh-app-campaign",
+		Language:       "en",
+		Country:        "GH",
+		OfferProductID: 1001,
+		FlowType:       domain.FlowTypeOTP,
+		AppCategory:    &tooLong,
+	}
+
+	err := validateAdminUpsert(req, true)
+	if err == nil || !strings.Contains(err.Error(), "app_category") {
+		t.Fatalf("expected app_category length error, got %v", err)
+	}
+
+	req.AppCategory = &atCap
+	if err := validateAdminUpsert(req, true); err != nil {
+		t.Fatalf("expected 80-char app_category to pass, got %v", err)
+	}
+
+	req.AppCategory = nil
+	if err := validateAdminUpsert(req, true); err != nil {
+		t.Fatalf("expected nil app_category to pass, got %v", err)
+	}
+}
+
+func TestAdminPresignArtworkUploadRequiresTenantContext(t *testing.T) {
+	h := newCampaignAssetTestHandler(t)
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetBodyString(`{"campaign_slug":"gh-campaign","file_name":"artwork.png","content_type":"image/png","size_bytes":1024}`)
+
+	h.AdminPresignArtworkUpload(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if !strings.Contains(string(ctx.Response.Body()), "Tenant context required") {
+		t.Fatalf("expected tenant context error, got %q", ctx.Response.Body())
+	}
+}

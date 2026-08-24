@@ -24,6 +24,9 @@ export interface CatalogProduct {
   billing_cycle: string;
   flow_type: FlowType;
   subscriber_count: number | null;
+  // True when the console assigned an app_featured_rank; featured products
+  // already arrive first within each tenant section.
+  featured?: boolean;
 }
 
 export interface CatalogResponse {
@@ -87,6 +90,15 @@ export interface FeedItem {
 
 export interface FeedResponse {
   items: FeedItem[];
+}
+
+export interface NotificationPref {
+  product_slug: string;
+  channel: NotificationChannel;
+}
+
+export interface NotificationPrefsResponse {
+  prefs: NotificationPref[];
 }
 
 export interface OtpVerifyResponse {

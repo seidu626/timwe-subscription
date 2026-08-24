@@ -128,6 +128,15 @@ func NewRouter(
 			}
 			return
 
+		// Admin campaign app-artwork uploads (Dayline app catalog)
+		case strings.EqualFold(path, "/v1/admin/campaign-assets/artwork/presign"):
+			if method == fasthttp.MethodPost {
+				campaignHandler.AdminPresignArtworkUpload(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		// Admin postback stats (health check)
 		case strings.EqualFold(path, "/v1/admin/postbacks/stats"):
 			if method == fasthttp.MethodGet {
@@ -586,7 +595,7 @@ func NewRouter(
 			if method == fasthttp.MethodPost {
 				appHandler.RequestOTP(ctx)
 			} else {
-				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+				appMethodNotAllowed(ctx)
 			}
 			return
 
@@ -595,7 +604,7 @@ func NewRouter(
 			if method == fasthttp.MethodPost {
 				appHandler.VerifyOTP(ctx)
 			} else {
-				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+				appMethodNotAllowed(ctx)
 			}
 			return
 
@@ -604,7 +613,7 @@ func NewRouter(
 			if method == fasthttp.MethodGet {
 				appHandler.Catalog(ctx)
 			} else {
-				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+				appMethodNotAllowed(ctx)
 			}
 			return
 
@@ -616,7 +625,7 @@ func NewRouter(
 			case fasthttp.MethodGet:
 				appHandler.ListSubscriptions(ctx)
 			default:
-				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+				appMethodNotAllowed(ctx)
 			}
 			return
 
@@ -625,7 +634,7 @@ func NewRouter(
 			if method == fasthttp.MethodPost {
 				appHandler.ConfirmSubscription(ctx)
 			} else {
-				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+				appMethodNotAllowed(ctx)
 			}
 			return
 
@@ -634,7 +643,7 @@ func NewRouter(
 			if method == fasthttp.MethodDelete {
 				appHandler.CancelSubscription(ctx)
 			} else {
-				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+				appMethodNotAllowed(ctx)
 			}
 			return
 
@@ -643,6 +652,15 @@ func NewRouter(
 		}
 	}
 	return router
+}
+
+// appMethodNotAllowed writes a 405 for /v1/app/* routes and re-applies the
+// app CORS headers, because fasthttp's ctx.Error resets the response and
+// would otherwise wipe the headers setAppCORS already set, turning a plain
+// 405 into an opaque CORS failure for the Expo web build.
+func appMethodNotAllowed(ctx *fasthttp.RequestCtx) {
+	ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+	setAppCORS(ctx)
 }
 
 func isTenantCampaignPath(path string) bool {

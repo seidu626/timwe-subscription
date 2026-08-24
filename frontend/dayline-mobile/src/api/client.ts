@@ -1,6 +1,15 @@
 import { API_BASE_URL } from '@/config';
 import { ApiError, messageForCode } from './errors';
-import { readToken } from './session';
+import { clearSession, readToken } from './session';
+
+// Global expired-session hook: AuthContext registers its signOut here so a
+// 401 from any authenticated call clears the session and returns the user
+// to sign-in instead of leaving dead screens behind an expired token.
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -51,6 +60,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const data = raw ? (JSON.parse(raw) as unknown) : undefined;
 
   if (!response.ok) {
+    if (response.status === 401 && options.auth !== false) {
+      await clearSession();
+      onUnauthorized?.();
+    }
     const body = (data ?? {}) as ApiErrorBody;
     const code = body.error?.code ?? 'UNKNOWN';
     throw new ApiError(code, messageForCode(code, body.error?.message), response.status);

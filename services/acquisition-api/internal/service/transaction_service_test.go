@@ -183,6 +183,7 @@ func campaignColumns() []string {
 		"inline_terms_text", "consent_required", "consent_version", "attribution_mapping", "postback_rules",
 		"throttles", "allowed_referrers", "allowed_sources", "landing_page_urls", "tracking_config", "lp_copy",
 		"enabled", "created_at", "updated_at", "created_by", "updated_by",
+		"app_name", "app_tagline", "app_description", "app_category", "app_artwork_url", "app_sample_content", "app_featured_rank",
 	}
 }
 
@@ -191,9 +192,11 @@ func adminCampaignColumns() []string {
 }
 
 func expectTenantCampaign(mock sqlmock.Sqlmock, tenantKey, slug string, values ...driver.Value) {
-	row := make([]driver.Value, 0, len(values)+2)
+	row := make([]driver.Value, 0, len(values)+8)
 	row = append(row, values[0], testTenantID, nil)
 	row = append(row, values[1:]...)
+	// app_* catalog columns (all NULL in legacy fixtures)
+	row = append(row, nil, nil, nil, nil, nil, nil, nil)
 
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT c.id, c.tenant_id, c.channel_id, c.slug, c.language")).
 		WithArgs(tenantKey, slug).
@@ -902,6 +905,7 @@ func TestConfirmTransaction_AmbiguousSuccessRemainsConfirmRequired(t *testing.T)
 			nil, false, nil, nil, nil,
 			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
 			true, now, now, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil,
 		))
 
 	mock.ExpectExec(regexp.QuoteMeta("UPDATE acquisition_transactions")).
@@ -972,6 +976,7 @@ func TestConfirmTransaction_UsesTransactionScopedProductWhenCampaignChanges(t *t
 			nil, false, nil, nil, nil,
 			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
 			true, now, now, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil,
 		))
 
 	mock.ExpectExec(regexp.QuoteMeta("UPDATE acquisition_transactions")).
@@ -1045,6 +1050,7 @@ func TestConfirmTransaction_DoesNotRetryWithPricepointOnInvalidPricepointID(t *t
 			nil, false, nil, nil, nil,
 			nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
 			true, now, now, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil,
 		))
 
 	resp, err := service.ConfirmTransaction(transactionID, "1234")
@@ -1228,6 +1234,7 @@ func TestConfirmTransaction_AuthCodeRequiredOnlyWhereACodeWasSent(t *testing.T) 
 						nil, false, nil, nil, nil,
 						nil, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
 						true, now, now, nil, nil,
+						nil, nil, nil, nil, nil, nil, nil,
 					))
 				mock.ExpectExec(regexp.QuoteMeta("UPDATE acquisition_transactions")).
 					WillReturnResult(sqlmock.NewResult(1, 1))

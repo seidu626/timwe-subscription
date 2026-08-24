@@ -23,6 +23,7 @@ type AppFeedRepo interface {
 	MarkRead(ctx context.Context, msisdn string, id int64) error
 	UpsertDevice(ctx context.Context, msisdn, tenantKey, fcmToken, platform string) error
 	UpsertNotificationPref(ctx context.Context, msisdn, productSlug, channel string) error
+	ListNotificationPrefs(ctx context.Context, msisdn string) ([]domain.AppNotificationPref, error)
 }
 
 // appBearerValidator is the subset of *appauth.Validator that AppHandler
@@ -169,6 +170,22 @@ func (h *AppHandler) RegisterDevice(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	ctx.SetStatusCode(fasthttp.StatusNoContent)
+}
+
+// GetNotificationPrefs handles GET /v1/app/notification-prefs. Products with
+// no stored row are simply absent; the app treats them as its default (BOTH).
+func (h *AppHandler) GetNotificationPrefs(ctx *fasthttp.RequestCtx) {
+	claims, ok := h.authenticate(ctx)
+	if !ok {
+		return
+	}
+	prefs, err := h.repo.ListNotificationPrefs(ctx, claims.Subject)
+	if err != nil {
+		h.logger.Error("dayline app: list notification prefs failed", zap.Error(err))
+		writeAppError(ctx, fasthttp.StatusInternalServerError, "PROVIDER_ERROR", "failed to load notification preferences")
+		return
+	}
+	writeAppJSON(ctx, fasthttp.StatusOK, domain.AppNotificationPrefsResponse{Prefs: prefs})
 }
 
 // SetNotificationPrefs handles PUT /v1/app/notification-prefs.

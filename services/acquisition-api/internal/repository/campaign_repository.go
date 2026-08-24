@@ -58,7 +58,8 @@ func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, erro
 			       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
 			       attribution_mapping, postback_rules, throttles, allowed_referrers,
 			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
-			       enabled, created_at, updated_at, created_by, updated_by
+			       enabled, created_at, updated_at, created_by, updated_by,
+			       app_name, app_tagline, app_description, app_category, app_artwork_url, app_sample_content, app_featured_rank
 			FROM campaigns
 			WHERE slug = $1
 		`
@@ -72,6 +73,8 @@ func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, erro
 	var billingCycle sql.NullString
 	var trialFlags, attributionMapping, postbackRules, throttles, trackingConfig, lpCopy sql.NullString
 	var allowedReferrers, allowedSources, landingPageURLs pq.StringArray
+	var appName, appTagline, appDescription, appCategory, appArtworkURL, appSampleContent sql.NullString
+	var appFeaturedRank sql.NullInt64
 
 	err := r.db.QueryRow(query, slug).Scan(
 		&campaign.ID, &tenantID, &channelID, &campaign.Slug, &campaign.Language, &campaign.Country, &operator,
@@ -82,6 +85,8 @@ func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, erro
 		&allowedSources, &landingPageURLs, &trackingConfig, &lpCopy,
 		&campaign.Enabled, &campaign.CreatedAt, &campaign.UpdatedAt,
 		&createdBy, &updatedBy,
+		&appName, &appTagline, &appDescription, &appCategory, &appArtworkURL, &appSampleContent,
+		&appFeaturedRank,
 	)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("campaign not found: %s", slug)
@@ -159,6 +164,29 @@ func (r *CampaignRepository) GetAdminBySlug(slug string) (*domain.Campaign, erro
 	campaign.AllowedSources = allowedSources
 	campaign.LandingPageURLs = landingPageURLs
 
+	if appName.Valid {
+		campaign.AppName = &appName.String
+	}
+	if appTagline.Valid {
+		campaign.AppTagline = &appTagline.String
+	}
+	if appDescription.Valid {
+		campaign.AppDescription = &appDescription.String
+	}
+	if appCategory.Valid {
+		campaign.AppCategory = &appCategory.String
+	}
+	if appArtworkURL.Valid {
+		campaign.AppArtworkURL = &appArtworkURL.String
+	}
+	if appSampleContent.Valid {
+		campaign.AppSampleContent = &appSampleContent.String
+	}
+	if appFeaturedRank.Valid {
+		rank := int(appFeaturedRank.Int64)
+		campaign.AppFeaturedRank = &rank
+	}
+
 	return &campaign, nil
 }
 
@@ -170,7 +198,8 @@ func (r *CampaignRepository) ListAll(enabled *bool, country *string) ([]*domain.
 			       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
 			       attribution_mapping, postback_rules, throttles, allowed_referrers,
 			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
-			       enabled, created_at, updated_at, created_by, updated_by
+			       enabled, created_at, updated_at, created_by, updated_by,
+			       app_name, app_tagline, app_description, app_category, app_artwork_url, app_sample_content, app_featured_rank
 			FROM campaigns
 			WHERE 1=1
 		`
@@ -214,7 +243,8 @@ func (r *CampaignRepository) GetByTenantKeyAndSlug(tenantKey, slug string) (*dom
 			       c.trial_flags, c.terms_url, c.inline_terms_text, c.consent_required, c.consent_version,
 			       c.attribution_mapping, c.postback_rules, c.throttles, c.allowed_referrers,
 			       c.allowed_sources, c.landing_page_urls, c.tracking_config, c.lp_copy,
-			       c.enabled, c.created_at, c.updated_at, c.created_by, c.updated_by
+			       c.enabled, c.created_at, c.updated_at, c.created_by, c.updated_by,
+			       c.app_name, c.app_tagline, c.app_description, c.app_category, c.app_artwork_url, c.app_sample_content, c.app_featured_rank
 			FROM campaigns c
 			JOIN tenants t ON t.id = c.tenant_id
 			WHERE t.tenant_key = $1 AND c.slug = $2 AND c.enabled = true AND t.status = 'ACTIVE'
@@ -260,7 +290,8 @@ func (r *CampaignRepository) GetEnabledBySlug(slug string) (*domain.Campaign, er
 			       c.trial_flags, c.terms_url, c.inline_terms_text, c.consent_required, c.consent_version,
 			       c.attribution_mapping, c.postback_rules, c.throttles, c.allowed_referrers,
 			       c.allowed_sources, c.landing_page_urls, c.tracking_config, c.lp_copy,
-			       c.enabled, c.created_at, c.updated_at, c.created_by, c.updated_by
+			       c.enabled, c.created_at, c.updated_at, c.created_by, c.updated_by,
+			       c.app_name, c.app_tagline, c.app_description, c.app_category, c.app_artwork_url, c.app_sample_content, c.app_featured_rank
 			FROM campaigns c
 			JOIN tenants t ON t.id = c.tenant_id
 			WHERE c.slug = $1 AND c.enabled = true AND t.status = 'ACTIVE'
@@ -290,7 +321,8 @@ func (r *CampaignRepository) GetAdminByTenantAndSlug(tenantID, slug string) (*do
 			       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
 			       attribution_mapping, postback_rules, throttles, allowed_referrers,
 			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
-			       enabled, created_at, updated_at, created_by, updated_by
+			       enabled, created_at, updated_at, created_by, updated_by,
+			       app_name, app_tagline, app_description, app_category, app_artwork_url, app_sample_content, app_featured_rank
 			FROM campaigns
 			WHERE tenant_id = $1 AND slug = $2
 		`
@@ -311,7 +343,8 @@ func (r *CampaignRepository) ListAllForTenant(tenantID string, enabled *bool, co
 			       trial_flags, terms_url, inline_terms_text, consent_required, consent_version,
 			       attribution_mapping, postback_rules, throttles, allowed_referrers,
 			       allowed_sources, landing_page_urls, tracking_config, lp_copy,
-			       enabled, created_at, updated_at, created_by, updated_by
+			       enabled, created_at, updated_at, created_by, updated_by,
+			       app_name, app_tagline, app_description, app_category, app_artwork_url, app_sample_content, app_featured_rank
 			FROM campaigns
 			WHERE tenant_id = $1
 		`
@@ -398,7 +431,8 @@ func (r *CampaignRepository) Create(c *domain.Campaign) (*domain.Campaign, error
 				terms_url, inline_terms_text, consent_required, consent_version,
 				attribution_mapping, postback_rules,
 				throttles, allowed_referrers, allowed_sources, landing_page_urls,
-				tracking_config, lp_copy, enabled, created_by, updated_by
+				tracking_config, lp_copy, enabled, created_by, updated_by,
+				app_name, app_tagline, app_description, app_category, app_artwork_url, app_sample_content, app_featured_rank
 			) VALUES (
 				$1,$2,$3,$4,$5,$6,
 				$7,$8,$9,
@@ -407,7 +441,8 @@ func (r *CampaignRepository) Create(c *domain.Campaign) (*domain.Campaign, error
 				$16,$17,$18,$19,
 				$20,$21,
 				$22,$23,$24,$25,
-				$26,$27,$28,$29,$30
+				$26,$27,$28,$29,$30,
+				$31,$32,$33,$34,$35,$36,$37
 			)
 			RETURNING slug
 		`
@@ -444,6 +479,9 @@ func (r *CampaignRepository) Create(c *domain.Campaign) (*domain.Campaign, error
 		attributionMapping, postbackRules,
 		throttles, pq.StringArray(c.AllowedReferrers), pq.StringArray(c.AllowedSources), pq.StringArray(c.LandingPageURLs),
 		trackingConfig, lpCopy, c.Enabled, createdBy, updatedBy,
+		toNullString(c.AppName), toNullString(c.AppTagline), toNullString(c.AppDescription),
+		toNullString(c.AppCategory), toNullString(c.AppArtworkURL), toNullString(c.AppSampleContent),
+		toNullInt(c.AppFeaturedRank),
 	).Scan(&slug)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert campaign: %w", err)
@@ -501,8 +539,15 @@ func (r *CampaignRepository) Update(slug string, c *domain.Campaign) (*domain.Ca
 			tracking_config = $24,
 			lp_copy = $25,
 			enabled = $26,
-			updated_by = $27
-			WHERE slug = $28
+			updated_by = $27,
+			app_name = $28,
+			app_tagline = $29,
+			app_description = $30,
+			app_category = $31,
+			app_artwork_url = $32,
+			app_sample_content = $33,
+			app_featured_rank = $34
+			WHERE slug = $35
 			RETURNING slug
 		`
 
@@ -555,6 +600,13 @@ func (r *CampaignRepository) Update(slug string, c *domain.Campaign) (*domain.Ca
 		lpCopy,
 		c.Enabled,
 		updatedBy,
+		toNullString(c.AppName),
+		toNullString(c.AppTagline),
+		toNullString(c.AppDescription),
+		toNullString(c.AppCategory),
+		toNullString(c.AppArtworkURL),
+		toNullString(c.AppSampleContent),
+		toNullInt(c.AppFeaturedRank),
 		slug,
 	).Scan(&outSlug)
 	if err == sql.ErrNoRows {
@@ -921,6 +973,8 @@ func (r *CampaignRepository) scanCampaign(rows *sql.Rows) (*domain.Campaign, err
 	var billingCycle sql.NullString
 	var trialFlags, attributionMapping, postbackRules, throttles, trackingConfig, lpCopy sql.NullString
 	var allowedReferrers, allowedSources, landingPageURLs pq.StringArray
+	var appName, appTagline, appDescription, appCategory, appArtworkURL, appSampleContent sql.NullString
+	var appFeaturedRank sql.NullInt64
 
 	err := rows.Scan(
 		&campaign.ID, &tenantID, &channelID, &campaign.Slug, &campaign.Language, &campaign.Country, &operator,
@@ -931,6 +985,8 @@ func (r *CampaignRepository) scanCampaign(rows *sql.Rows) (*domain.Campaign, err
 		&allowedSources, &landingPageURLs, &trackingConfig, &lpCopy,
 		&campaign.Enabled, &campaign.CreatedAt, &campaign.UpdatedAt,
 		&createdBy, &updatedBy,
+		&appName, &appTagline, &appDescription, &appCategory, &appArtworkURL, &appSampleContent,
+		&appFeaturedRank,
 	)
 
 	if err != nil {
@@ -1007,6 +1063,29 @@ func (r *CampaignRepository) scanCampaign(rows *sql.Rows) (*domain.Campaign, err
 	campaign.AllowedSources = allowedSources
 	campaign.LandingPageURLs = landingPageURLs
 
+	if appName.Valid {
+		campaign.AppName = &appName.String
+	}
+	if appTagline.Valid {
+		campaign.AppTagline = &appTagline.String
+	}
+	if appDescription.Valid {
+		campaign.AppDescription = &appDescription.String
+	}
+	if appCategory.Valid {
+		campaign.AppCategory = &appCategory.String
+	}
+	if appArtworkURL.Valid {
+		campaign.AppArtworkURL = &appArtworkURL.String
+	}
+	if appSampleContent.Valid {
+		campaign.AppSampleContent = &appSampleContent.String
+	}
+	if appFeaturedRank.Valid {
+		rank := int(appFeaturedRank.Int64)
+		campaign.AppFeaturedRank = &rank
+	}
+
 	return &campaign, nil
 }
 
@@ -1020,6 +1099,8 @@ func (r *CampaignRepository) scanCampaignRow(row rowScanner) (*domain.Campaign, 
 	var billingCycle sql.NullString
 	var trialFlags, attributionMapping, postbackRules, throttles, trackingConfig, lpCopy sql.NullString
 	var allowedReferrers, allowedSources, landingPageURLs pq.StringArray
+	var appName, appTagline, appDescription, appCategory, appArtworkURL, appSampleContent sql.NullString
+	var appFeaturedRank sql.NullInt64
 
 	err := row.Scan(
 		&campaign.ID, &tenantID, &channelID, &campaign.Slug, &campaign.Language, &campaign.Country, &operator,
@@ -1030,6 +1111,8 @@ func (r *CampaignRepository) scanCampaignRow(row rowScanner) (*domain.Campaign, 
 		&allowedSources, &landingPageURLs, &trackingConfig, &lpCopy,
 		&campaign.Enabled, &campaign.CreatedAt, &campaign.UpdatedAt,
 		&createdBy, &updatedBy,
+		&appName, &appTagline, &appDescription, &appCategory, &appArtworkURL, &appSampleContent,
+		&appFeaturedRank,
 	)
 	if err != nil {
 		return nil, err
@@ -1100,6 +1183,29 @@ func (r *CampaignRepository) scanCampaignRow(row rowScanner) (*domain.Campaign, 
 	campaign.AllowedReferrers = allowedReferrers
 	campaign.AllowedSources = allowedSources
 	campaign.LandingPageURLs = landingPageURLs
+
+	if appName.Valid {
+		campaign.AppName = &appName.String
+	}
+	if appTagline.Valid {
+		campaign.AppTagline = &appTagline.String
+	}
+	if appDescription.Valid {
+		campaign.AppDescription = &appDescription.String
+	}
+	if appCategory.Valid {
+		campaign.AppCategory = &appCategory.String
+	}
+	if appArtworkURL.Valid {
+		campaign.AppArtworkURL = &appArtworkURL.String
+	}
+	if appSampleContent.Valid {
+		campaign.AppSampleContent = &appSampleContent.String
+	}
+	if appFeaturedRank.Valid {
+		rank := int(appFeaturedRank.Int64)
+		campaign.AppFeaturedRank = &rank
+	}
 
 	return &campaign, nil
 }

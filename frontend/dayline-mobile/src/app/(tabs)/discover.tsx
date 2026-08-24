@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { Link } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
 import { ProductRow } from '@/components/ProductRow';
@@ -10,7 +11,7 @@ import { useMarketplace } from '@/hooks/useCatalog';
 import { useFeed } from '@/hooks/useFeed';
 import { colors, radii, spacing, typography } from '@/theme/tokens';
 import { pluralize } from '@/utils/format';
-import type { MarketplaceTenant } from '@/api/types';
+import type { CatalogProduct, MarketplaceTenant } from '@/api/types';
 
 // A tenant section previews at most this many products before the shopper
 // must open the full storefront; keeps Discover a single bounded stream
@@ -21,9 +22,20 @@ export default function DiscoverScreen() {
   const catalog = useMarketplace();
   const feed = useFeed();
   const unreadCount = feed.data?.filter((item) => !item.read).length ?? 0;
+  // The backend orders featured products first within each tenant section
+  // (app_featured_rank NULLS LAST), so a flat filter keeps that order.
+  const featuredProducts = catalog.data?.flatMap((tenant) => tenant.products.filter((p) => p.featured)) ?? [];
 
   return (
-    <ScreenContainer scroll withTabBarClearance>
+    <ScreenContainer
+      scroll
+      withTabBarClearance
+      refreshing={catalog.isRefetching}
+      onRefresh={() => {
+        void catalog.refetch();
+        void feed.refetch();
+      }}
+    >
       <Text style={styles.pageTitle}>Discover</Text>
 
       <Link href="/(tabs)/today" asChild>
@@ -44,6 +56,22 @@ export default function DiscoverScreen() {
           </Card>
         </Pressable>
       </Link>
+
+      {featuredProducts.length > 0 ? (
+        <>
+          <Text style={styles.sectionTitle}>Featured</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.featuredRow}
+            style={styles.featuredScroller}
+          >
+            {featuredProducts.map((product) => (
+              <FeaturedCard key={`${product.tenant}-${product.slug}`} product={product} />
+            ))}
+          </ScrollView>
+        </>
+      ) : null}
 
       <Text style={styles.sectionTitle}>Marketplace</Text>
 
@@ -67,6 +95,30 @@ export default function DiscoverScreen() {
         ))}
       </View>
     </ScreenContainer>
+  );
+}
+
+function FeaturedCard({ product }: { product: CatalogProduct }) {
+  return (
+    <Link href={{ pathname: '/product/[slug]', params: { slug: product.slug } }} asChild>
+      <Pressable accessibilityRole="button">
+        <Card style={styles.featuredCard}>
+          {product.artwork_url ? (
+            <Image source={{ uri: product.artwork_url }} style={styles.featuredArtwork} contentFit="cover" />
+          ) : (
+            <View style={styles.featuredArtworkFallback}>
+              <MaterialIcons name="auto-awesome" size={28} color={colors.primary} />
+            </View>
+          )}
+          <Text style={styles.featuredName} numberOfLines={1} ellipsizeMode="tail">
+            {product.name}
+          </Text>
+          <Text style={styles.featuredMeta} numberOfLines={1} ellipsizeMode="tail">
+            {product.tenant_name}
+          </Text>
+        </Card>
+      </Pressable>
+    </Link>
   );
 }
 
@@ -156,6 +208,40 @@ const styles = StyleSheet.create({
     ...typography.headlineMd,
     color: colors.onSurface,
     marginBottom: spacing.stackMd,
+  },
+  featuredScroller: {
+    marginBottom: spacing.sectionGap,
+  },
+  featuredRow: {
+    gap: spacing.stackMd,
+  },
+  featuredCard: {
+    width: 160,
+    gap: spacing.stackSm,
+  },
+  featuredArtwork: {
+    width: '100%',
+    height: 96,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceVariant,
+  },
+  featuredArtworkFallback: {
+    width: '100%',
+    height: 96,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(15,110,82,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featuredName: {
+    ...typography.headlineMd,
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.onSurface,
+  },
+  featuredMeta: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
   },
   tenantList: {
     gap: spacing.sectionGap,

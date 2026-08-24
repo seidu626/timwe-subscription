@@ -35,3 +35,15 @@ type AppNotificationPrefRequest struct {
 	ProductSlug string `json:"product_slug"`
 	Channel     string `json:"channel"`
 }
+
+// AppNotificationPref is one stored delivery-channel preference, as returned
+// by GET /v1/app/notification-prefs.
+type AppNotificationPref struct {
+	ProductSlug string `json:"product_slug"`
+	Channel     string `json:"channel"`
+}
+
+// AppNotificationPrefsResponse wraps GET /v1/app/notification-prefs.
+type AppNotificationPrefsResponse struct {
+	Prefs []AppNotificationPref `json:"prefs"`
+}

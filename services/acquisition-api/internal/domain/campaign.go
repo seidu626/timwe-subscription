@@ -76,6 +76,16 @@ type Campaign struct {
 	// Landing page copy configuration (EN currently required)
 	LPCopy json.RawMessage `json:"lp_copy,omitempty" db:"lp_copy"`
 
+	// Dayline app catalog presentation. All nullable; when nil the app
+	// catalog falls back to a pragmatic lp_copy mapping.
+	AppName          *string `json:"app_name,omitempty" db:"app_name"`
+	AppTagline       *string `json:"app_tagline,omitempty" db:"app_tagline"`
+	AppDescription   *string `json:"app_description,omitempty" db:"app_description"`
+	AppCategory      *string `json:"app_category,omitempty" db:"app_category"`
+	AppArtworkURL    *string `json:"app_artwork_url,omitempty" db:"app_artwork_url"`
+	AppSampleContent *string `json:"app_sample_content,omitempty" db:"app_sample_content"`
+	AppFeaturedRank  *int    `json:"app_featured_rank,omitempty" db:"app_featured_rank"`
+
 	// Metadata
 	Enabled   bool      `json:"enabled" db:"enabled"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`

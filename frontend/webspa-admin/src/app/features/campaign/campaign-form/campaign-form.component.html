@@ -225,6 +225,100 @@
           </mat-card-content>
         </mat-card>
 
+        <mat-card class="form-section" data-section-id="section-app" id="section-app">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon aria-hidden="true">smartphone</mat-icon>
+              App Presence
+            </mat-card-title>
+            <mat-card-subtitle>How this campaign appears in the Dayline app catalog. Blank fields fall back to landing page copy.</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field form-field-wide">
+                <mat-label>App Name</mat-label>
+                <input matInput formControlName="app_name" name="app_name" autocomplete="off" spellcheck="false">
+                <mat-hint>Catalog title. Defaults to the landing page hero title.</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Category</mat-label>
+                <input matInput formControlName="app_category" name="app_category" placeholder="e.g. Career" autocomplete="off" spellcheck="false" maxlength="80">
+                <mat-error *ngIf="isFieldInvalid('app_category')">Category must be 80 characters or fewer</mat-error>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field form-field-full">
+                <mat-label>Tagline</mat-label>
+                <input matInput formControlName="app_tagline" name="app_tagline" autocomplete="off" spellcheck="false">
+                <mat-hint>One line shown under the name in Discover.</mat-hint>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field form-field-full">
+                <mat-label>Description</mat-label>
+                <textarea matInput formControlName="app_description" name="app_description" rows="3"></textarea>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field form-field-full">
+                <mat-label>Sample Content</mat-label>
+                <textarea matInput formControlName="app_sample_content" name="app_sample_content" rows="2"></textarea>
+                <mat-hint>Example message shown on the product detail screen before subscribing.</mat-hint>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Featured Rank</mat-label>
+                <input matInput type="number" min="0" formControlName="app_featured_rank" name="app_featured_rank" autocomplete="off">
+                <mat-hint>Leave blank for not featured. Lower ranks appear first in the app's featured row.</mat-hint>
+                <mat-error *ngIf="isFieldInvalid('app_featured_rank')">Must be zero or greater</mat-error>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field form-field-full">
+                <mat-label>Artwork URL</mat-label>
+                <input matInput type="url" formControlName="app_artwork_url" name="app_artwork_url" placeholder="https://cdn.example.com/artwork.webp" autocomplete="off" spellcheck="false">
+                <mat-hint>Square image shown as the product tile in the app catalog.</mat-hint>
+                <mat-error *ngIf="isFieldInvalid('app_artwork_url')">Must be a valid http(s) URL</mat-error>
+              </mat-form-field>
+            </div>
+
+            <div class="upload-panel">
+              <div class="upload-panel-copy">
+                <strong>Artwork Upload</strong>
+                <span>JPEG, PNG, or WebP up to 2 MB. Uploading replaces the current artwork URL.</span>
+              </div>
+
+              <div class="upload-panel-actions">
+                <label class="upload-button" for="app-artwork-upload">Choose File</label>
+                <input
+                  id="app-artwork-upload"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  (change)="onArtworkFileSelected($event)"
+                  [disabled]="artworkUploadInProgress"
+                />
+                <button mat-stroked-button type="button" (click)="removeArtworkImage()" [disabled]="!artworkPreviewUrl || artworkUploadInProgress">
+                  Remove Image
+                </button>
+                <mat-spinner *ngIf="artworkUploadInProgress" diameter="20"></mat-spinner>
+              </div>
+            </div>
+
+            <div *ngIf="artworkUploadError" class="upload-error" aria-live="polite">{{ artworkUploadError }}</div>
+
+            <div class="background-preview" *ngIf="artworkPreviewUrl">
+              <img [src]="artworkPreviewUrl" alt="App artwork preview">
+            </div>
+          </mat-card-content>
+        </mat-card>
+
         <mat-card class="form-section advanced-card" data-section-id="section-advanced" id="section-advanced">
           <mat-card-header>
             <mat-card-title>

@@ -54,7 +54,11 @@ func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domai
 	query := `
 		SELECT t.tenant_key, t.name, c.slug, c.price, c.billing_cycle, c.flow_type, c.country,
 		       c.app_name, c.app_tagline, c.app_description, c.app_category,
-		       c.app_artwork_url, c.app_sample_content, c.lp_copy
+		       c.app_artwork_url, c.app_sample_content, c.lp_copy, c.app_featured_rank,
+		       (SELECT COUNT(*) FROM subscriptions s
+		        WHERE s.tenant_id = c.tenant_id
+		          AND s.product_id = c.offer_product_id
+		          AND LOWER(s.status) = 'active') AS subscriber_count
 		FROM campaigns c
 		JOIN tenants t ON t.id = c.tenant_id
 		WHERE c.enabled = true AND t.status = 'ACTIVE' AND c.price IS NOT NULL
@@ -70,7 +74,7 @@ func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domai
 		args = append(args, country)
 		query += fmt.Sprintf(" AND c.country = $%d", len(args))
 	}
-	query += " ORDER BY t.tenant_key, c.slug"
+	query += " ORDER BY t.tenant_key, c.app_featured_rank NULLS LAST, c.slug"
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -86,10 +90,12 @@ func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domai
 			appArtworkURL, appSampleContent                                sql.NullString
 			lpCopy                                                         sql.NullString
 			price                                                          sql.NullFloat64
+			featuredRank                                                   sql.NullInt64
+			subscriberCount                                                int
 		)
 		if err := rows.Scan(&rowTenantKey, &rowTenantName, &slug, &price, &billingCycle, &flowType, &rowCountry,
 			&appName, &appTagline, &appDescription, &appCategory,
-			&appArtworkURL, &appSampleContent, &lpCopy); err != nil {
+			&appArtworkURL, &appSampleContent, &lpCopy, &featuredRank, &subscriberCount); err != nil {
 			r.logger.Error("failed to scan app catalog row", zap.Error(err))
 			continue
 		}
@@ -115,7 +121,8 @@ func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domai
 			Currency:        currencyForCountry(rowCountry),
 			BillingCycle:    billingCycle.String,
 			FlowType:        domain.FlowType(flowType),
-			SubscriberCount: 0, // No subscriber-count source in acquisition-api; see result capsule.
+			SubscriberCount: subscriberCount,
+			Featured:        featuredRank.Valid,
 		}
 		if price.Valid {
 			v := price.Float64

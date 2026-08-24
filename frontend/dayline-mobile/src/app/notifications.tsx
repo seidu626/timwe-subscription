@@ -7,7 +7,8 @@ import { Card } from '@/components/Card';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { useFeed } from '@/hooks/useFeed';
-import { useSetNotificationPref } from '@/hooks/useDevices';
+import { useNotificationPrefs, useSetNotificationPref } from '@/hooks/useDevices';
+import { usePushRegistrationStatus } from '@/hooks/usePushRegistration';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { colors, radii, spacing, typography } from '@/theme/tokens';
 import { formatRelativeDay } from '@/utils/format';
@@ -23,16 +24,17 @@ export default function NotificationsScreen() {
   const subscriptions = useSubscriptions();
   const feed = useFeed();
   const setPref = useSetNotificationPref();
-  // The contract has no GET for current notification prefs, so each
-  // subscription starts on the conservative "Both" default locally and only
-  // diverges once the subscriber explicitly changes it on this device.
-  const [prefs, setPrefs] = useState<Record<string, NotificationChannel>>({});
+  const serverPrefs = useNotificationPrefs();
+  const pushStatus = usePushRegistrationStatus();
+  // Server prefs are the base; local overrides keep taps instant while the
+  // PUT is in flight. Products with no stored row default to "Both".
+  const [prefOverrides, setPrefOverrides] = useState<Record<string, NotificationChannel>>({});
   // Prefs only apply to active subscriptions; cancelled/failed rows must not
   // leave the section silently blank.
   const activeSubscriptions = subscriptions.data?.filter((s) => s.status === 'ACTIVE') ?? [];
 
   function selectChannel(productSlug: string, channel: NotificationChannel) {
-    setPrefs((prev) => ({ ...prev, [productSlug]: channel }));
+    setPrefOverrides((prev) => ({ ...prev, [productSlug]: channel }));
     setPref.mutate({ productSlug, channel });
   }
 
@@ -45,6 +47,22 @@ export default function NotificationsScreen() {
         <Text style={styles.headerTitle}>Notifications</Text>
         <View style={styles.headerButton} />
       </View>
+
+      {pushStatus.state === 'denied' || pushStatus.state === 'failed' ? (
+        <View style={styles.pushBanner}>
+          <MaterialIcons name="notifications-off" size={20} color={colors.error} />
+          <View style={styles.pushBannerTextGroup}>
+            <Text style={styles.pushBannerTitle}>
+              {pushStatus.state === 'denied' ? 'Push notifications are off' : "Push notifications aren't set up"}
+            </Text>
+            <Text style={styles.pushBannerBody}>
+              {pushStatus.state === 'denied'
+                ? 'Allow notifications for Dayline in your system settings, then reopen the app. SMS delivery still works.'
+                : `This device could not register for push (${pushStatus.detail}). SMS delivery still works.`}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <Text style={styles.sectionTitle}>Delivery preferences</Text>
 
@@ -66,7 +84,10 @@ export default function NotificationsScreen() {
 
       <View style={styles.prefList}>
         {activeSubscriptions.map((subscription) => {
-            const current = prefs[subscription.product_slug] ?? 'BOTH';
+            const current =
+              prefOverrides[subscription.product_slug] ??
+              serverPrefs.data?.[subscription.product_slug] ??
+              'BOTH';
             return (
               <Card key={subscription.ref} style={styles.prefCard}>
                 <Text style={styles.prefProductName} numberOfLines={2} ellipsizeMode="tail">
@@ -148,6 +169,29 @@ const styles = StyleSheet.create({
     ...typography.headlineMd,
     fontSize: 18,
     color: colors.primary,
+  },
+  pushBanner: {
+    flexDirection: 'row',
+    gap: spacing.stackSm,
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(186,26,26,0.08)',
+    borderRadius: radii.md,
+    padding: spacing.stackMd,
+    marginBottom: spacing.stackLg,
+  },
+  pushBannerTextGroup: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  pushBannerTitle: {
+    ...typography.labelMd,
+    color: colors.error,
+  },
+  pushBannerBody: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
+    lineHeight: 18,
   },
   sectionTitle: {
     ...typography.headlineMd,

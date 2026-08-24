@@ -103,6 +103,20 @@ func (s *AppSubscriptionService) Cancel(ref, msisdn string) error {
 	if err != nil {
 		return err
 	}
+	switch domain.MapTransactionStatusToApp(tx.Status) {
+	case "CANCELLED":
+		// Already cancelled: repeat requests are a no-op, not an error.
+		return nil
+	case "PENDING", "FAILED":
+		// The subscription never activated at the provider, so there is
+		// nothing to opt out of upstream; clearing the row locally is the
+		// whole cancellation.
+		if err := s.txRepo.UpdateStatus(transactionID, domain.StatusCancelled, nil, nil); err != nil {
+			s.logger.Error("failed to cancel pending app subscription", zap.Error(err))
+			return domain.NewAppError(domain.AppErrProviderError, "failed to cancel subscription")
+		}
+		return nil
+	}
 	tenantKey, err := s.txRepo.TenantKeyByID(tenantID)
 	if err != nil || strings.TrimSpace(tenantKey) == "" {
 		return domain.NewAppError(domain.AppErrNotFound, "subscription not found")

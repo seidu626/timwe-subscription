@@ -75,6 +75,7 @@ type AppCatalogProduct struct {
 	BillingCycle    string   `json:"billing_cycle,omitempty"`
 	FlowType        FlowType `json:"flow_type"`
 	SubscriberCount int      `json:"subscriber_count"`
+	Featured        bool     `json:"featured,omitempty"`
 }
 
 // MapTransactionStatusToApp collapses the acquisition transaction state
