@@ -53,6 +53,8 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
   slug: string | null = null;
   backgroundUploadInProgress = false;
   backgroundUploadError: string | null = null;
+  artworkUploadInProgress = false;
+  artworkUploadError: string | null = null;
   private existingTrackingConfig: any = {};
   availableChannels: AdminChannel[] = [];
   channelsLoading = false;
@@ -87,6 +89,7 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
     { id: 'section-flow', label: 'Flow', icon: 'alt_route' },
     { id: 'section-pricing', label: 'Pricing', icon: 'payments' },
     { id: 'section-compliance', label: 'Compliance', icon: 'verified_user' },
+    { id: 'section-app', label: 'App Presence', icon: 'smartphone' },
     { id: 'section-advanced', label: 'Advanced', icon: 'tune' }
   ];
   activeSectionId = 'section-basic';
@@ -246,6 +249,15 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
       consent_required: [true],
       consent_version: ['1.0'],
 
+      // Dayline app presence (all optional; blank falls back to lp_copy)
+      app_name: [''],
+      app_tagline: [''],
+      app_description: [''],
+      app_category: ['', Validators.maxLength(80)],
+      app_artwork_url: ['', [Validators.pattern(/^https?:\/\/.+$/i)]],
+      app_sample_content: [''],
+      app_featured_rank: [null as number | null, [Validators.min(0)]],
+
       // Advanced (JSON fields)
       attribution_mapping: ['{}'],
       postback_rules: ['{}'],
@@ -319,6 +331,13 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
       inline_terms_text: campaign.inline_terms_text || '',
       consent_required: campaign.consent_required,
       consent_version: campaign.consent_version || '',
+      app_name: campaign.app_name || '',
+      app_tagline: campaign.app_tagline || '',
+      app_description: campaign.app_description || '',
+      app_category: campaign.app_category || '',
+      app_artwork_url: campaign.app_artwork_url || '',
+      app_sample_content: campaign.app_sample_content || '',
+      app_featured_rank: campaign.app_featured_rank ?? null,
       attribution_mapping: campaign.attribution_mapping
         ? JSON.stringify(campaign.attribution_mapping, null, 2)
         : '{}',
@@ -400,6 +419,18 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
       inline_terms_text: formValue.inline_terms_text || undefined,
       consent_required: formValue.consent_required,
       consent_version: formValue.consent_version || undefined,
+      app_name: (formValue.app_name || '').trim() || undefined,
+      app_tagline: (formValue.app_tagline || '').trim() || undefined,
+      app_description: (formValue.app_description || '').trim() || undefined,
+      app_category: (formValue.app_category || '').trim() || undefined,
+      app_artwork_url: (formValue.app_artwork_url || '').trim() || undefined,
+      app_sample_content: (formValue.app_sample_content || '').trim() || undefined,
+      app_featured_rank:
+        formValue.app_featured_rank === null ||
+        formValue.app_featured_rank === undefined ||
+        `${formValue.app_featured_rank}`.trim() === ''
+          ? undefined
+          : Number(formValue.app_featured_rank),
       enabled: formValue.enabled
     };
     if (this.shouldIncludeTrackingConfig(formValue)) {
@@ -620,6 +651,73 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
     });
   }
 
+  async onArtworkFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    this.artworkUploadError = null;
+
+    if (!this.allowedBackgroundMimeTypes.includes(file.type)) {
+      this.artworkUploadError = `Unsupported file type. Use: ${this.allowedBackgroundMimeTypes.join(', ')}`;
+      input.value = '';
+      return;
+    }
+
+    if (file.size > this.maxBackgroundSizeBytes) {
+      this.artworkUploadError = `File too large. Max size is ${Math.floor(this.maxBackgroundSizeBytes / (1024 * 1024))}MB.`;
+      input.value = '';
+      return;
+    }
+
+    const campaignSlug = this.getRawSlug();
+    if (!campaignSlug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(campaignSlug)) {
+      this.artworkUploadError = 'Set a valid campaign slug before uploading artwork.';
+      input.value = '';
+      return;
+    }
+
+    this.artworkUploadInProgress = true;
+
+    this.campaignService.presignArtworkUpload({
+      campaign_slug: campaignSlug,
+      file_name: file.name,
+      content_type: file.type,
+      size_bytes: file.size
+    }).subscribe({
+      next: async (presign: PresignBackgroundUploadResponse) => {
+        try {
+          await this.uploadFileToPresignedUrl(file, presign.upload_url);
+          this.form.patchValue({ app_artwork_url: presign.asset_url });
+          this.form.get('app_artwork_url')?.markAsDirty();
+          this.form.get('app_artwork_url')?.markAsTouched();
+        } catch {
+          this.artworkUploadError = 'Upload failed. Please try again.';
+        } finally {
+          this.artworkUploadInProgress = false;
+          input.value = '';
+        }
+      },
+      error: (err) => {
+        this.artworkUploadError = err.error?.message || 'Failed to initialize upload.';
+        this.artworkUploadInProgress = false;
+        input.value = '';
+      }
+    });
+  }
+
+  removeArtworkImage(): void {
+    this.form.patchValue({ app_artwork_url: '' });
+    this.form.get('app_artwork_url')?.markAsDirty();
+    this.artworkUploadError = null;
+  }
+
+  get artworkPreviewUrl(): string {
+    return (this.form.get('app_artwork_url')?.value || '').trim();
+  }
+
   removeBackgroundImage(): void {
     this.form.patchValue({ background_image_url: '' });
     this.form.get('background_image_url')?.markAsDirty();
@@ -664,7 +762,7 @@ export class CampaignFormComponent implements OnInit, OnDestroy, PendingChangesA
   }
 
   hasUnsavedChanges(): boolean {
-    return !!this.form && (this.form.dirty || this.backgroundUploadInProgress);
+    return !!this.form && (this.form.dirty || this.backgroundUploadInProgress || this.artworkUploadInProgress);
   }
 
   getFlowTypeLabel(flowType?: FlowType): string {

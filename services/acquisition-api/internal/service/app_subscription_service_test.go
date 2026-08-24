@@ -3,6 +3,7 @@ package service
 import (
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,15 +124,15 @@ func TestAppSubscriptionService_List_SpansTenants(t *testing.T) {
 	mock.ExpectQuery(`FROM acquisition_transactions t\s+JOIN campaigns c ON c.slug = t.campaign_slug\s+JOIN tenants tn`).
 		WithArgs("233241234567").
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "campaign_slug", "status", "created_at",
+			"id", "campaign_slug", "status", "created_at", "charged_at",
 			"price", "billing_cycle", "app_name", "lp_copy", "country",
 			"tenant_key", "name",
 		}).AddRow(
-			uuid.New().String(), "daily", "SUBSCRIBED", now,
+			uuid.New().String(), "daily", "SUBSCRIBED", now, nil,
 			2.0, "DAILY", "Daily Tips", nil, "GH",
 			"nrg", "NRG",
 		).AddRow(
-			uuid.New().String(), "careers", "SUBSCRIBED", now,
+			uuid.New().String(), "careers", "SUBSCRIBED", now, nil,
 			1.0, "DAILY", "Career Boost", nil, "GH",
 			"careerify", "Careerify",
 		))
@@ -145,6 +146,9 @@ func TestAppSubscriptionService_List_SpansTenants(t *testing.T) {
 	}
 	if subs[0].Tenant != "nrg" || subs[0].TenantName != "NRG" || subs[0].Status != "ACTIVE" {
 		t.Fatalf("unexpected first subscription: %+v", subs[0])
+	}
+	if !strings.HasPrefix(subs[0].NextChargeHint, "Renews ") {
+		t.Fatalf("expected ACTIVE daily subscription to carry a next-charge hint, got %+v", subs[0])
 	}
 	if subs[1].Tenant != "careerify" || subs[1].ProductName != "Career Boost" {
 		t.Fatalf("unexpected second subscription: %+v", subs[1])
@@ -173,6 +177,40 @@ func TestAppSubscriptionService_Cancel_RejectsMismatchedMSISDN(t *testing.T) {
 	requireAppError(t, err, domain.AppErrNotFound)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestAppSubscriptionService_Cancel_PendingCancelsLocallyWithoutProvider(t *testing.T) {
+	svc, mock := newAppSubscriptionTestService(t, nil)
+	txID := uuid.New()
+
+	// A PENDING opt-in never activated at the provider: cancel must mark
+	// the row CANCELLED locally and never reach the tenant/campaign/optout
+	// path (optoutClient is nil here, so any provider attempt would error).
+	expectAuthorize(mock, txID, "233241234567", domain.StatusPending, time.Now())
+	mock.ExpectExec(`UPDATE acquisition_transactions\s+SET status = \$1`).
+		WithArgs(string(domain.StatusCancelled), nil, nil, txID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	if err := svc.Cancel(txID.String(), "233241234567"); err != nil {
+		t.Fatalf("expected pending cancel to succeed locally, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestAppSubscriptionService_Cancel_AlreadyCancelledIsIdempotent(t *testing.T) {
+	svc, mock := newAppSubscriptionTestService(t, nil)
+	txID := uuid.New()
+
+	expectAuthorize(mock, txID, "233241234567", domain.StatusCancelled, time.Now())
+
+	if err := svc.Cancel(txID.String(), "233241234567"); err != nil {
+		t.Fatalf("expected repeat cancel to be a no-op, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expected no writes for an already-cancelled subscription: %v", err)
 	}
 }
 

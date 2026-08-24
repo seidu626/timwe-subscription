@@ -119,6 +119,10 @@ type SeriesHealth struct {
 	Failed7d        int64      `json:"failed_7d"`
 	SentTotal       int64      `json:"sent_total"`
 	FailedTotal     int64      `json:"failed_total"`
+	Delivered24h    int64      `json:"delivered_24h"`
+	Undelivered24h  int64      `json:"undelivered_24h"`
+	Delivered7d     int64      `json:"delivered_7d"`
+	Undelivered7d   int64      `json:"undelivered_7d"`
 	LastError       *string    `json:"last_error,omitempty"`
 	LastFailedAt    *time.Time `json:"last_failed_at,omitempty"`
 }

@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing } from '@/theme/tokens';
@@ -7,6 +7,9 @@ import { TAB_BAR_CLEARANCE } from '@/theme/layout';
 interface ScreenContainerProps {
   children: React.ReactNode;
   scroll?: boolean;
+  /** Wire pull-to-refresh (scroll screens only). */
+  refreshing?: boolean;
+  onRefresh?: () => void;
   withTabBarClearance?: boolean;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
@@ -16,6 +19,8 @@ interface ScreenContainerProps {
 export function ScreenContainer({
   children,
   scroll = false,
+  refreshing = false,
+  onRefresh,
   withTabBarClearance = false,
   style,
   contentContainerStyle,
@@ -32,6 +37,9 @@ export function ScreenContainer({
             { paddingBottom: bottomPad },
             contentContainerStyle,
           ]}
+          refreshControl={
+            onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} /> : undefined
+          }
         >
           {children}
         </ScrollView>

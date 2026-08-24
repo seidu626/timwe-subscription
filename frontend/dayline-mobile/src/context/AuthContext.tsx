@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { TENANT_KEY } from '@/config';
+import { setUnauthorizedHandler } from '@/api/client';
 import { clearSession, readSession, writeSession } from '@/api/session';
 
 type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
@@ -53,6 +54,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearSession();
     setMsisdn(null);
     setStatus('signedOut');
+  }, []);
+
+  // Any authenticated API call that comes back 401 (expired/revoked token)
+  // signs the user out globally; the client has already cleared the session.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setMsisdn(null);
+      setStatus('signedOut');
+    });
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   const value = useMemo<AuthContextValue>(

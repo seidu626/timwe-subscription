@@ -28,6 +28,26 @@ type stubTenantPersistRepo struct {
 	updateCalls []stubUpdateCall
 }
 
+type stubExistingOptinNotifier struct {
+	err   error
+	calls []stubExistingOptinNotificationCall
+}
+
+type stubExistingOptinNotificationCall struct {
+	route        domain.TenantRouteContext
+	partnerRole  int
+	notification domain.NotificationRequest
+}
+
+func (n *stubExistingOptinNotifier) NotifyUserOptin(_ context.Context, route domain.TenantRouteContext, partnerRole int, notification *domain.NotificationRequest) error {
+	n.calls = append(n.calls, stubExistingOptinNotificationCall{
+		route:        route,
+		partnerRole:  partnerRole,
+		notification: *notification,
+	})
+	return n.err
+}
+
 type stubUpdateCall struct {
 	msisdn    string
 	productID string
@@ -81,8 +101,10 @@ func newPersistenceTestHandler(repo gatewayTenantLookup, partnerRoleID string, r
 
 func testRoute() domain.TenantRouteContext {
 	return domain.TenantRouteContext{
-		TenantID:  "tenant-uuid-1",
-		ChannelID: "channel-uuid-1",
+		TenantID:   "tenant-uuid-1",
+		TenantKey:  "careerify",
+		ChannelID:  "channel-uuid-1",
+		ChannelKey: "web-gh-airteltigo",
 	}
 }
 
@@ -165,8 +187,11 @@ func TestTransactionIDFromResponse(t *testing.T) {
 func TestPersistPartnerOptinSubscription_AlreadyActive_CreatesActive(t *testing.T) {
 	repo := newStubTenantPersistRepo()
 	h := newPersistenceTestHandler(repo, "42", nil)
+	notifier := &stubExistingOptinNotifier{}
+	h.WithOptinNotifier(notifier)
 	req := domain.MTRequest{UserIdentifier: "233572503330", ProductID: 32535}
 	resp := mtResponseWith(service.SubscriptionResultOptinAlreadyActive, "txn-abc")
+	resp.ResponseData["externalTxId"] = "external-tx-abc"
 
 	h.persistPartnerOptinSubscription(testRoute(), req, resp)
 
@@ -180,16 +205,61 @@ func TestPersistPartnerOptinSubscription_AlreadyActive_CreatesActive(t *testing.
 	if len(repo.updateCalls) != 0 {
 		t.Errorf("already-active result must not trigger a follow-up status update, got %d calls", len(repo.updateCalls))
 	}
+	if len(notifier.calls) != 1 {
+		t.Fatalf("already-active result must notify once, got %d calls", len(notifier.calls))
+	}
+	call := notifier.calls[0]
+	if call.partnerRole != 42 || call.route.TenantKey != "careerify" {
+		t.Errorf("unexpected notification route: %+v", call)
+	}
+	if call.notification.ExternalTxID != "external-tx-abc" || call.notification.TransactionUUID != "txn-abc" || call.notification.MSISDN != req.UserIdentifier || call.notification.ProductID != req.ProductID {
+		t.Errorf("unexpected notification payload: %+v", call.notification)
+	}
+	if call.notification.MessageType != service.SubscriptionResultOptinAlreadyActive {
+		t.Errorf("unexpected MessageType %q, want %q", call.notification.MessageType, service.SubscriptionResultOptinAlreadyActive)
+	}
+}
+
+// TIMWE reports an existing active subscription as OPTIN_ACTIVE_WAIT_CHARGING
+// when its charging cycle is pending, and sends no USER_OPTIN callback for it
+// (observed in production 2026-08-19), so this result must notify too.
+func TestPersistPartnerOptinSubscription_WaitCharging_Notifies(t *testing.T) {
+	repo := newStubTenantPersistRepo()
+	h := newPersistenceTestHandler(repo, "42", nil)
+	notifier := &stubExistingOptinNotifier{}
+	h.WithOptinNotifier(notifier)
+	req := domain.MTRequest{UserIdentifier: "233572503330", ProductID: 32535}
+	resp := mtResponseWith(service.SubscriptionResultOptinActiveWaitCharging, "txn-abc")
+	resp.ResponseData["externalTxId"] = "external-tx-abc"
+
+	h.persistPartnerOptinSubscription(testRoute(), req, resp)
+
+	if len(notifier.calls) != 1 {
+		t.Fatalf("wait-charging result must notify once, got %d calls", len(notifier.calls))
+	}
+	call := notifier.calls[0]
+	if call.notification.ExternalTxID != "external-tx-abc" || call.notification.MSISDN != req.UserIdentifier {
+		t.Errorf("unexpected notification payload: %+v", call.notification)
+	}
+	if call.notification.MessageType != service.SubscriptionResultOptinActiveWaitCharging {
+		t.Errorf("unexpected MessageType %q, want %q", call.notification.MessageType, service.SubscriptionResultOptinActiveWaitCharging)
+	}
 }
 
 func TestPersistPartnerOptinSubscription_Preactive_CreatesThenUpdatesStatus(t *testing.T) {
 	repo := newStubTenantPersistRepo()
 	h := newPersistenceTestHandler(repo, "42", nil)
+	notifier := &stubExistingOptinNotifier{}
+	h.WithOptinNotifier(notifier)
 	req := domain.MTRequest{UserIdentifier: "233572503330", ProductID: 32535}
 	resp := mtResponseWith(service.SubscriptionResultOptinPreactiveWaitConf, "txn-abc")
+	resp.ResponseData["externalTxId"] = "external-tx-abc"
 
 	h.persistPartnerOptinSubscription(testRoute(), req, resp)
 
+	if len(notifier.calls) != 0 {
+		t.Fatalf("preactive (awaiting confirmation) result must not notify, got %d calls", len(notifier.calls))
+	}
 	if len(repo.createCalls) != 1 {
 		t.Fatalf("expected 1 CreateSubscription call, got %d", len(repo.createCalls))
 	}

@@ -665,9 +665,12 @@ func NewRouter(subscriptionHandler *handler.SubscriptionHandler, userBaseHandler
 			}
 			return
 		case strings.EqualFold(path, "/v1/app/notification-prefs"):
-			if method == fasthttp.MethodPut {
+			switch method {
+			case fasthttp.MethodPut:
 				appHandler.SetNotificationPrefs(ctx)
-			} else {
+			case fasthttp.MethodGet:
+				appHandler.GetNotificationPrefs(ctx)
+			default:
 				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
 			}
 			return

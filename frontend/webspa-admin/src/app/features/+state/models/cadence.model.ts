@@ -85,6 +85,10 @@ export interface CadenceSeriesHealth {
   failed_7d: number;
   sent_total: number;
   failed_total: number;
+  delivered_24h: number;
+  undelivered_24h: number;
+  delivered_7d: number;
+  undelivered_7d: number;
   last_error?: string | null;
   last_failed_at?: string | null;
 }

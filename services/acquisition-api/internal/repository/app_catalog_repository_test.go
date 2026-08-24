@@ -11,6 +11,7 @@ var appCatalogColumns = []string{
 	"tenant_key", "name", "slug", "price", "billing_cycle", "flow_type", "country",
 	"app_name", "app_tagline", "app_description", "app_category",
 	"app_artwork_url", "app_sample_content", "lp_copy",
+	"app_featured_rank", "subscriber_count",
 }
 
 func TestListAppCatalog_PrefersAppColumnsOverLPCopyFallback(t *testing.T) {
@@ -26,7 +27,7 @@ func TestListAppCatalog_PrefersAppColumnsOverLPCopyFallback(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows(appCatalogColumns).
 			AddRow("nrg", "NRG", "daily-tips", 2.5, "DAILY", "OTP", "GH",
 				"App Name", "App Tagline", "App Description", "wellness",
-				"https://cdn/art.png", "sample text", lpCopy))
+				"https://cdn/art.png", "sample text", lpCopy, 1, 42))
 
 	repo := NewCampaignRepository(db, zap.NewNop())
 	products, err := repo.ListAppCatalog("nrg", "")
@@ -49,6 +50,12 @@ func TestListAppCatalog_PrefersAppColumnsOverLPCopyFallback(t *testing.T) {
 	if p.Price == nil || *p.Price != 2.5 {
 		t.Fatalf("unexpected price: %+v", p.Price)
 	}
+	if !p.Featured {
+		t.Fatalf("expected non-null app_featured_rank to mark the product featured, got %+v", p)
+	}
+	if p.SubscriberCount != 42 {
+		t.Fatalf("expected subscriber_count 42 from the active-subscriptions subquery, got %d", p.SubscriberCount)
+	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}
@@ -66,7 +73,7 @@ func TestListAppCatalog_FallsBackToLPCopyWhenAppColumnsNull(t *testing.T) {
 		WithArgs("nrg").
 		WillReturnRows(sqlmock.NewRows(appCatalogColumns).
 			AddRow("nrg", "NRG", "daily-tips", nil, nil, "OTP", "NG",
-				nil, nil, nil, nil, nil, nil, lpCopy))
+				nil, nil, nil, nil, nil, nil, lpCopy, nil, 0))
 
 	repo := NewCampaignRepository(db, zap.NewNop())
 	products, err := repo.ListAppCatalog("nrg", "")
@@ -86,6 +93,12 @@ func TestListAppCatalog_FallsBackToLPCopyWhenAppColumnsNull(t *testing.T) {
 	if p.Currency != "NGN" {
 		t.Fatalf("expected currency NGN for country NG, got %q", p.Currency)
 	}
+	if p.Featured {
+		t.Fatalf("expected NULL app_featured_rank to leave the product unfeatured, got %+v", p)
+	}
+	if p.SubscriberCount != 0 {
+		t.Fatalf("expected subscriber_count 0, got %d", p.SubscriberCount)
+	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}
@@ -102,7 +115,7 @@ func TestListAppCatalog_FallsBackToSlugWhenNoNameSource(t *testing.T) {
 		WithArgs("nrg").
 		WillReturnRows(sqlmock.NewRows(appCatalogColumns).
 			AddRow("nrg", "NRG", "daily-tips", nil, nil, "OTP", "ZZ",
-				nil, nil, nil, nil, nil, nil, nil))
+				nil, nil, nil, nil, nil, nil, nil, nil, 0))
 
 	repo := NewCampaignRepository(db, zap.NewNop())
 	products, err := repo.ListAppCatalog("nrg", "")

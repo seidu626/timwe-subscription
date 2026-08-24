@@ -225,6 +225,13 @@ type adminCampaignUpsertRequest struct {
 	LandingPageURLs    []string        `json:"landing_page_urls,omitempty"`
 	TrackingConfig     json.RawMessage `json:"tracking_config,omitempty"`
 	LPCopy             json.RawMessage `json:"lp_copy,omitempty"`
+	AppName            *string         `json:"app_name,omitempty"`
+	AppTagline         *string         `json:"app_tagline,omitempty"`
+	AppDescription     *string         `json:"app_description,omitempty"`
+	AppCategory        *string         `json:"app_category,omitempty"`
+	AppArtworkURL      *string         `json:"app_artwork_url,omitempty"`
+	AppSampleContent   *string         `json:"app_sample_content,omitempty"`
+	AppFeaturedRank    *int            `json:"app_featured_rank,omitempty"`
 	Enabled            bool            `json:"enabled"`
 	CreatedBy          *string         `json:"created_by,omitempty"`
 	UpdatedBy          *string         `json:"updated_by,omitempty"`
@@ -416,6 +423,12 @@ func validateAdminUpsert(req *adminCampaignUpsertRequest, requireSlug bool) erro
 	}
 	if err := validateTrackingConfig(req.TrackingConfig); err != nil {
 		return err
+	}
+	if req.AppCategory != nil && len([]rune(strings.TrimSpace(*req.AppCategory))) > 80 {
+		return fmt.Errorf("app_category must be 80 characters or fewer")
+	}
+	if req.AppFeaturedRank != nil && *req.AppFeaturedRank < 0 {
+		return fmt.Errorf("app_featured_rank must be zero or greater")
 	}
 	if req.FlowType == domain.FlowTypeRedirect {
 		if _, err := resolveRedirectURL(req.TrackingConfig, req.LandingPageURLs); err != nil {
@@ -773,6 +786,13 @@ func (h *CampaignHandler) AdminCreate(ctx *fasthttp.RequestCtx) {
 		LandingPageURLs:    cleanLandingPageURLs(req.LandingPageURLs),
 		TrackingConfig:     req.TrackingConfig,
 		LPCopy:             req.LPCopy,
+		AppName:            req.AppName,
+		AppTagline:         req.AppTagline,
+		AppDescription:     req.AppDescription,
+		AppCategory:        req.AppCategory,
+		AppArtworkURL:      req.AppArtworkURL,
+		AppSampleContent:   req.AppSampleContent,
+		AppFeaturedRank:    req.AppFeaturedRank,
 		Enabled:            req.Enabled,
 		CreatedBy:          req.CreatedBy,
 		UpdatedBy:          req.UpdatedBy,
@@ -846,6 +866,13 @@ func (h *CampaignHandler) AdminUpdate(ctx *fasthttp.RequestCtx) {
 		LandingPageURLs:    cleanLandingPageURLs(req.LandingPageURLs),
 		TrackingConfig:     req.TrackingConfig,
 		LPCopy:             req.LPCopy,
+		AppName:            req.AppName,
+		AppTagline:         req.AppTagline,
+		AppDescription:     req.AppDescription,
+		AppCategory:        req.AppCategory,
+		AppArtworkURL:      req.AppArtworkURL,
+		AppSampleContent:   req.AppSampleContent,
+		AppFeaturedRank:    req.AppFeaturedRank,
 		Enabled:            req.Enabled,
 		UpdatedBy:          req.UpdatedBy,
 	})
@@ -1064,6 +1091,17 @@ func isCampaignConfigValidationError(err error) bool {
 }
 
 func (h *CampaignHandler) AdminPresignBackgroundUpload(ctx *fasthttp.RequestCtx) {
+	h.adminPresignAssetUpload(ctx, "background")
+}
+
+// AdminPresignArtworkUpload handles POST /v1/admin/campaign-assets/artwork/presign.
+// Same request/response shape as the background presign; objects land under
+// the campaign-artwork key prefix for the app catalog's app_artwork_url.
+func (h *CampaignHandler) AdminPresignArtworkUpload(ctx *fasthttp.RequestCtx) {
+	h.adminPresignAssetUpload(ctx, "artwork")
+}
+
+func (h *CampaignHandler) adminPresignAssetUpload(ctx *fasthttp.RequestCtx, kind string) {
 	if h.assetService == nil || !h.assetService.Enabled() {
 		writeJSONError(ctx, fasthttp.StatusNotImplemented, "Campaign asset upload is not configured")
 		return
@@ -1090,13 +1128,20 @@ func (h *CampaignHandler) AdminPresignBackgroundUpload(ctx *fasthttp.RequestCtx)
 		return
 	}
 
-	resp, err := h.assetService.PresignBackgroundUpload(context.Background(), service.CampaignAssetUploadRequest{
+	assetReq := service.CampaignAssetUploadRequest{
 		TenantNamespace: assetTenantNamespace(identity),
 		CampaignSlug:    slug,
 		FileName:        req.FileName,
 		ContentType:     req.ContentType,
 		SizeBytes:       req.SizeBytes,
-	})
+	}
+	var resp *service.CampaignAssetUploadResponse
+	var err error
+	if kind == "artwork" {
+		resp, err = h.assetService.PresignArtworkUpload(context.Background(), assetReq)
+	} else {
+		resp, err = h.assetService.PresignBackgroundUpload(context.Background(), assetReq)
+	}
 	if err != nil {
 		if errors.Is(err, service.ErrCampaignAssetStorageUnavailable) {
 			writeJSONError(ctx, fasthttp.StatusServiceUnavailable, "Campaign asset storage unavailable")

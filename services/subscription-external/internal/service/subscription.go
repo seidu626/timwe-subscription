@@ -1046,6 +1046,12 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 
 			return nil, err
 		}
+		// Retain the exact provider-request id even when the provider omits it
+		// from responseData. Downstream notification handoffs use this value to
+		// deduplicate against a delayed callback for the same opt-in request.
+		if responseExternalTxID, ok := mtResponse.ResponseData["externalTxId"].(string); !ok || strings.TrimSpace(responseExternalTxID) == "" {
+			mtResponse.ResponseData["externalTxId"] = externalTxID
+		}
 
 		// Handle different response codes
 		switch mtResponse.Code {

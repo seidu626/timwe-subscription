@@ -1,9 +1,12 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func TestNormalizeStorageEndpoint(t *testing.T) {
@@ -95,5 +98,43 @@ func TestBuildAssetURLFallsBackToBucketPath(t *testing.T) {
 	expected := "https://s3.example.com/campaign/campaign-backgrounds/gh/test.png"
 	if got != expected {
 		t.Fatalf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestPresignArtworkUploadUsesSeparateArtworkKeyPrefix(t *testing.T) {
+	svc, err := NewCampaignAssetService(CampaignAssetStorageConfig{
+		Enabled:         true,
+		Endpoint:        "s3.example.com",
+		Bucket:          "campaign-assets",
+		Region:          "us-east-1",
+		AccessKeyID:     "access-key",
+		SecretAccessKey: "secret-key",
+	}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("failed to create campaign asset service: %v", err)
+	}
+
+	req := CampaignAssetUploadRequest{
+		TenantNamespace: "tenant-a",
+		CampaignSlug:    "gh-campaign",
+		FileName:        "art.png",
+		ContentType:     "image/png",
+		SizeBytes:       1024,
+	}
+
+	artwork, err := svc.PresignArtworkUpload(context.Background(), req)
+	if err != nil {
+		t.Fatalf("PresignArtworkUpload: %v", err)
+	}
+	if !strings.HasPrefix(artwork.ObjectKey, "campaign-artwork/tenants/tenant-a/") {
+		t.Fatalf("expected artwork key under campaign-artwork prefix, got %q", artwork.ObjectKey)
+	}
+
+	background, err := svc.PresignBackgroundUpload(context.Background(), req)
+	if err != nil {
+		t.Fatalf("PresignBackgroundUpload: %v", err)
+	}
+	if !strings.HasPrefix(background.ObjectKey, "campaign-backgrounds/tenants/tenant-a/") {
+		t.Fatalf("expected background key under campaign-backgrounds prefix, got %q", background.ObjectKey)
 	}
 }

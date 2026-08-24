@@ -38,7 +38,12 @@ type PushSender interface {
 // sms_api binding, and the caller should fall back to the TIMWE MT path.
 type TenantGateway interface {
 	Resolve(ctx context.Context, tenantID string) (*smsGatewayConfig, error)
-	Send(ctx context.Context, cfg *smsGatewayConfig, msisdn, text string) error
+	// Send returns the gateway's message id when the config maps one
+	// (message_id_path); empty means this send is delivery-untracked.
+	Send(ctx context.Context, cfg *smsGatewayConfig, msisdn, text string) (string, error)
+	// DeliveryStatus resolves the handset delivery state of a sent message:
+	// DELIVERED, FAILED or PENDING, plus the gateway's raw status string.
+	DeliveryStatus(ctx context.Context, cfg *smsGatewayConfig, messageID string) (status, raw string, err error)
 }
 
 type Config struct {
@@ -188,16 +193,17 @@ func (d *Dispatcher) processJob(ctx context.Context, job domain.OutboxJob) error
 	channel, deviceToken := d.resolveChannel(ctx, job)
 
 	var err error
+	var providerMessageID string
 	if channel == channelPush {
 		err = d.pushSender.Send(ctx, deviceToken, job.MessageText)
 	} else {
-		err = d.sendSMS(ctx, job)
+		providerMessageID, err = d.sendSMS(ctx, job)
 	}
 
 	if err == nil {
 		recordDispatch(job, "sent")
 		d.logger.Info("dispatcher job sent", append(d.jobFields(job), zap.String("delivery_channel", channel))...)
-		return d.repo.MarkSent(ctx, job.JobID, channel)
+		return d.repo.MarkSent(ctx, job.JobID, channel, providerMessageID)
 	}
 
 	if job.Attempt >= d.cfg.MaxAttempts {
@@ -227,24 +233,26 @@ func (d *Dispatcher) jobFields(job domain.OutboxJob) []zap.Field {
 // binding sends through that HTTP gateway (e.g. Arkesel v2); every other
 // tenant keeps going through the TIMWE MT path, which has been failing on
 // prod since May (106k FAILED jobs, "MT status 400/403").
-func (d *Dispatcher) sendSMS(ctx context.Context, job domain.OutboxJob) error {
+func (d *Dispatcher) sendSMS(ctx context.Context, job domain.OutboxJob) (string, error) {
 	if d.tenantGateway != nil && job.TenantID != nil && *job.TenantID != "" {
 		cfg, err := d.tenantGateway.Resolve(ctx, *job.TenantID)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if cfg != nil {
-			if err := d.tenantGateway.Send(ctx, cfg, job.MSISDN, job.MessageText); err != nil {
-				return err
+			messageID, err := d.tenantGateway.Send(ctx, cfg, job.MSISDN, job.MessageText)
+			if err != nil {
+				return "", err
 			}
 			d.logger.Info("content sms dispatched via tenant gateway",
 				zap.String("tenant_id", *job.TenantID),
 				zap.String("msisdn", pii.MaskMSISDN(job.MSISDN)),
+				zap.String("provider_message_id", messageID),
 			)
-			return nil
+			return messageID, nil
 		}
 	}
-	return d.sendMT(ctx, job)
+	return "", d.sendMT(ctx, job)
 }
 
 func (d *Dispatcher) sendMT(ctx context.Context, job domain.OutboxJob) error {

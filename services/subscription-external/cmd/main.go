@@ -502,7 +502,11 @@ func main() {
 	// optin/confirm events so they are counted by acquisition reporting
 	// (see internal/handler/partner_handler.go notifyAcquisitionPartnerSubscription).
 	acquisitionClient := service.NewAcquisitionClient(logger)
-	partnerHandler := handler.NewPartnerHandler(logger, svc, cfg).WithTenantRepo(repo).WithAcquisitionClient(acquisitionClient)
+	notificationClient := service.NewNotificationClient()
+	partnerHandler := handler.NewPartnerHandler(logger, svc, cfg).
+		WithTenantRepo(repo).
+		WithAcquisitionClient(acquisitionClient).
+		WithOptinNotifier(notificationClient)
 
 	// Dayline app: feed, device registration, notification prefs.
 	// See docs/dayline-app-api-contract.md. The JWT validator fails closed:

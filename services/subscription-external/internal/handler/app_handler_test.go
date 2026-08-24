@@ -19,6 +19,7 @@ type fakeAppRepo struct {
 	markReadFn     func(ctx context.Context, msisdn string, id int64) error
 	upsertDeviceFn func(ctx context.Context, msisdn, tenantKey, fcmToken, platform string) error
 	upsertPrefFn   func(ctx context.Context, msisdn, productSlug, channel string) error
+	listPrefsFn    func(ctx context.Context, msisdn string) ([]domain.AppNotificationPref, error)
 }
 
 func (f *fakeAppRepo) ListFeed(ctx context.Context, msisdn string, limit int) ([]domain.AppFeedItem, error) {
@@ -35,6 +36,9 @@ func (f *fakeAppRepo) UpsertDevice(ctx context.Context, msisdn, tenantKey, fcmTo
 }
 func (f *fakeAppRepo) UpsertNotificationPref(ctx context.Context, msisdn, productSlug, channel string) error {
 	return f.upsertPrefFn(ctx, msisdn, productSlug, channel)
+}
+func (f *fakeAppRepo) ListNotificationPrefs(ctx context.Context, msisdn string) ([]domain.AppNotificationPref, error) {
+	return f.listPrefsFn(ctx, msisdn)
 }
 
 type fakeValidator struct {
@@ -222,6 +226,90 @@ func TestRegisterDevice_UpsertsAndReturns204(t *testing.T) {
 	want := [4]string{"233241234567", "careerify", "abc123", "android"}
 	if gotArgs != want {
 		t.Errorf("upsert args = %v, want %v", gotArgs, want)
+	}
+}
+
+func TestGetNotificationPrefs_UnauthorizedWithoutValidator(t *testing.T) {
+	h := NewAppHandler(&fakeAppRepo{}, nil, zap.NewNop())
+	ctx := newTestCtx(fasthttp.MethodGet, "", "")
+	h.GetNotificationPrefs(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", ctx.Response.StatusCode())
+	}
+	if errorBody(t, ctx)["error"]["code"] != "UNAUTHORIZED" {
+		t.Errorf("unexpected error code: %s", ctx.Response.Body())
+	}
+}
+
+func TestGetNotificationPrefs_ReturnsStoredPrefs(t *testing.T) {
+	claims := &appauth.Claims{}
+	claims.Subject = "233241234567"
+	repo := &fakeAppRepo{
+		listPrefsFn: func(ctx context.Context, msisdn string) ([]domain.AppNotificationPref, error) {
+			if msisdn != "233241234567" {
+				t.Errorf("msisdn = %q, want 233241234567", msisdn)
+			}
+			return []domain.AppNotificationPref{{ProductSlug: "careerify-tips", Channel: "PUSH"}}, nil
+		},
+	}
+	h := NewAppHandler(repo, &fakeValidator{claims: claims}, zap.NewNop())
+	ctx := newTestCtx(fasthttp.MethodGet, "", "Bearer token")
+	h.GetNotificationPrefs(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	var parsed domain.AppNotificationPrefsResponse
+	if err := json.Unmarshal(ctx.Response.Body(), &parsed); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(parsed.Prefs) != 1 || parsed.Prefs[0].ProductSlug != "careerify-tips" || parsed.Prefs[0].Channel != "PUSH" {
+		t.Errorf("unexpected prefs: %+v", parsed.Prefs)
+	}
+}
+
+func TestGetNotificationPrefs_EmptyIsPrefsArrayNotNull(t *testing.T) {
+	claims := &appauth.Claims{}
+	claims.Subject = "233241234567"
+	repo := &fakeAppRepo{
+		listPrefsFn: func(ctx context.Context, msisdn string) ([]domain.AppNotificationPref, error) {
+			return []domain.AppNotificationPref{}, nil
+		},
+	}
+	h := NewAppHandler(repo, &fakeValidator{claims: claims}, zap.NewNop())
+	ctx := newTestCtx(fasthttp.MethodGet, "", "Bearer token")
+	h.GetNotificationPrefs(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("status = %d, want 200", ctx.Response.StatusCode())
+	}
+	var parsed map[string]json.RawMessage
+	if err := json.Unmarshal(ctx.Response.Body(), &parsed); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if string(parsed["prefs"]) != "[]" {
+		t.Errorf("prefs = %s, want []", parsed["prefs"])
+	}
+}
+
+func TestGetNotificationPrefs_ProviderErrorOnRepoFailure(t *testing.T) {
+	claims := &appauth.Claims{}
+	claims.Subject = "233241234567"
+	repo := &fakeAppRepo{
+		listPrefsFn: func(ctx context.Context, msisdn string) ([]domain.AppNotificationPref, error) {
+			return nil, sql.ErrConnDone
+		},
+	}
+	h := NewAppHandler(repo, &fakeValidator{claims: claims}, zap.NewNop())
+	ctx := newTestCtx(fasthttp.MethodGet, "", "Bearer token")
+	h.GetNotificationPrefs(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", ctx.Response.StatusCode())
+	}
+	if errorBody(t, ctx)["error"]["code"] != "PROVIDER_ERROR" {
+		t.Errorf("unexpected error code: %s", ctx.Response.Body())
 	}
 }
 

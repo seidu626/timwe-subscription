@@ -33,6 +33,14 @@ type PartnerHandler struct {
 	// Optional: nil unless WithAcquisitionClient is called, in which case
 	// notifyAcquisitionPartnerSubscription is a no-op (e.g. in unit tests).
 	acqClient *service.AcquisitionClient
+	// optinNotifier records an already-active provider response through
+	// notification-service so its template and outbox flow still runs when the
+	// carrier does not emit a second USER_OPTIN callback.
+	optinNotifier existingSubscriptionOptinNotifier
+}
+
+type existingSubscriptionOptinNotifier interface {
+	NotifyUserOptin(context.Context, domain.TenantRouteContext, int, *domain.NotificationRequest) error
 }
 
 func NewPartnerHandler(logger *zap.Logger, svc *service.SubscriptionService, cfg *config.Config) *PartnerHandler {
@@ -57,6 +65,14 @@ func (h *PartnerHandler) WithTenantRepo(repo gatewayTenantLookup) *PartnerHandle
 // disable the notification entirely, e.g. in unit tests.
 func (h *PartnerHandler) WithAcquisitionClient(client *service.AcquisitionClient) *PartnerHandler {
 	h.acqClient = client
+	return h
+}
+
+// WithOptinNotifier sets the notification-service client used for
+// existing-subscription optin responses (OPTIN_ALREADY_ACTIVE and
+// OPTIN_ACTIVE_WAIT_CHARGING).
+func (h *PartnerHandler) WithOptinNotifier(notifier existingSubscriptionOptinNotifier) *PartnerHandler {
+	h.optinNotifier = notifier
 	return h
 }
 
@@ -777,6 +793,23 @@ func transactionIDFromResponse(resp *domain.MTResponse) (string, bool) {
 	return s, true
 }
 
+// externalTxIDFromResponse extracts the provider request id retained by
+// sendMTWithRetry. It is the idempotency input shared with carrier callbacks.
+func externalTxIDFromResponse(resp *domain.MTResponse) (string, bool) {
+	if resp == nil || resp.ResponseData == nil {
+		return "", false
+	}
+	v, ok := resp.ResponseData["externalTxId"]
+	if !ok || v == nil {
+		return "", false
+	}
+	s, ok := v.(string)
+	if !ok || strings.TrimSpace(s) == "" {
+		return "", false
+	}
+	return s, true
+}
+
 // persistPartnerOptinSubscription upserts a tenant-scoped subscription row
 // after a successful gateway-trust partner optin (h.svc.SendMT returned
 // err == nil, meaning validateMTResponse already accepted the response).
@@ -788,7 +821,8 @@ func (h *PartnerHandler) persistPartnerOptinSubscription(route domain.TenantRout
 	if !ok {
 		return
 	}
-	status, mapped := partnerOptinStatusFromResult(subscriptionResultFromResponse(resp))
+	subscriptionResult := subscriptionResultFromResponse(resp)
+	status, mapped := partnerOptinStatusFromResult(subscriptionResult)
 	if !mapped {
 		return
 	}
@@ -827,6 +861,56 @@ func (h *PartnerHandler) persistPartnerOptinSubscription(route domain.TenantRout
 				zap.String("tenant_id", route.TenantID),
 				zap.String("channel_id", route.ChannelID))
 		}
+	}
+	// Both results mean the carrier already holds an active subscription (the
+	// same pair isSubscriptionAlreadyActive recognises), so no USER_OPTIN
+	// callback will follow and the confirmation SMS must be triggered here.
+	// Observed in production 2026-08-19: a WAP re-optin for an active
+	// subscriber returned OPTIN_ACTIVE_WAIT_CHARGING and no callback arrived.
+	if subscriptionResult == service.SubscriptionResultOptinAlreadyActive ||
+		subscriptionResult == service.SubscriptionResultOptinActiveWaitCharging {
+		h.notifyExistingSubscriptionOptin(route, partnerRoleID, req, transactionID, subscriptionResult, resp)
+	}
+}
+
+func (h *PartnerHandler) notifyExistingSubscriptionOptin(route domain.TenantRouteContext, partnerRoleID int, req domain.MTRequest, transactionID, subscriptionResult string, resp *domain.MTResponse) {
+	if h.optinNotifier == nil {
+		return
+	}
+	externalTxID, ok := externalTxIDFromResponse(resp)
+	if !ok {
+		h.logger.Warn("existing-subscription optin response missing externalTxId; skipping confirmation SMS",
+			zap.String("subscription_result", subscriptionResult),
+			zap.String("tenant_id", route.TenantID),
+			zap.String("channel_id", route.ChannelID))
+		return
+	}
+	tenantID := route.TenantID
+	channelID := route.ChannelID
+	notification := &domain.NotificationRequest{
+		TenantID:        &tenantID,
+		ChannelID:       &channelID,
+		PartnerRole:     partnerRoleID,
+		ExternalTxID:    externalTxID,
+		ProductID:       req.ProductID,
+		PricepointID:    req.PricepointID,
+		MCC:             req.MCC,
+		MNC:             req.MNC,
+		MSISDN:          req.UserIdentifier,
+		LargeAccount:    req.LargeAccount,
+		TransactionUUID: transactionID,
+		EntryChannel:    req.EntryChannel,
+		MessageType:     subscriptionResult,
+		Message:         "Subscription already active",
+		Tags:            []string{"subscription-external", "existing-subscription"},
+		Type:            "USER_OPTIN",
+	}
+	if err := h.optinNotifier.NotifyUserOptin(context.Background(), route, partnerRoleID, notification); err != nil {
+		h.logger.Error("failed to enqueue existing-subscription optin confirmation SMS",
+			zap.Error(err),
+			zap.String("subscription_result", subscriptionResult),
+			zap.String("tenant_id", route.TenantID),
+			zap.String("channel_id", route.ChannelID))
 	}
 }
 

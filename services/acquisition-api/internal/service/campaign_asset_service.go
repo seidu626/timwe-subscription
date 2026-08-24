@@ -111,6 +111,18 @@ func (s *CampaignAssetService) Enabled() bool {
 }
 
 func (s *CampaignAssetService) PresignBackgroundUpload(ctx context.Context, req CampaignAssetUploadRequest) (*CampaignAssetUploadResponse, error) {
+	return s.presignImageUpload(ctx, req, s.cfg.KeyPrefix, "background")
+}
+
+// PresignArtworkUpload presigns an upload for Dayline app catalog artwork
+// (campaigns.app_artwork_url). Same image-type and size rules as LP
+// backgrounds; keys live under a separate campaign-artwork prefix so app
+// artwork stays separable from LP backgrounds in the bucket.
+func (s *CampaignAssetService) PresignArtworkUpload(ctx context.Context, req CampaignAssetUploadRequest) (*CampaignAssetUploadResponse, error) {
+	return s.presignImageUpload(ctx, req, "campaign-artwork", "artwork")
+}
+
+func (s *CampaignAssetService) presignImageUpload(ctx context.Context, req CampaignAssetUploadRequest, keyPrefix, kind string) (*CampaignAssetUploadResponse, error) {
 	if !s.Enabled() {
 		return nil, fmt.Errorf("campaign asset storage is not configured")
 	}
@@ -154,7 +166,7 @@ func (s *CampaignAssetService) PresignBackgroundUpload(ctx context.Context, req 
 		}
 	}
 
-	objectKey := buildBackgroundObjectKey(s.cfg.KeyPrefix, tenantSegment, slugSegment, time.Now(), uuid.NewString(), ext)
+	objectKey := buildBackgroundObjectKey(keyPrefix, tenantSegment, slugSegment, time.Now(), uuid.NewString(), ext)
 
 	uploadURL, err := s.client.PresignedPutObject(ctx, s.cfg.Bucket, objectKey, s.cfg.PresignExpiry)
 	if err != nil {
@@ -171,7 +183,8 @@ func (s *CampaignAssetService) PresignBackgroundUpload(ctx context.Context, req 
 		AllowedContentTypes: s.allowedContentTypes(),
 	}
 
-	s.logger.Info("Generated campaign background upload URL",
+	s.logger.Info("Generated campaign asset upload URL",
+		zap.String("kind", kind),
 		zap.String("campaign_slug", req.CampaignSlug),
 		zap.String("object_key", objectKey),
 		zap.String("content_type", contentType),

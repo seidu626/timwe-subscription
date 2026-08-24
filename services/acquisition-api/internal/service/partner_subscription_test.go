@@ -174,6 +174,7 @@ func adminCampaignRowValues(tenantID, slug, country string, productID int) []dri
 		nil, nil,
 		true, now, now,
 		nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	}
 }
 
@@ -212,7 +213,7 @@ func TestHandlePartnerSubscription_AutoCreatesCampaignAndTransactionOnFirstUse(t
 	// 3. campaign insert (Create), returning the new slug. lp_copy ($27) must
 	// be a non-null JSON object: campaigns.lp_copy is NOT NULL in production
 	// (migration 014) and synthetic campaigns have no landing page copy.
-	campaignInsertArgs := make([]driver.Value, 30)
+	campaignInsertArgs := make([]driver.Value, 37)
 	for i := range campaignInsertArgs {
 		campaignInsertArgs[i] = sqlmock.AnyArg()
 	}

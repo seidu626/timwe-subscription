@@ -183,6 +183,53 @@ func TestUpsertDevice_IdempotentOnConflictToken(t *testing.T) {
 	}
 }
 
+func TestListNotificationPrefs_ReturnsRowsOrderedBySlug(t *testing.T) {
+	repo, mock := newAppFeedRepoForTest(t)
+
+	rows := sqlmock.NewRows([]string{"product_slug", "channel"}).
+		AddRow("careerify-tips", "PUSH").
+		AddRow("daily-devotion", "SMS")
+	mock.ExpectQuery(`SELECT product_slug, channel FROM app_notification_prefs`).
+		WithArgs("233241234567").
+		WillReturnRows(rows)
+
+	prefs, err := repo.ListNotificationPrefs(context.Background(), "233241234567")
+	if err != nil {
+		t.Fatalf("ListNotificationPrefs: %v", err)
+	}
+	if len(prefs) != 2 {
+		t.Fatalf("len(prefs) = %d, want 2", len(prefs))
+	}
+	if prefs[0].ProductSlug != "careerify-tips" || prefs[0].Channel != "PUSH" {
+		t.Errorf("prefs[0] = %+v", prefs[0])
+	}
+	if prefs[1].ProductSlug != "daily-devotion" || prefs[1].Channel != "SMS" {
+		t.Errorf("prefs[1] = %+v", prefs[1])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestListNotificationPrefs_EmptySliceWhenNoRows(t *testing.T) {
+	repo, mock := newAppFeedRepoForTest(t)
+
+	mock.ExpectQuery(`SELECT product_slug, channel FROM app_notification_prefs`).
+		WithArgs("233240000000").
+		WillReturnRows(sqlmock.NewRows([]string{"product_slug", "channel"}))
+
+	prefs, err := repo.ListNotificationPrefs(context.Background(), "233240000000")
+	if err != nil {
+		t.Fatalf("ListNotificationPrefs: %v", err)
+	}
+	if prefs == nil || len(prefs) != 0 {
+		t.Errorf("prefs = %#v, want empty non-nil slice", prefs)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
 func TestUpsertNotificationPref_Upserts(t *testing.T) {
 	repo, mock := newAppFeedRepoForTest(t)
 

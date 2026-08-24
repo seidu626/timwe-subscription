@@ -1902,7 +1902,7 @@
         ],
         "dod_path": "slices/TIMWE-CI-001/value-gate-report.md"
       },
-      "notes": "HIGH risk: 55 slices done with no CI gate — expect first-run failures. No root lockfile; run npm ci per-workspace. Chrome must be installed on runner for Karma headless. Go services have separate go.mod — matrix over services/.",
+      "notes": "HIGH risk: 55 slices done with no CI gate \u2014 expect first-run failures. No root lockfile; run npm ci per-workspace. Chrome must be installed on runner for Karma headless. Go services have separate go.mod \u2014 matrix over services/.",
       "created_at": "2026-05-11T14:08:06Z"
     },
     {
@@ -2164,7 +2164,7 @@
         "evidence"
       ],
       "state": "shipped",
-      "spec_decision": "Option B — partner handlers without trusted-service auth (locked 2026-05-14)",
+      "spec_decision": "Option B \u2014 partner handlers without trusted-service auth (locked 2026-05-14)",
       "branch": null,
       "shipped_at": "2026-05-14T03:50:00Z",
       "ship_commits": [
@@ -2251,6 +2251,139 @@
       },
       "notes": "Follow-up from TMP-055 documented residuals: admin_activity_logs had one tenantless tenant/create row, notifications had ten tenantless rows, and public campaign slug-only compatibility remained exposed.",
       "shipped_at": "2026-05-14T04:10:00Z"
+    },
+    {
+      "id": "TMP-075",
+      "external_id": "TMP-075",
+      "name": "dayline-notification-prefs-roundtrip",
+      "class": "vertical_slice",
+      "hvc_issue": null,
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a Dayline app subscriber, my saved per-product notification channel choices survive app restarts because the app can read them back via GET /v1/app/notification-prefs instead of holding them in local state only.",
+      "demo": "Set a pref to PUSH via PUT, call GET /v1/app/notification-prefs and see it returned; relaunch the Notifications screen and the picker shows PUSH, not the BOTH default.",
+      "depends_on": [],
+      "layers": [
+        "repository",
+        "handler",
+        "router",
+        "gateway-config",
+        "docs",
+        "mobile",
+        "tests"
+      ],
+      "state": "done",
+      "spec_decision": "Additive GET on subscription-external returning {prefs:[{product_slug,channel}]}; absent rows mean client default BOTH; no migration (app_notification_prefs exists) (locked 2026-08-24)",
+      "branch": "feat/dayline-app",
+      "created_at": "2026-08-24T00:00:00Z",
+      "verification": {
+        "automated": [
+          "cd services/subscription-external && go build ./... && go test ./...",
+          "cd frontend/dayline-mobile && npx tsc --noEmit"
+        ],
+        "manual_smoke": [
+          "curl -H \"Authorization: Bearer $APP_JWT\" $HOST/v1/app/notification-prefs"
+        ],
+        "dod_path": "slices/TMP-075-dayline-notification-prefs-roundtrip/spec.md"
+      },
+      "notes": "Slice 1 of the Dayline completeness-review recommended sequence: make notification preferences round-trip. Verified 2026-08-24: go build + 160 tests green in subscription-external; tsc --noEmit clean in dayline-mobile."
+    },
+    {
+      "id": "TMP-076",
+      "external_id": "TMP-076",
+      "name": "campaign-app-presence-console",
+      "class": "vertical_slice",
+      "hvc_issue": null,
+      "parent_slice": null,
+      "capability_ids": [],
+      "user_story": "As a CP operator, I can manage how my product appears in the Dayline app (name, tagline, description, category, artwork, sample content) from the campaign form in the admin console, instead of asking for SQL updates.",
+      "demo": "Edit a campaign in webspa-admin, fill the App presence section, upload artwork; GET /v1/app/catalog returns the new values.",
+      "depends_on": [
+        "TMP-075"
+      ],
+      "layers": [
+        "domain",
+        "handler",
+        "repository",
+        "assets",
+        "console",
+        "tests"
+      ],
+      "state": "done",
+      "spec_decision": "Extend existing admin campaign CRUD + reuse MinIO presign pattern with campaign-artwork key prefix; empty strings persist as NULL to keep lp_copy fallback (locked 2026-08-24)",
+      "branch": "feat/dayline-app",
+      "created_at": "2026-08-24T00:00:00Z",
+      "verification": {
+        "automated": [
+          "cd services/acquisition-api && go build ./... && go test ./...",
+          "cd frontend/webspa-admin && npm run build"
+        ],
+        "manual_smoke": [
+          "Edit campaign in console, save App presence fields, curl /v1/app/catalog"
+        ],
+        "dod_path": "slices/TMP-076-campaign-app-presence-console/spec.md"
+      },
+      "notes": "Slice 2 of the Dayline completeness-review recommended sequence.",
+      "evidence": "acquisition-api: go build ./... green, go test ./... 439 passed in 9 packages (incl. new app_category validation, artwork presign tenant-context, artwork key-prefix tests); webspa-admin: npm run build green"
+    },
+    {
+      "id": "TMP-077",
+      "name": "merchandising-signals",
+      "class": "feature",
+      "state": "done",
+      "verification": "cd services/acquisition-api && go build ./... && go test ./...; cd frontend/webspa-admin && npm run build; cd frontend/dayline-mobile && npx tsc --noEmit",
+      "spec_decision": "slices/TMP-077-merchandising-signals/spec.md",
+      "evidence": "acquisition-api: go build ./... green, go test ./... 448 passed in 9 packages (incl. new nextChargeHint unit tests, featured/subscriber_count catalog assertions, next-charge-hint service assertion); webspa-admin: npm run build green (Featured Rank field); dayline-mobile: npx tsc --noEmit clean (featured flag + Discover featured hero row); docs/dayline-app-api-contract.md updated"
+    },
+    {
+      "id": "TMP-078",
+      "class": "feature",
+      "name": "dayline-app-hardening",
+      "description": "Dayline app hardening: global 401 sign-out, cancel PENDING subscriptions, pull-to-refresh on Today/Discover/Subscriptions.",
+      "state": "done",
+      "verification": {
+        "automated": [
+          "cd services/acquisition-api && go build ./... && go test ./...",
+          "cd frontend/dayline-mobile && npx tsc --noEmit"
+        ],
+        "manual_smoke": [],
+        "dod_path": null
+      },
+      "spec_decision": "slices/TMP-078-dayline-app-hardening/spec.md",
+      "evidence": "acquisition-api: go build ./... green, go test ./... 450 passed in 9 packages (incl. Cancel pending-local and already-cancelled idempotency tests); dayline-mobile: npx tsc --noEmit clean (401 sign-out handler, PENDING cancel button, pull-to-refresh on Today/Discover/Subscriptions); contract cancel semantics documented"
+    },
+    {
+      "id": "TMP-079",
+      "class": "feature",
+      "name": "dayline-ios-push-fix",
+      "description": "Fix iOS push registration in the Dayline app: native FCM/APNs config and surfaced registration failures.",
+      "state": "done",
+      "verification": {
+        "automated": [
+          "cd frontend/dayline-mobile && npx tsc --noEmit"
+        ],
+        "manual_smoke": [
+          "expo prebuild/dev-build on a physical iOS device (out of scope for this repo run)"
+        ],
+        "dod_path": null
+      },
+      "spec_decision": "slices/TMP-079-dayline-ios-push-fix/spec.md",
+      "evidence": "dayline-mobile: npx tsc --noEmit clean; app.config.js sanity harness green both ways (expo-notifications plugin always registered; googleServicesFile absent without operator files, wired ./GoogleService-Info.plist and ./google-services.json when present); usePushRegistration now records registered/denied/failed(detail) in a usePushRegistrationStatus store and awaits registerDevice.mutateAsync; Notifications screen banner surfaces denied/failed; docs/dayline-push-setup.md operator guide added. Gap: physical iOS device push smoke is out of scope in this environment."
+    },
+    {
+      "id": "TMP-080",
+      "class": "hygiene",
+      "name": "dayline-hygiene",
+      "description": "Hygiene closeout for the Dayline app surface: document the marketplace catalog response shape in the app API contract, regenerate the stale krakend.json gateway config, add handler/router tests for the acquisition-api app routes, and add a guided gateway-credential form to the admin console.",
+      "state": "done",
+      "verification": [
+        "cd services/acquisition-api && go build ./... && go test ./...",
+        "python3 scripts/check-krakend-query-forwarding.py",
+        "./scripts/validate-charge-ownership.sh"
+      ],
+      "manual_smoke": "Deploying regenerated krakend.json to the droplet is out of scope for this slice.",
+      "spec_decision": "slices/TMP-080-dayline-hygiene/spec.md",
+      "evidence": "Contract: marketplace {tenants:[...]} shape + per-product tenant/tenant_name documented. krakend/krakend.json regenerated from config/krakend.tmpl via container FC_OUT render: 129 endpoints incl. all 13 /v1/app routes (stale file had 95, zero app routes); krakend check Syntax OK on the static file; check-krakend-query-forwarding.py and validate-charge-ownership.sh pass. Router tests added for /v1/app dispatch (preflight 204+CORS, wrong-method 405+CORS, auth routes 401 fail-closed dispatch proof, unknown path 404); tests caught and fixed a real bug: fasthttp ctx.Error reset wiped app CORS headers on 405 (fail-before red, appMethodNotAllowed fix, pass-after green). acquisition-api go build + go test: 464 passed in 9 packages. Guided gateway-credential form already shipped in prior slices (provider_api/sms_api/otp_api guided modes + test-SMS proof) - no duplicate built."
     }
   ],
   "updated_at": "2026-05-14T03:25:00Z"

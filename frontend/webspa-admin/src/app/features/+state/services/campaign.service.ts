@@ -104,6 +104,13 @@ export class CampaignService {
     );
   }
 
+  presignArtworkUpload(payload: PresignBackgroundUploadRequest): Observable<PresignBackgroundUploadResponse> {
+    return this.http.post<PresignBackgroundUploadResponse>(
+      `${this.campaignAssetBaseUrl}/artwork/presign`,
+      payload
+    );
+  }
+
   /**
    * Get the landing page preview URL for a campaign
    */
