@@ -101,6 +101,67 @@ func TestBuildAssetURLFallsBackToBucketPath(t *testing.T) {
 	}
 }
 
+func TestPresignUploadRewritesToPublicUploadBase(t *testing.T) {
+	svc, err := NewCampaignAssetService(CampaignAssetStorageConfig{
+		Enabled:             true,
+		Endpoint:            "minio:9000",
+		Bucket:              "campaign-assets",
+		Region:              "us-east-1",
+		AccessKeyID:         "access-key",
+		SecretAccessKey:     "secret-key",
+		PublicUploadBaseURL: "https://admin.example.com/assets/campaign-assets",
+	}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("failed to create campaign asset service: %v", err)
+	}
+
+	resp, err := svc.PresignArtworkUpload(context.Background(), CampaignAssetUploadRequest{
+		TenantNamespace: "tenant-a",
+		CampaignSlug:    "gh-campaign",
+		FileName:        "art.png",
+		ContentType:     "image/png",
+		SizeBytes:       1024,
+	})
+	if err != nil {
+		t.Fatalf("PresignArtworkUpload: %v", err)
+	}
+	prefix := "https://admin.example.com/assets/campaign-assets/campaign-artwork/tenants/tenant-a/"
+	if !strings.HasPrefix(resp.UploadURL, prefix) {
+		t.Fatalf("expected upload URL under %q, got %q", prefix, resp.UploadURL)
+	}
+	if !strings.Contains(resp.UploadURL, "X-Amz-Signature=") {
+		t.Fatalf("expected signed query string preserved, got %q", resp.UploadURL)
+	}
+}
+
+func TestPresignUploadKeepsStorageEndpointWhenNoPublicUploadBase(t *testing.T) {
+	svc, err := NewCampaignAssetService(CampaignAssetStorageConfig{
+		Enabled:         true,
+		Endpoint:        "minio:9000",
+		Bucket:          "campaign-assets",
+		Region:          "us-east-1",
+		AccessKeyID:     "access-key",
+		SecretAccessKey: "secret-key",
+	}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("failed to create campaign asset service: %v", err)
+	}
+
+	resp, err := svc.PresignArtworkUpload(context.Background(), CampaignAssetUploadRequest{
+		TenantNamespace: "tenant-a",
+		CampaignSlug:    "gh-campaign",
+		FileName:        "art.png",
+		ContentType:     "image/png",
+		SizeBytes:       1024,
+	})
+	if err != nil {
+		t.Fatalf("PresignArtworkUpload: %v", err)
+	}
+	if !strings.HasPrefix(resp.UploadURL, "http://minio:9000/campaign-assets/") {
+		t.Fatalf("expected raw storage endpoint upload URL, got %q", resp.UploadURL)
+	}
+}
+
 func TestPresignArtworkUploadUsesSeparateArtworkKeyPrefix(t *testing.T) {
 	svc, err := NewCampaignAssetService(CampaignAssetStorageConfig{
 		Enabled:         true,

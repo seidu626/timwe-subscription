@@ -2412,7 +2412,21 @@
       "manual_smoke": "Request an OTP on a physical device; the keyboard suggests the code from the SMS, and copying the code surfaces a fill chip.",
       "spec_decision": "slices/TMP-082-dayline-otp-autofill/spec.md",
       "evidence": "npx tsc --noEmit clean; expo lint: zero errors in changed files (remaining error is pre-existing template use-color-scheme.web.ts). OtpInput now carries autoComplete=sms-otp + textContentType=oneTimeCode, distributes multi-char autofill/paste across boxes (maxLength raised to 6), otp-verify auto-submits once per distinct 6-digit code, clears the code on failure, and offers a clipboard fill chip (expo-clipboard ~57.0.1) refreshed on foreground for the Truecaller Copy OTP flow. Gap: on-device smoke pending next APK publish."
+    },
+    {
+      "id": "TMP-083",
+      "class": "feature",
+      "name": "campaign-media-public-serving",
+      "description": "Make campaign/ad artwork actually work in prod: proxy MinIO through the admin vhost (location /assets/), add an optional public upload base URL so presigned PUTs work from the console browser, and set the public base URL so stored asset URLs are reachable from devices.",
+      "state": "done",
+      "verification": [
+        "cd services/acquisition-api && go test ./internal/service/ -run CampaignAsset -count=1",
+        "cd services/acquisition-api && go build ./..."
+      ],
+      "manual_smoke": "Upload artwork from the admin console; the stored URL loads over https and renders in the Dayline app product card.",
+      "spec_decision": "slices/TMP-083-campaign-media-public-serving/spec.md",
+      "evidence": "go build + 5 CampaignAsset/Presign tests pass (2 new: rewrite-to-public-base fail-before/pass-after, no-rewrite default). Deployed to droplet: acquisition-api c51e7600b2e8 + webspa-admin a4eb2c26a45c (nginx location ^~ /assets/ proxying minio:9000 with pinned Host). Droplet .env: PUBLIC_BASE_URL + PUBLIC_UPLOAD_BASE_URL=https://admin.nouveauricheglobalgroup.com/assets/campaign-assets, MAX_UPLOAD_BYTES=1000000 (host nginx 1m body cap, not editable without sudo). Live smoke: anonymous GET via public proxy 200; presigned PUT rewritten onto the public host returned 200 with valid signature and read back. Smoke objects removed."
     }
   ],
-  "updated_at": "2026-08-24T09:43:12Z"
+  "updated_at": "2026-08-24T10:06:10Z"
 }

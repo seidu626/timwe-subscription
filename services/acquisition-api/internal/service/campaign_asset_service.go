@@ -28,17 +28,23 @@ var ErrCampaignAssetStorageUnavailable = errors.New("campaign asset storage unav
 var sanitizeAssetSegmentRe = regexp.MustCompile(`[^a-z0-9\-]+`)
 
 type CampaignAssetStorageConfig struct {
-	Enabled            bool
-	Endpoint           string
-	Bucket             string
-	Region             string
-	AccessKeyID        string
-	SecretAccessKey    string
-	UseSSL             bool
-	PublicBaseURL      string
-	KeyPrefix          string
-	MaxUploadSizeBytes int64
-	PresignExpiry      time.Duration
+	Enabled         bool
+	Endpoint        string
+	Bucket          string
+	Region          string
+	AccessKeyID     string
+	SecretAccessKey string
+	UseSSL          bool
+	PublicBaseURL   string
+	// PublicUploadBaseURL rewrites presigned PUT URLs onto a public host
+	// (e.g. an nginx proxy in front of MinIO) so browser uploads work when
+	// the storage endpoint is only reachable inside the docker network. The
+	// proxy must forward the original storage Host header so the presign
+	// signature stays valid. Unset keeps the raw storage-endpoint URL.
+	PublicUploadBaseURL string
+	KeyPrefix           string
+	MaxUploadSizeBytes  int64
+	PresignExpiry       time.Duration
 }
 
 type CampaignAssetUploadRequest struct {
@@ -175,7 +181,7 @@ func (s *CampaignAssetService) presignImageUpload(ctx context.Context, req Campa
 
 	assetURL := s.buildAssetURL(objectKey)
 	resp := &CampaignAssetUploadResponse{
-		UploadURL:           uploadURL.String(),
+		UploadURL:           s.rewriteUploadURL(uploadURL),
 		AssetURL:            assetURL,
 		ObjectKey:           objectKey,
 		ExpiresInSeconds:    int64(s.cfg.PresignExpiry.Seconds()),
@@ -201,6 +207,25 @@ func (s *CampaignAssetService) allowedContentTypes() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// rewriteUploadURL swaps the storage endpoint (and bucket path segment) of a
+// presigned PUT URL for cfg.PublicUploadBaseURL, keeping the signed query
+// string. The public base is expected to end with the bucket segment, the
+// same convention as PublicBaseURL.
+func (s *CampaignAssetService) rewriteUploadURL(u *url.URL) string {
+	base := strings.TrimSpace(s.cfg.PublicUploadBaseURL)
+	if base == "" {
+		return u.String()
+	}
+	parsed, err := url.Parse(base)
+	if err != nil || parsed.Host == "" {
+		return u.String()
+	}
+	remainder := strings.TrimPrefix(strings.TrimPrefix(u.Path, "/"+s.cfg.Bucket), "/")
+	parsed.Path = path.Join(strings.TrimSuffix(parsed.Path, "/"), remainder)
+	parsed.RawQuery = u.RawQuery
+	return parsed.String()
 }
 
 func (s *CampaignAssetService) buildAssetURL(objectKey string) string {

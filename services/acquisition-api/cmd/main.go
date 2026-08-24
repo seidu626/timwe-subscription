@@ -458,17 +458,18 @@ func resolvePendingTransactionTTL(logger *zap.Logger) time.Duration {
 
 func buildCampaignAssetStorageConfig() service.CampaignAssetStorageConfig {
 	cfg := service.CampaignAssetStorageConfig{
-		Enabled:            strings.EqualFold(strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_ENABLED")), "true"),
-		Endpoint:           strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_ENDPOINT")),
-		Bucket:             strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_BUCKET")),
-		Region:             strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_REGION")),
-		AccessKeyID:        strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_ACCESS_KEY_ID")),
-		SecretAccessKey:    strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_SECRET_ACCESS_KEY")),
-		PublicBaseURL:      strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_PUBLIC_BASE_URL")),
-		KeyPrefix:          strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_KEY_PREFIX")),
-		MaxUploadSizeBytes: 2 * 1024 * 1024,
-		PresignExpiry:      10 * time.Minute,
-		UseSSL:             true,
+		Enabled:             strings.EqualFold(strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_ENABLED")), "true"),
+		Endpoint:            strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_ENDPOINT")),
+		Bucket:              strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_BUCKET")),
+		Region:              strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_REGION")),
+		AccessKeyID:         strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_ACCESS_KEY_ID")),
+		SecretAccessKey:     strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_SECRET_ACCESS_KEY")),
+		PublicBaseURL:       strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_PUBLIC_BASE_URL")),
+		PublicUploadBaseURL: strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_PUBLIC_UPLOAD_BASE_URL")),
+		KeyPrefix:           strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_KEY_PREFIX")),
+		MaxUploadSizeBytes:  2 * 1024 * 1024,
+		PresignExpiry:       10 * time.Minute,
+		UseSSL:              true,
 	}
 
 	if useSSL := strings.TrimSpace(os.Getenv("CAMPAIGN_ASSET_STORAGE_USE_SSL")); useSSL != "" {
