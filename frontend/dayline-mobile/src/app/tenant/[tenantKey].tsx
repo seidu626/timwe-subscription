@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -67,7 +68,16 @@ export default function TenantStorefrontScreen() {
 
       {tenant ? (
         <>
-          <Text style={styles.meta}>{pluralize(tenant.products.length, 'product')}</Text>
+          {tenant.branding?.banner_url ? (
+            <Image source={{ uri: tenant.branding.banner_url }} style={styles.banner} contentFit="cover" />
+          ) : null}
+
+          <View style={styles.identityRow}>
+            {tenant.branding?.logo_url ? (
+              <Image source={{ uri: tenant.branding.logo_url }} style={styles.logo} contentFit="cover" />
+            ) : null}
+            <Text style={styles.meta}>{pluralize(tenant.products.length, 'product')}</Text>
+          </View>
 
           {categoryCounts.length > 0 ? (
             <View style={styles.categoryRow}>
@@ -128,10 +138,29 @@ const styles = StyleSheet.create({
     minWidth: 0,
     textAlign: 'center',
   },
+  banner: {
+    width: '100%',
+    height: 120,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceVariant,
+    marginBottom: spacing.stackMd,
+  },
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.stackSm,
+    marginBottom: spacing.stackLg,
+  },
+  logo: {
+    width: 28,
+    height: 28,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceVariant,
+    flexShrink: 0,
+  },
   meta: {
     ...typography.labelSm,
     color: colors.onSurfaceVariant,
-    marginBottom: spacing.stackLg,
   },
   categoryRow: {
     flexDirection: 'row',

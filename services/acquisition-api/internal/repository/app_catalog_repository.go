@@ -52,7 +52,8 @@ func currencyForCountry(country string) string {
 // un-priced campaign is not app-sellable.
 func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domain.AppCatalogProduct, error) {
 	query := `
-		SELECT t.tenant_key, t.name, c.slug, c.price, c.billing_cycle, c.flow_type, c.country,
+		SELECT t.tenant_key, t.name, t.metadata_json -> 'branding' AS branding,
+		       c.slug, c.price, c.billing_cycle, c.flow_type, c.country,
 		       c.app_name, c.app_tagline, c.app_description, c.app_category,
 		       c.app_artwork_url, c.app_sample_content, c.lp_copy, c.app_featured_rank,
 		       (SELECT COUNT(*) FROM subscriptions s
@@ -88,12 +89,12 @@ func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domai
 			rowTenantKey, rowTenantName, slug, flowType, rowCountry        string
 			billingCycle, appName, appTagline, appDescription, appCategory sql.NullString
 			appArtworkURL, appSampleContent                                sql.NullString
-			lpCopy                                                         sql.NullString
+			lpCopy, brandingJSON                                           sql.NullString
 			price                                                          sql.NullFloat64
 			featuredRank                                                   sql.NullInt64
 			subscriberCount                                                int
 		)
-		if err := rows.Scan(&rowTenantKey, &rowTenantName, &slug, &price, &billingCycle, &flowType, &rowCountry,
+		if err := rows.Scan(&rowTenantKey, &rowTenantName, &brandingJSON, &slug, &price, &billingCycle, &flowType, &rowCountry,
 			&appName, &appTagline, &appDescription, &appCategory,
 			&appArtworkURL, &appSampleContent, &lpCopy, &featuredRank, &subscriberCount); err != nil {
 			r.logger.Error("failed to scan app catalog row", zap.Error(err))
@@ -105,6 +106,15 @@ func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domai
 			var payload appLPCopyPayload
 			if err := json.Unmarshal([]byte(lpCopy.String), &payload); err == nil {
 				lpEn = payload.En
+			}
+		}
+
+		var branding *domain.TenantBranding
+		if brandingJSON.Valid && brandingJSON.String != "" {
+			var parsed domain.TenantBranding
+			if err := json.Unmarshal([]byte(brandingJSON.String), &parsed); err == nil &&
+				(parsed.LogoURL != "" || parsed.BannerURL != "" || parsed.BrandColor != "") {
+				branding = &parsed
 			}
 		}
 
@@ -123,6 +133,7 @@ func (r *CampaignRepository) ListAppCatalog(tenantKey, country string) ([]*domai
 			FlowType:        domain.FlowType(flowType),
 			SubscriberCount: subscriberCount,
 			Featured:        featuredRank.Valid,
+			TenantBranding:  branding,
 		}
 		if price.Valid {
 			v := price.Float64

@@ -23,12 +23,29 @@ import {
   TenantMutationResponse
 } from '../models/tenant.model';
 
+export interface PresignBrandingUploadRequest {
+  kind: 'logo' | 'banner';
+  file_name: string;
+  content_type: string;
+  size_bytes: number;
+}
+
+export interface PresignBrandingUploadResponse {
+  upload_url: string;
+  asset_url: string;
+  object_key: string;
+  expires_in_seconds: number;
+  max_size_bytes: number;
+  allowed_content_types: string[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class TenantService {
   private baseUrl = `${environment.acquisitionApiEndpoint}/v1/admin/tenants`;
   private channelsUrl = `${environment.acquisitionApiEndpoint}/v1/admin/channels`;
+  private tenantAssetsUrl = `${environment.acquisitionApiEndpoint}/v1/admin/tenant-assets`;
 
   constructor(private http: HttpClient) {}
 
@@ -61,6 +78,10 @@ export class TenantService {
 
   update(id: string, payload: TenantMutationPayload): Observable<TenantMutationResponse> {
     return this.http.patch<TenantMutationResponse>(`${this.baseUrl}/${encodeURIComponent(id)}`, payload);
+  }
+
+  presignBrandingUpload(payload: PresignBrandingUploadRequest): Observable<PresignBrandingUploadResponse> {
+    return this.http.post<PresignBrandingUploadResponse>(`${this.tenantAssetsUrl}/presign`, payload);
   }
 
   listMembers(tenantId: string, filters?: TenantFilters): Observable<TenantMemberListResponse> {

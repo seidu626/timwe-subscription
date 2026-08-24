@@ -46,6 +46,7 @@ func (s *AppCatalogService) Marketplace(country string) ([]*domain.AppMarketplac
 			section = &domain.AppMarketplaceTenant{
 				TenantKey:  product.Tenant,
 				TenantName: product.TenantName,
+				Branding:   product.TenantBranding,
 				Products:   make([]*domain.AppCatalogProduct, 0, 4),
 			}
 			byKey[product.Tenant] = section

@@ -67,6 +67,42 @@
           <mat-label>Metadata JSON</mat-label>
           <textarea matInput rows="5" [(ngModel)]="metadataText"></textarea>
         </mat-form-field>
+        <div class="branding-section">
+          <h4>Branding</h4>
+          <p class="branding-hint">Logo, banner and brand color shown in the Dayline app and landing surfaces. Uploads apply on save.</p>
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Logo URL</mat-label>
+              <input matInput [(ngModel)]="brandingForm.logo_url" />
+            </mat-form-field>
+            <button mat-stroked-button type="button" (click)="brandingLogoInput.click()" [disabled]="brandingUploading !== null">
+              {{ brandingUploading === 'logo' ? 'Uploading...' : 'Upload Logo' }}
+            </button>
+            <input #brandingLogoInput type="file" hidden accept="image/png,image/jpeg,image/webp"
+                   (change)="onBrandingFileSelected('logo', $event)" />
+            <img *ngIf="brandingForm.logo_url" class="branding-preview branding-preview-logo" [src]="brandingForm.logo_url" alt="Tenant logo preview" />
+          </div>
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Banner URL</mat-label>
+              <input matInput [(ngModel)]="brandingForm.banner_url" />
+            </mat-form-field>
+            <button mat-stroked-button type="button" (click)="brandingBannerInput.click()" [disabled]="brandingUploading !== null">
+              {{ brandingUploading === 'banner' ? 'Uploading...' : 'Upload Banner' }}
+            </button>
+            <input #brandingBannerInput type="file" hidden accept="image/png,image/jpeg,image/webp"
+                   (change)="onBrandingFileSelected('banner', $event)" />
+            <img *ngIf="brandingForm.banner_url" class="branding-preview branding-preview-banner" [src]="brandingForm.banner_url" alt="Tenant banner preview" />
+          </div>
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Brand Color</mat-label>
+              <input matInput placeholder="#00543d" maxlength="7" [(ngModel)]="brandingForm.brand_color" />
+            </mat-form-field>
+            <span class="branding-swatch" *ngIf="brandingForm.brand_color" [style.background]="brandingForm.brand_color"></span>
+          </div>
+          <p class="branding-error" *ngIf="brandingUploadError">{{ brandingUploadError }}</p>
+        </div>
         <div class="actions">
           <button mat-raised-button color="primary" (click)="saveTenant()" [disabled]="saving">
             {{ saving ? 'Saving...' : (editingTenantId ? 'Update Tenant' : 'Create Tenant') }}

@@ -128,6 +128,14 @@ func (s *CampaignAssetService) PresignArtworkUpload(ctx context.Context, req Cam
 	return s.presignImageUpload(ctx, req, "campaign-artwork", "artwork")
 }
 
+// PresignTenantBrandingUpload presigns an upload for tenant branding media
+// (logo/banner rendered by the Dayline app and landing surfaces). The
+// CampaignSlug field carries the branding kind so keys read
+// tenant-branding/tenants/<tenant>/<kind>/....
+func (s *CampaignAssetService) PresignTenantBrandingUpload(ctx context.Context, req CampaignAssetUploadRequest) (*CampaignAssetUploadResponse, error) {
+	return s.presignImageUpload(ctx, req, "tenant-branding", "tenant-branding")
+}
+
 func (s *CampaignAssetService) presignImageUpload(ctx context.Context, req CampaignAssetUploadRequest, keyPrefix, kind string) (*CampaignAssetUploadResponse, error) {
 	if !s.Enabled() {
 		return nil, fmt.Errorf("campaign asset storage is not configured")

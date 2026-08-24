@@ -304,6 +304,13 @@ type adminPresignBackgroundUploadRequest struct {
 	SizeBytes    int64  `json:"size_bytes"`
 }
 
+type adminPresignTenantBrandingUploadRequest struct {
+	Kind        string `json:"kind"`
+	FileName    string `json:"file_name"`
+	ContentType string `json:"content_type"`
+	SizeBytes   int64  `json:"size_bytes"`
+}
+
 type lpCopyPayload struct {
 	En *lpCopyText `json:"en"`
 	Ar *lpCopyText `json:"ar,omitempty"`
@@ -1099,6 +1106,53 @@ func (h *CampaignHandler) AdminPresignBackgroundUpload(ctx *fasthttp.RequestCtx)
 // the campaign-artwork key prefix for the app catalog's app_artwork_url.
 func (h *CampaignHandler) AdminPresignArtworkUpload(ctx *fasthttp.RequestCtx) {
 	h.adminPresignAssetUpload(ctx, "artwork")
+}
+
+// AdminPresignTenantBrandingUpload handles POST /v1/admin/tenant-assets/presign.
+// Branding media (logo/banner) shares the campaign asset storage but lands
+// under the tenant-branding key prefix, namespaced per tenant.
+func (h *CampaignHandler) AdminPresignTenantBrandingUpload(ctx *fasthttp.RequestCtx) {
+	if h.assetService == nil || !h.assetService.Enabled() {
+		writeJSONError(ctx, fasthttp.StatusNotImplemented, "Campaign asset upload is not configured")
+		return
+	}
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok || !identity.HasTenant() {
+		writeJSONError(ctx, fasthttp.StatusForbidden, "Tenant context required")
+		return
+	}
+
+	var req adminPresignTenantBrandingUploadRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	kind := strings.ToLower(strings.TrimSpace(req.Kind))
+	switch kind {
+	case "logo", "banner":
+	default:
+		writeJSONError(ctx, fasthttp.StatusBadRequest, "kind must be logo or banner")
+		return
+	}
+
+	resp, err := h.assetService.PresignTenantBrandingUpload(context.Background(), service.CampaignAssetUploadRequest{
+		TenantNamespace: assetTenantNamespace(identity),
+		CampaignSlug:    kind,
+		FileName:        req.FileName,
+		ContentType:     req.ContentType,
+		SizeBytes:       req.SizeBytes,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrCampaignAssetStorageUnavailable) {
+			writeJSONError(ctx, fasthttp.StatusServiceUnavailable, "Campaign asset storage unavailable")
+			return
+		}
+		writeJSONError(ctx, fasthttp.StatusBadRequest, err.Error())
+		return
+	}
+
+	writeJSON(ctx, fasthttp.StatusOK, resp)
 }
 
 func (h *CampaignHandler) adminPresignAssetUpload(ctx *fasthttp.RequestCtx, kind string) {

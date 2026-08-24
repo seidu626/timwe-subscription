@@ -129,9 +129,13 @@ function TenantSection({ tenant }: { tenant: MarketplaceTenant }) {
   return (
     <View style={styles.tenantSection}>
       <View style={styles.tenantHeader}>
-        <View style={styles.tenantBadge}>
-          <MaterialIcons name="storefront" size={18} color={colors.primary} />
-        </View>
+        {tenant.branding?.logo_url ? (
+          <Image source={{ uri: tenant.branding.logo_url }} style={styles.tenantLogo} contentFit="cover" />
+        ) : (
+          <View style={styles.tenantBadge}>
+            <MaterialIcons name="storefront" size={18} color={colors.primary} />
+          </View>
+        )}
         <View style={styles.tenantTextGroup}>
           <Text style={styles.tenantName} numberOfLines={1} ellipsizeMode="tail">
             {tenant.tenant_name}
@@ -261,6 +265,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15,110,82,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+  },
+  tenantLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceVariant,
     flexShrink: 0,
   },
   tenantTextGroup: {

@@ -33,9 +33,16 @@ export interface CatalogResponse {
   products: CatalogProduct[];
 }
 
+export interface TenantBranding {
+  logo_url?: string;
+  banner_url?: string;
+  brand_color?: string;
+}
+
 export interface MarketplaceTenant {
   tenant_key: string;
   tenant_name: string;
+  branding?: TenantBranding;
   products: CatalogProduct[];
 }
 

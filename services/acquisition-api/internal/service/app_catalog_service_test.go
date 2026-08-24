@@ -22,7 +22,7 @@ func newAppCatalogTestService(t *testing.T) (*AppCatalogService, sqlmock.Sqlmock
 
 func appCatalogColumns() []string {
 	return []string{
-		"tenant_key", "name", "slug", "price", "billing_cycle", "flow_type", "country",
+		"tenant_key", "name", "branding", "slug", "price", "billing_cycle", "flow_type", "country",
 		"app_name", "app_tagline", "app_description", "app_category",
 		"app_artwork_url", "app_sample_content", "lp_copy",
 		"app_featured_rank", "subscriber_count",
@@ -45,11 +45,11 @@ func TestAppCatalogService_Marketplace_GroupsProductsPerTenant(t *testing.T) {
 	mock.ExpectQuery(`FROM campaigns c\s+JOIN tenants t ON t.id = c.tenant_id\s+WHERE c.enabled = true AND t.status = 'ACTIVE' AND c.price IS NOT NULL\s+AND c.country = \$1\s+ORDER BY t.tenant_key, c.app_featured_rank NULLS LAST, c.slug`).
 		WithArgs("GH").
 		WillReturnRows(sqlmock.NewRows(appCatalogColumns()).
-			AddRow("careerify", "Careerify", "career-daily", 1.0, "DAILY", "OTP", "GH",
+			AddRow("careerify", "Careerify", `{"logo_url":"https://cdn.example/logo.png","brand_color":"#00543d"}`, "career-daily", 1.0, "DAILY", "OTP", "GH",
 				"Career Daily", "Grow every day", nil, nil, nil, nil, nil, nil, 0).
-			AddRow("nrg", "NRG", "nrg-fitness", 2.0, "DAILY", "OTP", "GH",
+			AddRow("nrg", "NRG", nil, "nrg-fitness", 2.0, "DAILY", "OTP", "GH",
 				"NRG Fitness", nil, nil, nil, nil, nil, nil, 1, 7).
-			AddRow("nrg", "NRG", "nrg-wellness", 2.0, "DAILY", "OTP", "GH",
+			AddRow("nrg", "NRG", nil, "nrg-wellness", 2.0, "DAILY", "OTP", "GH",
 				"NRG Wellness", nil, nil, nil, nil, nil, nil, nil, 0))
 
 	tenants, err := svc.Marketplace("GH")
@@ -74,6 +74,12 @@ func TestAppCatalogService_Marketplace_GroupsProductsPerTenant(t *testing.T) {
 	if p := tenants[0].Products[0]; p.Featured || p.SubscriberCount != 0 {
 		t.Fatalf("expected unranked product to stay unfeatured: %+v", p)
 	}
+	if b := tenants[0].Branding; b == nil || b.LogoURL != "https://cdn.example/logo.png" || b.BrandColor != "#00543d" {
+		t.Fatalf("expected careerify branding to surface on the tenant section: %+v", tenants[0].Branding)
+	}
+	if tenants[1].Branding != nil {
+		t.Fatalf("expected nrg (no branding metadata) to have nil branding: %+v", tenants[1].Branding)
+	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}
@@ -85,7 +91,7 @@ func TestAppCatalogService_List_KeepsTenantFilter(t *testing.T) {
 	mock.ExpectQuery(`WHERE c.enabled = true AND t.status = 'ACTIVE' AND c.price IS NOT NULL\s+AND t.tenant_key = \$1\s+AND c.country = \$2`).
 		WithArgs("careerify", "GH").
 		WillReturnRows(sqlmock.NewRows(appCatalogColumns()).
-			AddRow("careerify", "Careerify", "career-daily", 1.0, "DAILY", "OTP", "GH",
+			AddRow("careerify", "Careerify", nil, "career-daily", 1.0, "DAILY", "OTP", "GH",
 				"Career Daily", nil, nil, nil, nil, nil, nil, nil, 3))
 
 	products, err := svc.List("careerify", "GH")

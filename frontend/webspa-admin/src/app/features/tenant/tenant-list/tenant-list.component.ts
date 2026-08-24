@@ -24,7 +24,7 @@ import {
   TenantMutationPayload,
   TenantStatus
 } from '../../+state/models/tenant.model';
-import { TenantService } from '../../+state/services/tenant.service';
+import { PresignBrandingUploadResponse, TenantService } from '../../+state/services/tenant.service';
 import {
   TenantWorkspaceOption,
   TenantWorkspaceService,
@@ -100,6 +100,9 @@ export class TenantListComponent implements OnInit, OnDestroy {
   testSmsMessage = '';
   testSmsSending = false;
   metadataText = '{}';
+  brandingForm = this.emptyBrandingForm();
+  brandingUploading: 'logo' | 'banner' | null = null;
+  brandingUploadError = '';
   private readonly destroy$ = new Subject<void>();
   private workspaceKey = '';
 
@@ -175,6 +178,13 @@ export class TenantListComponent implements OnInit, OnDestroy {
       default_country: tenant.default_country
     };
     this.metadataText = JSON.stringify(tenant.metadata || {}, null, 2);
+    const branding = (tenant.metadata?.['branding'] || {}) as Record<string, unknown>;
+    this.brandingForm = {
+      logo_url: typeof branding['logo_url'] === 'string' ? (branding['logo_url'] as string) : '',
+      banner_url: typeof branding['banner_url'] === 'string' ? (branding['banner_url'] as string) : '',
+      brand_color: typeof branding['brand_color'] === 'string' ? (branding['brand_color'] as string) : ''
+    };
+    this.brandingUploadError = '';
     this.memberForm = this.emptyMemberForm();
     if (this.platformScoped) {
       this.loadTenantMembers(tenant.id);
@@ -209,6 +219,9 @@ export class TenantListComponent implements OnInit, OnDestroy {
     this.channelDataSource.data = [];
     this.credentialDataSource.data = [];
     this.metadataText = '{}';
+    this.brandingForm = this.emptyBrandingForm();
+    this.brandingUploading = null;
+    this.brandingUploadError = '';
     this.selectedChannelId = '';
   }
 
@@ -230,6 +243,7 @@ export class TenantListComponent implements OnInit, OnDestroy {
     if (metadata === null) {
       return;
     }
+    this.applyBrandingToMetadata(metadata);
 
     const payload: TenantMutationPayload = {
       name: this.form.name.trim(),
@@ -871,6 +885,79 @@ export class TenantListComponent implements OnInit, OnDestroy {
         this.toast(this.extractErrorMessage(err, 'Failed to load credential references'));
       }
     });
+  }
+
+  onBrandingFileSelected(kind: 'logo' | 'banner', event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files && input.files[0];
+    if (!file) {
+      return;
+    }
+    input.value = '';
+    this.brandingUploadError = '';
+    this.brandingUploading = kind;
+    this.tenantService.presignBrandingUpload({
+      kind,
+      file_name: file.name,
+      content_type: file.type,
+      size_bytes: file.size
+    }).subscribe({
+      next: async (presign: PresignBrandingUploadResponse) => {
+        try {
+          await this.uploadBrandingFile(file, presign.upload_url);
+          if (kind === 'logo') {
+            this.brandingForm.logo_url = presign.asset_url;
+          } else {
+            this.brandingForm.banner_url = presign.asset_url;
+          }
+          this.toast(`${kind === 'logo' ? 'Logo' : 'Banner'} uploaded. Save the tenant to apply.`);
+        } catch (err) {
+          this.brandingUploadError = err instanceof Error ? err.message : 'Upload failed.';
+        } finally {
+          this.brandingUploading = null;
+        }
+      },
+      error: (err) => {
+        this.brandingUploading = null;
+        this.brandingUploadError = this.extractErrorMessage(err, 'Failed to initialize upload');
+      }
+    });
+  }
+
+  private async uploadBrandingFile(file: File, uploadUrl: string): Promise<void> {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file
+    });
+    if (!response.ok) {
+      throw new Error(`Upload failed with status ${response.status}`);
+    }
+  }
+
+  /** Folds the branding form into the metadata object the PATCH sends. The
+   *  tenant PATCH replaces metadata_json wholesale, so branding must ride the
+   *  same payload as the raw metadata editor to avoid clobbering either. */
+  private applyBrandingToMetadata(metadata: Record<string, unknown>): void {
+    const branding: Record<string, string> = {};
+    if (this.brandingForm.logo_url.trim()) {
+      branding['logo_url'] = this.brandingForm.logo_url.trim();
+    }
+    if (this.brandingForm.banner_url.trim()) {
+      branding['banner_url'] = this.brandingForm.banner_url.trim();
+    }
+    if (this.brandingForm.brand_color.trim()) {
+      branding['brand_color'] = this.brandingForm.brand_color.trim();
+    }
+    if (Object.keys(branding).length > 0) {
+      metadata['branding'] = branding;
+    } else {
+      delete metadata['branding'];
+    }
+  }
+
+  private emptyBrandingForm(): { logo_url: string; banner_url: string; brand_color: string } {
+    return { logo_url: '', banner_url: '', brand_color: '' };
   }
 
   private parseMetadata(): Record<string, unknown> | null {

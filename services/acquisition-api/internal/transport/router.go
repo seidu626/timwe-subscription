@@ -137,6 +137,15 @@ func NewRouter(
 			}
 			return
 
+		// Admin tenant branding uploads (logo/banner)
+		case strings.EqualFold(path, "/v1/admin/tenant-assets/presign"):
+			if method == fasthttp.MethodPost {
+				campaignHandler.AdminPresignTenantBrandingUpload(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		// Admin postback stats (health check)
 		case strings.EqualFold(path, "/v1/admin/postbacks/stats"):
 			if method == fasthttp.MethodGet {

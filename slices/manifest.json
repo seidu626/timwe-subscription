@@ -2426,7 +2426,27 @@
       "manual_smoke": "Upload artwork from the admin console; the stored URL loads over https and renders in the Dayline app product card.",
       "spec_decision": "slices/TMP-083-campaign-media-public-serving/spec.md",
       "evidence": "go build + 5 CampaignAsset/Presign tests pass (2 new: rewrite-to-public-base fail-before/pass-after, no-rewrite default). Deployed to droplet: acquisition-api c51e7600b2e8 + webspa-admin a4eb2c26a45c (nginx location ^~ /assets/ proxying minio:9000 with pinned Host). Droplet .env: PUBLIC_BASE_URL + PUBLIC_UPLOAD_BASE_URL=https://admin.nouveauricheglobalgroup.com/assets/campaign-assets, MAX_UPLOAD_BYTES=1000000 (host nginx 1m body cap, not editable without sudo). Live smoke: anonymous GET via public proxy 200; presigned PUT rewritten onto the public host returned 200 with valid signature and read back. Smoke objects removed."
+    },
+    {
+      "id": "TMP-084",
+      "class": "feature",
+      "name": "tenant-branding",
+      "description": "Tenant logos/banners/brand color: stored in tenants.metadata_json.branding, uploaded from the admin console via the existing presign flow, exposed on the app marketplace/catalog, rendered in the Dayline app.",
+      "state": "done",
+      "verification": [
+        "cd services/acquisition-api && go build ./... && go test ./internal/... -run 'Branding|AppCatalog' -count=1",
+        "cd frontend/dayline-mobile && npx tsc --noEmit"
+      ],
+      "manual_smoke": "Set branding on the careerify tenant via console/API; GET /v1/app/marketplace returns branding; app renders the logo.",
+      "spec_decision": "slices/TMP-084-tenant-branding/spec.md",
+      "evidence": {
+        "tests": "go test ./internal/... -run 'Branding|AppCatalog|Presign' -count=1: all pass (new: marketplace branding grouping + nil-branding case, tenant-branding key prefix presign); repository fixtures updated for the new branding column",
+        "builds": "go build ./... clean; webspa-admin ng build production clean; dayline-mobile tsc --noEmit clean, expo lint no new issues",
+        "deploy": "acquisition-api 6b0f6e1d8a3c + webspa-admin 12d27ffe0e01 live on droplet (both healthy); krakend /v1/admin/tenant-assets/presign route added to live template + restart (backup ~/Endpoint.tmpl.bak-tmp084)",
+        "smoke": "POST /v1/admin/tenant-assets/presign via public API returns 401 unauthenticated (routed, auth-gated); GET /v1/app/catalog?country=GH serves from new image",
+        "gaps": "authenticated console upload + app rendering verified by code review and builds only; on-device/browser smoke pending next APK + operator use"
+      }
     }
   ],
-  "updated_at": "2026-08-24T10:06:10Z"
+  "updated_at": "2026-08-24T10:07:01Z"
 }

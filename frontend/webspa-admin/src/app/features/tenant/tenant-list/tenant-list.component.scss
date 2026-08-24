@@ -336,3 +336,51 @@
     grid-template-columns: 1fr;
   }
 }
+
+.branding-section {
+  margin: 8px 0 16px;
+
+  h4 {
+    margin: 0 0 4px;
+  }
+
+  .branding-hint {
+    margin: 0 0 12px;
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 12px;
+  }
+
+  .row {
+    align-items: center;
+  }
+
+  .branding-preview {
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    object-fit: cover;
+  }
+
+  .branding-preview-logo {
+    width: 48px;
+    height: 48px;
+  }
+
+  .branding-preview-banner {
+    width: 120px;
+    height: 48px;
+  }
+
+  .branding-swatch {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+  }
+
+  .branding-error {
+    color: #c62828;
+    font-size: 12px;
+    margin: 4px 0 0;
+  }
+}

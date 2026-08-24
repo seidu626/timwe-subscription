@@ -199,3 +199,31 @@ func TestPresignArtworkUploadUsesSeparateArtworkKeyPrefix(t *testing.T) {
 		t.Fatalf("expected background key under campaign-backgrounds prefix, got %q", background.ObjectKey)
 	}
 }
+
+func TestPresignTenantBrandingUploadUsesBrandingKeyPrefix(t *testing.T) {
+	svc, err := NewCampaignAssetService(CampaignAssetStorageConfig{
+		Enabled:         true,
+		Endpoint:        "s3.example.com",
+		Bucket:          "campaign-assets",
+		Region:          "us-east-1",
+		AccessKeyID:     "access-key",
+		SecretAccessKey: "secret-key",
+	}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("failed to create campaign asset service: %v", err)
+	}
+
+	resp, err := svc.PresignTenantBrandingUpload(context.Background(), CampaignAssetUploadRequest{
+		TenantNamespace: "tenant-a",
+		CampaignSlug:    "logo",
+		FileName:        "logo.png",
+		ContentType:     "image/png",
+		SizeBytes:       1024,
+	})
+	if err != nil {
+		t.Fatalf("PresignTenantBrandingUpload: %v", err)
+	}
+	if !strings.HasPrefix(resp.ObjectKey, "tenant-branding/tenants/tenant-a/logo/") {
+		t.Fatalf("expected branding key under tenant-branding/.../logo prefix, got %q", resp.ObjectKey)
+	}
+}

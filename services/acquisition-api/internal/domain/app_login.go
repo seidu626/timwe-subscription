@@ -76,6 +76,18 @@ type AppCatalogProduct struct {
 	FlowType        FlowType `json:"flow_type"`
 	SubscriberCount int      `json:"subscriber_count"`
 	Featured        bool     `json:"featured,omitempty"`
+	// TenantBranding carries the owning tenant's branding from the catalog
+	// query to the marketplace grouping; it is not part of the product wire
+	// shape (branding is exposed per tenant, not per product).
+	TenantBranding *TenantBranding `json:"-"`
+}
+
+// TenantBranding is the tenant-controlled visual identity stored under
+// tenants.metadata_json -> 'branding' and surfaced on marketplace sections.
+type TenantBranding struct {
+	LogoURL    string `json:"logo_url,omitempty"`
+	BannerURL  string `json:"banner_url,omitempty"`
+	BrandColor string `json:"brand_color,omitempty"`
 }
 
 // MapTransactionStatusToApp collapses the acquisition transaction state
@@ -100,6 +112,7 @@ func MapTransactionStatusToApp(status TransactionStatus) string {
 type AppMarketplaceTenant struct {
 	TenantKey  string               `json:"tenant_key"`
 	TenantName string               `json:"tenant_name"`
+	Branding   *TenantBranding      `json:"branding,omitempty"`
 	Products   []*AppCatalogProduct `json:"products"`
 }
 
