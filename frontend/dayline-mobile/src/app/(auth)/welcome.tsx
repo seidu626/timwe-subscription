@@ -1,12 +1,16 @@
+import { useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
-import { colors, spacing, typography } from '@/theme/tokens';
+import { spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 
 export default function WelcomeScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safeArea}>
@@ -37,7 +41,7 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.primaryContainer,

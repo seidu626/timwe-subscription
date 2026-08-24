@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect , useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
@@ -8,10 +8,13 @@ import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { ErrorState, LoadingState } from '@/components/AsyncState';
 import { useFeedItem, useMarkFeedItemRead } from '@/hooks/useFeed';
-import { colors, spacing, typography } from '@/theme/tokens';
+import { spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 import { estimateReadTime, formatRelativeDay, parseHttpUrl } from '@/utils/format';
 
 export default function ContentDetailScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: item, isPending, isError, error, refetch } = useFeedItem(id);
   const markRead = useMarkFeedItemRead();
@@ -98,7 +101,7 @@ export default function ContentDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.surface,

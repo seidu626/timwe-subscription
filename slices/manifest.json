@@ -2446,6 +2446,21 @@
         "smoke": "POST /v1/admin/tenant-assets/presign via public API returns 401 unauthenticated (routed, auth-gated); GET /v1/app/catalog?country=GH serves from new image",
         "gaps": "authenticated console upload + app rendering verified by code review and builds only; on-device/browser smoke pending next APK + operator use"
       }
+    },
+    {
+      "id": "TMP-085",
+      "title": "Dayline app themes (light/dark/system) + UX polish",
+      "state": "building",
+      "spec_decision": "slices/TMP-085-app-themes/spec.md",
+      "verification": "cd frontend/dayline-mobile && npx tsc --noEmit && npx expo lint",
+      "status": "done",
+      "evidence": {
+        "typecheck": "cd frontend/dayline-mobile && ./node_modules/.bin/tsc --noEmit -> clean",
+        "lint": "npx expo lint -> only pre-existing baseline issues (use-color-scheme.web.ts set-state-in-effect error, 2 OtpInput warnings); zero new issues",
+        "scope": "25 consumer files converted to createStyles(colors) factories + useTheme/useMemo hooks; bare colors export removed from tokens.ts so unconverted imports fail compile",
+        "features": "darkColors M3 palette; ThemeContext (system/light/dark, persisted via secureStorage key dayline_theme_preference); root layout ThemeProvider + scheme-driven StatusBar + Stack contentStyle background; Profile Appearance pills; primarySoft token replaces green rgba overlays (discover x3, subscriptions ACTIVE); focusRing.color -> colors.primary in OtpInput/PhoneInput; formatProductName sentence-cases ALL-CAPS names in ProductRow, FeaturedCard, product detail/confirm/success, subscriptions card + cancel dialog",
+        "gaps": "no automated test runner in dayline-mobile (verification = tsc+lint per manifest); manual APK smoke pending after rebuild"
+      }
     }
   ],
   "updated_at": "2026-08-24T10:07:01Z"

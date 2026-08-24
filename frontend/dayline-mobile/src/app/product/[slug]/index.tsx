@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -9,10 +10,13 @@ import { Card } from '@/components/Card';
 import { ErrorState, LoadingState } from '@/components/AsyncState';
 import { useSettings } from '@/context/SettingsContext';
 import { useCatalogProduct } from '@/hooks/useCatalog';
-import { colors, radii, spacing, typography } from '@/theme/tokens';
-import { formatBillingCycle, formatCurrency } from '@/utils/format';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
+import { formatBillingCycle, formatCurrency, formatProductName } from '@/utils/format';
 
 export default function ProductDetailScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { isPending, isError, error, refetch, product } = useCatalogProduct(slug);
   const { dataSaverEnabled } = useSettings();
@@ -52,7 +56,7 @@ export default function ProductDetailScreen() {
           )}
 
           <Text style={styles.title}>
-            {product.name} — {product.tagline}
+            {formatProductName(product.name)} — {product.tagline}
           </Text>
           <Text style={styles.description}>{product.description}</Text>
 
@@ -94,7 +98,7 @@ export default function ProductDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.surface,

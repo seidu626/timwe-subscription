@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState , useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,13 +9,16 @@ import { Card } from '@/components/Card';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { useCancelSubscription, useSubscriptions } from '@/hooks/useSubscriptions';
-import { colors, spacing, typography } from '@/theme/tokens';
-import { formatBillingCycle, formatCurrency, pluralize } from '@/utils/format';
+import { spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
+import { formatBillingCycle, formatCurrency, formatProductName, pluralize } from '@/utils/format';
 import type { Subscription } from '@/api/types';
 
 const PAST_STATUSES: Subscription['status'][] = ['CANCELLED', 'FAILED'];
 
 export default function SubscriptionsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const subscriptions = useSubscriptions();
   const cancelSubscription = useCancelSubscription();
   const [cancelingRef, setCancelingRef] = useState<string | null>(null);
@@ -43,7 +46,7 @@ export default function SubscriptionsScreen() {
   }
 
   function confirmCancel(subscription: Subscription) {
-    const title = `Cancel ${subscription.product_name}?`;
+    const title = `Cancel ${formatProductName(subscription.product_name)}?`;
     const body = "You'll lose access at the end of the current billing period.";
     // Alert.alert with buttons is a no-op on react-native-web, so the web
     // build must confirm through the browser dialog instead.
@@ -163,11 +166,13 @@ function SubscriptionCard({
   cancelingRef: string | null;
   onCancel: (subscription: Subscription) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Card style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.productName} numberOfLines={2} ellipsizeMode="tail">
-          {subscription.product_name}
+          {formatProductName(subscription.product_name)}
         </Text>
         <StatusPill status={subscription.status} />
       </View>
@@ -194,6 +199,10 @@ function SubscriptionCard({
 }
 
 function StatusPill({ status }: { status: Subscription['status'] }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const statusStyles = useMemo(() => createStatusStyles(colors), [colors]);
+  const statusTextStyles = useMemo(() => createStatusTextStyles(colors), [colors]);
   const label =
     status === 'ACTIVE' ? 'Active' : status === 'PENDING' ? 'Pending' : status === 'CANCELLED' ? 'Cancelled' : 'Failed';
   return (
@@ -203,7 +212,7 @@ function StatusPill({ status }: { status: Subscription['status'] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   pageTitle: {
     ...typography.headlineLgMobile,
     color: colors.primary,
@@ -292,16 +301,16 @@ const styles = StyleSheet.create({
   },
 });
 
-const statusStyles = {
-  ACTIVE: { backgroundColor: 'rgba(15,110,82,0.14)' },
+const createStatusStyles = (colors: ThemeColors) => ({
+  ACTIVE: { backgroundColor: colors.primarySoft },
   PENDING: { backgroundColor: 'rgba(253,183,65,0.2)' },
   CANCELLED: { backgroundColor: 'rgba(73,69,79,0.1)' },
   FAILED: { backgroundColor: 'rgba(186,26,26,0.12)' },
-} as const;
+} as const);
 
-const statusTextStyles = {
+const createStatusTextStyles = (colors: ThemeColors) => ({
   ACTIVE: { color: colors.primary },
   PENDING: { color: colors.secondary },
   CANCELLED: { color: colors.onSurfaceVariant },
   FAILED: { color: colors.error },
-} as const;
+} as const);

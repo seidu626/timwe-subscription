@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState , useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -8,10 +8,13 @@ import { PhoneInput } from '@/components/PhoneInput';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useRequestOtp } from '@/hooks/useAuthMutations';
-import { colors, spacing, typography } from '@/theme/tokens';
+import { spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 import { isCompleteGhanaLocalNumber, toE164Ghana } from '@/utils/phone';
 
 export default function PhoneEntryScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { tenant } = useAuth();
   const [localNumber, setLocalNumber] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +71,7 @@ export default function PhoneEntryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   back: {
     width: 40,
     height: 40,

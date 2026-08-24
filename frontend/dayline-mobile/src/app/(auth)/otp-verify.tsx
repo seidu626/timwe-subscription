@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState , useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Link, router, useLocalSearchParams } from 'expo-router';
@@ -9,12 +9,15 @@ import { OtpInput } from '@/components/OtpInput';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useRequestOtp, useVerifyOtp } from '@/hooks/useAuthMutations';
-import { colors, spacing, typography } from '@/theme/tokens';
+import { spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 import { formatMsisdnForDisplay } from '@/utils/phone';
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function OtpVerifyScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { msisdn } = useLocalSearchParams<{ msisdn: string }>();
   const { tenant, signIn } = useAuth();
   const [code, setCode] = useState('');
@@ -154,7 +157,7 @@ export default function OtpVerifyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   back: {
     width: 40,
     height: 40,

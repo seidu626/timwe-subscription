@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, radii, spacing, typography } from '@/theme/tokens';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 
 type Variant = 'primary' | 'secondary' | 'accent' | 'text' | 'inverse';
 
@@ -25,6 +27,10 @@ export function Button({
   style,
   testID,
 }: ButtonProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const variantStyles = useMemo(() => createVariantStyles(colors), [colors]);
+  const labelStyles = useMemo(() => createLabelStyles(colors), [colors]);
   const isDisabled = disabled || loading;
   return (
     <Pressable
@@ -53,7 +59,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   base: {
     paddingVertical: 16,
     paddingHorizontal: spacing.containerMargin,
@@ -77,7 +83,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const variantStyles = StyleSheet.create({
+const createVariantStyles = (colors: ThemeColors) => StyleSheet.create({
   primary: { backgroundColor: colors.primary },
   secondary: {
     backgroundColor: 'transparent',
@@ -89,7 +95,7 @@ const variantStyles = StyleSheet.create({
   inverse: { backgroundColor: colors.onPrimary },
 });
 
-const labelStyles = StyleSheet.create({
+const createLabelStyles = (colors: ThemeColors) => StyleSheet.create({
   primary: { color: colors.onPrimary },
   secondary: { color: colors.primary },
   accent: { color: colors.onSecondaryContainer },

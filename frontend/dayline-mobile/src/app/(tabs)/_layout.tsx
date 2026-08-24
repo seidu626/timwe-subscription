@@ -3,10 +3,12 @@ import { Tabs } from 'expo-router';
 import { Platform, StyleSheet } from 'react-native';
 
 import { usePushRegistration } from '@/hooks/usePushRegistration';
-import { colors, typography } from '@/theme/tokens';
+import { typography } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 import { TAB_BAR_HEIGHT } from '@/theme/layout';
 
 export default function TabsLayout() {
+  const { colors } = useTheme();
   usePushRegistration();
 
   return (

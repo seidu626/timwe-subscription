@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState , useMemo } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { colors, focusRing, radii, spacing, typography } from '@/theme/tokens';
+import { focusRing, radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 import { formatLocalInput } from '@/utils/phone';
 
 interface PhoneInputProps {
@@ -11,6 +12,8 @@ interface PhoneInputProps {
 }
 
 export function PhoneInput({ value, onChange, autoFocus }: PhoneInputProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [focused, setFocused] = useState(false);
 
   return (
@@ -37,7 +40,7 @@ export function PhoneInput({ value, onChange, autoFocus }: PhoneInputProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   group: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -48,7 +51,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   groupFocused: {
-    borderColor: focusRing.color,
+    borderColor: colors.primary,
     borderWidth: focusRing.width,
   },
   prefix: {

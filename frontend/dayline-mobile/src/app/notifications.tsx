@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState , useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -10,7 +10,8 @@ import { useFeed } from '@/hooks/useFeed';
 import { useNotificationPrefs, useSetNotificationPref } from '@/hooks/useDevices';
 import { usePushRegistrationStatus } from '@/hooks/usePushRegistration';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
-import { colors, radii, spacing, typography } from '@/theme/tokens';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 import { formatRelativeDay } from '@/utils/format';
 import type { NotificationChannel } from '@/api/types';
 
@@ -21,6 +22,8 @@ const CHANNELS: { value: NotificationChannel; label: string }[] = [
 ];
 
 export default function NotificationsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const subscriptions = useSubscriptions();
   const feed = useFeed();
   const setPref = useSetNotificationPref();
@@ -152,7 +155,7 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -6,7 +6,7 @@
  * inline where they occur (see `focusRing` below).
  */
 
-export const colors = {
+export const lightColors = {
   surface: '#f7faf2',
   surfaceDim: '#d8dbd3',
   surfaceBright: '#f7faf2',
@@ -55,14 +55,72 @@ export const colors = {
   onBackground: '#191d18',
   surfaceVariant: '#e0e4dc',
   cardBorder: '#e5e5e1',
+  primarySoft: 'rgba(15,110,82,0.12)',
 } as const;
+
+export type ThemeColors = Readonly<Record<keyof typeof lightColors, string>>;
+
+// Material 3 dark counterparts for the same green seed. The *Fixed roles are
+// theme-invariant by M3 definition and repeat the light values verbatim.
+export const darkColors: ThemeColors = {
+  surface: '#101410',
+  surfaceDim: '#101410',
+  surfaceBright: '#363a35',
+  surfaceContainerLowest: '#0b0f0b',
+  surfaceContainerLow: '#191d18',
+  surfaceContainer: '#1d211c',
+  surfaceContainerHigh: '#272b26',
+  surfaceContainerHighest: '#323631',
+  onSurface: '#e0e4dc',
+  onSurfaceVariant: '#bec9c2',
+  inverseSurface: '#e0e4dc',
+  inverseOnSurface: '#2d312c',
+  outline: '#89938c',
+  outlineVariant: '#3f4944',
+  surfaceTint: '#84d7b4',
+  primary: '#84d7b4',
+  onPrimary: '#00382a',
+  primaryContainer: '#00513b',
+  onPrimaryContainer: '#a0f3d0',
+  inversePrimary: '#096b50',
+  secondary: '#ffba47',
+  onSecondary: '#442b00',
+  secondaryContainer: '#614000',
+  onSecondaryContainer: '#ffddb0',
+  tertiary: '#c7c7c3',
+  onTertiary: '#30312f',
+  tertiaryContainer: '#464744',
+  onTertiaryContainer: '#e3e2df',
+  error: '#ffb4ab',
+  onError: '#690005',
+  errorContainer: '#93000a',
+  onErrorContainer: '#ffdad6',
+  primaryFixed: '#a0f3d0',
+  primaryFixedDim: '#84d7b4',
+  onPrimaryFixed: '#002116',
+  onPrimaryFixedVariant: '#00513b',
+  secondaryFixed: '#ffddb0',
+  secondaryFixedDim: '#ffba47',
+  onSecondaryFixed: '#291800',
+  onSecondaryFixedVariant: '#614000',
+  tertiaryFixed: '#e3e2df',
+  tertiaryFixedDim: '#c7c7c3',
+  onTertiaryFixed: '#1b1c1a',
+  onTertiaryFixedVariant: '#464744',
+  background: '#101410',
+  onBackground: '#e0e4dc',
+  surfaceVariant: '#3f4944',
+  cardBorder: '#2a2e29',
+  primarySoft: 'rgba(132,215,180,0.16)',
+};
 
 // Fix-in-implementation: the design references (dayline_phone_entry,
 // dayline_verification) render a neutral border-color focus state on
 // inputs. Per the W1 brief this ships with an emerald focus ring (brand
 // primary) instead, including on the OTP boxes.
+// The ring color is the theme's primary; consumers take it from useTheme()
+// so the ring tracks light/dark.
 export const focusRing = {
-  color: colors.primary,
   width: 2,
 };
 

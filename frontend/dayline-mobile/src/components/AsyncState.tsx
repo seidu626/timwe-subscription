@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from './Button';
-import { colors, spacing, typography } from '@/theme/tokens';
+import { spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 
 interface StateProps {
   title: string;
@@ -10,6 +12,8 @@ interface StateProps {
 }
 
 export function LoadingState({ label = 'Loading…' }: { label?: string }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.container}>
       <ActivityIndicator color={colors.primary} size="large" />
@@ -19,6 +23,8 @@ export function LoadingState({ label = 'Loading…' }: { label?: string }) {
 }
 
 export function EmptyState({ title, message, icon = 'inbox' }: StateProps & { icon?: keyof typeof MaterialIcons.glyphMap }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.container}>
       <MaterialIcons name={icon} size={40} color={colors.outline} />
@@ -29,6 +35,8 @@ export function EmptyState({ title, message, icon = 'inbox' }: StateProps & { ic
 }
 
 export function ErrorState({ title, message, onRetry }: StateProps & { onRetry?: () => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.container}>
       <MaterialIcons name="error-outline" size={40} color={colors.error} />
@@ -39,7 +47,7 @@ export function ErrorState({ title, message, onRetry }: StateProps & { onRetry?:
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',

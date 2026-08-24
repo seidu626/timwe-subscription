@@ -8,7 +8,8 @@ import { ProductRow } from '@/components/ProductRow';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { useMarketplaceTenant } from '@/hooks/useCatalog';
-import { colors, radii, spacing, typography } from '@/theme/tokens';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 import { pluralize } from '@/utils/format';
 
 // Category chips only earn their place once a storefront is large enough
@@ -18,6 +19,8 @@ const CATEGORY_FILTER_THRESHOLD = 15;
 const ALL_CATEGORY = 'All';
 
 export default function TenantStorefrontScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { tenantKey } = useLocalSearchParams<{ tenantKey: string }>();
   const { isPending, isError, error, refetch, tenant } = useMarketplaceTenant(tenantKey);
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
@@ -115,7 +118,7 @@ export default function TenantStorefrontScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',

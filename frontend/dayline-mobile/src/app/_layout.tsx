@@ -14,6 +14,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { SettingsProvider } from '@/context/SettingsContext';
+import { ThemeProvider, useTheme } from '@/theme/ThemeContext';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -25,9 +26,10 @@ const queryClient = new QueryClient({
 
 function RootNavigator() {
   const { status } = useAuth();
+  const { colors } = useTheme();
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
       <Stack.Protected guard={status === 'signedIn'}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="product/[slug]/index" />
@@ -41,6 +43,16 @@ function RootNavigator() {
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
     </Stack>
+  );
+}
+
+function ThemedShell() {
+  const { scheme } = useTheme();
+  return (
+    <>
+      <RootNavigator />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+    </>
   );
 }
 
@@ -67,8 +79,9 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <SettingsProvider>
-            <RootNavigator />
-            <StatusBar style="dark" />
+            <ThemeProvider>
+              <ThemedShell />
+            </ThemeProvider>
           </SettingsProvider>
         </AuthProvider>
       </QueryClientProvider>

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
@@ -5,9 +6,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { useCatalogProduct } from '@/hooks/useCatalog';
-import { colors, radii, spacing, typography } from '@/theme/tokens';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
+import { formatProductName } from '@/utils/format';
 
 export default function SubscriptionSuccessScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { product } = useCatalogProduct(slug);
 
@@ -19,7 +24,7 @@ export default function SubscriptionSuccessScreen() {
         </View>
         <Text style={styles.title}>You&apos;re in!</Text>
         <Text style={styles.subtitle}>
-          {product ? `You're subscribed to ${product.name}.` : 'Your subscription is active.'} New content will
+          {product ? `You're subscribed to ${formatProductName(product.name)}.` : 'Your subscription is active.'} New content will
           appear in your Today feed.
         </Text>
 
@@ -41,7 +46,7 @@ export default function SubscriptionSuccessScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.surface,

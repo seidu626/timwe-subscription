@@ -1,10 +1,12 @@
+import { useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
-import { colors, radii, spacing, typography } from '@/theme/tokens';
-import { formatBillingCycle, formatCurrency } from '@/utils/format';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
+import { formatBillingCycle, formatCurrency, formatProductName } from '@/utils/format';
 import type { CatalogProduct } from '@/api/types';
 
 // Shared by Discover and the tenant storefront so both render products
@@ -13,6 +15,8 @@ import type { CatalogProduct } from '@/api/types';
 // required on web; flex children otherwise never shrink below their
 // intrinsic content width).
 export function ProductRow({ product }: { product: CatalogProduct }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Link href={{ pathname: '/product/[slug]', params: { slug: product.slug } }} asChild>
       <Pressable accessibilityRole="button">
@@ -23,7 +27,7 @@ export function ProductRow({ product }: { product: CatalogProduct }) {
             </View>
             <View style={styles.productTextGroup}>
               <Text style={styles.productName} numberOfLines={2} ellipsizeMode="tail">
-                {product.name}
+                {formatProductName(product.name)}
               </Text>
               <Text style={styles.productTagline} numberOfLines={1} ellipsizeMode="tail">
                 {product.tagline}
@@ -45,7 +49,7 @@ export function ProductRow({ product }: { product: CatalogProduct }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   productRow: {
     flexDirection: 'row',
     alignItems: 'center',

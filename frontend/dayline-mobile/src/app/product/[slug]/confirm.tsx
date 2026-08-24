@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState , useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -8,13 +8,16 @@ import { Button } from '@/components/Button';
 import { ErrorState, LoadingState } from '@/components/AsyncState';
 import { useCatalogProduct } from '@/hooks/useCatalog';
 import { useConfirmSubscription, useCreateSubscription } from '@/hooks/useSubscriptions';
-import { colors, radii, spacing, typography } from '@/theme/tokens';
-import { formatBillingCycle, formatCurrency } from '@/utils/format';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
+import { formatBillingCycle, formatCurrency, formatProductName } from '@/utils/format';
 import type { SubscriptionStatus } from '@/api/types';
 
 type Step = 'review' | 'awaiting_pin' | 'error' | 'pending';
 
 export default function ConfirmSubscriptionScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { isPending, isError, product } = useCatalogProduct(slug);
   const createSubscription = useCreateSubscription();
@@ -84,7 +87,7 @@ export default function ConfirmSubscriptionScreen() {
       {product ? (
         <View style={styles.content}>
           <Text style={styles.title}>Confirm your subscription</Text>
-          <Text style={styles.productName}>{product.name}</Text>
+          <Text style={styles.productName}>{formatProductName(product.name)}</Text>
           <Text style={styles.productTagline}>{product.tagline}</Text>
 
           <View style={styles.priceRow}>
@@ -157,7 +160,7 @@ export default function ConfirmSubscriptionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.surfaceContainerLowest,

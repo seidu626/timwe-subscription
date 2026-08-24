@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useRef, useState , useMemo } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { colors, focusRing, radii, typography } from '@/theme/tokens';
+import { focusRing, radii, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 
 const LENGTH = 6;
 
@@ -12,6 +13,8 @@ interface OtpInputProps {
 }
 
 export function OtpInput({ value, onChange, autoFocus }: OtpInputProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const inputs = useRef<Array<TextInput | null>>([]);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(autoFocus ? 0 : null);
   const digits = value.padEnd(LENGTH, ' ').split('').slice(0, LENGTH);
@@ -92,7 +95,7 @@ export function OtpInput({ value, onChange, autoFocus }: OtpInputProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -111,7 +114,7 @@ const styles = StyleSheet.create({
   },
   // Fix-in-implementation: emerald (brand primary) focus ring, not blue.
   boxFocused: {
-    borderColor: focusRing.color,
+    borderColor: colors.primary,
     borderWidth: focusRing.width,
   },
 });

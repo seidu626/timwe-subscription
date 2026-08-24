@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Link } from 'expo-router';
@@ -9,8 +10,9 @@ import { ScreenContainer } from '@/components/ScreenContainer';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
 import { useMarketplace } from '@/hooks/useCatalog';
 import { useFeed } from '@/hooks/useFeed';
-import { colors, radii, spacing, typography } from '@/theme/tokens';
-import { pluralize } from '@/utils/format';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
+import { formatProductName, pluralize } from '@/utils/format';
 import type { CatalogProduct, MarketplaceTenant } from '@/api/types';
 
 // A tenant section previews at most this many products before the shopper
@@ -19,6 +21,8 @@ import type { CatalogProduct, MarketplaceTenant } from '@/api/types';
 const TENANT_PREVIEW_LIMIT = 3;
 
 export default function DiscoverScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const catalog = useMarketplace();
   const feed = useFeed();
   const unreadCount = feed.data?.filter((item) => !item.read).length ?? 0;
@@ -99,6 +103,8 @@ export default function DiscoverScreen() {
 }
 
 function FeaturedCard({ product }: { product: CatalogProduct }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Link href={{ pathname: '/product/[slug]', params: { slug: product.slug } }} asChild>
       <Pressable accessibilityRole="button">
@@ -111,7 +117,7 @@ function FeaturedCard({ product }: { product: CatalogProduct }) {
             </View>
           )}
           <Text style={styles.featuredName} numberOfLines={1} ellipsizeMode="tail">
-            {product.name}
+            {formatProductName(product.name)}
           </Text>
           <Text style={styles.featuredMeta} numberOfLines={1} ellipsizeMode="tail">
             {product.tenant_name}
@@ -123,6 +129,8 @@ function FeaturedCard({ product }: { product: CatalogProduct }) {
 }
 
 function TenantSection({ tenant }: { tenant: MarketplaceTenant }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const previewProducts = tenant.products.slice(0, TENANT_PREVIEW_LIMIT);
   const remaining = tenant.products.length - previewProducts.length;
 
@@ -160,7 +168,7 @@ function TenantSection({ tenant }: { tenant: MarketplaceTenant }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   pageTitle: {
     ...typography.headlineLgMobile,
     color: colors.primary,
@@ -176,7 +184,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(15,110,82,0.12)',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -233,7 +241,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 96,
     borderRadius: radii.md,
-    backgroundColor: 'rgba(15,110,82,0.12)',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -262,7 +270,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radii.md,
-    backgroundColor: 'rgba(15,110,82,0.12)',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,

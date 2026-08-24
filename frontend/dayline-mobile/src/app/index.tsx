@@ -1,11 +1,15 @@
+import { useMemo } from 'react';
 import { Redirect } from 'expo-router';
 
 import { LoadingState } from '@/components/AsyncState';
-import { colors } from '@/theme/tokens';
+import { type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { StyleSheet, View } from 'react-native';
 
 export default function Index() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { status } = useAuth();
 
   if (status === 'loading') {
@@ -23,7 +27,7 @@ export default function Index() {
   return <Redirect href="/(auth)/welcome" />;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

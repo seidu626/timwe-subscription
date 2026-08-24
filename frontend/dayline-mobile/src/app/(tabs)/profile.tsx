@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
@@ -7,10 +8,19 @@ import { ScreenContainer } from '@/components/ScreenContainer';
 import { PRIVACY_URL, SUPPORT_URL, TERMS_URL } from '@/config';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
-import { colors, spacing, typography } from '@/theme/tokens';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme, type ThemePreference } from '@/theme/ThemeContext';
 import { formatMsisdnForDisplay } from '@/utils/phone';
 
+const APPEARANCE_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
 export default function ProfileScreen() {
+  const { colors, preference, setPreference } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { msisdn, signOut } = useAuth();
   const { dataSaverEnabled, setDataSaverEnabled } = useSettings();
 
@@ -67,6 +77,31 @@ export default function ProfileScreen() {
           />
         </View>
         <Divider />
+        <View style={styles.row}>
+          <MaterialIcons name="dark-mode" size={22} color={colors.onSurfaceVariant} />
+          <View style={styles.rowTextGroup}>
+            <Text style={styles.rowLabel}>Appearance</Text>
+            <View style={styles.appearanceRow}>
+              {APPEARANCE_OPTIONS.map((option) => {
+                const active = option.value === preference;
+                return (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => setPreference(option.value)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    style={[styles.appearancePill, active && styles.appearancePillActive]}
+                  >
+                    <Text style={[styles.appearancePillText, active && styles.appearancePillTextActive]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+        <Divider />
         <Pressable
           style={styles.row}
           accessibilityRole="button"
@@ -96,7 +131,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   pageTitle: {
     ...typography.headlineLgMobile,
     color: colors.primary,
@@ -149,6 +184,29 @@ const styles = StyleSheet.create({
   rowHint: {
     ...typography.labelSm,
     color: colors.onSurfaceVariant,
+  },
+  appearanceRow: {
+    flexDirection: 'row',
+    gap: spacing.stackSm,
+    marginTop: spacing.stackSm,
+  },
+  appearancePill: {
+    paddingHorizontal: spacing.stackMd,
+    paddingVertical: 6,
+    borderRadius: radii.full,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  appearancePillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  appearancePillText: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
+  },
+  appearancePillTextActive: {
+    color: colors.onPrimary,
   },
   signOutRow: {
     flexDirection: 'row',

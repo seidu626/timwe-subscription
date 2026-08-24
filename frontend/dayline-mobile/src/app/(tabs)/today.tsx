@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -7,12 +8,15 @@ import { Card } from '@/components/Card';
 import { Chip } from '@/components/Chip';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
 import { useFeed } from '@/hooks/useFeed';
-import { colors, spacing, typography } from '@/theme/tokens';
+import { spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 import { TAB_BAR_CLEARANCE } from '@/theme/layout';
 import { estimateReadTime, formatRelativeDay, truncate } from '@/utils/format';
 import type { FeedItem } from '@/api/types';
 
 export default function TodayScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const feed = useFeed();
 
   return (
@@ -66,6 +70,8 @@ export default function TodayScreen() {
 }
 
 function FeedCard({ item }: { item: FeedItem }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Link href={{ pathname: '/content/[id]', params: { id: item.id } }} asChild>
       <Pressable accessibilityRole="button">
@@ -91,7 +97,7 @@ function FeedCard({ item }: { item: FeedItem }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.background,

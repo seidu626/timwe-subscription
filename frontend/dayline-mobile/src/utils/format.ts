@@ -31,6 +31,15 @@ export function formatRelativeDay(iso: string): string {
   return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Carrier catalogs deliver many product names in ALL CAPS. When a name has
+// alphabetic characters but no lowercase ones it reads as shouting, so
+// title-case each word; mixed-case names pass through untouched.
+export function formatProductName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed || /[a-z]/.test(trimmed) || !/[A-Z]/.test(trimmed)) return trimmed;
+  return trimmed.toLowerCase().replace(/(^|[\s\-/("'])([a-z])/g, (_match, prefix: string, letter: string) => prefix + letter.toUpperCase());
+}
+
 export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength).trimEnd()}…`;

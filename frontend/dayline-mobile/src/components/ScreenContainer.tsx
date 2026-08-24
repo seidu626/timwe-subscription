@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing } from '@/theme/tokens';
+import { spacing, type ThemeColors } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
 import { TAB_BAR_CLEARANCE } from '@/theme/layout';
 
 interface ScreenContainerProps {
@@ -26,6 +28,8 @@ export function ScreenContainer({
   contentContainerStyle,
   edges = ['top', 'left', 'right'],
 }: ScreenContainerProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const bottomPad = withTabBarClearance ? TAB_BAR_CLEARANCE : spacing.sectionGap;
 
   if (scroll) {
@@ -54,7 +58,7 @@ export function ScreenContainer({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.background,
