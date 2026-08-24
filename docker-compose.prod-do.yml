@@ -377,6 +377,11 @@ services:
     # Port bound to localhost - access via reverse proxy or SSH tunnel
     ports:
       - "127.0.0.1:4200:80"
+    volumes:
+      # Static downloads (e.g. the dayline testing APK, published by
+      # frontend/dayline-mobile/scripts/build-apk.sh --publish) served at
+      # https://admin.nouveauricheglobalgroup.com/downloads/
+      - ./downloads:/usr/share/nginx/html/downloads:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
       interval: 30s

@@ -2384,7 +2384,22 @@
       "manual_smoke": "Deploying regenerated krakend.json to the droplet is out of scope for this slice.",
       "spec_decision": "slices/TMP-080-dayline-hygiene/spec.md",
       "evidence": "Contract: marketplace {tenants:[...]} shape + per-product tenant/tenant_name documented. krakend/krakend.json regenerated from config/krakend.tmpl via container FC_OUT render: 129 endpoints incl. all 13 /v1/app routes (stale file had 95, zero app routes); krakend check Syntax OK on the static file; check-krakend-query-forwarding.py and validate-charge-ownership.sh pass. Router tests added for /v1/app dispatch (preflight 204+CORS, wrong-method 405+CORS, auth routes 401 fail-closed dispatch proof, unknown path 404); tests caught and fixed a real bug: fasthttp ctx.Error reset wiped app CORS headers on 405 (fail-before red, appMethodNotAllowed fix, pass-after green). acquisition-api go build + go test: 464 passed in 9 packages. Guided gateway-credential form already shipped in prior slices (provider_api/sms_api/otp_api guided modes + test-SMS proof) - no duplicate built."
+    },
+    {
+      "id": "TMP-081",
+      "class": "delivery",
+      "name": "dayline-apk-distribution",
+      "description": "Build and publish a testing APK of dayline-mobile pointed at the deployed prod API (https://api.nouveauricheglobalgroup.com), add an on-demand rebundle/build script, and host the APK for download over HTTPS via the webspa-admin static downloads mount.",
+      "state": "done",
+      "verification": [
+        "cd frontend/dayline-mobile && npx tsc --noEmit",
+        "frontend/dayline-mobile/scripts/build-apk.sh produces an installable release APK under frontend/dayline-mobile/dist/",
+        "curl -I https://admin.nouveauricheglobalgroup.com/downloads/dayline.apk returns 200"
+      ],
+      "manual_smoke": "Install the APK on an Android device and sign in against the prod API.",
+      "spec_decision": "slices/TMP-081-dayline-apk-distribution/spec.md",
+      "evidence": "tsc --noEmit clean. build-apk.sh full run: expo prebuild (android package com.nouveauricheglobalgroup.dayline, display name Dayline) + gradle assembleRelease BUILD SUCCESSFUL in 21m24s, dist/dayline-1.0.0-3aeafc2.apk (103M, targetSdk 36, minSdk 24). .env.production baked in: bundle contains https://api.nouveauricheglobalgroup.com and no local API refs; gateway smoke GET /v1/app/catalog 200 from droplet over public HTTPS. Hosting: droplet compose webspa-admin gained ./downloads:/usr/share/nginx/html/downloads:ro (root-owned compose replaced via dir-rename, backup docker-compose.yml.bak-rootowned-dayline), container recreated healthy, console still 200. Published: https://admin.nouveauricheglobalgroup.com/downloads/dayline.apk HTTP/2 200, content-length 107778644, served sha256 == local build sha256 (f1bee1f9...4231). Gap: on-device install smoke needs a physical Android device."
     }
   ],
-  "updated_at": "2026-05-14T03:25:00Z"
+  "updated_at": "2026-08-24T08:02:58Z"
 }

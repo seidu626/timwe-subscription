@@ -31,6 +31,32 @@ npm run typecheck     # tsc --noEmit
 npm run lint          # expo lint
 ```
 
+## Testing APK (points at the deployed prod API)
+
+`.env.production` holds the production bundle config
+(`EXPO_PUBLIC_API_BASE_URL=https://api.nouveauricheglobalgroup.com`). Release
+builds load it automatically via Expo's dotenv convention, so the APK talks
+to the deployed instances, not local ones.
+
+```bash
+npm run build:apk               # rebundle + build dist/dayline-<ver>-<sha>.apk
+npm run publish:apk             # build, then upload for testers
+./scripts/build-apk.sh --clean  # regenerate the native android/ project first
+```
+
+`publish:apk` rsyncs the APK to the droplet (`do-sa-user`,
+`~/services/nouveauricheglobalgroup/downloads/`, bind-mounted read-only into
+the webspa-admin nginx container), where testers download it from:
+
+    https://admin.nouveauricheglobalgroup.com/downloads/dayline.apk
+
+Versioned copies live next to it (`dayline-<version>-<gitsha>.apk`). Release
+builds are signed with the debug keystore (Expo template default) - fine for
+sideloading, not for store distribution. Requirements: Android SDK at
+`~/Android/Sdk` (or `ANDROID_HOME`), JDK 21 (auto-picked from
+`/usr/lib/jvm/java-21-openjdk` when `JAVA_HOME` is unset), ssh access to
+`do-sa-user` for publishing.
+
 ## Architecture notes
 
 - Routing: `expo-router`, file-based under `src/app`. Auth stack
