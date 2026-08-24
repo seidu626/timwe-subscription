@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePushRegistration } from '@/hooks/usePushRegistration';
 import { typography } from '@/theme/tokens';
@@ -10,6 +11,11 @@ import { TAB_BAR_HEIGHT } from '@/theme/layout';
 export default function TabsLayout() {
   const { colors } = useTheme();
   usePushRegistration();
+  // The app renders edge-to-edge, so the OS nav area (Android 3-button/gesture
+  // bar, iOS home indicator) overlays the bottom of the window. Padding the
+  // tab bar by the safe-area inset keeps its items above the system controls.
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 8);
 
   return (
     <Tabs
@@ -18,9 +24,9 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.onSurfaceVariant,
         tabBarStyle: {
-          height: TAB_BAR_HEIGHT + (Platform.OS === 'ios' ? 20 : 8),
+          height: TAB_BAR_HEIGHT + 8 + bottomInset,
           paddingTop: 8,
-          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+          paddingBottom: bottomInset,
           backgroundColor: colors.surfaceContainerLowest,
           borderTopColor: colors.outlineVariant,
           borderTopWidth: StyleSheet.hairlineWidth,

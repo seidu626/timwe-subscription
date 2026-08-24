@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -22,9 +23,13 @@ export function ProductRow({ product }: { product: CatalogProduct }) {
       <Pressable accessibilityRole="button">
         <Card style={styles.productRow}>
           <View style={styles.productLeft}>
-            <View style={styles.productIcon}>
-              <MaterialIcons name="menu-book" size={22} color={colors.primary} />
-            </View>
+            {product.artwork_url ? (
+              <Image source={{ uri: product.artwork_url }} style={styles.productArtwork} contentFit="cover" />
+            ) : (
+              <View style={styles.productIcon}>
+                <MaterialIcons name="menu-book" size={22} color={colors.primary} />
+              </View>
+            )}
             <View style={styles.productTextGroup}>
               <Text style={styles.productName} numberOfLines={2} ellipsizeMode="tail">
                 {formatProductName(product.name)}
@@ -69,6 +74,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surfaceVariant,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+  },
+  productArtwork: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceVariant,
     flexShrink: 0,
   },
   productTextGroup: {
