@@ -219,6 +219,14 @@ func NewRouter(
 			}
 			return
 
+		case strings.EqualFold(path, "/v1/admin/tenants/current/branding"):
+			if method == fasthttp.MethodPut {
+				adminManagementHandler.UpdateCurrentTenantBranding(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		case strings.EqualFold(path, "/v1/admin/tenants/current"):
 			if method == fasthttp.MethodGet {
 				adminManagementHandler.GetCurrentTenant(ctx)

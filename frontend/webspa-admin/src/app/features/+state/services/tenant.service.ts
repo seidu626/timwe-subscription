@@ -80,6 +80,11 @@ export class TenantService {
     return this.http.patch<TenantMutationResponse>(`${this.baseUrl}/${encodeURIComponent(id)}`, payload);
   }
 
+  /** Workspace-scoped branding save; unlike update() it does not require platform scope. */
+  updateCurrentTenantBranding(payload: { logo_url: string; banner_url: string; brand_color: string }): Observable<TenantMutationResponse> {
+    return this.http.put<TenantMutationResponse>(`${this.baseUrl}/current/branding`, payload);
+  }
+
   presignBrandingUpload(payload: PresignBrandingUploadRequest): Observable<PresignBrandingUploadResponse> {
     return this.http.post<PresignBrandingUploadResponse>(`${this.tenantAssetsUrl}/presign`, payload);
   }

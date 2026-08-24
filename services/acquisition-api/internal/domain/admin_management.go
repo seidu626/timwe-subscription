@@ -41,6 +41,15 @@ type TenantUpdateInput struct {
 	Metadata       *json.RawMessage
 }
 
+// TenantBrandingUpdateInput carries the branding fields a workspace operator
+// may set on their own tenant. Empty strings clear the corresponding field;
+// when every field is empty the branding key is removed entirely.
+type TenantBrandingUpdateInput struct {
+	LogoURL    string
+	BannerURL  string
+	BrandColor string
+}
+
 // TenantListFilter is used to filter and paginate tenant catalog records.
 type TenantListFilter struct {
 	Limit  int

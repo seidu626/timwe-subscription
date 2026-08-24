@@ -239,6 +239,73 @@ func (r *AdminManagementRepository) UpdateTenantWithActivityLog(id string, input
 	return tenant, nil
 }
 
+// UpdateTenantBrandingWithActivityLog replaces only the metadata_json branding
+// key, leaving every other metadata key (service config, notification urls)
+// untouched. A nil branding payload removes the key.
+func (r *AdminManagementRepository) UpdateTenantBrandingWithActivityLog(id string, branding json.RawMessage, entry *domain.AdminActivityLog) (*domain.AdminTenant, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin tenant branding update tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var (
+		query string
+		args  []any
+	)
+	if branding == nil {
+		query = `
+			UPDATE tenants
+			SET metadata_json = COALESCE(metadata_json, '{}'::jsonb) - 'branding',
+				updated_at = NOW()
+			WHERE id = $1
+			RETURNING id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at
+		`
+		args = []any{id}
+	} else {
+		query = `
+			UPDATE tenants
+			SET metadata_json = jsonb_set(COALESCE(metadata_json, '{}'::jsonb), '{branding}', $2::jsonb),
+				updated_at = NOW()
+			WHERE id = $1
+			RETURNING id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at
+		`
+		args = []any{id, string(branding)}
+	}
+	tenant, err := scanTenant(tx.QueryRow(query, args...))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, fmt.Errorf("failed to update tenant branding: %w", err)
+	}
+
+	if entry != nil {
+		entry.EntityType = "tenant"
+		entry.EntityID = tenant.ID
+		entry.TenantID = tenant.ID
+		if len(entry.AfterJSON) == 0 {
+			if after, marshalErr := json.Marshal(tenant); marshalErr == nil {
+				entry.AfterJSON = after
+			}
+		}
+		if err := createActivityLog(tx, entry); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit tenant branding update tx: %w", err)
+	}
+	committed = true
+	return tenant, nil
+}
+
 func (r *AdminManagementRepository) ListTenantMembers(filter *domain.TenantMemberListFilter) ([]*domain.AdminTenantMember, int, error) {
 	if filter == nil {
 		filter = &domain.TenantMemberListFilter{Limit: 20}

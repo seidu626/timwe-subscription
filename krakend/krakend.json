@@ -6536,6 +6536,80 @@
       ]
     },
     {
+      "endpoint": "/v1/admin/tenant-assets/presign",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
+        },
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Id",
+        "X-Tenant-Key",
+        "X-Tenant-Channel-Id",
+        "X-Channel-Id"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "X-Tenant-Id",
+        "X-Tenant-Key",
+        "X-Tenant-Channel-Id",
+        "X-Channel-Id",
+        "x-forwarded-for",
+        "x-real-ip",
+        "user-agent"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/v1/admin/tenant-assets/presign",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 100,
+              "capacity": 200,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[Admin API]",
+              "stdout": true
+            }
+          },
+          "host": [
+            "http://localhost:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "X-Tenant-Id",
+            "X-Tenant-Key",
+            "X-Tenant-Channel-Id",
+            "X-Channel-Id"
+          ]
+        }
+      ]
+    },
+    {
       "endpoint": "/v1/admin/products",
       "method": "GET",
       "output_encoding": "no-op",
@@ -8060,6 +8134,80 @@
           "encoding": "no-op",
           "sd": "static",
           "method": "GET",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "return_error_details": true
+            },
+            "github.com/devopsfaith/krakend-ratelimit/juju/proxy": {
+              "maxRate": 100,
+              "capacity": 200,
+              "strategy": "token-bucket"
+            },
+            "github.com/devopsfaith/krakend/logging": {
+              "level": "INFO",
+              "prefix": "[Admin API]",
+              "stdout": true
+            }
+          },
+          "host": [
+            "http://localhost:8084"
+          ],
+          "disable_host_sanitize": true,
+          "headers_to_pass": [
+            "Authorization",
+            "X-Tenant-Id",
+            "X-Tenant-Key",
+            "X-Tenant-Channel-Id",
+            "X-Channel-Id"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/v1/admin/tenants/current/branding",
+      "method": "PUT",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "https://dev-chliep5q.auth0.com/.well-known/jwks.json",
+          "issuer": "https://dev-chliep5q.auth0.com/",
+          "audience": [
+            "https://dev-chliep5q.auth0.com/api/v2/"
+          ],
+          "cache": true,
+          "cache_duration": 900
+        },
+        "github.com/devopsfaith/krakend/http": {
+          "return_error_details": true
+        }
+      },
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Authorization",
+        "X-Tenant-Id",
+        "X-Tenant-Key",
+        "X-Tenant-Channel-Id",
+        "X-Channel-Id"
+      ],
+      "headers_to_pass": [
+        "Authorization",
+        "X-Tenant-Id",
+        "X-Tenant-Key",
+        "X-Tenant-Channel-Id",
+        "X-Channel-Id",
+        "x-forwarded-for",
+        "x-real-ip",
+        "user-agent"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/v1/admin/tenants/current/branding",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "PUT",
           "extra_config": {
             "github.com/devopsfaith/krakend/http": {
               "return_error_details": true

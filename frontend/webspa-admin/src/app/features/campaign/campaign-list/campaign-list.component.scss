@@ -254,3 +254,33 @@
 :host-context([data-coreui-theme="dark"]) ::ng-deep .mat-mdc-row:hover {
   background-color: var(--admin-gray-700) !important;
 }
+
+.product-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.product-artwork-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  object-fit: cover;
+  background: #fff;
+}
+
+.product-artwork-placeholder {
+  font-size: 26px;
+  width: 26px;
+  height: 26px;
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.product-name {
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

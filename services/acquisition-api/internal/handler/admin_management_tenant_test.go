@@ -339,6 +339,145 @@ func TestBindChannelCredentialRawSecretBackendUnavailableDoesNotEchoSecret(t *te
 	}
 }
 
+func TestUpdateCurrentTenantBrandingAllowsTenantScopedAdminAndPreservesMetadata(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs("nrg").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "nrg", "NRG", domain.TenantStatusActive, "GH", []byte(`{"timwe":{"service_id":"svc-1"}}`), now, now))
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("jsonb_set(COALESCE(metadata_json, '{}'::jsonb), '{branding}', $2::jsonb)")).
+		WithArgs(tenantID, `{"brand_color":"#d6641b","logo_url":"https://cdn.example.com/logo.png"}`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "nrg", "NRG", domain.TenantStatusActive, "GH",
+				[]byte(`{"branding":{"brand_color":"#d6641b","logo_url":"https://cdn.example.com/logo.png"},"timwe":{"service_id":"svc-1"}}`), now, now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/admin/tenants/current/branding")
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "nrg",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetBodyString(`{"logo_url":"https://cdn.example.com/logo.png","brand_color":"#d6641b"}`)
+
+	h.UpdateCurrentTenantBranding(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(ctx.Response.Body(), &body); err != nil {
+		t.Fatalf("invalid response json: %v", err)
+	}
+	if body["audit_log_id"] == "" {
+		t.Fatalf("expected audit_log_id in response: %#v", body)
+	}
+	metadata, _ := body["metadata"].(map[string]any)
+	if metadata == nil || metadata["branding"] == nil || metadata["timwe"] == nil {
+		t.Fatalf("expected branding and preserved service metadata, got %#v", body["metadata"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateCurrentTenantBrandingRemovesBrandingWhenAllFieldsEmpty(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs("nrg").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "nrg", "NRG", domain.TenantStatusActive, "GH", []byte(`{"branding":{"logo_url":"https://x/y.png"}}`), now, now))
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("COALESCE(metadata_json, '{}'::jsonb) - 'branding'")).
+		WithArgs(tenantID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "nrg", "NRG", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/admin/tenants/current/branding")
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		TenantKey:   "nrg",
+		Subject:     "auth0|tenant-admin",
+		TrustSource: tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetBodyString(`{"logo_url":"","banner_url":"","brand_color":""}`)
+
+	h.UpdateCurrentTenantBranding(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateCurrentTenantBrandingRejectsInvalidInput(t *testing.T) {
+	h := &AdminManagementHandler{
+		service: service.NewAdminManagementService(nil, zap.NewNop()),
+		logger:  zap.NewNop(),
+	}
+	cases := []string{
+		`{"brand_color":"orange"}`,
+		`{"logo_url":"ftp://cdn.example.com/logo.png"}`,
+	}
+	for _, payload := range cases {
+		var ctx fasthttp.RequestCtx
+		ctx.Request.SetRequestURI("/v1/admin/tenants/current/branding")
+		ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+			TenantKey:   "nrg",
+			Subject:     "auth0|tenant-admin",
+			TrustSource: tenantctx.TrustSourceJWT,
+		})
+		ctx.Request.SetBodyString(payload)
+
+		h.UpdateCurrentTenantBranding(&ctx)
+
+		if ctx.Response.StatusCode() != fasthttp.StatusBadRequest {
+			t.Fatalf("payload %q: status=%d body=%q", payload, ctx.Response.StatusCode(), ctx.Response.Body())
+		}
+	}
+}
+
+func TestUpdateCurrentTenantBrandingRequiresTenantContext(t *testing.T) {
+	h := &AdminManagementHandler{
+		service: service.NewAdminManagementService(nil, zap.NewNop()),
+		logger:  zap.NewNop(),
+	}
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/admin/tenants/current/branding")
+	ctx.Request.SetBodyString(`{"brand_color":"#112233"}`)
+
+	h.UpdateCurrentTenantBranding(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+}
+
 func currentTenantResponseFor(t *testing.T, expect func(sqlmock.Sqlmock, time.Time)) (int, []byte) {
 	t.Helper()
 	db, mock, err := sqlmock.New()

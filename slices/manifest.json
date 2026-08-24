@@ -2461,6 +2461,20 @@
         "features": "darkColors M3 palette; ThemeContext (system/light/dark, persisted via secureStorage key dayline_theme_preference); root layout ThemeProvider + scheme-driven StatusBar + Stack contentStyle background; Profile Appearance pills; primarySoft token replaces green rgba overlays (discover x3, subscriptions ACTIVE); focusRing.color -> colors.primary in OtpInput/PhoneInput; formatProductName sentence-cases ALL-CAPS names in ProductRow, FeaturedCard, product detail/confirm/success, subscriptions card + cancel dialog",
         "gaps": "no automated test runner in dayline-mobile (verification = tsc+lint per manifest); manual APK smoke pending after rebuild"
       }
+    },
+    {
+      "id": "TMP-086",
+      "title": "Workspace branding self-service + list imagery",
+      "state": "shipped",
+      "spec_decision": "slices/TMP-086-workspace-branding-and-list-imagery/spec.md",
+      "verification": "cd services/acquisition-api && go build ./... && go test ./internal/... ; cd frontend/webspa-admin && npm run build",
+      "status": "done",
+      "evidence": {
+        "build": "go build clean; ng build clean (pre-existing budget warnings only)",
+        "tests": "446 Go tests passed incl 4 new branding endpoint tests",
+        "deploy": "2026-08-24 12:51Z: acquisition-api + webspa-admin images reloaded, krakend Endpoint.tmpl updated + service restarted",
+        "smoke": "PUT /v1/admin/tenants/current/branding via gateway -> 401 (registered, auth-gated); console 200; /v1/app/catalog 200 with artwork; bundle contains Save Branding + current/branding + product-artwork-thumb"
+      }
     }
   ],
   "updated_at": "2026-08-24T10:07:01Z"

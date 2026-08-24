@@ -67,6 +67,45 @@
           <mat-label>Metadata JSON</mat-label>
           <textarea matInput rows="5" [(ngModel)]="metadataText"></textarea>
         </mat-form-field>
+        <ng-container [ngTemplateOutlet]="brandingEditor"></ng-container>
+        <div class="actions">
+          <button mat-raised-button color="primary" (click)="saveTenant()" [disabled]="saving">
+            {{ saving ? 'Saving...' : (editingTenantId ? 'Update Tenant' : 'Create Tenant') }}
+          </button>
+          <button mat-stroked-button (click)="resetForm()" [disabled]="saving">
+            {{ editingTenantId ? 'Exit Edit' : 'Clear' }}
+          </button>
+        </div>
+      </ng-container>
+
+      <ng-template #tenantWorkspaceSummary>
+        <div class="row">
+          <mat-form-field appearance="outline">
+            <mat-label>Tenant Key</mat-label>
+            <input matInput [ngModel]="form.tenant_key || currentWorkspaceTenant?.tenantKey" disabled />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Name</mat-label>
+            <input matInput [ngModel]="form.name || currentWorkspaceTenant?.label" disabled />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <input matInput [ngModel]="form.status" disabled />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Default Country</mat-label>
+            <input matInput [ngModel]="form.default_country" disabled />
+          </mat-form-field>
+        </div>
+              <ng-container [ngTemplateOutlet]="brandingEditor"></ng-container>
+        <div class="actions">
+          <button mat-raised-button color="primary" (click)="saveWorkspaceBranding()" [disabled]="brandingSaving || brandingUploading !== null">
+            {{ brandingSaving ? 'Saving...' : 'Save Branding' }}
+          </button>
+        </div>
+      </ng-template>
+
+      <ng-template #brandingEditor>
         <div class="branding-section">
           <h4>Branding</h4>
           <p class="branding-hint">Logo, banner and brand color shown in the Dayline app and landing surfaces. Uploads apply on save.</p>
@@ -102,35 +141,6 @@
             <span class="branding-swatch" *ngIf="brandingForm.brand_color" [style.background]="brandingForm.brand_color"></span>
           </div>
           <p class="branding-error" *ngIf="brandingUploadError">{{ brandingUploadError }}</p>
-        </div>
-        <div class="actions">
-          <button mat-raised-button color="primary" (click)="saveTenant()" [disabled]="saving">
-            {{ saving ? 'Saving...' : (editingTenantId ? 'Update Tenant' : 'Create Tenant') }}
-          </button>
-          <button mat-stroked-button (click)="resetForm()" [disabled]="saving">
-            {{ editingTenantId ? 'Exit Edit' : 'Clear' }}
-          </button>
-        </div>
-      </ng-container>
-
-      <ng-template #tenantWorkspaceSummary>
-        <div class="row">
-          <mat-form-field appearance="outline">
-            <mat-label>Tenant Key</mat-label>
-            <input matInput [ngModel]="form.tenant_key || currentWorkspaceTenant?.tenantKey" disabled />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Name</mat-label>
-            <input matInput [ngModel]="form.name || currentWorkspaceTenant?.label" disabled />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Status</mat-label>
-            <input matInput [ngModel]="form.status" disabled />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Default Country</mat-label>
-            <input matInput [ngModel]="form.default_country" disabled />
-          </mat-form-field>
         </div>
       </ng-template>
 
@@ -744,7 +754,14 @@
 
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef>Name</th>
-            <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+            <td mat-cell *matCellDef="let row">
+              <span class="tenant-name-cell">
+                <img *ngIf="brandingLogoFor(row)" class="tenant-logo-thumb" [src]="brandingLogoFor(row)" [alt]="row.name + ' logo'" />
+                <mat-icon *ngIf="!brandingLogoFor(row)" class="tenant-logo-placeholder">business</mat-icon>
+                {{ row.name }}
+                <span *ngIf="brandingColorFor(row)" class="branding-swatch branding-swatch-inline" [style.background]="brandingColorFor(row)"></span>
+              </span>
+            </td>
           </ng-container>
 
           <ng-container matColumnDef="status">

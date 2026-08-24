@@ -103,6 +103,7 @@ export class TenantListComponent implements OnInit, OnDestroy {
   brandingForm = this.emptyBrandingForm();
   brandingUploading: 'logo' | 'banner' | null = null;
   brandingUploadError = '';
+  brandingSaving = false;
   private readonly destroy$ = new Subject<void>();
   private workspaceKey = '';
 
@@ -933,6 +934,38 @@ export class TenantListComponent implements OnInit, OnDestroy {
     if (!response.ok) {
       throw new Error(`Upload failed with status ${response.status}`);
     }
+  }
+
+  /** Workspace-scoped branding save. Platform tenant PATCH is forbidden for
+   *  tenant operators, so branding rides its own endpoint that only touches
+   *  the metadata branding key. */
+  saveWorkspaceBranding(): void {
+    this.brandingSaving = true;
+    this.tenantService.updateCurrentTenantBranding({
+      logo_url: this.brandingForm.logo_url.trim(),
+      banner_url: this.brandingForm.banner_url.trim(),
+      brand_color: this.brandingForm.brand_color.trim()
+    }).subscribe({
+      next: (tenant) => {
+        this.brandingSaving = false;
+        this.metadataText = JSON.stringify(tenant.metadata || {}, null, 2);
+        this.toast('Branding saved');
+      },
+      error: (err) => {
+        this.brandingSaving = false;
+        this.toast(this.extractErrorMessage(err, 'Failed to save branding'));
+      }
+    });
+  }
+
+  brandingLogoFor(tenant: AdminTenant): string {
+    const branding = (tenant.metadata?.['branding'] || {}) as Record<string, unknown>;
+    return typeof branding['logo_url'] === 'string' ? (branding['logo_url'] as string) : '';
+  }
+
+  brandingColorFor(tenant: AdminTenant): string {
+    const branding = (tenant.metadata?.['branding'] || {}) as Record<string, unknown>;
+    return typeof branding['brand_color'] === 'string' ? (branding['brand_color'] as string) : '';
   }
 
   /** Folds the branding form into the metadata object the PATCH sends. The

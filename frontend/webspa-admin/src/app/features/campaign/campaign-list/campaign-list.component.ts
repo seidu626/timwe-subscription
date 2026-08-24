@@ -22,6 +22,7 @@ export class CampaignListComponent implements OnInit {
   trackBySlug = (_: number, row: Campaign) => row?.slug ?? _;
 
   displayedColumns: string[] = [
+    'product',
     'slug',
     'country',
     'language',

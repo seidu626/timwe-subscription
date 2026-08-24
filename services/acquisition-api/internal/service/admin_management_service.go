@@ -218,6 +218,89 @@ func (s *AdminManagementService) ResolveCurrentTenant(identity tenantctx.Identit
 	return tenant, nil
 }
 
+var brandColorRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
+// UpdateCurrentTenantBranding lets any operator with tenant context (a
+// workspace operator, or a platform admin acting inside a workspace) manage
+// their own tenant's branding without the platform-only tenant PATCH. Only the
+// metadata branding key is written; service config stays untouched.
+func (s *AdminManagementService) UpdateCurrentTenantBranding(identity tenantctx.Identity, input *domain.TenantBrandingUpdateInput, actor, requestID *string) (*domain.AdminTenant, string, error) {
+	if input == nil {
+		return nil, "", fmt.Errorf("%w: branding payload is required", ErrInvalidInput)
+	}
+	if err := validateTenantBrandingInput(input); err != nil {
+		return nil, "", err
+	}
+
+	before, err := s.ResolveCurrentTenant(identity)
+	if err != nil {
+		return nil, "", err
+	}
+
+	branding := map[string]string{}
+	if v := strings.TrimSpace(input.LogoURL); v != "" {
+		branding["logo_url"] = v
+	}
+	if v := strings.TrimSpace(input.BannerURL); v != "" {
+		branding["banner_url"] = v
+	}
+	if v := strings.TrimSpace(input.BrandColor); v != "" {
+		branding["brand_color"] = v
+	}
+	var brandingJSON json.RawMessage
+	if len(branding) > 0 {
+		encoded, marshalErr := json.Marshal(branding)
+		if marshalErr != nil {
+			return nil, "", marshalErr
+		}
+		brandingJSON = encoded
+	}
+
+	auditID := uuid.NewString()
+	entry := &domain.AdminActivityLog{
+		ID:         auditID,
+		TenantID:   before.ID,
+		Action:     "update_branding",
+		Actor:      actor,
+		RequestID:  requestID,
+		BeforeJSON: mustJSON(before),
+		AfterJSON:  mustJSON(branding),
+		Metadata: mustJSON(map[string]any{
+			"tenant_key": before.TenantKey,
+		}),
+	}
+	tenant, err := s.repo.UpdateTenantBrandingWithActivityLog(before.ID, brandingJSON, entry)
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminNotFound) {
+			return nil, "", ErrAdminNotFound
+		}
+		return nil, "", err
+	}
+	return tenant, auditID, nil
+}
+
+func validateTenantBrandingInput(input *domain.TenantBrandingUpdateInput) error {
+	for name, value := range map[string]string{
+		"logo_url":   input.LogoURL,
+		"banner_url": input.BannerURL,
+	} {
+		v := strings.TrimSpace(value)
+		if v == "" {
+			continue
+		}
+		if len(v) > 2048 {
+			return fmt.Errorf("%w: %s must be at most 2048 characters", ErrInvalidInput, name)
+		}
+		if !strings.HasPrefix(v, "http://") && !strings.HasPrefix(v, "https://") {
+			return fmt.Errorf("%w: %s must be an http(s) URL", ErrInvalidInput, name)
+		}
+	}
+	if v := strings.TrimSpace(input.BrandColor); v != "" && !brandColorRe.MatchString(v) {
+		return fmt.Errorf("%w: brand_color must be a #RRGGBB hex color", ErrInvalidInput)
+	}
+	return nil
+}
+
 func (s *AdminManagementService) ListAuthorizedTenantWorkspaces(identity tenantctx.Identity) (*domain.AdminTenantWorkspace, error) {
 	if identity.PlatformScoped {
 		tenants, _, err := s.ListTenants(identity, &domain.TenantListFilter{

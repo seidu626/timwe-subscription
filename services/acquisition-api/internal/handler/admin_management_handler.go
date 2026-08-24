@@ -124,6 +124,13 @@ type tenantUpdatePayload struct {
 	PerformedBy    string           `json:"performed_by,omitempty"`
 }
 
+type tenantBrandingPayload struct {
+	LogoURL     string `json:"logo_url"`
+	BannerURL   string `json:"banner_url"`
+	BrandColor  string `json:"brand_color"`
+	PerformedBy string `json:"performed_by,omitempty"`
+}
+
 type tenantListResponse struct {
 	Tenants    []*domain.AdminTenant `json:"tenants"`
 	TotalCount int                   `json:"total_count"`
@@ -252,6 +259,38 @@ func (h *AdminManagementHandler) UpdateTenant(ctx *fasthttp.RequestCtx) {
 	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
 	requestID := requestIDFromHeader(ctx)
 	tenant, auditLogID, err := h.service.UpdateTenant(tenantID, input, identity, actor, requestID)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, tenantUpdateResponse{
+		AdminTenant: tenant,
+		AuditLogID:  auditLogID,
+	})
+}
+
+// UpdateCurrentTenantBranding handles PUT /v1/admin/tenants/current/branding.
+// Unlike the platform-only tenant PATCH, this is available to workspace
+// operators for their own tenant.
+func (h *AdminManagementHandler) UpdateCurrentTenantBranding(ctx *fasthttp.RequestCtx) {
+	identity, ok := tenantIdentityFromRequest(ctx)
+	if !ok {
+		ctx.Error("Tenant context required", fasthttp.StatusForbidden)
+		return
+	}
+	var req tenantBrandingPayload
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+	input := &domain.TenantBrandingUpdateInput{
+		LogoURL:    req.LogoURL,
+		BannerURL:  req.BannerURL,
+		BrandColor: req.BrandColor,
+	}
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
+	requestID := requestIDFromHeader(ctx)
+	tenant, auditLogID, err := h.service.UpdateCurrentTenantBranding(identity, input, actor, requestID)
 	if err != nil {
 		h.handleServiceError(ctx, err)
 		return
