@@ -22,8 +22,35 @@ export function OtpInput({ value, onChange, autoFocus }: OtpInputProps) {
     onChange(next.join('').replace(/\s+$/, ''));
   }
 
+  function fillFrom(index: number, incoming: string) {
+    const next = digits.slice();
+    let cursor = index;
+    for (const ch of incoming) {
+      if (cursor >= LENGTH) break;
+      next[cursor] = ch;
+      cursor += 1;
+    }
+    onChange(next.join('').replace(/\s+$/, ''));
+    inputs.current[Math.min(cursor, LENGTH - 1)]?.focus();
+  }
+
   function handleChangeText(index: number, text: string) {
-    const digit = text.replace(/\D/g, '').slice(-1);
+    const cleaned = text.replace(/\D/g, '');
+    // Keyboard autofill and paste deliver the whole code into one box -
+    // ignore the digit already rendered there, then distribute the rest.
+    const existing = digits[index].trim();
+    const incoming =
+      existing && cleaned.startsWith(existing) && cleaned.length > 1 ? cleaned.slice(1) : cleaned;
+    if (incoming.length >= LENGTH) {
+      onChange(incoming.slice(0, LENGTH));
+      inputs.current[LENGTH - 1]?.focus();
+      return;
+    }
+    if (incoming.length > 1) {
+      fillFrom(index, incoming);
+      return;
+    }
+    const digit = incoming.slice(-1);
     setDigitAt(index, digit);
     if (digit && index < LENGTH - 1) {
       inputs.current[index + 1]?.focus();
@@ -52,7 +79,9 @@ export function OtpInput({ value, onChange, autoFocus }: OtpInputProps) {
           onFocus={() => setFocusedIndex(index)}
           onBlur={() => setFocusedIndex((current) => (current === index ? null : current))}
           keyboardType="number-pad"
-          maxLength={1}
+          autoComplete="sms-otp"
+          textContentType="oneTimeCode"
+          maxLength={LENGTH}
           autoFocus={autoFocus && index === 0}
           style={[styles.box, focusedIndex === index && styles.boxFocused]}
           accessibilityLabel={`Digit ${index + 1} of ${LENGTH}`}

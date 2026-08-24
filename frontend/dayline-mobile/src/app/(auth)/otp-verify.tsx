@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { Link, router, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { OtpInput } from '@/components/OtpInput';
@@ -19,6 +20,8 @@ export default function OtpVerifyScreen() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
+  const [clipboardCode, setClipboardCode] = useState<string | null>(null);
+  const lastSubmittedRef = useRef<string | null>(null);
   const verifyOtp = useVerifyOtp();
   const requestOtp = useRequestOtp();
 
@@ -28,17 +31,54 @@ export default function OtpVerifyScreen() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  async function handleVerify() {
-    if (!msisdn || code.length !== 6) return;
-    setError(null);
+  // Truecaller/Messages "Copy OTP" assist: whenever this screen is in the
+  // foreground, surface a one-tap fill chip if the clipboard holds a
+  // six-digit code.
+  const checkClipboard = useCallback(async () => {
     try {
-      const result = await verifyOtp.mutateAsync({ msisdn, tenant, code });
-      await signIn({ token: result.token, msisdn, expiresInSeconds: result.expires_in });
-      router.replace('/(tabs)/today');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      const text = await Clipboard.getStringAsync();
+      const match = (text ?? '').match(/(?<!\d)(\d{6})(?!\d)/);
+      setClipboardCode(match ? match[1] : null);
+    } catch {
+      // Clipboard access can be denied in the background; ignore.
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    const initialCheck = setTimeout(checkClipboard, 0);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') checkClipboard();
+    });
+    return () => {
+      clearTimeout(initialCheck);
+      subscription.remove();
+    };
+  }, [checkClipboard]);
+
+  const handleVerify = useCallback(
+    async (candidate: string) => {
+      if (!msisdn || candidate.length !== 6) return;
+      setError(null);
+      try {
+        const result = await verifyOtp.mutateAsync({ msisdn, tenant, code: candidate });
+        await signIn({ token: result.token, msisdn, expiresInSeconds: result.expires_in });
+        router.replace('/(tabs)/today');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+        setCode('');
+        setClipboardCode((current) => (current === candidate ? null : current));
+      }
+    },
+    [msisdn, tenant, verifyOtp, signIn],
+  );
+
+  // Auto-submit as soon as six digits are present, once per distinct code.
+  useEffect(() => {
+    if (code.length === 6 && code !== lastSubmittedRef.current && !verifyOtp.isPending) {
+      lastSubmittedRef.current = code;
+      handleVerify(code);
+    }
+  }, [code, verifyOtp.isPending, handleVerify]);
 
   async function handleResend() {
     if (!msisdn || cooldown > 0) return;
@@ -46,6 +86,8 @@ export default function OtpVerifyScreen() {
     try {
       await requestOtp.mutateAsync({ msisdn, tenant });
       setCooldown(RESEND_COOLDOWN_SECONDS);
+      lastSubmittedRef.current = null;
+      setCode('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     }
@@ -73,6 +115,20 @@ export default function OtpVerifyScreen() {
 
         <OtpInput value={code} onChange={setCode} autoFocus />
 
+        {clipboardCode && clipboardCode !== code ? (
+          <Pressable
+            onPress={() => setCode(clipboardCode)}
+            style={styles.clipboardChip}
+            accessibilityRole="button"
+            accessibilityLabel={`Use copied code ${clipboardCode}`}
+          >
+            <MaterialIcons name="content-paste" size={16} color={colors.onPrimaryFixedVariant} />
+            <Text style={styles.clipboardChipText}>
+              Use code {clipboardCode.slice(0, 3)} {clipboardCode.slice(3)}
+            </Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.countdownRow}>
           {cooldown > 0 ? (
             <Text style={styles.countdownText}>
@@ -90,7 +146,7 @@ export default function OtpVerifyScreen() {
 
       <Button
         label="Verify"
-        onPress={handleVerify}
+        onPress={() => handleVerify(code)}
         disabled={code.length !== 6}
         loading={verifyOtp.isPending}
       />
@@ -127,6 +183,20 @@ const styles = StyleSheet.create({
   editLink: {
     ...typography.labelMd,
     color: colors.primary,
+  },
+  clipboardChip: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    alignItems: 'center',
+    gap: spacing.stackSm,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.primaryFixed,
+  },
+  clipboardChipText: {
+    ...typography.labelMd,
+    color: colors.onPrimaryFixedVariant,
   },
   countdownRow: {
     alignItems: 'center',
