@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 import { ProductRow } from '@/components/ProductRow';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
 import { ScreenContainer } from '@/components/ScreenContainer';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useMarketplaceTenant } from '@/hooks/useCatalog';
 import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
@@ -45,12 +48,17 @@ export default function TenantStorefrontScreen() {
     return tenant.products.filter((product) => product.category === selectedCategory);
   }, [tenant, selectedCategory]);
 
+  const handleCategoryPress = (category: string) => {
+    setSelectedCategory(category);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   return (
     <ScreenContainer scroll>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.headerButton}>
+        <AnimatedPressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.headerButton}>
           <MaterialIcons name="arrow-back" size={22} color={colors.onSurfaceVariant} />
-        </Pressable>
+        </AnimatedPressable>
         <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
           {tenant?.tenant_name ?? 'Storefront'}
         </Text>
@@ -87,9 +95,9 @@ export default function TenantStorefrontScreen() {
               {categoryCounts.map((entry) => {
                 const active = entry.label === selectedCategory;
                 return (
-                  <Pressable
+                  <AnimatedPressable
                     key={entry.label}
-                    onPress={() => setSelectedCategory(entry.label)}
+                    onPress={() => handleCategoryPress(entry.label)}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     style={[styles.categoryPill, active && styles.categoryPillActive]}
@@ -97,18 +105,27 @@ export default function TenantStorefrontScreen() {
                     <Text style={[styles.categoryPillText, active && styles.categoryPillTextActive]}>
                       {entry.label} ({entry.count})
                     </Text>
-                  </Pressable>
+                  </AnimatedPressable>
                 );
               })}
             </View>
           ) : null}
 
           {visibleProducts.length === 0 ? (
-            <EmptyState icon="explore" title="No products in this category" message="Try a different filter." />
+            <Animated.View layout={LinearTransition.springify()}>
+              <EmptyState icon="explore" title="No products in this category" message="Try a different filter." />
+            </Animated.View>
           ) : (
             <View style={styles.productList}>
               {visibleProducts.map((product) => (
-                <ProductRow key={product.slug} product={product} />
+                <Animated.View 
+                  key={product.slug}
+                  layout={LinearTransition.springify()}
+                  entering={FadeIn}
+                  exiting={FadeOut}
+                >
+                  <ProductRow product={product} />
+                </Animated.View>
               ))}
             </View>
           )}

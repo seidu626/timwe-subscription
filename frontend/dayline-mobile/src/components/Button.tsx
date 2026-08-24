@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
 
@@ -15,6 +16,7 @@ interface ButtonProps {
   icon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  hapticFeedback?: boolean;
 }
 
 export function Button({
@@ -26,20 +28,23 @@ export function Button({
   icon,
   style,
   testID,
+  hapticFeedback = true,
 }: ButtonProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const variantStyles = useMemo(() => createVariantStyles(colors), [colors]);
   const labelStyles = useMemo(() => createLabelStyles(colors), [colors]);
   const isDisabled = disabled || loading;
+
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled }}
       onPress={onPress}
       disabled={isDisabled}
       testID={testID}
-      style={({ pressed }) => [
+      hapticFeedback={hapticFeedback}
+      style={({ pressed }: any) => [
         styles.base,
         variantStyles[variant],
         isDisabled && styles.disabled,
@@ -55,7 +60,7 @@ export function Button({
           {icon}
         </View>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -79,7 +84,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     opacity: 0.5,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.9,
   },
 });
 

@@ -2,38 +2,37 @@ import { useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Link } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { Card } from '@/components/Card';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
 import { formatBillingCycle, formatCurrency, formatProductName } from '@/utils/format';
 import type { CatalogProduct } from '@/api/types';
 
-// Shared by Discover and the tenant storefront so both render products
-// identically. flex:1 + minWidth:0 on the text wrapper lets long product
-// names shrink instead of overlapping the price chip/chevron (minWidth:0 is
-// required on web; flex children otherwise never shrink below their
-// intrinsic content width).
 export function ProductRow({ product }: { product: CatalogProduct }) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Link href={{ pathname: '/product/[slug]', params: { slug: product.slug } }} asChild>
-      <Pressable accessibilityRole="button">
+      <AnimatedPressable accessibilityRole="button">
         <Card style={styles.productRow}>
           <View style={styles.productLeft}>
             {product.artwork_url ? (
-              <Image source={{ uri: product.artwork_url }} style={styles.productArtwork} contentFit="cover" />
+              <Animated.View sharedTransitionTag={`product-hero-${product.slug}`}>
+                <Image source={{ uri: product.artwork_url }} style={styles.productArtwork} contentFit="cover" />
+              </Animated.View>
             ) : (
-              <View style={styles.productIcon}>
+              <Animated.View sharedTransitionTag={`product-hero-fallback-${product.slug}`} style={styles.productIcon}>
                 <MaterialIcons name="menu-book" size={22} color={colors.primary} />
-              </View>
+              </Animated.View>
             )}
             <View style={styles.productTextGroup}>
-              <Text style={styles.productName} numberOfLines={2} ellipsizeMode="tail">
+              <Animated.Text sharedTransitionTag={`product-title-${product.slug}`} style={styles.productName} numberOfLines={2} ellipsizeMode="tail">
                 {formatProductName(product.name)}
-              </Text>
+              </Animated.Text>
               <Text style={styles.productTagline} numberOfLines={1} ellipsizeMode="tail">
                 {product.tagline}
               </Text>
@@ -49,7 +48,7 @@ export function ProductRow({ product }: { product: CatalogProduct }) {
             <MaterialIcons name="chevron-right" size={22} color={colors.onSurfaceVariant} />
           </View>
         </Card>
-      </Pressable>
+      </AnimatedPressable>
     </Link>
   );
 }

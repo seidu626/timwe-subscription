@@ -3,11 +3,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { Card } from '@/components/Card';
 import { ProductRow } from '@/components/ProductRow';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useMarketplace } from '@/hooks/useCatalog';
 import { useFeed } from '@/hooks/useFeed';
 import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
@@ -43,7 +45,7 @@ export default function DiscoverScreen() {
       <Text style={styles.pageTitle}>Discover</Text>
 
       <Link href="/(tabs)/today" asChild>
-        <Pressable accessibilityRole="button">
+        <AnimatedPressable accessibilityRole="button">
           <Card style={styles.todayCard}>
             <View style={styles.todayIcon}>
               <MaterialIcons name="auto-awesome" size={22} color={colors.primary} />
@@ -58,7 +60,7 @@ export default function DiscoverScreen() {
               </View>
             ) : null}
           </Card>
-        </Pressable>
+        </AnimatedPressable>
       </Link>
 
       {featuredProducts.length > 0 ? (
@@ -107,23 +109,25 @@ function FeaturedCard({ product }: { product: CatalogProduct }) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Link href={{ pathname: '/product/[slug]', params: { slug: product.slug } }} asChild>
-      <Pressable accessibilityRole="button">
+      <AnimatedPressable accessibilityRole="button">
         <Card style={styles.featuredCard}>
           {product.artwork_url ? (
-            <Image source={{ uri: product.artwork_url }} style={styles.featuredArtwork} contentFit="cover" />
+            <Animated.View sharedTransitionTag={`product-hero-${product.slug}`}>
+              <Image source={{ uri: product.artwork_url }} style={styles.featuredArtwork} contentFit="cover" />
+            </Animated.View>
           ) : (
-            <View style={styles.featuredArtworkFallback}>
+            <Animated.View sharedTransitionTag={`product-hero-fallback-${product.slug}`} style={styles.featuredArtworkFallback}>
               <MaterialIcons name="auto-awesome" size={28} color={colors.primary} />
-            </View>
+            </Animated.View>
           )}
-          <Text style={styles.featuredName} numberOfLines={1} ellipsizeMode="tail">
+          <Animated.Text sharedTransitionTag={`product-title-${product.slug}`} style={styles.featuredName} numberOfLines={1} ellipsizeMode="tail">
             {formatProductName(product.name)}
-          </Text>
+          </Animated.Text>
           <Text style={styles.featuredMeta} numberOfLines={1} ellipsizeMode="tail">
             {product.tenant_name}
           </Text>
         </Card>
-      </Pressable>
+      </AnimatedPressable>
     </Link>
   );
 }
@@ -158,10 +162,10 @@ function TenantSection({ tenant }: { tenant: MarketplaceTenant }) {
       </View>
       {remaining > 0 ? (
         <Link href={{ pathname: '/tenant/[tenantKey]', params: { tenantKey: tenant.tenant_key } }} asChild>
-          <Pressable accessibilityRole="button" style={styles.viewAllRow}>
+          <AnimatedPressable accessibilityRole="button" style={styles.viewAllRow}>
             <Text style={styles.viewAllText}>View all {pluralize(tenant.products.length, 'product')}</Text>
             <MaterialIcons name="chevron-right" size={20} color={colors.primary} />
-          </Pressable>
+          </AnimatedPressable>
         </Link>
       ) : null}
     </View>
