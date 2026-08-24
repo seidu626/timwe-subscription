@@ -151,7 +151,7 @@ export default function SubscriptionsScreen() {
       <View style={styles.footnote}>
         <MaterialIcons name="verified-user" size={16} color={colors.outline} />
         <Text style={styles.footnoteText}>
-          Charges are billed directly to your MTN or Telecel airtime/wallet. You can text STOP to cancel any channel by SMS at any time.
+          Charges are billed directly to your mobile airtime/wallet. You can text STOP to cancel any channel by SMS at any time.
         </Text>
       </View>
     </ScreenContainer>

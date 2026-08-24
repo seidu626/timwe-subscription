@@ -12,7 +12,7 @@ import { useCatalogProduct } from '@/hooks/useCatalog';
 import { useConfirmSubscription, useCreateSubscription } from '@/hooks/useSubscriptions';
 import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
-import { formatBillingCycle, formatCurrency, formatProductName } from '@/utils/format';
+import { billingCycleUnit, formatBillingCycle, formatCurrency, formatProductName } from '@/utils/format';
 import type { SubscriptionStatus } from '@/api/types';
 
 type Step = 'review' | 'awaiting_pin' | 'error' | 'pending';
@@ -22,6 +22,8 @@ export default function ConfirmSubscriptionScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { isPending, isError, product } = useCatalogProduct(slug);
+  const cadenceUnit = product ? billingCycleUnit(product.billing_cycle) : null;
+  const cadenceAdverb = cadenceUnit === 'day' ? 'daily' : cadenceUnit === 'week' ? 'weekly' : cadenceUnit === 'month' ? 'monthly' : 'automatically';
   const createSubscription = useCreateSubscription();
   const confirmSubscription = useConfirmSubscription();
   const isSubmitting = createSubscription.isPending || confirmSubscription.isPending;
@@ -125,7 +127,7 @@ export default function ConfirmSubscriptionScreen() {
           <View style={styles.disclosureBox}>
             <MaterialIcons name="verified-user" size={18} color={colors.primary} />
             <Text style={styles.disclosureText}>
-              Billed directly to your MTN or Telecel airtime. No credit card needed. Auto-renews daily and you can cancel anytime.
+              Billed directly to your mobile airtime. No credit card needed. Auto-renews {cadenceAdverb} and you can cancel anytime.
             </Text>
           </View>
 

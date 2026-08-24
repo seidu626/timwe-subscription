@@ -13,6 +13,17 @@ export function formatBillingCycle(cycle: string): string {
   return `/${normalized}`;
 }
 
+// Normalizes a raw billing_cycle value to its unit so copy (disclosure text,
+// cadence tiles) can be derived from real catalog data instead of hardcoded;
+// an unrecognized cycle returns null so callers fall back to neutral wording.
+export function billingCycleUnit(cycle: string): 'day' | 'week' | 'month' | null {
+  const normalized = cycle.toLowerCase();
+  if (normalized === 'day' || normalized === 'daily') return 'day';
+  if (normalized === 'week' || normalized === 'weekly') return 'week';
+  if (normalized === 'month' || normalized === 'monthly') return 'month';
+  return null;
+}
+
 export function estimateReadTime(body: string): string {
   const words = body.trim().split(/\s+/).filter(Boolean).length;
   const minutes = Math.max(1, Math.round(words / 200));

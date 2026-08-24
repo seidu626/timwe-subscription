@@ -21,7 +21,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { useCatalogProduct } from '@/hooks/useCatalog';
 import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
-import { formatBillingCycle, formatCurrency, formatProductName } from '@/utils/format';
+import { billingCycleUnit, formatBillingCycle, formatCurrency, formatProductName } from '@/utils/format';
 
 const HERO_HEIGHT = 300;
 
@@ -32,6 +32,17 @@ export default function ProductDetailScreen() {
   const { isPending, isError, error, refetch, product } = useCatalogProduct(slug);
   const { dataSaverEnabled } = useSettings();
   const insets = useSafeAreaInsets();
+
+  // Cadence copy is derived from the real billing_cycle value rather than
+  // hardcoded, since the catalog carries no fixed send time.
+  const cadence = useMemo(() => {
+    const unit = product ? billingCycleUnit(product.billing_cycle) : null;
+    return {
+      adverb: unit === 'day' ? 'daily' : unit === 'week' ? 'weekly' : unit === 'month' ? 'monthly' : 'automatically',
+      title: unit === 'day' ? 'Daily' : unit === 'week' ? 'Weekly' : unit === 'month' ? 'Monthly' : 'Regular Updates',
+      subtitle: unit ? `New content every ${unit}` : 'Delivered on schedule',
+    };
+  }, [product]);
 
   const scrollY = useSharedValue(0);
 
@@ -145,9 +156,6 @@ export default function ProductDetailScreen() {
             {/* Publisher Trust & Category Bar */}
             <View style={styles.publisherBar}>
               <View style={styles.publisherInfo}>
-                <View style={styles.publisherBadge}>
-                  <MaterialIcons name="verified" size={16} color={colors.primary} />
-                </View>
                 <Text style={styles.publisherName}>{product.tenant_name ?? 'Official Partner'}</Text>
                 <Text style={styles.publisherDot}>•</Text>
                 <Text style={styles.categoryPill}>
@@ -181,18 +189,20 @@ export default function ProductDetailScreen() {
             {/* Feature Highlights Grid */}
             <View style={styles.featureGrid}>
               <View style={styles.featureItem}>
-                <MaterialIcons name="alarm" size={20} color={colors.primary} />
+                <MaterialIcons name="schedule" size={20} color={colors.primary} />
                 <View style={styles.featureItemText}>
-                  <Text style={styles.featureTitle}>Daily 7:00 AM</Text>
-                  <Text style={styles.featureSubtitle}>Fresh morning briefing</Text>
+                  <Text style={styles.featureTitle}>{cadence.title}</Text>
+                  <Text style={styles.featureSubtitle}>{cadence.subtitle}</Text>
                 </View>
               </View>
 
               <View style={styles.featureItem}>
-                <MaterialIcons name="lightbulb-outline" size={20} color={colors.secondary} />
+                <MaterialIcons name="category" size={20} color={colors.secondary} />
                 <View style={styles.featureItemText}>
-                  <Text style={styles.featureTitle}>Actionable Tips</Text>
-                  <Text style={styles.featureSubtitle}>2-min practical read</Text>
+                  <Text style={styles.featureTitle}>{product.category || 'Curated'}</Text>
+                  <Text style={styles.featureSubtitle}>
+                    {product.category ? `Curated ${product.category} content` : 'Selected for you'}
+                  </Text>
                 </View>
               </View>
 
@@ -242,7 +252,7 @@ export default function ProductDetailScreen() {
                 </View>
 
                 <Text style={styles.disclosure}>
-                  Billed directly via your MTN / Telecel airtime. Auto-renews daily, cancel anytime.
+                  Billed to your mobile airtime. Auto-renews {cadence.adverb}, cancel anytime.
                 </Text>
 
                 <Button
@@ -366,14 +376,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  publisherBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   publisherName: {
     ...typography.labelSm,

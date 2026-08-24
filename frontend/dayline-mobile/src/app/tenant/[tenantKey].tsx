@@ -106,10 +106,9 @@ export default function TenantStorefrontScreen() {
               <View style={styles.identityTextGroup}>
                 <View style={styles.nameRow}>
                   <Text style={styles.tenantName}>{tenant.tenant_name}</Text>
-                  <MaterialIcons name="verified" size={18} color={colors.primary} />
                 </View>
                 <Text style={styles.meta}>
-                  {pluralize(tenant.products.length, 'active channel')} • Verified Publisher
+                  {pluralize(tenant.products.length, 'active channel')}
                 </Text>
               </View>
             </View>

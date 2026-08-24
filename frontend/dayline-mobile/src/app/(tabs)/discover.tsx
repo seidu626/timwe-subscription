@@ -83,7 +83,7 @@ export default function DiscoverScreen() {
               <MaterialIcons name="stars" size={20} color={colors.secondary} />
               <Text style={styles.sectionTitle}>Featured Channels</Text>
             </View>
-            <Text style={styles.sectionSubtitle}>Handpicked by editors</Text>
+            <Text style={styles.sectionSubtitle}>Popular right now</Text>
           </View>
 
           <ScrollView
@@ -179,7 +179,6 @@ function FeaturedCard({ product }: { product: CatalogProduct }) {
 
             <View style={styles.featuredFooter}>
               <View style={styles.featuredPublisher}>
-                <MaterialIcons name="verified" size={14} color={colors.primary} />
                 <Text style={styles.featuredMeta} numberOfLines={1} ellipsizeMode="tail">
                   {product.tenant_name}
                 </Text>
@@ -219,10 +218,9 @@ function TenantSection({ tenant }: { tenant: MarketplaceTenant }) {
               <Text style={styles.tenantName} numberOfLines={1} ellipsizeMode="tail">
                 {tenant.tenant_name}
               </Text>
-              <MaterialIcons name="verified" size={16} color={colors.primary} />
             </View>
             <Text style={styles.tenantMeta}>
-              {pluralize(tenant.products.length, 'channel')} • Direct Access
+              {pluralize(tenant.products.length, 'channel')}
             </Text>
           </View>
         </View>

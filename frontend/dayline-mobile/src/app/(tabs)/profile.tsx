@@ -71,7 +71,7 @@ export default function ProfileScreen() {
             <Text style={styles.msisdn}>{msisdn ? formatMsisdnForDisplay(msisdn) : 'Dayline Member'}</Text>
             <View style={styles.memberBadge}>
               <MaterialIcons name="verified" size={14} color={colors.primary} />
-              <Text style={styles.memberBadgeText}>Verified Account</Text>
+              <Text style={styles.memberBadgeText}>Verified number</Text>
             </View>
           </View>
         </View>
