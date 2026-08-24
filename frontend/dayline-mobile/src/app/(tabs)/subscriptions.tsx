@@ -1,15 +1,15 @@
-import { useState , useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
 import { ScreenContainer } from '@/components/ScreenContainer';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useCancelSubscription, useSubscriptions } from '@/hooks/useSubscriptions';
-import { spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
 import { formatBillingCycle, formatCurrency, formatProductName, pluralize } from '@/utils/format';
 import type { Subscription } from '@/api/types';
@@ -23,9 +23,7 @@ export default function SubscriptionsScreen() {
   const cancelSubscription = useCancelSubscription();
   const [cancelingRef, setCancelingRef] = useState<string | null>(null);
   const [pastExpanded, setPastExpanded] = useState(false);
-  // Low-signal CANCELLED/FAILED records collapse into "Past subscriptions" so
-  // the list stays scannable as history accumulates; ACTIVE/PENDING keep
-  // rendering as cards exactly as before.
+  
   const activeSubscriptions = subscriptions.data?.filter((s) => !PAST_STATUSES.includes(s.status)) ?? [];
   const pastSubscriptions = subscriptions.data?.filter((s) => PAST_STATUSES.includes(s.status)) ?? [];
 
@@ -48,8 +46,6 @@ export default function SubscriptionsScreen() {
   function confirmCancel(subscription: Subscription) {
     const title = `Cancel ${formatProductName(subscription.product_name)}?`;
     const body = "You'll lose access at the end of the current billing period.";
-    // Alert.alert with buttons is a no-op on react-native-web, so the web
-    // build must confirm through the browser dialog instead.
     if (Platform.OS === 'web') {
       if (window.confirm(`${title}\n${body}`)) {
         void runCancel(subscription);
@@ -75,8 +71,11 @@ export default function SubscriptionsScreen() {
       refreshing={subscriptions.isRefetching}
       onRefresh={() => void subscriptions.refetch()}
     >
-      <Text style={styles.pageTitle}>My Subscriptions</Text>
-      <Text style={styles.pageSubtitle}>Manage your active plans and billing.</Text>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>BILLING & MEMBERSHIPS</Text>
+        <Text style={styles.pageTitle}>My Subscriptions</Text>
+        <Text style={styles.pageSubtitle}>Manage your active channels and carrier billing.</Text>
+      </View>
 
       {subscriptions.isPending ? <LoadingState label="Loading subscriptions…" /> : null}
 
@@ -91,8 +90,8 @@ export default function SubscriptionsScreen() {
       {subscriptions.isSuccess && subscriptions.data.length === 0 ? (
         <EmptyState
           icon="stars"
-          title="No subscriptions yet"
-          message="Browse Discover to find your first daily content subscription."
+          title="No active subscriptions yet"
+          message="Browse Discover to subscribe to daily briefings with your mobile airtime."
         />
       ) : null}
 
@@ -117,7 +116,10 @@ export default function SubscriptionsScreen() {
             accessibilityState={{ expanded: pastExpanded }}
             style={styles.pastToggle}
           >
-            <Text style={styles.pastToggleText}>{pluralize(pastSubscriptions.length, 'past subscription')}</Text>
+            <View style={styles.pastToggleLeft}>
+              <MaterialIcons name="history" size={18} color={colors.onSurfaceVariant} />
+              <Text style={styles.pastToggleText}>{pluralize(pastSubscriptions.length, 'past subscription')}</Text>
+            </View>
             <MaterialIcons
               name={pastExpanded ? 'expand-less' : 'expand-more'}
               size={22}
@@ -140,17 +142,16 @@ export default function SubscriptionsScreen() {
       ) : null}
 
       <Link href="/(tabs)/discover" asChild>
-        <Pressable accessibilityRole="button" style={styles.browseMore}>
-          <MaterialIcons name="add" size={20} color={colors.primary} />
-          <Text style={styles.browseMoreText}>Browse More Subscriptions</Text>
-        </Pressable>
+        <AnimatedPressable accessibilityRole="button" style={styles.browseMore}>
+          <MaterialIcons name="add-circle-outline" size={18} color={colors.primary} />
+          <Text style={styles.browseMoreText}>Explore More Channels</Text>
+        </AnimatedPressable>
       </Link>
 
       <View style={styles.footnote}>
-        <MaterialIcons name="info" size={16} color={colors.onSurfaceVariant} />
+        <MaterialIcons name="verified-user" size={16} color={colors.outline} />
         <Text style={styles.footnoteText}>
-          Charges appear on your mobile network airtime or wallet. Text STOP to cancel any subscription by SMS at any
-          time.
+          Charges are billed directly to your MTN or Telecel airtime/wallet. You can text STOP to cancel any channel by SMS at any time.
         </Text>
       </View>
     </ScreenContainer>
@@ -169,31 +170,42 @@ function SubscriptionCard({
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
-    <Card style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.productName} numberOfLines={2} ellipsizeMode="tail">
-          {formatProductName(subscription.product_name)}
-        </Text>
-        <StatusPill status={subscription.status} />
+    <Card style={styles.card} padded={false}>
+      <View style={styles.cardInner}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            <Text style={styles.productName} numberOfLines={2} ellipsizeMode="tail">
+              {formatProductName(subscription.product_name)}
+            </Text>
+            {subscription.tenant_name ? (
+              <Text style={styles.providerLine} numberOfLines={1} ellipsizeMode="tail">
+                Published by {subscription.tenant_name}
+              </Text>
+            ) : null}
+          </View>
+          <StatusPill status={subscription.status} />
+        </View>
+
+        <View style={styles.priceRow}>
+          <Text style={styles.priceText}>
+            {formatCurrency(subscription.price, subscription.currency)}
+            <Text style={styles.priceCycle}> {formatBillingCycle(subscription.billing_cycle)}</Text>
+          </Text>
+          {subscription.next_charge_hint ? (
+            <Text style={styles.nextCharge}>{subscription.next_charge_hint}</Text>
+          ) : null}
+        </View>
+
+        {subscription.status === 'ACTIVE' || subscription.status === 'PENDING' ? (
+          <Button
+            label={subscription.status === 'PENDING' ? 'Cancel Request' : 'Cancel Subscription'}
+            variant="secondary"
+            onPress={() => onCancel(subscription)}
+            loading={cancelingRef === subscription.ref}
+            style={styles.cancelButton}
+          />
+        ) : null}
       </View>
-      {subscription.tenant_name ? (
-        <Text style={styles.providerLine} numberOfLines={1} ellipsizeMode="tail">
-          by {subscription.tenant_name}
-        </Text>
-      ) : null}
-      <Text style={styles.priceLine}>
-        {subscription.next_charge_hint ? `${subscription.next_charge_hint} • ` : ''}
-        {formatCurrency(subscription.price, subscription.currency)}
-        {formatBillingCycle(subscription.billing_cycle)}
-      </Text>
-      {subscription.status === 'ACTIVE' || subscription.status === 'PENDING' ? (
-        <Button
-          label={subscription.status === 'PENDING' ? 'Cancel request' : 'Cancel subscription'}
-          variant="secondary"
-          onPress={() => onCancel(subscription)}
-          loading={cancelingRef === subscription.ref}
-        />
-      ) : null}
     </Card>
   );
 }
@@ -213,21 +225,40 @@ function StatusPill({ status }: { status: Subscription['status'] }) {
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  header: {
+    marginBottom: spacing.stackLg,
+  },
+  eyebrow: {
+    ...typography.labelSm,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: colors.primary,
+    marginBottom: 2,
+  },
   pageTitle: {
     ...typography.headlineLgMobile,
-    color: colors.primary,
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    color: colors.onSurface,
   },
   pageSubtitle: {
     ...typography.bodyMd,
+    fontSize: 13,
     color: colors.onSurfaceVariant,
-    marginTop: spacing.stackSm,
-    marginBottom: spacing.sectionGap - spacing.stackLg,
+    marginTop: 4,
   },
   list: {
-    gap: spacing.stackMd,
+    gap: 12,
   },
   card: {
-    gap: spacing.stackMd,
+    backgroundColor: colors.surfaceContainerLowest,
+    overflow: 'hidden',
+  },
+  cardInner: {
+    padding: 16,
+    gap: 12,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -235,77 +266,141 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.stackSm,
   },
-  productName: {
-    ...typography.headlineMd,
-    fontSize: 20,
-    color: colors.onSurface,
+  cardHeaderLeft: {
     flex: 1,
     minWidth: 0,
+    gap: 2,
+  },
+  productName: {
+    ...typography.headlineMd,
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.onSurface,
   },
   providerLine: {
     ...typography.labelSm,
+    fontSize: 12,
     color: colors.onSurfaceVariant,
   },
-  priceLine: {
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+  priceText: {
+    ...typography.headlineMd,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  priceCycle: {
     ...typography.bodyMd,
+    fontSize: 13,
+    fontWeight: '400',
     color: colors.onSurfaceVariant,
+  },
+  nextCharge: {
+    ...typography.labelSm,
+    fontSize: 12,
+    color: colors.outline,
+  },
+  cancelButton: {
+    width: '100%',
   },
   statusPill: {
-    borderRadius: 9999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderRadius: radii.full,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderWidth: 1,
     flexShrink: 0,
   },
+  statusPillText: {
+    ...typography.labelSm,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
   pastGroup: {
-    gap: spacing.stackMd,
-    marginTop: spacing.stackLg,
+    gap: 12,
+    marginTop: 20,
   },
   pastToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.stackSm,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  pastToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   pastToggleText: {
     ...typography.labelMd,
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.onSurfaceVariant,
-  },
-  statusPillText: {
-    ...typography.labelSm,
   },
   browseMore: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.stackSm,
-    paddingVertical: spacing.stackMd,
-    marginTop: spacing.stackLg,
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surfaceContainerLowest,
+    marginTop: 20,
   },
   browseMoreText: {
     ...typography.labelMd,
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.primary,
   },
   footnote: {
     flexDirection: 'row',
-    gap: spacing.stackSm,
-    marginTop: spacing.sectionGap - spacing.stackLg,
-    paddingTop: spacing.stackLg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.outlineVariant,
+    gap: 8,
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
   },
   footnoteText: {
     ...typography.labelSm,
-    color: colors.onSurfaceVariant,
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.outline,
     flex: 1,
-    lineHeight: 18,
   },
 });
 
 const createStatusStyles = (colors: ThemeColors) => ({
-  ACTIVE: { backgroundColor: colors.primarySoft },
-  PENDING: { backgroundColor: 'rgba(253,183,65,0.2)' },
-  CANCELLED: { backgroundColor: 'rgba(73,69,79,0.1)' },
-  FAILED: { backgroundColor: 'rgba(186,26,26,0.12)' },
+  ACTIVE: {
+    backgroundColor: colors.primarySoft,
+    borderColor: 'rgba(52, 211, 153, 0.3)',
+  },
+  PENDING: {
+    backgroundColor: colors.secondaryContainer,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  CANCELLED: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderColor: colors.cardBorder,
+  },
+  FAILED: {
+    backgroundColor: colors.errorContainer,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
 } as const);
 
 const createStatusTextStyles = (colors: ThemeColors) => ({

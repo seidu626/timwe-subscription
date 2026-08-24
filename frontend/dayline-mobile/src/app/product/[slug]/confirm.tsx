@@ -1,10 +1,12 @@
-import { useState , useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
 import { ErrorState, LoadingState } from '@/components/AsyncState';
 import { useCatalogProduct } from '@/hooks/useCatalog';
 import { useConfirmSubscription, useCreateSubscription } from '@/hooks/useSubscriptions';
@@ -31,10 +33,12 @@ export default function ConfirmSubscriptionScreen() {
 
   function handleStatus(status: SubscriptionStatus) {
     if (status === 'ACTIVE') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace({ pathname: '/product/[slug]/success', params: { slug: slug! } });
     } else if (status === 'FAILED') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setStep('error');
-      setErrorMessage('The provider could not confirm this subscription. Please try again.');
+      setErrorMessage('The mobile network could not confirm this subscription. Please try again.');
     } else {
       setStep('pending');
     }
@@ -42,6 +46,7 @@ export default function ConfirmSubscriptionScreen() {
 
   async function startSubscription() {
     if (!product) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setErrorMessage(null);
     try {
       const result = await createSubscription.mutateAsync({
@@ -50,6 +55,7 @@ export default function ConfirmSubscriptionScreen() {
       });
       setSubscriptionRef(result.subscription_ref);
       if (result.next_action === 'SUBSCRIBED') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         router.replace({ pathname: '/product/[slug]/success', params: { slug: product.slug } });
       } else if (result.next_action === 'OTP') {
         setStep('awaiting_pin');
@@ -65,6 +71,7 @@ export default function ConfirmSubscriptionScreen() {
 
   async function submitPin() {
     if (!subscriptionRef) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setErrorMessage(null);
     try {
       const confirmed = await confirmSubscription.mutateAsync({ ref: subscriptionRef, pin });
@@ -79,44 +86,61 @@ export default function ConfirmSubscriptionScreen() {
     <SafeAreaView style={styles.root} edges={['bottom', 'left', 'right']}>
       <View style={styles.handle} />
 
-      {isPending ? <LoadingState label="Loading…" /> : null}
+      {isPending ? <LoadingState label="Preparing subscription…" /> : null}
       {isError || (!isPending && !product) ? (
-        <ErrorState title="Couldn't load this product" message="Please close and try again." />
+        <ErrorState title="Couldn't load this channel" message="Please close and try again." />
       ) : null}
 
       {product ? (
         <View style={styles.content}>
-          <Text style={styles.title}>Confirm your subscription</Text>
-          <Text style={styles.productName}>{formatProductName(product.name)}</Text>
-          <Text style={styles.productTagline}>{product.tagline}</Text>
+          <Text style={styles.title}>Confirm Subscription</Text>
 
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>
-              {formatCurrency(product.price, product.currency)}
-              <Text style={styles.priceCycle}> {formatBillingCycle(product.billing_cycle)}</Text>
-            </Text>
-          </View>
+          {/* Product Summary Card */}
+          <Card style={styles.summaryCard} padded={false}>
+            <View style={styles.summaryCardInner}>
+              <View style={styles.productLeft}>
+                <View style={styles.productIcon}>
+                  <MaterialIcons name="newspaper" size={24} color={colors.primary} />
+                </View>
+                <View style={styles.productTextGroup}>
+                  <Text style={styles.productName} numberOfLines={2}>
+                    {formatProductName(product.name)}
+                  </Text>
+                  <Text style={styles.productTagline} numberOfLines={1}>
+                    {product.tagline}
+                  </Text>
+                </View>
+              </View>
 
+              <View style={styles.priceContainer}>
+                <Text style={styles.price}>
+                  {formatCurrency(product.price, product.currency)}
+                </Text>
+                <Text style={styles.priceCycle}>{formatBillingCycle(product.billing_cycle)}</Text>
+              </View>
+            </View>
+          </Card>
+
+          {/* Carrier Billing Trust Notice */}
           <View style={styles.disclosureBox}>
-            <MaterialIcons name="info-outline" size={18} color={colors.onSurfaceVariant} />
+            <MaterialIcons name="verified-user" size={18} color={colors.primary} />
             <Text style={styles.disclosureText}>
-              You will be billed {formatCurrency(product.price, product.currency)}{' '}
-              {formatBillingCycle(product.billing_cycle)} via your mobile network. This subscription auto-renews and
-              you can cancel anytime.
+              Billed directly to your MTN or Telecel airtime. No credit card needed. Auto-renews daily and you can cancel anytime.
             </Text>
           </View>
 
           {step === 'awaiting_pin' ? (
             <View style={styles.pinGroup}>
-              <Text style={styles.pinLabel}>Enter the confirmation PIN sent to your phone</Text>
+              <Text style={styles.pinLabel}>Enter the verification PIN sent via SMS</Text>
               <TextInput
                 value={pin}
                 onChangeText={setPin}
                 keyboardType="number-pad"
                 maxLength={6}
-                placeholder="PIN"
-                placeholderTextColor={colors.onSurfaceVariant}
+                placeholder="• • • •"
+                placeholderTextColor={colors.outline}
                 style={styles.pinInput}
+                autoFocus
               />
             </View>
           ) : null}
@@ -125,7 +149,7 @@ export default function ConfirmSubscriptionScreen() {
             <View style={styles.disclosureBox}>
               <MaterialIcons name="hourglass-top" size={18} color={colors.secondary} />
               <Text style={styles.disclosureText}>
-                Your subscription is being processed. Check the Subscriptions tab shortly for the final status.
+                Your subscription is being activated by your carrier. Check the Subscriptions tab shortly.
               </Text>
             </View>
           ) : null}
@@ -136,7 +160,7 @@ export default function ConfirmSubscriptionScreen() {
             <Button label="Done" onPress={() => router.back()} style={styles.cta} />
           ) : step === 'awaiting_pin' ? (
             <Button
-              label="Confirm"
+              label="Confirm PIN"
               onPress={submitPin}
               disabled={pin.length < 4}
               loading={isSubmitting}
@@ -144,15 +168,16 @@ export default function ConfirmSubscriptionScreen() {
             />
           ) : (
             <Button
-              label="Confirm & Subscribe"
+              label="Authorize & Subscribe"
               onPress={startSubscription}
               loading={isSubmitting}
+              icon={<MaterialIcons name="check" size={18} color={colors.onPrimary} />}
               style={styles.cta}
             />
           )}
 
           <Pressable onPress={() => router.back()} accessibilityRole="button" style={styles.cancelLink}>
-            <Text style={styles.cancelLinkText}>Cancel</Text>
+            <Text style={styles.cancelLinkText}>Cancel and return</Text>
           </Pressable>
         </View>
       ) : null}
@@ -167,49 +192,94 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   handle: {
     alignSelf: 'center',
-    width: 40,
-    height: 4,
+    width: 44,
+    height: 5,
     borderRadius: radii.full,
     backgroundColor: colors.outlineVariant,
-    marginTop: spacing.stackSm,
+    marginTop: 10,
+    marginBottom: 4,
   },
   content: {
     paddingHorizontal: spacing.containerMargin,
-    paddingTop: spacing.stackLg,
+    paddingTop: 16,
     paddingBottom: spacing.sectionGap,
-    gap: spacing.stackMd,
+    gap: 16,
   },
   title: {
     ...typography.headlineMd,
-    fontSize: 20,
+    fontSize: 22,
+    fontWeight: '800',
     color: colors.onSurface,
   },
+  summaryCard: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderColor: colors.cardBorder,
+    overflow: 'hidden',
+  },
+  summaryCardInner: {
+    padding: 16,
+    gap: 14,
+  },
+  productLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  productIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.md,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  productTextGroup: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
   productName: {
-    ...typography.headlineLgMobile,
-    color: colors.primary,
+    ...typography.headlineMd,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.onSurface,
   },
   productTagline: {
     ...typography.bodyMd,
+    fontSize: 13,
     color: colors.onSurfaceVariant,
   },
-  priceRow: {
-    marginTop: spacing.stackSm,
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
   },
   price: {
     ...typography.headlineMd,
-    fontSize: 22,
+    fontSize: 24,
+    fontWeight: '800',
     color: colors.onSurface,
   },
   priceCycle: {
     ...typography.bodyMd,
+    fontSize: 14,
     color: colors.onSurfaceVariant,
   },
   disclosureBox: {
     flexDirection: 'row',
-    gap: spacing.stackSm,
-    backgroundColor: colors.surfaceVariant,
-    borderRadius: radii.default,
-    padding: spacing.stackMd,
+    gap: 10,
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: radii.md,
+    padding: 14,
   },
   disclosureText: {
     ...typography.labelSm,
@@ -218,36 +288,44 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     lineHeight: 18,
   },
   pinGroup: {
-    gap: spacing.stackSm,
+    gap: 8,
   },
   pinLabel: {
     ...typography.labelMd,
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.onSurface,
   },
   pinInput: {
     borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    borderRadius: radii.default,
-    paddingHorizontal: spacing.stackMd,
-    paddingVertical: 12,
-    ...typography.bodyLg,
+    borderColor: colors.primary,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceContainerLowest,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    ...typography.headlineMd,
+    fontSize: 20,
+    textAlign: 'center',
     color: colors.onSurface,
-    letterSpacing: 4,
+    letterSpacing: 8,
   },
   errorText: {
     ...typography.labelSm,
     color: colors.error,
+    fontWeight: '600',
   },
   cta: {
     width: '100%',
-    marginTop: spacing.stackSm,
+    marginTop: 4,
   },
   cancelLink: {
     alignItems: 'center',
-    paddingVertical: spacing.stackSm,
+    paddingVertical: 8,
   },
   cancelLinkText: {
     ...typography.labelMd,
-    color: colors.onSurfaceVariant,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.outline,
   },
 });

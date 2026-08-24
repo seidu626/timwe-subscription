@@ -1,14 +1,14 @@
-import { useEffect , useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
+import { Card } from '@/components/Card';
 import { ErrorState, LoadingState } from '@/components/AsyncState';
 import { useFeedItem, useMarkFeedItemRead } from '@/hooks/useFeed';
-import { spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
 import { estimateReadTime, formatRelativeDay, parseHttpUrl } from '@/utils/format';
 
@@ -36,9 +36,6 @@ export default function ContentDetailScreen() {
     }
   }
 
-  // Only http/https destinations are safe to hand to Linking/window.open;
-  // anything else (missing link_url, custom scheme, malformed string)
-  // renders no CTA at all rather than a broken button.
   const linkUrl =
     item?.content_kind === 'LINK' && item.link_url && parseHttpUrl(item.link_url) ? item.link_url : null;
   const linkHost = linkUrl ? parseHttpUrl(linkUrl)?.hostname : null;
@@ -56,7 +53,9 @@ export default function ContentDetailScreen() {
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.headerButton}>
-          <MaterialIcons name="arrow-back" size={22} color={colors.onSurfaceVariant} />
+          <View style={styles.iconCircle}>
+            <MaterialIcons name="arrow-back" size={20} color={colors.onSurface} />
+          </View>
         </Pressable>
         <Pressable
           onPress={handleShare}
@@ -65,35 +64,58 @@ export default function ContentDetailScreen() {
           style={styles.headerButton}
           disabled={!item}
         >
-          <MaterialIcons name="share" size={22} color={item ? colors.onSurfaceVariant : colors.outline} />
+          <View style={styles.iconCircle}>
+            <MaterialIcons name="share" size={20} color={item ? colors.onSurface : colors.outline} />
+          </View>
         </Pressable>
       </View>
 
-      {isPending ? <LoadingState label="Loading article…" /> : null}
+      {isPending ? <LoadingState label="Loading briefing…" /> : null}
       {isError ? (
         <ErrorState
-          title="Couldn't load this article"
+          title="Couldn't load this briefing"
           message={error instanceof Error ? error.message : undefined}
           onRetry={refetch}
         />
       ) : null}
 
       {item ? (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Chip label={item.product_name.toUpperCase()} tone="primary" />
-          <Text style={styles.title}>{item.title}</Text>
-          <View style={styles.metaRow}>
-            <MaterialIcons name="schedule" size={14} color={colors.onSurfaceVariant} />
-            <Text style={styles.metaText}>{estimateReadTime(item.body)}</Text>
-            <Text style={styles.metaDot}>•</Text>
-            <Text style={styles.metaText}>{formatRelativeDay(item.published_at)}</Text>
-          </View>
-          <Text style={styles.body}>{item.body}</Text>
-          {linkUrl ? (
-            <View style={styles.linkCta}>
-              <Button label={item.cta_label || 'Open link'} onPress={handleOpenLink} style={styles.linkCtaButton} />
-              {linkHost ? <Text style={styles.linkHost}>Opens {linkHost}</Text> : null}
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.publicationHeader}>
+            <View style={styles.publicationBadge}>
+              <MaterialIcons name="newspaper" size={16} color={colors.primary} />
+              <Text style={styles.publicationText}>{item.product_name.toUpperCase()}</Text>
             </View>
+            <View style={styles.metaBadge}>
+              <MaterialIcons name="schedule" size={14} color={colors.outline} />
+              <Text style={styles.metaText}>{estimateReadTime(item.body)}</Text>
+              <Text style={styles.metaDot}>•</Text>
+              <Text style={styles.metaText}>{formatRelativeDay(item.published_at)}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.title}>{item.title}</Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.body}>{item.body}</Text>
+
+          {linkUrl ? (
+            <Card style={styles.linkCard} padded={false}>
+              <View style={styles.linkCardInner}>
+                <View style={styles.linkHeader}>
+                  <MaterialIcons name="link" size={20} color={colors.primary} />
+                  <Text style={styles.linkHeaderTitle}>Extended Resource</Text>
+                </View>
+                {linkHost ? <Text style={styles.linkHost}>Read full material on {linkHost}</Text> : null}
+                <Button 
+                  label={item.cta_label || 'Open External Resource'} 
+                  onPress={handleOpenLink} 
+                  icon={<MaterialIcons name="open-in-new" size={18} color={colors.onPrimary} />}
+                  style={styles.linkCtaButton} 
+                />
+              </View>
+            </Card>
           ) : null}
         </ScrollView>
       ) : null}
@@ -104,13 +126,13 @@ export default function ContentDetailScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.stackMd,
+    paddingHorizontal: spacing.containerMargin,
     height: 56,
   },
   headerButton: {
@@ -119,43 +141,109 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scrollContent: {
     paddingHorizontal: spacing.containerMargin,
-    paddingBottom: spacing.sectionGap,
-    gap: spacing.stackMd,
+    paddingTop: 16,
+    paddingBottom: spacing.sectionGap + 24,
+    gap: 16,
   },
-  title: {
-    ...typography.headlineLgMobile,
-    color: colors.onSurface,
-  },
-  metaRow: {
+  publicationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.stackSm,
+    justifyContent: 'space-between',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  publicationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radii.sm,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.2)',
+  },
+  publicationText: {
+    ...typography.labelSm,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    color: colors.primary,
+  },
+  metaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   metaText: {
     ...typography.labelSm,
-    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    color: colors.outline,
   },
   metaDot: {
-    color: colors.onSurfaceVariant,
+    color: colors.outline,
+    fontSize: 12,
+  },
+  title: {
+    ...typography.headlineLgMobile,
+    fontSize: 26,
+    lineHeight: 34,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    color: colors.onSurface,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.cardBorder,
+    marginVertical: 4,
   },
   body: {
     ...typography.bodyLg,
-    color: colors.onSurfaceVariant,
-    marginTop: spacing.stackSm,
+    fontSize: 17,
+    lineHeight: 28,
+    color: colors.onSurface,
+    letterSpacing: 0.1,
   },
-  linkCta: {
-    width: '100%',
-    marginTop: spacing.stackSm,
+  linkCard: {
+    marginTop: 16,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderColor: colors.cardBorder,
+    overflow: 'hidden',
+  },
+  linkCardInner: {
+    padding: 16,
+    gap: 10,
+  },
+  linkHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.stackSm,
+    gap: 6,
   },
-  linkCtaButton: {
-    width: '100%',
+  linkHeaderTitle: {
+    ...typography.headlineMd,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.onSurface,
   },
   linkHost: {
     ...typography.labelSm,
+    fontSize: 12,
     color: colors.onSurfaceVariant,
+  },
+  linkCtaButton: {
+    width: '100%',
+    marginTop: 4,
   },
 });

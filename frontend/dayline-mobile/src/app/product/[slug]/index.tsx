@@ -11,6 +11,7 @@ import Animated, {
   interpolate, 
   Extrapolation 
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -22,7 +23,7 @@ import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
 import { formatBillingCycle, formatCurrency, formatProductName } from '@/utils/format';
 
-const HERO_HEIGHT = 280;
+const HERO_HEIGHT = 300;
 
 export default function ProductDetailScreen() {
   const { colors } = useTheme();
@@ -43,7 +44,7 @@ export default function ProductDetailScreen() {
   const headerAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       scrollY.value,
-      [HERO_HEIGHT - 100, HERO_HEIGHT - 50],
+      [HERO_HEIGHT - 100, HERO_HEIGHT - 40],
       [0, 1],
       Extrapolation.CLAMP
     );
@@ -54,7 +55,6 @@ export default function ProductDetailScreen() {
   });
 
   const heroAnimatedStyle = useAnimatedStyle(() => {
-    // Parallax effect on scroll down, zoom effect on over-scroll up
     const translateY = interpolate(
       scrollY.value,
       [-100, 0, HERO_HEIGHT],
@@ -64,7 +64,7 @@ export default function ProductDetailScreen() {
     const scale = interpolate(
       scrollY.value,
       [-100, 0],
-      [1.5, 1],
+      [1.4, 1],
       Extrapolation.CLAMP
     );
     return {
@@ -72,32 +72,41 @@ export default function ProductDetailScreen() {
     };
   });
 
+  const handleSubscribePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (product) {
+      router.push({ pathname: '/product/[slug]/confirm', params: { slug: product.slug } });
+    }
+  };
+
   return (
     <View style={styles.root}>
+      {/* Sticky Blurred Nav Header on Scroll */}
       <Animated.View style={[styles.header, { paddingTop: insets.top }, headerAnimatedStyle]}>
         <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
-          {product?.name ?? 'Product'}
+          {product?.name ? formatProductName(product.name) : 'Channel'}
         </Text>
       </Animated.View>
 
-      <View style={[styles.headerControls, { top: insets.top }]}>
+      {/* Floating Back Action */}
+      <View style={[styles.headerControls, { top: insets.top + 8 }]}>
         <AnimatedPressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.headerButton}>
           <View style={styles.iconBackground}>
-            <MaterialIcons name="arrow-back" size={22} color={colors.onSurface} />
+            <MaterialIcons name="arrow-back" size={20} color={colors.onSurface} />
           </View>
         </AnimatedPressable>
       </View>
 
       {isPending ? (
         <SafeAreaView style={styles.centered} edges={['top', 'left', 'right']}>
-          <LoadingState label="Loading product…" />
+          <LoadingState label="Loading channel…" />
         </SafeAreaView>
       ) : null}
       
       {isError ? (
         <SafeAreaView style={styles.centered} edges={['top', 'left', 'right']}>
           <ErrorState
-            title="Couldn't load this product"
+            title="Couldn't load this channel"
             message={error instanceof Error ? error.message : undefined}
             onRetry={refetch}
           />
@@ -106,7 +115,7 @@ export default function ProductDetailScreen() {
       
       {!isPending && !isError && !product ? (
         <SafeAreaView style={styles.centered} edges={['top', 'left', 'right']}>
-          <ErrorState title="Product not found" message="This product may no longer be available." />
+          <ErrorState title="Channel not found" message="This publication may no longer be available." />
         </SafeAreaView>
       ) : null}
 
@@ -117,6 +126,7 @@ export default function ProductDetailScreen() {
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
         >
+          {/* Cinematic Hero Media */}
           <Animated.View style={[styles.heroContainer, heroAnimatedStyle]}>
             {product.artwork_url && !dataSaverEnabled ? (
               <Animated.View sharedTransitionTag={`product-hero-${product.slug}`} style={styles.heroWrapper}>
@@ -127,45 +137,121 @@ export default function ProductDetailScreen() {
                 <MaterialIcons name="menu-book" size={64} color={colors.primary} />
               </Animated.View>
             )}
+            <View style={styles.heroGradientOverlay} />
           </Animated.View>
 
+          {/* Content Sheet */}
           <View style={styles.contentBody}>
-            <Animated.Text sharedTransitionTag={`product-title-${product.slug}`} style={styles.title}>
-              {formatProductName(product.name)} — {product.tagline}
-            </Animated.Text>
+            {/* Publisher Trust & Category Bar */}
+            <View style={styles.publisherBar}>
+              <View style={styles.publisherInfo}>
+                <View style={styles.publisherBadge}>
+                  <MaterialIcons name="verified" size={16} color={colors.primary} />
+                </View>
+                <Text style={styles.publisherName}>{product.tenant_name ?? 'Official Partner'}</Text>
+                <Text style={styles.publisherDot}>•</Text>
+                <Text style={styles.categoryPill}>
+                  {product.category ? product.category.toUpperCase() : 'DAILY TIPS'}
+                </Text>
+              </View>
+
+              {product.subscriber_count ? (
+                <View style={styles.subscriberPill}>
+                  <MaterialIcons name="groups" size={14} color={colors.outline} />
+                  <Text style={styles.subscriberText}>
+                    {product.subscriber_count.toLocaleString()} readers
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {/* Title & Tagline */}
+            <View style={styles.titleSection}>
+              <Animated.Text sharedTransitionTag={`product-title-${product.slug}`} style={styles.title}>
+                {formatProductName(product.name)}
+              </Animated.Text>
+              {product.tagline ? (
+                <Text style={styles.tagline}>{product.tagline}</Text>
+              ) : null}
+            </View>
+
+            {/* Description */}
             <Text style={styles.description}>{product.description}</Text>
 
-            {product.subscriber_count ? (
-              <View style={styles.subscriberRow}>
-                <MaterialIcons name="groups" size={18} color={colors.onSurfaceVariant} />
-                <Text style={styles.subscriberText}>{product.subscriber_count.toLocaleString()} subscribers</Text>
-              </View>
-            ) : null}
-
-            {product.sample_content ? (
-              <Card style={styles.previewCard}>
-                <View style={styles.previewHeader}>
-                  <MaterialIcons name="history" size={18} color={colors.primary} />
-                  <Text style={styles.previewLabel}>Sample content</Text>
+            {/* Feature Highlights Grid */}
+            <View style={styles.featureGrid}>
+              <View style={styles.featureItem}>
+                <MaterialIcons name="alarm" size={20} color={colors.primary} />
+                <View style={styles.featureItemText}>
+                  <Text style={styles.featureTitle}>Daily 7:00 AM</Text>
+                  <Text style={styles.featureSubtitle}>Fresh morning briefing</Text>
                 </View>
-                <Text style={styles.previewQuote}>&ldquo;{product.sample_content}&rdquo;</Text>
+              </View>
+
+              <View style={styles.featureItem}>
+                <MaterialIcons name="lightbulb-outline" size={20} color={colors.secondary} />
+                <View style={styles.featureItemText}>
+                  <Text style={styles.featureTitle}>Actionable Tips</Text>
+                  <Text style={styles.featureSubtitle}>2-min practical read</Text>
+                </View>
+              </View>
+
+              <View style={styles.featureItem}>
+                <MaterialIcons name="sms" size={20} color={colors.primary} />
+                <View style={styles.featureItemText}>
+                  <Text style={styles.featureTitle}>SMS & Feed</Text>
+                  <Text style={styles.featureSubtitle}>Direct to your phone</Text>
+                </View>
+              </View>
+
+              <View style={styles.featureItem}>
+                <MaterialIcons name="check-circle-outline" size={20} color={colors.primary} />
+                <View style={styles.featureItemText}>
+                  <Text style={styles.featureTitle}>Cancel Anytime</Text>
+                  <Text style={styles.featureSubtitle}>1-tap unsubscribe</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Sample Content Quotation */}
+            {product.sample_content ? (
+              <Card style={styles.previewCard} padded={false}>
+                <View style={styles.previewCardInner}>
+                  <View style={styles.previewHeader}>
+                    <MaterialIcons name="format-quote" size={22} color={colors.primary} />
+                    <Text style={styles.previewLabel}>SAMPLE BRIEFING EXCERPT</Text>
+                  </View>
+                  <Text style={styles.previewQuote}>&ldquo;{product.sample_content}&rdquo;</Text>
+                </View>
               </Card>
             ) : null}
 
-            <Card style={styles.pricingCard}>
-              <MaterialIcons name="stars" size={28} color={colors.secondary} />
-              <Text style={styles.pricingTitle}>Premium Access</Text>
-              <Text style={styles.price}>
-                {formatCurrency(product.price, product.currency)}
-                <Text style={styles.priceCycle}> {formatBillingCycle(product.billing_cycle)}</Text>
-              </Text>
-              <Text style={styles.disclosure}>Billed via your mobile network. Auto-renews, cancel anytime.</Text>
-              <Button
-                label="Subscribe Now"
-                onPress={() => router.push({ pathname: '/product/[slug]/confirm', params: { slug: product.slug } })}
-                icon={<MaterialIcons name="arrow-forward" size={20} color={colors.onPrimary} />}
-                style={styles.subscribeButton}
-              />
+            {/* Conversion-Optimized Pricing Card */}
+            <Card style={styles.pricingCard} padded={false}>
+              <View style={styles.pricingCardInner}>
+                <View style={styles.pricingBadge}>
+                  <MaterialIcons name="stars" size={16} color={colors.secondary} />
+                  <Text style={styles.pricingBadgeText}>PREMIUM ACCESS</Text>
+                </View>
+
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceAmount}>
+                    {formatCurrency(product.price, product.currency)}
+                  </Text>
+                  <Text style={styles.priceCycle}>/{formatBillingCycle(product.billing_cycle).replace(/^\//, '')}</Text>
+                </View>
+
+                <Text style={styles.disclosure}>
+                  Billed directly via your MTN / Telecel airtime. Auto-renews daily, cancel anytime.
+                </Text>
+
+                <Button
+                  label="Subscribe Now"
+                  onPress={handleSubscribePress}
+                  icon={<MaterialIcons name="arrow-forward" size={18} color={colors.onPrimary} />}
+                  style={styles.subscribeButton}
+                />
+              </View>
             </Card>
           </View>
         </Animated.ScrollView>
@@ -177,7 +263,7 @@ export default function ProductDetailScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -189,31 +275,29 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    height: 96,
+    height: 90,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outlineVariant,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
   },
   headerControls: {
     position: 'absolute',
-    left: spacing.stackSm,
+    left: spacing.containerMargin,
     zIndex: 20,
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   iconBackground: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
@@ -224,16 +308,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   headerTitle: {
     ...typography.headlineMd,
-    fontSize: 18,
-    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.onSurface,
     flex: 1,
     textAlign: 'center',
-    paddingHorizontal: 60, // Clear the back button
+    paddingHorizontal: 60,
   },
   scrollContent: {
-    paddingBottom: spacing.sectionGap,
+    paddingBottom: spacing.sectionGap + 20,
   },
   heroContainer: {
+    position: 'relative',
     width: '100%',
     height: HERO_HEIGHT,
     backgroundColor: colors.surfaceVariant,
@@ -254,80 +340,217 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  heroGradientOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    backgroundColor: 'transparent',
+  },
   contentBody: {
     paddingHorizontal: spacing.containerMargin,
-    paddingTop: spacing.stackLg,
-    gap: spacing.stackLg,
-    backgroundColor: colors.surface,
+    paddingTop: 24,
+    gap: 20,
+    backgroundColor: colors.background,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
-    marginTop: -20, // Overlap the hero image slightly
+    marginTop: -24,
+  },
+  publisherBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  publisherInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  publisherBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  publisherName: {
+    ...typography.labelSm,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  publisherDot: {
+    color: colors.outline,
+    fontSize: 12,
+  },
+  categoryPill: {
+    ...typography.labelSm,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    color: colors.primary,
+  },
+  subscriberPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.full,
+    backgroundColor: colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  subscriberText: {
+    ...typography.labelSm,
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+  },
+  titleSection: {
+    gap: 6,
   },
   title: {
     ...typography.headlineLgMobile,
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '800',
     color: colors.onSurface,
   },
-  description: {
+  tagline: {
     ...typography.bodyLg,
+    fontSize: 16,
+    lineHeight: 22,
     color: colors.onSurfaceVariant,
   },
-  subscriberRow: {
+  description: {
+    ...typography.bodyMd,
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.onSurfaceVariant,
+  },
+  featureGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.stackSm,
+    gap: 10,
+    width: '48%',
+    padding: 12,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
-  subscriberText: {
-    ...typography.labelMd,
-    color: colors.onSurfaceVariant,
+  featureItemText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  featureTitle: {
+    ...typography.labelSm,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  featureSubtitle: {
+    ...typography.labelSm,
+    fontSize: 10,
+    color: colors.outline,
   },
   previewCard: {
-    gap: spacing.stackMd,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderColor: colors.cardBorder,
+    overflow: 'hidden',
+  },
+  previewCardInner: {
+    padding: 16,
+    gap: 8,
   },
   previewHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.stackSm,
+    gap: 6,
   },
   previewLabel: {
-    ...typography.labelMd,
+    ...typography.labelSm,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
     color: colors.primary,
-    textTransform: 'uppercase',
   },
   previewQuote: {
     ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
+    fontSize: 14,
+    lineHeight: 22,
     fontStyle: 'italic',
-    borderLeftWidth: 4,
+    color: colors.onSurface,
+    paddingLeft: 12,
+    borderLeftWidth: 3,
     borderLeftColor: colors.primary,
-    paddingLeft: spacing.stackMd,
   },
   pricingCard: {
-    alignItems: 'center',
-    gap: spacing.stackSm,
-    backgroundColor: 'rgba(253,183,65,0.15)',
+    backgroundColor: colors.surfaceContainerLowest,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
     borderWidth: 1,
-    borderColor: 'rgba(253,183,65,0.4)',
+    overflow: 'hidden',
   },
-  pricingTitle: {
-    ...typography.headlineMd,
-    fontSize: 20,
-    color: colors.onSecondaryFixed,
+  pricingCardInner: {
+    padding: 20,
+    alignItems: 'center',
+    gap: 10,
   },
-  price: {
-    ...typography.headlineLgMobile,
+  pricingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radii.full,
+    backgroundColor: colors.secondaryContainer,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  pricingBadgeText: {
+    ...typography.labelSm,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
     color: colors.secondary,
   },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    marginVertical: 4,
+  },
+  priceAmount: {
+    ...typography.headlineLgMobile,
+    fontSize: 32,
+    fontWeight: '800',
+    color: colors.onSurface,
+  },
   priceCycle: {
-    ...typography.bodyMd,
-    color: colors.onSecondaryFixedVariant,
+    ...typography.bodyLg,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
   },
   disclosure: {
     ...typography.labelSm,
-    color: colors.onSecondaryFixedVariant,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.outline,
     textAlign: 'center',
+    paddingHorizontal: 12,
   },
   subscribeButton: {
     width: '100%',
-    marginTop: spacing.stackSm,
+    marginTop: 6,
   },
 });

@@ -1,7 +1,8 @@
-import { useState , useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 import { Card } from '@/components/Card';
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncState';
@@ -12,13 +13,13 @@ import { usePushRegistrationStatus } from '@/hooks/usePushRegistration';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
-import { formatRelativeDay } from '@/utils/format';
+import { formatProductName, formatRelativeDay } from '@/utils/format';
 import type { NotificationChannel } from '@/api/types';
 
-const CHANNELS: { value: NotificationChannel; label: string }[] = [
-  { value: 'PUSH', label: 'Push' },
-  { value: 'SMS', label: 'SMS' },
-  { value: 'BOTH', label: 'Both' },
+const CHANNELS: { value: NotificationChannel; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+  { value: 'PUSH', label: 'Push', icon: 'notifications' },
+  { value: 'SMS', label: 'SMS', icon: 'sms' },
+  { value: 'BOTH', label: 'Both', icon: 'all-inclusive' },
 ];
 
 export default function NotificationsScreen() {
@@ -29,45 +30,47 @@ export default function NotificationsScreen() {
   const setPref = useSetNotificationPref();
   const serverPrefs = useNotificationPrefs();
   const pushStatus = usePushRegistrationStatus();
-  // Server prefs are the base; local overrides keep taps instant while the
-  // PUT is in flight. Products with no stored row default to "Both".
+
   const [prefOverrides, setPrefOverrides] = useState<Record<string, NotificationChannel>>({});
-  // Prefs only apply to active subscriptions; cancelled/failed rows must not
-  // leave the section silently blank.
   const activeSubscriptions = subscriptions.data?.filter((s) => s.status === 'ACTIVE') ?? [];
 
   function selectChannel(productSlug: string, channel: NotificationChannel) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPrefOverrides((prev) => ({ ...prev, [productSlug]: channel }));
     setPref.mutate({ productSlug, channel });
   }
 
   return (
-    <ScreenContainer scroll>
+    <ScreenContainer scroll withTabBarClearance>
+      {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.headerButton}>
-          <MaterialIcons name="arrow-back" size={22} color={colors.onSurfaceVariant} />
+          <View style={styles.iconCircle}>
+            <MaterialIcons name="arrow-back" size={20} color={colors.onSurface} />
+          </View>
         </Pressable>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={styles.headerButton} />
+        <View style={styles.headerSpacer} />
       </View>
 
+      {/* Push Permission Warning */}
       {pushStatus.state === 'denied' || pushStatus.state === 'failed' ? (
         <View style={styles.pushBanner}>
-          <MaterialIcons name="notifications-off" size={20} color={colors.error} />
+          <MaterialIcons name="notifications-off" size={22} color={colors.error} />
           <View style={styles.pushBannerTextGroup}>
             <Text style={styles.pushBannerTitle}>
-              {pushStatus.state === 'denied' ? 'Push notifications are off' : "Push notifications aren't set up"}
+              {pushStatus.state === 'denied' ? 'Push Notifications Disabled' : "Push Notifications Unavailable"}
             </Text>
             <Text style={styles.pushBannerBody}>
               {pushStatus.state === 'denied'
-                ? 'Allow notifications for Dayline in your system settings, then reopen the app. SMS delivery still works.'
-                : `This device could not register for push (${pushStatus.detail}). SMS delivery still works.`}
+                ? 'Enable notifications in your system settings to receive instant morning updates. SMS delivery is active.'
+                : `Device could not register for push. SMS delivery remains active.`}
             </Text>
           </View>
         </View>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Delivery preferences</Text>
+      <Text style={styles.sectionTitle}>Delivery Preferences</Text>
 
       {subscriptions.isPending ? <LoadingState label="Loading subscriptions…" /> : null}
       {subscriptions.isError ? (
@@ -80,22 +83,27 @@ export default function NotificationsScreen() {
       {subscriptions.isSuccess && activeSubscriptions.length === 0 ? (
         <EmptyState
           icon="notifications-none"
-          title="No active subscriptions"
-          message="Subscribe to a product to manage its delivery preferences."
+          title="No active channels"
+          message="Subscribe to a channel in Discover to configure delivery methods."
         />
       ) : null}
 
       <View style={styles.prefList}>
         {activeSubscriptions.map((subscription) => {
-            const current =
-              prefOverrides[subscription.product_slug] ??
-              serverPrefs.data?.[subscription.product_slug] ??
-              'BOTH';
-            return (
-              <Card key={subscription.ref} style={styles.prefCard}>
-                <Text style={styles.prefProductName} numberOfLines={2} ellipsizeMode="tail">
-                  {subscription.product_name}
-                </Text>
+          const current =
+            prefOverrides[subscription.product_slug] ??
+            serverPrefs.data?.[subscription.product_slug] ??
+            'BOTH';
+          return (
+            <Card key={subscription.ref} style={styles.prefCard} padded={false}>
+              <View style={styles.prefCardInner}>
+                <View style={styles.prefTopRow}>
+                  <MaterialIcons name="newspaper" size={18} color={colors.primary} />
+                  <Text style={styles.prefProductName} numberOfLines={1} ellipsizeMode="tail">
+                    {formatProductName(subscription.product_name)}
+                  </Text>
+                </View>
+
                 <View style={styles.channelRow}>
                   {CHANNELS.map((channel) => {
                     const active = current === channel.value;
@@ -107,6 +115,11 @@ export default function NotificationsScreen() {
                         accessibilityState={{ selected: active }}
                         style={[styles.channelPill, active && styles.channelPillActive]}
                       >
+                        <MaterialIcons 
+                          name={channel.icon} 
+                          size={14} 
+                          color={active ? colors.onPrimary : colors.onSurfaceVariant} 
+                        />
                         <Text style={[styles.channelPillText, active && styles.channelPillTextActive]}>
                           {channel.label}
                         </Text>
@@ -114,12 +127,13 @@ export default function NotificationsScreen() {
                     );
                   })}
                 </View>
-              </Card>
-            );
-          })}
+              </View>
+            </Card>
+          );
+        })}
       </View>
 
-      <Text style={[styles.sectionTitle, styles.historyTitle]}>Delivery history</Text>
+      <Text style={[styles.sectionTitle, styles.historyTitle]}>Recent Deliveries</Text>
 
       {feed.isPending ? <LoadingState label="Loading history…" /> : null}
       {feed.isError ? (
@@ -130,25 +144,31 @@ export default function NotificationsScreen() {
         />
       ) : null}
       {feed.isSuccess && feed.data.length === 0 ? (
-        <EmptyState icon="history" title="No deliveries yet" message="Delivered content will be listed here." />
+        <EmptyState icon="history" title="No deliveries yet" message="Delivered daily briefings will be listed here." />
       ) : null}
 
       <View style={styles.historyList}>
         {feed.data?.map((item) => (
-          <View key={item.id} style={styles.historyRow}>
-            <MaterialIcons name="check-circle" size={16} color={colors.primary} />
-            <View style={styles.historyTextGroup}>
-              <Text style={styles.historyItemTitle} numberOfLines={2} ellipsizeMode="tail">
-                {item.title}
-              </Text>
-              <Text style={styles.historyMeta} numberOfLines={1} ellipsizeMode="tail">
-                {item.product_name} • {formatRelativeDay(item.published_at)}
-              </Text>
+          <Card key={item.id} style={styles.historyCard} padded={false}>
+            <View style={styles.historyRow}>
+              <View style={styles.historyCheckCircle}>
+                <MaterialIcons name="check" size={14} color={colors.primary} />
+              </View>
+              <View style={styles.historyTextGroup}>
+                <Text style={styles.historyItemTitle} numberOfLines={2} ellipsizeMode="tail">
+                  {item.title}
+                </Text>
+                <Text style={styles.historyMeta} numberOfLines={1} ellipsizeMode="tail">
+                  {item.product_name} • {formatRelativeDay(item.published_at)}
+                </Text>
+              </View>
+              {item.content_kind === 'LINK' ? (
+                <MaterialIcons name="open-in-new" size={16} color={colors.outline} />
+              ) : (
+                <MaterialIcons name="chevron-right" size={20} color={colors.outline} />
+              )}
             </View>
-            {item.content_kind === 'LINK' ? (
-              <MaterialIcons name="open-in-new" size={14} color={colors.onSurfaceVariant} style={styles.linkGlyph} />
-            ) : null}
-          </View>
+          </Card>
         ))}
       </View>
     </ScreenContainer>
@@ -163,24 +183,41 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: spacing.stackLg,
   },
   headerButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: {
+    width: 38,
   },
   headerTitle: {
     ...typography.headlineMd,
     fontSize: 18,
-    color: colors.primary,
+    fontWeight: '700',
+    color: colors.onSurface,
+    textAlign: 'center',
   },
   pushBanner: {
     flexDirection: 'row',
-    gap: spacing.stackSm,
+    gap: 12,
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(186,26,26,0.08)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
     borderRadius: radii.md,
-    padding: spacing.stackMd,
-    marginBottom: spacing.stackLg,
+    padding: 14,
+    marginBottom: 20,
   },
   pushBannerTextGroup: {
     flex: 1,
@@ -189,42 +226,64 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   pushBannerTitle: {
     ...typography.labelMd,
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.error,
   },
   pushBannerBody: {
     ...typography.labelSm,
+    fontSize: 12,
     color: colors.onSurfaceVariant,
     lineHeight: 18,
   },
   sectionTitle: {
     ...typography.headlineMd,
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.onSurface,
-    marginBottom: spacing.stackMd,
+    marginBottom: 12,
   },
   historyTitle: {
-    marginTop: spacing.sectionGap - spacing.stackLg,
+    marginTop: 28,
   },
   prefList: {
-    gap: spacing.stackMd,
+    gap: 12,
   },
   prefCard: {
-    gap: spacing.stackMd,
+    backgroundColor: colors.surfaceContainerLowest,
+    overflow: 'hidden',
+  },
+  prefCardInner: {
+    padding: 16,
+    gap: 12,
+  },
+  prefTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   prefProductName: {
     ...typography.headlineMd,
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '700',
     color: colors.onSurface,
+    flex: 1,
   },
   channelRow: {
     flexDirection: 'row',
-    gap: spacing.stackSm,
+    gap: 8,
   },
   channelPill: {
-    paddingHorizontal: spacing.stackMd,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     paddingVertical: 8,
     borderRadius: radii.full,
     borderWidth: 1,
-    borderColor: colors.outlineVariant,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surfaceContainerLow,
   },
   channelPillActive: {
     backgroundColor: colors.primary,
@@ -232,18 +291,35 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   channelPillText: {
     ...typography.labelSm,
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.onSurfaceVariant,
   },
   channelPillTextActive: {
     color: colors.onPrimary,
+    fontWeight: '700',
   },
   historyList: {
-    gap: spacing.stackMd,
+    gap: 10,
+  },
+  historyCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    overflow: 'hidden',
   },
   historyRow: {
     flexDirection: 'row',
-    gap: spacing.stackSm,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+  },
+  historyCheckCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   historyTextGroup: {
     flex: 1,
@@ -251,15 +327,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 2,
   },
   historyItemTitle: {
-    ...typography.bodyMd,
+    ...typography.headlineMd,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '600',
     color: colors.onSurface,
   },
   historyMeta: {
     ...typography.labelSm,
-    color: colors.onSurfaceVariant,
-  },
-  linkGlyph: {
-    flexShrink: 0,
-    marginTop: 2,
+    fontSize: 11,
+    color: colors.outline,
   },
 });

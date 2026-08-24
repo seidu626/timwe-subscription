@@ -15,10 +15,10 @@ import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
 import { pluralize } from '@/utils/format';
 
-// Category chips only earn their place once a storefront is large enough
-// that browsing the flat list stops being the fastest path; small catalogs
-// stay chip-free.
-const CATEGORY_FILTER_THRESHOLD = 15;
+// Category chips earn their place once a storefront actually has more than
+// one category to browse by; a single-category (or uncategorized) catalog
+// stays chip-free regardless of product count.
+const CATEGORY_FILTER_MIN_CATEGORIES = 2;
 const ALL_CATEGORY = 'All';
 
 export default function TenantStorefrontScreen() {
@@ -29,13 +29,13 @@ export default function TenantStorefrontScreen() {
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
 
   const categoryCounts = useMemo(() => {
-    if (!tenant || tenant.products.length <= CATEGORY_FILTER_THRESHOLD) return [];
+    if (!tenant) return [];
     const counts = new Map<string, number>();
     for (const product of tenant.products) {
       if (!product.category) continue;
       counts.set(product.category, (counts.get(product.category) ?? 0) + 1);
     }
-    if (counts.size === 0) return [];
+    if (counts.size < CATEGORY_FILTER_MIN_CATEGORIES) return [];
     return [
       { label: ALL_CATEGORY, count: tenant.products.length },
       ...Array.from(counts.entries()).map(([category, count]) => ({ label: category, count })),
@@ -54,15 +54,18 @@ export default function TenantStorefrontScreen() {
   };
 
   return (
-    <ScreenContainer scroll>
+    <ScreenContainer scroll withTabBarClearance>
+      {/* Header Bar */}
       <View style={styles.header}>
         <AnimatedPressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.headerButton}>
-          <MaterialIcons name="arrow-back" size={22} color={colors.onSurfaceVariant} />
+          <View style={styles.backIconCircle}>
+            <MaterialIcons name="arrow-back" size={20} color={colors.onSurface} />
+          </View>
         </AnimatedPressable>
         <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
           {tenant?.tenant_name ?? 'Storefront'}
         </Text>
-        <View style={styles.headerButton} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {isPending ? <LoadingState label="Loading storefront…" /> : null}
@@ -74,22 +77,45 @@ export default function TenantStorefrontScreen() {
         />
       ) : null}
       {!isPending && !isError && !tenant ? (
-        <ErrorState title="Storefront not found" message="This tenant may no longer be available." />
+        <ErrorState title="Storefront not found" message="This partner may no longer be available." />
       ) : null}
 
       {tenant ? (
         <>
-          {tenant.branding?.banner_url ? (
-            <Image source={{ uri: tenant.branding.banner_url }} style={styles.banner} contentFit="cover" />
-          ) : null}
-
-          <View style={styles.identityRow}>
-            {tenant.branding?.logo_url ? (
-              <Image source={{ uri: tenant.branding.logo_url }} style={styles.logo} contentFit="cover" />
-            ) : null}
-            <Text style={styles.meta}>{pluralize(tenant.products.length, 'product')}</Text>
+          {/* Brand Hero Showcase */}
+          <View style={styles.showcaseCard}>
+            {tenant.branding?.banner_url ? (
+              <Image source={{ uri: tenant.branding.banner_url }} style={styles.banner} contentFit="contain" />
+            ) : (
+              <View style={styles.bannerFallback}>
+                <MaterialIcons name="storefront" size={48} color={colors.primary} />
+              </View>
+            )}
           </View>
 
+          {/* Identity & Stats Row */}
+          <View style={styles.identitySection}>
+            <View style={styles.identityTopRow}>
+              {tenant.branding?.logo_url ? (
+                <Image source={{ uri: tenant.branding.logo_url }} style={styles.logo} contentFit="cover" />
+              ) : (
+                <View style={styles.logoFallback}>
+                  <MaterialIcons name="storefront" size={24} color={colors.primary} />
+                </View>
+              )}
+              <View style={styles.identityTextGroup}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.tenantName}>{tenant.tenant_name}</Text>
+                  <MaterialIcons name="verified" size={18} color={colors.primary} />
+                </View>
+                <Text style={styles.meta}>
+                  {pluralize(tenant.products.length, 'active channel')} • Verified Publisher
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Category Filter Chips */}
           {categoryCounts.length > 0 ? (
             <View style={styles.categoryRow}>
               {categoryCounts.map((entry) => {
@@ -111,9 +137,10 @@ export default function TenantStorefrontScreen() {
             </View>
           ) : null}
 
+          {/* Product Catalog List */}
           {visibleProducts.length === 0 ? (
             <Animated.View layout={LinearTransition.springify()}>
-              <EmptyState icon="explore" title="No products in this category" message="Try a different filter." />
+              <EmptyState icon="explore" title="No channels in this category" message="Try a different filter." />
             </Animated.View>
           ) : (
             <View style={styles.productList}>
@@ -140,60 +167,121 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.stackSm,
     marginBottom: spacing.stackLg,
   },
   headerButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: {
+    width: 38,
+  },
+  headerTitle: {
+    ...typography.headlineMd,
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.onSurface,
+    flex: 1,
+    textAlign: 'center',
+  },
+  showcaseCard: {
+    width: '100%',
+    height: 140,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+  },
+  banner: {
+    width: '100%',
+    height: '100%',
+  },
+  bannerFallback: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+  },
+  identitySection: {
+    marginBottom: 20,
+  },
+  identityTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  logo: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    flexShrink: 0,
+  },
+  logoFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.md,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
-  headerTitle: {
-    ...typography.headlineMd,
-    fontSize: 18,
-    color: colors.primary,
+  identityTextGroup: {
     flex: 1,
     minWidth: 0,
-    textAlign: 'center',
+    gap: 2,
   },
-  banner: {
-    width: '100%',
-    height: 120,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceVariant,
-    marginBottom: spacing.stackMd,
-  },
-  identityRow: {
+  nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.stackSm,
-    marginBottom: spacing.stackLg,
+    gap: 6,
   },
-  logo: {
-    width: 28,
-    height: 28,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceVariant,
-    flexShrink: 0,
+  tenantName: {
+    ...typography.headlineMd,
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.onSurface,
   },
   meta: {
     ...typography.labelSm,
+    fontSize: 12,
     color: colors.onSurfaceVariant,
   },
   categoryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.stackSm,
-    marginBottom: spacing.stackLg,
+    gap: 8,
+    marginBottom: 20,
   },
   categoryPill: {
-    paddingHorizontal: spacing.stackMd,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: radii.full,
     borderWidth: 1,
-    borderColor: colors.outlineVariant,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surfaceContainerLowest,
   },
   categoryPillActive: {
     backgroundColor: colors.primary,
@@ -201,12 +289,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   categoryPillText: {
     ...typography.labelSm,
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.onSurfaceVariant,
   },
   categoryPillTextActive: {
     color: colors.onPrimary,
+    fontWeight: '700',
   },
   productList: {
-    gap: spacing.stackMd,
+    gap: 12,
   },
 });

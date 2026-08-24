@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useState } from 'react';
-import { Pressable, type PressableProps, type StyleProp, type ViewStyle, type PressableStateCallbackType } from 'react-native';
+import { Platform, Pressable, type PressableProps, type StyleProp, type View, type ViewStyle, type PressableStateCallbackType } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -12,7 +12,7 @@ interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
   style?: StyleProp<ViewStyle> | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
 }
 
-export const AnimatedPressable = forwardRef<ViewStyle, AnimatedPressableProps>(
+export const AnimatedPressable = forwardRef<View, AnimatedPressableProps>(
   (
     { children, hapticFeedback = true, scaleTo = 0.97, style, onPressIn, onPressOut, ...props },
     ref
@@ -44,6 +44,14 @@ export const AnimatedPressable = forwardRef<ViewStyle, AnimatedPressableProps>(
         setPressed(false);
         scale.value = withSpring(1, { stiffness: 400, damping: 25 });
         onPressOut?.(e);
+        if (Platform.OS === 'web') {
+          // Drop DOM focus from the pressed element so a Link-triggered
+          // navigation doesn't leave focus trapped inside a screen that
+          // React Navigation is about to mark aria-hidden (the source of
+          // the "Blocked aria-hidden on an element because its descendant
+          // retained focus" console warning).
+          (e?.target as HTMLElement | undefined)?.blur?.();
+        }
       },
       [onPressOut, scale]
     );
@@ -53,7 +61,7 @@ export const AnimatedPressable = forwardRef<ViewStyle, AnimatedPressableProps>(
     return (
       <ReanimatedPressable
         {...props}
-        ref={ref as any}
+        ref={ref}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={[resolvedStyle, animatedStyle]}

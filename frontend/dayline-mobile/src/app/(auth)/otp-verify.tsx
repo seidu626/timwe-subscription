@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState , useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Link, router, useLocalSearchParams } from 'expo-router';
@@ -9,7 +9,7 @@ import { OtpInput } from '@/components/OtpInput';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useRequestOtp, useVerifyOtp } from '@/hooks/useAuthMutations';
-import { spacing, typography, type ThemeColors } from '@/theme/tokens';
+import { radii, spacing, typography, type ThemeColors } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeContext';
 import { formatMsisdnForDisplay } from '@/utils/phone';
 
@@ -34,16 +34,13 @@ export default function OtpVerifyScreen() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  // Truecaller/Messages "Copy OTP" assist: whenever this screen is in the
-  // foreground, surface a one-tap fill chip if the clipboard holds a
-  // six-digit code.
   const checkClipboard = useCallback(async () => {
     try {
       const text = await Clipboard.getStringAsync();
       const match = (text ?? '').match(/(?<!\d)(\d{6})(?!\d)/);
       setClipboardCode(match ? match[1] : null);
     } catch {
-      // Clipboard access can be denied in the background; ignore.
+      // Clipboard access can be denied in background
     }
   }, []);
 
@@ -75,7 +72,6 @@ export default function OtpVerifyScreen() {
     [msisdn, tenant, verifyOtp, signIn],
   );
 
-  // Auto-submit as soon as six digits are present, once per distinct code.
   useEffect(() => {
     if (code.length === 6 && code !== lastSubmittedRef.current && !verifyOtp.isPending) {
       lastSubmittedRef.current = code;
@@ -102,16 +98,18 @@ export default function OtpVerifyScreen() {
   return (
     <ScreenContainer>
       <Pressable onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Go back">
-        <MaterialIcons name="arrow-back" size={24} color={colors.onSurfaceVariant} />
+        <View style={styles.iconCircle}>
+          <MaterialIcons name="arrow-back" size={20} color={colors.onSurface} />
+        </View>
       </Pressable>
 
       <View style={styles.body}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Enter the code</Text>
+          <Text style={styles.title}>Enter verification code</Text>
           <Text style={styles.subtitle}>
-            Sent to {msisdn ? formatMsisdnForDisplay(msisdn) : ''} —{' '}
+            Sent via SMS to {msisdn ? formatMsisdnForDisplay(msisdn) : ''} —{' '}
             <Link href="/(auth)/phone-entry" style={styles.editLink}>
-              Edit
+              Change
             </Link>
           </Text>
         </View>
@@ -125,9 +123,9 @@ export default function OtpVerifyScreen() {
             accessibilityRole="button"
             accessibilityLabel={`Use copied code ${clipboardCode}`}
           >
-            <MaterialIcons name="content-paste" size={16} color={colors.onPrimaryFixedVariant} />
+            <MaterialIcons name="content-paste" size={16} color={colors.primary} />
             <Text style={styles.clipboardChipText}>
-              Use code {clipboardCode.slice(0, 3)} {clipboardCode.slice(3)}
+              Paste code {clipboardCode.slice(0, 3)} {clipboardCode.slice(3)}
             </Text>
           </Pressable>
         ) : null}
@@ -135,11 +133,11 @@ export default function OtpVerifyScreen() {
         <View style={styles.countdownRow}>
           {cooldown > 0 ? (
             <Text style={styles.countdownText}>
-              Resend in <Text style={styles.countdownValue}>{minutes}:{seconds}</Text>
+              Resend code in <Text style={styles.countdownValue}>{minutes}:{seconds}</Text>
             </Text>
           ) : (
             <Pressable onPress={handleResend} accessibilityRole="button">
-              <Text style={styles.resendText}>{requestOtp.isPending ? 'Sending…' : 'Resend code'}</Text>
+              <Text style={styles.resendText}>{requestOtp.isPending ? 'Sending…' : 'Resend SMS Code'}</Text>
             </Pressable>
           )}
         </View>
@@ -148,10 +146,11 @@ export default function OtpVerifyScreen() {
       </View>
 
       <Button
-        label="Verify"
+        label="Verify & Continue"
         onPress={() => handleVerify(code)}
         disabled={code.length !== 6}
         loading={verifyOtp.isPending}
+        icon={<MaterialIcons name="check" size={18} color={colors.onPrimary} />}
       />
     </ScreenContainer>
   );
@@ -161,11 +160,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   back: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: -8,
     marginTop: spacing.stackSm,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   body: {
     flex: 1,
@@ -177,48 +184,65 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   title: {
     ...typography.headlineLgMobile,
-    color: colors.primary,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    color: colors.onSurface,
   },
   subtitle: {
     ...typography.bodyMd,
+    fontSize: 15,
+    lineHeight: 22,
     color: colors.onSurfaceVariant,
   },
   editLink: {
     ...typography.labelMd,
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.primary,
   },
   clipboardChip: {
     flexDirection: 'row',
     alignSelf: 'center',
     alignItems: 'center',
-    gap: spacing.stackSm,
+    gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: colors.primaryFixed,
+    paddingVertical: 10,
+    borderRadius: radii.full,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.3)',
   },
   clipboardChipText: {
     ...typography.labelMd,
-    color: colors.onPrimaryFixedVariant,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   countdownRow: {
     alignItems: 'center',
   },
   countdownText: {
     ...typography.bodyMd,
+    fontSize: 14,
     color: colors.onSurfaceVariant,
   },
   countdownValue: {
     ...typography.labelMd,
-    color: colors.onSurface,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
   },
   resendText: {
     ...typography.labelMd,
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.primary,
   },
   error: {
     ...typography.labelSm,
     color: colors.error,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

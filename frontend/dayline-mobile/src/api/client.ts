@@ -33,7 +33,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw new ApiError('CONFIG_ERROR', messageForCode('CONFIG_ERROR'), 0);
   }
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {};
+  if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
   if (options.auth !== false) {
     const token = await readToken();
     if (token) {
