@@ -378,15 +378,16 @@ func (bp *BatchProcessor) processRetryQueue(ctx context.Context) {
 	var retryItems []BatchItem
 
 	// Collect items from retry queue
+drainLoop:
 	for {
 		select {
 		case item := <-bp.retryQueue:
 			retryItems = append(retryItems, item)
 			if len(retryItems) >= bp.config.BatchSize {
-				break
+				break drainLoop
 			}
 		default:
-			break
+			break drainLoop
 		}
 	}
 
