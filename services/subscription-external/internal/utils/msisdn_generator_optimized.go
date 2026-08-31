@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -191,73 +190,73 @@ func (g *OptimizedMSISDNGenerator) GenerateBatchMSISDNSOptimized(
 		return nil, fmt.Errorf("count too large (%d), maximum allowed is %d", count, maxCount)
 	}
 
-	// Use worker pool for concurrent generation
+	// Use worker pool for concurrent generation.
 	results := make(chan string, count)
-	errors := make(chan error, count)
+	errors := make(chan error, numWorkersOf(count, g.maxConcurrent))
 
-	// Create worker pool with limited concurrency
-	var wg sync.WaitGroup
-	semaphore := make(chan struct{}, g.maxConcurrent)
+	// Shared unique-set so every returned MSISDN is distinct.
+	var seenMu sync.Mutex
+	seen := make(map[string]struct{}, count)
 
-	// Create a job queue to distribute work
+	// Create a job queue to distribute work.
 	jobs := make(chan int, count)
 
-	// Start a fixed number of workers instead of one per job
-	numWorkers := g.maxConcurrent
-	if numWorkers > count {
-		numWorkers = count
-	}
+	// Start a fixed number of workers instead of one per job.
+	numWorkers := numWorkersOf(count, g.maxConcurrent)
 
 	g.logger.Info("Starting MSISDN batch generation",
 		zap.Int("requested", count),
 		zap.Int("workers", numWorkers),
 		zap.Int("maxConcurrent", g.maxConcurrent))
 
-	// Start workers
+	// Start workers.
+	var wg sync.WaitGroup
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
 
 			for range jobs {
-				// Check context cancellation
-				select {
-				case <-ctx.Done():
-					return
-				default:
-				}
-
-				// Acquire semaphore (this should never block since we limit workers)
-				select {
-				case semaphore <- struct{}{}:
-				case <-ctx.Done():
-					return
-				}
-
-				msisdn, err := g.GenerateRandomMSISDNOptimized(ctx, telco, config)
-
-				// Release semaphore immediately after work
-				<-semaphore
-
-				if err != nil {
+				// Keep generating until we land a unique MSISDN, so the batch
+				// eventually reaches the exact requested count despite collisions.
+				// Bounded to avoid an infinite loop on a saturated prefix space.
+				for attempt := 0; attempt < 1000; attempt++ {
 					select {
-					case errors <- fmt.Errorf("worker %d failed: %w", workerID, err):
+					case <-ctx.Done():
+						return
+					default:
+					}
+
+					msisdn, err := g.GenerateRandomMSISDNOptimized(ctx, telco, config)
+					if err != nil {
+						select {
+						case errors <- fmt.Errorf("worker %d failed: %w", workerID, err):
+						case <-ctx.Done():
+							return
+						}
+						return
+					}
+
+					seenMu.Lock()
+					if _, dup := seen[msisdn]; dup {
+						seenMu.Unlock()
+						continue
+					}
+					seen[msisdn] = struct{}{}
+					seenMu.Unlock()
+
+					select {
+					case results <- msisdn:
 					case <-ctx.Done():
 						return
 					}
-					continue
-				}
-
-				select {
-				case results <- msisdn:
-				case <-ctx.Done():
-					return
+					break
 				}
 			}
 		}(i)
 	}
 
-	// Feed jobs to workers
+	// Feed jobs to workers.
 	go func() {
 		defer close(jobs)
 		for i := 0; i < count; i++ {
@@ -269,14 +268,14 @@ func (g *OptimizedMSISDNGenerator) GenerateBatchMSISDNSOptimized(
 		}
 	}()
 
-	// Wait for all workers to complete in a separate goroutine
+	// Wait for all workers to complete in a separate goroutine.
 	go func() {
 		wg.Wait()
 		close(results)
 		close(errors)
 	}()
 
-	// Collect results with timeout protection
+	// Collect results with timeout protection, guaranteeing exactly "count" unique values.
 	var msisdns []string
 	timeout := time.After(30 * time.Second) // 30 second timeout
 
@@ -284,46 +283,52 @@ func (g *OptimizedMSISDNGenerator) GenerateBatchMSISDNSOptimized(
 		select {
 		case msisdn, ok := <-results:
 			if !ok {
-				// Channel closed, all workers completed
-				if len(msisdns) == 0 {
-					return nil, fmt.Errorf("no MSISDNs were generated successfully")
+				// Channel closed, all workers completed.
+				if len(msisdns) < count {
+					return nil, fmt.Errorf("only generated %d of %d MSISDNs", len(msisdns), count)
 				}
-				g.logger.Info("MSISDN batch generation completed successfully",
-					zap.Int("requested", count),
-					zap.Int("generated", len(msisdns)),
-					zap.Duration("duration", time.Since(startTime)))
-				return msisdns, nil
+				return msisdns[:count], nil
 			}
 			msisdns = append(msisdns, msisdn)
 			if len(msisdns) >= count {
-				return msisdns, nil
+				return msisdns[:count], nil
 			}
 		case err, ok := <-errors:
 			if !ok {
-				// Channel closed, continue with results
+				// Channel closed, continue with results.
 				continue
 			}
-			if len(msisdns) == 0 {
-				return nil, fmt.Errorf("all MSISDN generation attempts failed: %w", err)
-			}
-			g.logger.Warn("Some MSISDN generation attempts failed",
+			g.logger.Warn("MSISDN generation attempt failed",
 				zap.Int("requested", count),
 				zap.Int("generated", len(msisdns)),
 				zap.Error(err))
 		case <-timeout:
-			// Timeout reached
-			if len(msisdns) == 0 {
-				return nil, fmt.Errorf("MSISDN generation timed out after 30 seconds")
+			// Timeout reached. Return an error because we cannot meet the exact
+			// requested count rather than silently returning a short batch.
+			if len(msisdns) < count {
+				return nil, fmt.Errorf("MSISDN generation timed out after 30 seconds: only generated %d of %d", len(msisdns), count)
 			}
-			g.logger.Warn("MSISDN generation timed out",
-				zap.Int("requested", count),
-				zap.Int("generated", len(msisdns)))
-			return msisdns, nil
+			return msisdns[:count], nil
 		case <-ctx.Done():
-			// Context cancelled
-			return nil, fmt.Errorf("MSISDN generation cancelled: %w", ctx.Err())
+			// Context cancelled.
+			if len(msisdns) < count {
+				return nil, fmt.Errorf("MSISDN generation cancelled after %d of %d: %w", len(msisdns), count, ctx.Err())
+			}
+			return msisdns[:count], nil
 		}
 	}
+}
+
+// numWorkersOf returns the effective worker count: capped by the generator's
+// maxConcurrency and never exceeding the requested batch size.
+func numWorkersOf(count, maxConcurrent int) int {
+	if maxConcurrent <= 0 {
+		maxConcurrent = 10
+	}
+	if maxConcurrent > count {
+		return count
+	}
+	return maxConcurrent
 }
 
 // GenerateBatchMSISDNSWithSmartValidation generates MSISDNs with intelligent batch validation
@@ -478,7 +483,11 @@ func (g *OptimizedMSISDNGenerator) generateRandomMSISDN(prefixes []string) (stri
 	}
 
 	// Select random prefix
-	prefix := prefixes[rand.Intn(len(prefixes))]
+	prefixIdx, err := secureRandomInt(0, len(prefixes))
+	if err != nil {
+		return "", err
+	}
+	prefix := prefixes[prefixIdx]
 	prefixLength := len(prefix)
 
 	// Calculate required suffix length to make total MSISDN exactly 12 digits
@@ -497,7 +506,11 @@ func (g *OptimizedMSISDNGenerator) generateRandomMSISDN(prefixes []string) (stri
 	// Generate random suffix with exact required length
 	suffix := ""
 	for i := 0; i < requiredSuffixLength; i++ {
-		suffix += fmt.Sprintf("%d", rand.Intn(10))
+		digit, err := secureRandomInt(0, 10)
+		if err != nil {
+			return "", err
+		}
+		suffix += fmt.Sprintf("%d", digit)
 	}
 
 	msisdn := prefix + suffix

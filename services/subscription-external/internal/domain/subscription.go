@@ -16,6 +16,17 @@ type BatchOptinRequest struct {
 	ProductIds   []string `json:"product_ids,omitempty"`
 	TenantKey    string   `json:"tenant_key,omitempty"`
 	ChannelKey   string   `json:"channel_key,omitempty"`
+
+	// MSISDN generation strategy (defaults to "random")
+	// Options: "random", "range", "seed"
+	GenerationStrategy string `json:"generation_strategy,omitempty"`
+	// For "range": prefix + [range_start, range_end] block offsets
+	RangePrefix string `json:"range_prefix,omitempty"`
+	RangeStart  int    `json:"range_start,omitempty"`
+	RangeEnd    int    `json:"range_end,omitempty"`
+	// For "seed": deterministic reproducibility
+	SeedPrefix string `json:"seed_prefix,omitempty"`
+	Seed       int64  `json:"seed,omitempty"`
 }
 
 type BackfillRequest struct {

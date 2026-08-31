@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -14,6 +15,10 @@ type WorkerWrapper struct {
 	logger       *zap.Logger
 	workerName   string
 	metrics      *WorkerMetrics
+
+	// mu guards all access to metrics so concurrent workers (and readers)
+	// never race on the shared counters (SafeGo runs writers concurrently).
+	mu sync.Mutex
 }
 
 // WorkerMetrics tracks worker performance and health
@@ -42,22 +47,27 @@ func NewWorkerWrapper(panicHandler *PanicHandler, logger *zap.Logger, workerName
 func (ww *WorkerWrapper) WrapWorker(worker func() error) func() error {
 	return func() error {
 		start := time.Now()
+		ww.mu.Lock()
 		ww.metrics.TotalExecutions++
+		ww.mu.Unlock()
 
 		defer func() {
 			if r := recover(); r != nil {
+				ww.mu.Lock()
 				ww.metrics.PanicCount++
 				ww.metrics.FailedExecutions++
 				ww.metrics.LastPanic = r
 				ww.metrics.LastExecutionTime = time.Now()
+				total, panics := ww.metrics.TotalExecutions, ww.metrics.PanicCount
+				ww.mu.Unlock()
 
 				ww.logger.Error("WORKER PANIC",
 					zap.String("worker_name", ww.workerName),
 					zap.Any("panic_value", r),
 					zap.String("panic_type", fmt.Sprintf("%T", r)),
 					zap.Duration("execution_time", time.Since(start)),
-					zap.Int64("total_executions", ww.metrics.TotalExecutions),
-					zap.Int64("panic_count", ww.metrics.PanicCount),
+					zap.Int64("total_executions", total),
+					zap.Int64("panic_count", panics),
 				)
 
 				// Use panic handler if available
@@ -72,28 +82,33 @@ func (ww *WorkerWrapper) WrapWorker(worker func() error) func() error {
 		executionTime := time.Since(start)
 
 		// Update metrics
+		ww.mu.Lock()
 		ww.metrics.TotalExecutionTime += executionTime
 		ww.metrics.LastExecutionTime = time.Now()
 
 		if err != nil {
 			ww.metrics.FailedExecutions++
 			ww.metrics.LastError = err
+			total, failed := ww.metrics.TotalExecutions, ww.metrics.FailedExecutions
+			ww.mu.Unlock()
 
 			ww.logger.Error("WORKER FAILED",
 				zap.String("worker_name", ww.workerName),
 				zap.Error(err),
 				zap.Duration("execution_time", executionTime),
-				zap.Int64("total_executions", ww.metrics.TotalExecutions),
-				zap.Int64("failed_executions", ww.metrics.FailedExecutions),
+				zap.Int64("total_executions", total),
+				zap.Int64("failed_executions", failed),
 			)
 		} else {
 			ww.metrics.SuccessfulExecutions++
+			total, succeeded := ww.metrics.TotalExecutions, ww.metrics.SuccessfulExecutions
+			ww.mu.Unlock()
 
 			ww.logger.Debug("WORKER SUCCESS",
 				zap.String("worker_name", ww.workerName),
 				zap.Duration("execution_time", executionTime),
-				zap.Int64("total_executions", ww.metrics.TotalExecutions),
-				zap.Int64("successful_executions", ww.metrics.SuccessfulExecutions),
+				zap.Int64("total_executions", total),
+				zap.Int64("successful_executions", succeeded),
 			)
 		}
 
@@ -105,22 +120,27 @@ func (ww *WorkerWrapper) WrapWorker(worker func() error) func() error {
 func (ww *WorkerWrapper) WrapWorkerWithContext(worker func(context.Context) error) func(context.Context) error {
 	return func(ctx context.Context) error {
 		start := time.Now()
+		ww.mu.Lock()
 		ww.metrics.TotalExecutions++
+		ww.mu.Unlock()
 
 		defer func() {
 			if r := recover(); r != nil {
+				ww.mu.Lock()
 				ww.metrics.PanicCount++
 				ww.metrics.FailedExecutions++
 				ww.metrics.LastPanic = r
 				ww.metrics.LastExecutionTime = time.Now()
+				total, panics := ww.metrics.TotalExecutions, ww.metrics.PanicCount
+				ww.mu.Unlock()
 
 				ww.logger.Error("WORKER PANIC WITH CONTEXT",
 					zap.String("worker_name", ww.workerName),
 					zap.Any("panic_value", r),
 					zap.String("panic_type", fmt.Sprintf("%T", r)),
 					zap.Duration("execution_time", time.Since(start)),
-					zap.Int64("total_executions", ww.metrics.TotalExecutions),
-					zap.Int64("panic_count", ww.metrics.PanicCount),
+					zap.Int64("total_executions", total),
+					zap.Int64("panic_count", panics),
 				)
 
 				// Use panic handler if available
@@ -135,28 +155,33 @@ func (ww *WorkerWrapper) WrapWorkerWithContext(worker func(context.Context) erro
 		executionTime := time.Since(start)
 
 		// Update metrics
+		ww.mu.Lock()
 		ww.metrics.TotalExecutionTime += executionTime
 		ww.metrics.LastExecutionTime = time.Now()
 
 		if err != nil {
 			ww.metrics.FailedExecutions++
 			ww.metrics.LastError = err
+			total, failed := ww.metrics.TotalExecutions, ww.metrics.FailedExecutions
+			ww.mu.Unlock()
 
 			ww.logger.Error("WORKER FAILED WITH CONTEXT",
 				zap.String("worker_name", ww.workerName),
 				zap.Error(err),
 				zap.Duration("execution_time", executionTime),
-				zap.Int64("total_executions", ww.metrics.TotalExecutions),
-				zap.Int64("failed_executions", ww.metrics.FailedExecutions),
+				zap.Int64("total_executions", total),
+				zap.Int64("failed_executions", failed),
 			)
 		} else {
 			ww.metrics.SuccessfulExecutions++
+			total, succeeded := ww.metrics.TotalExecutions, ww.metrics.SuccessfulExecutions
+			ww.mu.Unlock()
 
 			ww.logger.Debug("WORKER SUCCESS WITH CONTEXT",
 				zap.String("worker_name", ww.workerName),
 				zap.Duration("execution_time", executionTime),
-				zap.Int64("total_executions", ww.metrics.TotalExecutions),
-				zap.Int64("successful_executions", ww.metrics.SuccessfulExecutions),
+				zap.Int64("total_executions", total),
+				zap.Int64("successful_executions", succeeded),
 			)
 		}
 
@@ -192,11 +217,15 @@ func (ww *WorkerWrapper) SafeGoWithContext(ctx context.Context, worker func(cont
 
 // GetMetrics returns a copy of the worker metrics
 func (ww *WorkerWrapper) GetMetrics() WorkerMetrics {
+	ww.mu.Lock()
+	defer ww.mu.Unlock()
 	return *ww.metrics
 }
 
 // GetSuccessRate returns the success rate as a percentage
 func (ww *WorkerWrapper) GetSuccessRate() float64 {
+	ww.mu.Lock()
+	defer ww.mu.Unlock()
 	if ww.metrics.TotalExecutions == 0 {
 		return 0.0
 	}
@@ -205,6 +234,8 @@ func (ww *WorkerWrapper) GetSuccessRate() float64 {
 
 // GetPanicRate returns the panic rate as a percentage
 func (ww *WorkerWrapper) GetPanicRate() float64 {
+	ww.mu.Lock()
+	defer ww.mu.Unlock()
 	if ww.metrics.TotalExecutions == 0 {
 		return 0.0
 	}
@@ -213,6 +244,8 @@ func (ww *WorkerWrapper) GetPanicRate() float64 {
 
 // GetAverageExecutionTime returns the average execution time
 func (ww *WorkerWrapper) GetAverageExecutionTime() time.Duration {
+	ww.mu.Lock()
+	defer ww.mu.Unlock()
 	if ww.metrics.TotalExecutions == 0 {
 		return 0
 	}
@@ -221,7 +254,9 @@ func (ww *WorkerWrapper) GetAverageExecutionTime() time.Duration {
 
 // ResetMetrics resets all metrics to zero
 func (ww *WorkerWrapper) ResetMetrics() {
+	ww.mu.Lock()
 	ww.metrics = &WorkerMetrics{}
+	ww.mu.Unlock()
 	ww.logger.Info("Worker metrics reset",
 		zap.String("worker_name", ww.workerName),
 	)
@@ -239,21 +274,35 @@ func (ww *WorkerWrapper) GetPanicHandler() *PanicHandler {
 
 // LogHealthStatus logs the current health status of the worker
 func (ww *WorkerWrapper) LogHealthStatus() {
-	successRate := ww.GetSuccessRate()
-	panicRate := ww.GetPanicRate()
-	avgExecutionTime := ww.GetAverageExecutionTime()
+	ww.mu.Lock()
+	total := ww.metrics.TotalExecutions
+	succeeded := ww.metrics.SuccessfulExecutions
+	failed := ww.metrics.FailedExecutions
+	panics := ww.metrics.PanicCount
+	totalTime := ww.metrics.TotalExecutionTime
+	lastTime := ww.metrics.LastExecutionTime
+	ww.mu.Unlock()
+
+	successRate := 0.0
+	panicRate := 0.0
+	avgExecutionTime := time.Duration(0)
+	if total > 0 {
+		successRate = float64(succeeded) / float64(total) * 100.0
+		panicRate = float64(panics) / float64(total) * 100.0
+		avgExecutionTime = totalTime / time.Duration(total)
+	}
 
 	ww.logger.Info("WORKER HEALTH STATUS",
 		zap.String("worker_name", ww.workerName),
-		zap.Int64("total_executions", ww.metrics.TotalExecutions),
-		zap.Int64("successful_executions", ww.metrics.SuccessfulExecutions),
-		zap.Int64("failed_executions", ww.metrics.FailedExecutions),
-		zap.Int64("panic_count", ww.metrics.PanicCount),
+		zap.Int64("total_executions", total),
+		zap.Int64("successful_executions", succeeded),
+		zap.Int64("failed_executions", failed),
+		zap.Int64("panic_count", panics),
 		zap.Float64("success_rate_percent", successRate),
 		zap.Float64("panic_rate_percent", panicRate),
 		zap.Duration("average_execution_time", avgExecutionTime),
-		zap.Duration("total_execution_time", ww.metrics.TotalExecutionTime),
-		zap.Time("last_execution_time", ww.metrics.LastExecutionTime),
+		zap.Duration("total_execution_time", totalTime),
+		zap.Time("last_execution_time", lastTime),
 	)
 
 	// Log warning if panic rate is high
@@ -261,7 +310,7 @@ func (ww *WorkerWrapper) LogHealthStatus() {
 		ww.logger.Warn("Worker has high panic rate",
 			zap.String("worker_name", ww.workerName),
 			zap.Float64("panic_rate_percent", panicRate),
-			zap.Int64("panic_count", ww.metrics.PanicCount),
+			zap.Int64("panic_count", panics),
 		)
 	}
 
@@ -270,7 +319,7 @@ func (ww *WorkerWrapper) LogHealthStatus() {
 		ww.logger.Warn("Worker has low success rate",
 			zap.String("worker_name", ww.workerName),
 			zap.Float64("success_rate_percent", successRate),
-			zap.Int64("failed_executions", ww.metrics.FailedExecutions),
+			zap.Int64("failed_executions", failed),
 		)
 	}
 }

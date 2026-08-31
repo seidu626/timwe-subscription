@@ -246,24 +246,25 @@ func (bf *MSISDNBloomFilter) Reset() {
 	bf.logger.Info("Bloom Filter reset")
 }
 
-// Optimize resizes the Bloom Filter based on current usage
+// Optimize resizes the Bloom Filter based on current usage.
+// Instead of dropping all data, it detects that a resize would require
+// re-hashing every item against the new filter size (bit positions change
+// with m/k), which is impossible without storing the original items.
+// To guarantee no data loss, it keeps the existing filter intact and logs a
+// warning explaining that a resize is not performed safely.
 func (bf *MSISDNBloomFilter) Optimize() {
 	bf.mutex.Lock()
 	defer bf.mutex.Unlock()
 
-	currentCount := uint(bf.stats.itemsAdded) // Convert to uint for comparison
+	currentCount := uint(bf.stats.itemsAdded)
 	if currentCount > bf.expectedItems*2 {
-		// Resize to accommodate more items
-		newExpectedItems := currentCount * 2
-		newFilter := bloom.NewWithEstimates(newExpectedItems, bf.falsePositiveRate)
-
-		// Note: We can't easily migrate existing items, so we'll start fresh
-		// In production, you might want to implement a migration strategy
-		bf.filter = newFilter
-		bf.expectedItems = newExpectedItems
-
-		bf.logger.Info("Bloom Filter resized",
-			zap.Uint("newExpectedItems", newExpectedItems))
+		// Resizing would change the filter's bit positions and silently drop
+		// every entry. The filter is load-bearing for invalid-MSISDN lookups,
+		// so we preserve it instead of corrupting it.
+		bf.logger.Warn("Bloom Filter saturated but resize skipped to avoid data loss",
+			zap.Uint("expectedItems", bf.expectedItems),
+			zap.Uint("currentItems", currentCount),
+			zap.String("reason", "resize requires re-hashing items which are not stored"))
 	}
 }
 

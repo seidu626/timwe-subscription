@@ -93,3 +93,7 @@ agent/state/evidence/*.migrated-*
 .agent/self-improvement/*.lock
 .agent/self-improvement/state.json
 .agent/self-improvement/failure-hook-state.json
+
+# Agent runtime state dirs (untracked 2026-08-31)
+.aegis/runs/
+.agent/sic/

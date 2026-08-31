@@ -33,6 +33,7 @@
   "continuous_mode": true,
   "restart_delay": "5m",
   "max_restarts": 0,
-  "tenant_key": "",
-  "channel_key": ""
+  "tenant_key": "SET_VIA_CLI_OR_ENV",
+  "channel_key": "SET_VIA_CLI_OR_ENV",
+  "generation_strategy": "random"
 }

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -340,4 +341,63 @@ func TestGenerateBatchMSISDNSOptimized_DeadlockPrevention(t *testing.T) {
 
 	// Verify that the function returns quickly (no deadlock)
 	// This test ensures the worker pool pattern works correctly
+}
+
+func TestGenerateBatchMSISDNSOptimized_ExactCountAndUnique(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	mockRepo := new(MockRepositoryForOptimized)
+
+	generator := NewOptimizedMSISDNGenerator(
+		nil, // no bloom filter
+		mockRepo,
+		logger,
+		200,  // batch size
+		25,   // max concurrent
+	)
+
+	mockRepo.On("IsExcludedUser", mock.Anything).Return(false, nil)
+	mockRepo.On("GetInvalidMSISDNSFast", mock.Anything, mock.Anything).Return(false, nil)
+
+	const count = 5000
+	ctx := context.Background()
+	msisdns, err := generator.GenerateBatchMSISDNSOptimized(ctx, "tigo", count, &config.Config{})
+
+	assert.NoError(t, err)
+	assert.Len(t, msisdns, count, "batch must return exactly the requested count")
+
+	seen := make(map[string]struct{}, len(msisdns))
+	for _, msisdn := range msisdns {
+		// Every returned MSISDN is unique.
+		if _, dup := seen[msisdn]; dup {
+			t.Errorf("duplicate MSISDN generated: %s", msisdn)
+		}
+		seen[msisdn] = struct{}{}
+
+		// Ghana MSISDNs are 12 digits.
+		assert.Len(t, msisdn, 12, "generated MSISDN must be 12 digits")
+	}
+}
+
+func TestGenerateBatchMSISDNSOptimized_PartialFailureReturnsError(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	mockRepo := new(MockRepositoryForOptimized)
+
+	generator := NewOptimizedMSISDNGenerator(
+		nil, // no bloom filter
+		mockRepo,
+		logger,
+		100,
+		5,
+	)
+
+	// Force every generation attempt to fail so the batch cannot be completed.
+	mockRepo.On("IsExcludedUser", mock.Anything).Return(false, fmt.Errorf("db unavailable"))
+	mockRepo.On("GetInvalidMSISDNSFast", mock.Anything, mock.Anything).Return(false, nil)
+
+	ctx := context.Background()
+	msisdns, err := generator.GenerateBatchMSISDNSOptimized(ctx, "tigo", 100, &config.Config{})
+
+	// A short/partial batch must never be returned as a silent nil-error success.
+	assert.Error(t, err)
+	assert.Nil(t, msisdns)
 }

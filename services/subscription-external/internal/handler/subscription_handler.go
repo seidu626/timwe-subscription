@@ -25,6 +25,10 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// jsMaxBatchItems bounds the number of MSISDNs a single job may process in
+// memory at once, regardless of the requested Count or strategy output.
+const jsMaxBatchItems = 100000
+
 type SubscriptionHandler struct {
 	service         *service.SubscriptionService
 	config          *config.Config
@@ -306,14 +310,22 @@ func (h *SubscriptionHandler) BatchStatusHandler(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Lookup first; return 404 before auth to avoid leaking job existence.
-	st, ok := h.jobs.GetJob(jobID)
+	owner, ok := h.jobs.Owner(jobID)
 	if !ok {
 		ctx.Error("Not Found", fasthttp.StatusNotFound)
 		return
 	}
 
 	// Authenticate and enforce tenant ownership (404 on mismatch mirrors GetBatchProgressHandler).
-	if _, authOK := h.batchGuard.authorise(ctx, st.TenantKey); !authOK {
+	if _, authOK := h.batchGuard.authorise(ctx, owner); !authOK {
+		return
+	}
+
+	// Serialize a consistent snapshot captured under the manager lock so the
+	// status JSON cannot race with worker goroutines mutating the job fields.
+	st, ok := h.jobs.Snapshot(jobID)
+	if !ok {
+		ctx.Error("Not Found", fasthttp.StatusNotFound)
 		return
 	}
 
@@ -396,7 +408,7 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 			fetched, err := h.service.BackfillMsisdnsMissingSomeProducts(r.ProductIds, r.StartIndex, r.EndIndex)
 			if err != nil {
 				h.logger.Error("Failed to fetch backfill msisdns", zap.Error(err))
-				st.ErrorDetails = map[string]interface{}{"error": err.Error()}
+				h.jobs.SetErrorDetails(job, map[string]interface{}{"error": err.Error()})
 				h.jobs.setCompleted(job, true)
 				return
 			}
@@ -422,14 +434,14 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 			filtered, err := h.service.UserBaseRepository.FilterMSISDNS(msisdns)
 			if err != nil {
 				h.logger.Error("Failed to filter msisdns", zap.Error(err))
-				st.ErrorDetails = map[string]interface{}{"error": err.Error()}
+				h.jobs.SetErrorDetails(job, map[string]interface{}{"error": err.Error()})
 				h.jobs.setCompleted(job, true)
 				return
 			}
 			msisdns = filtered
 		}
 
-		st.Total = len(msisdns)
+		h.jobs.SetTotal(job, len(msisdns))
 
 		maxWorkers := calculateOptimalWorkers(len(msisdns))
 		batchSize := calculateOptimalBatchSize(len(msisdns))
@@ -481,7 +493,7 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 			TenantKey:  r.TenantKey,
 			ChannelKey: r.ChannelKey,
 		}
-		for _, msisdn := range msisdns {
+		for i, msisdn := range msisdns {
 			entryChannel := r.GetNextEntryChannel()
 			optinRequestChan <- &domain.OptinRequest{
 				Telco:        r.Telco,
@@ -491,17 +503,18 @@ func (h *SubscriptionHandler) BackfillOptinHandler(ctx *fasthttp.RequestCtx) {
 				TenantRoute:  backfillRoute,
 			}
 			// Log every 100th request to avoid excessive logging; mask MSISDN (NF2).
-			if len(msisdns) > 100 && len(msisdns)%100 == 0 {
+			if i%100 == 0 {
 				h.logger.Debug("Created optin request", zap.String("msisdn", pii.MaskMSISDN(msisdn)), zap.String("entryChannel", entryChannel))
 			}
 		}
 		close(optinRequestChan)
 		wg.Wait()
 
-		st.Successful = int64(successCount)
-		st.Failed = int64(errorCount)
+		if !h.jobs.SetCounters(job, len(msisdns), int64(successCount), int64(errorCount)) {
+			h.logger.Warn("Job status counters not updated; job may have been evicted upstream", zap.String("jobId", job))
+		}
 		if errorCount > 0 && firstErrorDetails != nil {
-			st.ErrorDetails = firstErrorDetails
+			h.jobs.SetErrorDetails(job, firstErrorDetails)
 			h.jobs.setCompleted(job, true)
 		} else {
 			h.jobs.setCompleted(job, false)
@@ -587,7 +600,7 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 			fetched, err := h.service.BackfillMsisdnsWithProducts(r.ProductIds, r.StartIndex, r.EndIndex)
 			if err != nil {
 				h.logger.Error("Failed to fetch resubscribe msisdns", zap.Error(err))
-				st.ErrorDetails = map[string]interface{}{"error": err.Error()}
+				h.jobs.SetErrorDetails(job, map[string]interface{}{"error": err.Error()})
 				h.jobs.setCompleted(job, true)
 				return
 			}
@@ -613,7 +626,7 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 			filtered, err := h.service.UserBaseRepository.FilterMSISDNS(msisdns)
 			if err != nil {
 				h.logger.Error("Failed to filter msisdns", zap.Error(err))
-				st.ErrorDetails = map[string]interface{}{"error": err.Error()}
+				h.jobs.SetErrorDetails(job, map[string]interface{}{"error": err.Error()})
 				h.jobs.setCompleted(job, true)
 				return
 			}
@@ -621,7 +634,7 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 		}
 
 		//h.logger.Info("Filtered msisdns for resubscribe", zap.Any("msisdns", msisdns))
-		st.Total = len(msisdns)
+		h.jobs.SetTotal(job, len(msisdns))
 
 		maxWorkers := calculateOptimalWorkers(len(msisdns))
 		batchSize := calculateOptimalBatchSize(len(msisdns))
@@ -671,12 +684,12 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 			}(i)
 		}
 
-		for _, msisdn := range msisdns {
+		for i, msisdn := range msisdns {
 			entryChannel := r.GetNextEntryChannel()
 			msisdnChan <- msisdn
 			entryChannelChan <- entryChannel
 			// Log every 100th request to avoid excessive logging; mask MSISDN (NF2).
-			if len(msisdns) > 100 && len(msisdns)%100 == 0 {
+			if i%100 == 0 {
 				h.logger.Debug("Created resubscribe request", zap.String("msisdn", pii.MaskMSISDN(msisdn)), zap.String("entryChannel", entryChannel))
 			}
 		}
@@ -684,10 +697,11 @@ func (h *SubscriptionHandler) ResubscribeHandler(ctx *fasthttp.RequestCtx) {
 		close(entryChannelChan)
 		wg.Wait()
 
-		st.Successful = int64(successCount)
-		st.Failed = int64(errorCount)
+		if !h.jobs.SetCounters(job, len(msisdns), int64(successCount), int64(errorCount)) {
+			h.logger.Warn("Job status counters not updated; job may have been evicted upstream", zap.String("jobId", job))
+		}
 		if errorCount > 0 && firstErrorDetails != nil {
-			st.ErrorDetails = firstErrorDetails
+			h.jobs.SetErrorDetails(job, firstErrorDetails)
 			h.jobs.setCompleted(job, true)
 		} else {
 			h.jobs.setCompleted(job, false)
@@ -1006,7 +1020,7 @@ func (h *SubscriptionHandler) GetBatchProgressHandler(ctx *fasthttp.RequestCtx) 
 	}
 
 	// Lookup the job first so we know the owning tenant before auth.
-	st, ok := h.jobs.GetJob(batchID)
+	owner, ok := h.jobs.Owner(batchID)
 	if !ok {
 		// Return 404 regardless of auth so we don't reveal existence.
 		ctx.Error("Not Found", fasthttp.StatusNotFound)
@@ -1014,7 +1028,14 @@ func (h *SubscriptionHandler) GetBatchProgressHandler(ctx *fasthttp.RequestCtx) 
 	}
 
 	// Validate caller identity; pass the job's tenant key for tenant-scope check.
-	if _, authOK := h.batchGuard.authorise(ctx, st.TenantKey); !authOK {
+	if _, authOK := h.batchGuard.authorise(ctx, owner); !authOK {
+		return
+	}
+
+	// Serialize a consistent snapshot captured under the manager lock.
+	st, ok := h.jobs.Snapshot(batchID)
+	if !ok {
+		ctx.Error("Not Found", fasthttp.StatusNotFound)
 		return
 	}
 
@@ -1088,30 +1109,67 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	var err error
 
 	if len(req.MSISDNS) == 0 && req.Count > 0 {
-		h.logger.Info("No MSISDNs provided, generating using optimized generator",
+		h.logger.Info("No MSISDNs provided, generating",
 			zap.String("jobId", jobID),
 			zap.Int("count", req.Count),
-			zap.String("telco", req.Telco))
+			zap.String("telco", req.Telco),
+			zap.String("strategy", req.GenerationStrategy))
 
-		// Use the optimized MSISDN generator to create the requested number of MSISDNs
-		msisdns, err = h.msisdnGenerator.GenerateBatchMSISDNSOptimized(ctx, req.Telco, req.Count, h.config)
+		switch strings.ToLower(req.GenerationStrategy) {
+		case "range":
+			if req.RangePrefix == "" {
+				h.jobs.SetErrorDetails(jobID, map[string]interface{}{
+					"error": "range strategy requires range_prefix",
+				})
+				h.jobs.setCompleted(jobID, true)
+				return
+			}
+			end := req.RangeEnd
+			if end == 0 {
+				// Derive end from the requested count, but never exceed it.
+				end = req.RangeStart + req.Count - 1
+			}
+			// Range strategy must honour the requested count: truncate to Count
+			// so a caller requesting a smaller count cannot over-provision.
+			if end-req.RangeStart+1 > req.Count {
+				end = req.RangeStart + req.Count - 1
+			}
+			msisdns, err = utils.GenerateMSISDNRange(req.RangePrefix, req.RangeStart, end)
+		case "seed":
+			if req.SeedPrefix == "" {
+				h.jobs.SetErrorDetails(jobID, map[string]interface{}{
+					"error": "seed strategy requires seed_prefix",
+				})
+				h.jobs.setCompleted(jobID, true)
+				return
+			}
+			msisdns, err = utils.GenerateMSISDNsFromSeed(req.Seed, req.SeedPrefix, req.Count)
+		default:
+			// Use the optimized random generator
+			msisdns, err = h.msisdnGenerator.GenerateBatchMSISDNSOptimized(ctx, req.Telco, req.Count, h.config)
+		}
 		if err != nil {
-			h.logger.Error("Failed to generate MSISDNs using optimized generator",
+			h.logger.Error("Failed to generate MSISDNs",
 				zap.String("jobId", jobID),
 				zap.Error(err),
 				zap.String("telco", req.Telco),
 				zap.Int("count", req.Count))
 
 			// Set error details and mark job as failed
-			st.ErrorDetails = map[string]interface{}{
+			h.jobs.SetErrorDetails(jobID, map[string]interface{}{
 				"error": fmt.Sprintf("MSISDN generation failed: %v", err),
 				"telco": req.Telco,
 				"count": req.Count,
-			}
+			})
 			h.jobs.setCompleted(jobID, true)
 			return
 		}
 
+		// Enforce an upper bound on the generated list to bound memory and the
+		// worker feed loop, even if a strategy returned more than requested.
+		if len(msisdns) > req.Count {
+			msisdns = msisdns[:req.Count]
+		}
 		h.logger.Info("Successfully generated MSISDNs using optimized generator",
 			zap.String("jobId", jobID),
 			zap.Int("generated", len(msisdns)),
@@ -1124,8 +1182,49 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 		msisdns = req.MSISDNS
 	}
 
+	// upper bound even for explicitly provided MSISDNs
+	if len(msisdns) > jsMaxBatchItems {
+		msisdns = msisdns[:jsMaxBatchItems]
+	}
+
 	// Update total count based on actual MSISDNs available
-	st.Total = len(msisdns)
+	h.jobs.SetTotal(jobID, len(msisdns))
+
+	// Validate MSISDN format and prefix before sending to CGW
+	// This catches malformed or wrong-prefix numbers early, avoiding CGW billing errors
+	validMSISDNs := make([]string, 0, len(msisdns))
+	invalidFormatCount := 0
+	for _, msisdn := range msisdns {
+		if !utils.IsValidMSISDNFormat(msisdn) {
+			h.logger.Warn("Dropping invalid format MSISDN",
+				zap.String("jobId", jobID),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)))
+			st.incProcessed()
+			invalidFormatCount++
+			continue
+		}
+		validMSISDNs = append(validMSISDNs, msisdn)
+	}
+	if len(validMSISDNs) == 0 {
+		h.logger.Error("No valid MSISDNs remaining after format validation",
+			zap.String("jobId", jobID),
+			zap.Int("originalCount", len(msisdns)))
+		h.jobs.SetErrorDetails(jobID, map[string]interface{}{
+			"error": "All generated MSISDNs failed format validation",
+		})
+		h.jobs.setCompleted(jobID, true)
+		return
+	}
+	if len(validMSISDNs) < len(msisdns) {
+		h.logger.Warn("Some MSISDNs filtered by format validation",
+			zap.String("jobId", jobID),
+			zap.Int("original", len(msisdns)),
+			zap.Int("valid", len(validMSISDNs)),
+			zap.Int("dropped", len(msisdns)-len(validMSISDNs)))
+	}
+	msisdns = validMSISDNs
+	h.jobs.SetTotal(jobID, len(msisdns))
+
 	h.logger.Info("Batch job MSISDNs ready", zap.String("jobId", jobID), zap.Int("totalMSISDNs", len(msisdns)))
 
 	// Concurrency parameters
@@ -1141,7 +1240,7 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	var firstErrorMutex sync.Mutex
 
 	var successCount uint64
-	var errorCount uint64
+	var errorCount uint64 = uint64(invalidFormatCount)
 
 	// Create worker context with cancellation
 	workerCtx, workerCancel := context.WithCancel(ctx)
@@ -1169,7 +1268,15 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 				select {
 				case request, ok := <-optinRequestChan:
 					if !ok {
-						// Channel closed, worker should exit
+						// Channel closed: flush any remaining errors, then exit.
+						if len(errorBatch) > 0 {
+							h.logger.Error("Final batch of subscription failures",
+								zap.String("jobId", jobID),
+								zap.Int("workerId", workerID),
+								zap.Int("count", len(errorBatch)),
+								zap.String("sampleError", errorBatch[0].Error()))
+						}
+						h.logger.Debug("Worker finished", zap.String("jobId", jobID), zap.Int("workerId", workerID))
 						return
 					}
 
@@ -1208,15 +1315,6 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 					return
 				}
 			}
-
-			if len(errorBatch) > 0 {
-				h.logger.Error("Final batch of subscription failures",
-					zap.String("jobId", jobID),
-					zap.Int("workerId", workerID),
-					zap.Int("count", len(errorBatch)),
-					zap.String("sampleError", errorBatch[0].Error()))
-			}
-			h.logger.Debug("Worker finished", zap.String("jobId", jobID), zap.Int("workerId", workerID))
 		}(i)
 	}
 
@@ -1245,16 +1343,24 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	h.logger.Info("Waiting for workers to complete", zap.String("jobId", jobID))
 	wg.Wait()
 
-	st.Successful = int64(successCount)
-	st.Failed = int64(errorCount)
+	if !h.jobs.SetCounters(jobID, len(msisdns), int64(successCount), int64(errorCount)) {
+		h.logger.Warn("Job status counters not updated; job may have been evicted upstream", zap.String("jobId", jobID))
+	}
 	if errorCount > 0 && firstErrorDetails != nil {
-		st.ErrorDetails = firstErrorDetails
+		h.jobs.SetErrorDetails(jobID, firstErrorDetails)
 		h.jobs.setCompleted(jobID, true)
 	} else {
 		h.jobs.setCompleted(jobID, false)
 	}
 	totalBatchJobsCompleted.Add(1)
-	h.logger.Info("Batch job completed", zap.String("jobId", jobID), zap.Int64("successful", st.Successful), zap.Int64("failed", st.Failed))
+	done, _ := h.jobs.GetJob(jobID)
+	finalSuccessful := int64(successCount)
+	finalFailed := int64(errorCount)
+	if done != nil {
+		finalSuccessful = done.Successful
+		finalFailed = done.Failed
+	}
+	h.logger.Info("Batch job completed", zap.String("jobId", jobID), zap.Int64("successful", finalSuccessful), zap.Int64("failed", finalFailed))
 }
 
 // calculateOptimalWorkers determines the optimal number of workers based on request volume
@@ -1352,13 +1458,13 @@ func (h *SubscriptionHandler) HealthCheckHandler(ctx *fasthttp.RequestCtx) {
 	health["system"] = map[string]interface{}{
 		"uptime": time.Since(h.startTime).String(),
 		"jobs": map[string]interface{}{
-			"total": len(h.jobs.jobs),
+			"total": h.jobs.Count(),
 		},
 		"configuration": map[string]interface{}{
-			"redis_enabled":        h.config.Cache.Redis.Host != "" && h.config.Cache.Redis.Port != 0,
-			"bloom_filter_enabled": true, // Always enabled if Redis is available
-			"batch_size":           1000, // Hardcoded for now
-			"max_concurrent":       50,   // Hardcoded for now
+			"redis_enabled":        h.config != nil && h.config.Cache.Redis.Host != "" && h.config.Cache.Redis.Port != 0,
+			"bloom_filter_enabled": h.config != nil && h.config.Application.MSISDNGenerator.BloomFilterEnabled,
+			"batch_size":           h.config.Application.MSISDNGenerator.BatchSize,
+			"max_concurrent":       h.config.Application.MSISDNGenerator.MaxConcurrent,
 		},
 	}
 
