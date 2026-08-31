@@ -570,3 +570,41 @@ func ExampleUsage() {
 func Usage() {
 	ExampleUsage()
 }
+
+func TestGenerateMSISDNRange(t *testing.T) {
+	ms, err := GenerateMSISDNRange("233278", 0, 5)
+	assert.NoError(t, err)
+	assert.Len(t, ms, 6, "expected 6 numbers for range 0..5")
+	for _, m := range ms {
+		assert.Len(t, m, 12, "every MSISDN must be 12 digits, got %q", m)
+	}
+	assert.Equal(t, "233278000000", ms[0], "first number zero-padded to suffix width")
+
+	empty, err := GenerateMSISDNRange("233278", 10, 5)
+	assert.NoError(t, err)
+	assert.Len(t, empty, 0)
+}
+
+func TestGenerateMSISDNsFromSeedDeterministic(t *testing.T) {
+	a, err := GenerateMSISDNsFromSeed(42, "233278", 10)
+	assert.NoError(t, err)
+	b, err := GenerateMSISDNsFromSeed(42, "233278", 10)
+	assert.NoError(t, err)
+	assert.Len(t, a, 10)
+	assert.Len(t, b, 10)
+	for i := range a {
+		assert.Equal(t, a[i], b[i], "same seed must produce identical sequence")
+		assert.Len(t, a[i], 12)
+	}
+}
+
+func TestGenerateMSISDNsRejectsBadPrefix(t *testing.T) {
+	_, err := GenerateMSISDNRange("233", 0, 5)
+	assert.NoError(t, err, "3-digit prefix is valid (9-digit suffix => 12 total)")
+	_, err = GenerateMSISDNRange("23", 0, 5)
+	assert.Error(t, err, "2-digit prefix cannot form a 12-digit MSISDN")
+	_, err = GenerateMSISDNRange("2335612345678", 0, 5)
+	assert.Error(t, err, "prefix longer than 11 digits cannot form a 12-digit MSISDN")
+	_, err = GenerateMSISDNsFromSeed(1, "23", 5)
+	assert.Error(t, err)
+}

@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // BatchOptinRequest represents the request structure
@@ -37,6 +38,14 @@ type BatchOptinRequest struct {
 	Telco        string   `json:"telco"`
 	TenantKey    string   `json:"tenant_key,omitempty"`
 	ChannelKey   string   `json:"channel_key,omitempty"`
+
+	// MSISDN generation strategy (defaults to "random")
+	GenerationStrategy string `json:"generation_strategy,omitempty"`
+	RangePrefix        string `json:"range_prefix,omitempty"`
+	RangeStart         int    `json:"range_start,omitempty"`
+	RangeEnd           int    `json:"range_end,omitempty"`
+	SeedPrefix         string `json:"seed_prefix,omitempty"`
+	Seed               int64  `json:"seed,omitempty"`
 }
 
 // BatchOptinResponse represents the response structure
@@ -119,6 +128,14 @@ type ProcessorConfig struct {
 	// Tenant routing — required for per-tenant TIMWE credential resolution
 	TenantKey  string `json:"tenant_key,omitempty"`
 	ChannelKey string `json:"channel_key,omitempty"`
+
+	// MSISDN generation strategy
+	GenerationStrategy string `json:"generation_strategy,omitempty"` // random | range | seed
+	RangePrefix        string `json:"range_prefix,omitempty"`
+	RangeStart         int    `json:"range_start,omitempty"`
+	RangeEnd           int    `json:"range_end,omitempty"`
+	SeedPrefix         string `json:"seed_prefix,omitempty"`
+	Seed               int64  `json:"seed,omitempty"`
 
 	// Continuous processing
 	ContinuousMode bool   `json:"continuous_mode,omitempty"` // Restart from start after completion
@@ -694,8 +711,12 @@ func (bp *BatchProcessor) processLoop() {
 				if remainingBatches > 0 {
 					_, _, totalProcessed, totalSuccessful, totalFailed, startTime := bp.progressTracker.GetProgress()
 					elapsed := time.Since(startTime)
-					avgBatchTime := elapsed / time.Duration(totalProcessed)
-					estimatedRemaining := time.Duration(remainingBatches) * avgBatchTime
+					var avgBatchTime time.Duration
+					var estimatedRemaining time.Duration
+					if totalProcessed > 0 {
+						avgBatchTime = elapsed / time.Duration(totalProcessed)
+						estimatedRemaining = time.Duration(remainingBatches) * avgBatchTime
+					}
 
 					bp.logger.Info("Batch completed, progress update",
 						zap.Int("completedCount", currentCount-config.Increment),
@@ -814,12 +835,18 @@ func (bp *BatchProcessor) processBatch(count int) {
 
 	// Prepare request
 	request := BatchOptinRequest{
-		Count:        count,
-		EntryChannel: currentChannel,
-		ProductIds:   config.ProductIds,
-		Telco:        config.Telco,
-		TenantKey:    config.TenantKey,
-		ChannelKey:   config.ChannelKey,
+		Count:              count,
+		EntryChannel:       currentChannel,
+		ProductIds:         config.ProductIds,
+		Telco:              config.Telco,
+		TenantKey:          config.TenantKey,
+		ChannelKey:         config.ChannelKey,
+		GenerationStrategy: config.GenerationStrategy,
+		RangePrefix:        config.RangePrefix,
+		RangeStart:         config.RangeStart,
+		RangeEnd:           config.RangeEnd,
+		SeedPrefix:         config.SeedPrefix,
+		Seed:               config.Seed,
 	}
 
 	// Marshal request to JSON
@@ -1114,7 +1141,24 @@ func (bp *BatchProcessor) enqueueAndPollBatch(requestBody []byte) (*BatchOptinRe
 			}
 
 			// Check for job completion or failure
-			if st.State == jobStateCompleted || st.State == jobStateFailed {
+			if st.State == jobStateFailed {
+				resp := &BatchOptinResponse{
+					Total:      st.Total,
+					Successful: int(st.Successful),
+					Failed:     int(st.Failed),
+				}
+				bp.logger.Warn("Job failed",
+					zap.String("jobId", st.ID),
+					zap.Int("total", st.Total),
+					zap.Int64("processed", st.Processed),
+					zap.Int64("successful", st.Successful),
+					zap.Int64("failed", st.Failed),
+					zap.Duration("totalTime", time.Since(st.StartedAt)))
+				// A failed job is NOT a success: return an error so the circuit
+				// breaker and retry logic engage instead of recording a success.
+				return resp, fmt.Errorf("job %s failed: %d/%d items failed", st.ID, st.Failed, st.Total)
+			}
+			if st.State == jobStateCompleted {
 				bp.logger.Info("Job completed",
 					zap.String("jobId", st.ID),
 					zap.String("state", string(st.State)),
@@ -1210,12 +1254,43 @@ func initLogger(debug bool) (*zap.Logger, error) {
 		return nil, fmt.Errorf("failed to create logs directory: %w", err)
 	}
 
-	config.OutputPaths = []string{"stdout", "./logs/batch_processor.log"}
-	config.ErrorOutputPaths = []string{"stderr", "./logs/batch_processor_errors.log"}
+	// Rotating file sinks: 10MB per file, keep 5 files, compress old ones.
+	infoWriter := zapcore.AddSync(&lumberjack.Logger{
+		Filename:   "./logs/batch_processor.log",
+		MaxSize:    10, // MB
+		MaxBackups: 5,
+		MaxAge:     7, // days
+		Compress:   true,
+	})
+	errorWriter := zapcore.AddSync(&lumberjack.Logger{
+		Filename:   "./logs/batch_processor_errors.log",
+		MaxSize:    10, // MB
+		MaxBackups: 5,
+		MaxAge:     7, // days
+		Compress:   true,
+	})
+
+	config.OutputPaths = []string{"stdout"}
+	config.ErrorOutputPaths = []string{"stderr"}
 
 	logger, err := config.Build(zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 	if err != nil {
 		return nil, err
+	}
+
+	// Wrap the logger with the rotating writer when not in debug mode.
+	if !debug {
+		core := zapcore.NewCore(
+			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+			zapcore.NewMultiWriteSyncer(infoWriter),
+			zap.LevelEnablerFunc(func(l zapcore.Level) bool { return l < zapcore.ErrorLevel }),
+		)
+		errorCore := zapcore.NewCore(
+			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+			zapcore.NewMultiWriteSyncer(errorWriter),
+			zap.LevelEnablerFunc(func(l zapcore.Level) bool { return l >= zapcore.ErrorLevel }),
+		)
+		logger = zap.New(zapcore.NewTee(core, errorCore), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 	}
 
 	return logger, nil
@@ -1445,7 +1520,7 @@ type CircuitBreaker struct {
 	failureCount    int
 	lastFailureTime time.Time
 	state           CircuitBreakerState
-	mutex           sync.RWMutex
+	mutex           sync.Mutex
 }
 
 // NewCircuitBreaker creates a new circuit breaker
@@ -1459,19 +1534,15 @@ func NewCircuitBreaker(maxFailures int, resetTimeout time.Duration) *CircuitBrea
 
 // CanExecute checks if the circuit breaker allows execution
 func (cb *CircuitBreaker) CanExecute() bool {
-	cb.mutex.RLock()
-	defer cb.mutex.RUnlock()
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
 
 	switch cb.state {
 	case CircuitClosed:
 		return true
 	case CircuitOpen:
 		if time.Since(cb.lastFailureTime) > cb.resetTimeout {
-			cb.mutex.RUnlock()
-			cb.mutex.Lock()
 			cb.state = CircuitHalfOpen
-			cb.mutex.Unlock()
-			cb.mutex.RLock()
 			return true
 		}
 		return false
@@ -1506,8 +1577,8 @@ func (cb *CircuitBreaker) RecordFailure() {
 
 // GetState returns the current state of the circuit breaker
 func (cb *CircuitBreaker) GetState() CircuitBreakerState {
-	cb.mutex.RLock()
-	defer cb.mutex.RUnlock()
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
 	return cb.state
 }
 
@@ -1646,6 +1717,18 @@ func main() {
 		pauseWindows  = flag.String("pause-windows", "", "Optional semicolon-separated pause windows HH:MM-HH:MM;HH:MM-HH:MM")
 		hotReload     = flag.Bool("hot-reload", false, "Enable hot reloading of configuration file")
 		watchDebug    = flag.Bool("watch-debug", false, "Enable debug logging for config watcher")
+
+		// Tenant routing flags
+		tenantKey  = flag.String("tenant-key", "", "Tenant key for per-tenant TIMWE credential resolution (required)")
+		channelKey = flag.String("channel-key", "", "Channel key for per-tenant TIMWE credential resolution (required)")
+
+		// MSISDN generation strategy flags
+		generationStrategy = flag.String("strategy", "", "MSISDN generation strategy: random | range | seed")
+		rangePrefix        = flag.String("range-prefix", "", "Prefix for range strategy (e.g. 233278)")
+		rangeStart         = flag.Int("range-start", 0, "Start offset for range strategy")
+		rangeEnd           = flag.Int("range-end", 0, "End offset for range strategy (default: start+count-1)")
+		seedPrefix         = flag.String("seed-prefix", "", "Prefix for seed strategy (e.g. 233278)")
+		seed               = flag.Int64("seed", 0, "Seed for deterministic seed strategy")
 
 		// Continuous processing flags
 		continuousMode = flag.Bool("continuous", false, "Enable continuous processing mode (restart after completion)")
@@ -1788,6 +1871,41 @@ func main() {
 	}
 	if *maxRestarts > 0 {
 		config.MaxRestarts = *maxRestarts
+	}
+
+	// Handle tenant routing configuration
+	if *tenantKey != "" {
+		config.TenantKey = *tenantKey
+	}
+	if *channelKey != "" {
+		config.ChannelKey = *channelKey
+	}
+
+	// Handle MSISDN generation strategy configuration
+	if *generationStrategy != "" {
+		config.GenerationStrategy = *generationStrategy
+	}
+	if *rangePrefix != "" {
+		config.RangePrefix = *rangePrefix
+	}
+	if *rangeStart != 0 {
+		config.RangeStart = *rangeStart
+	}
+	if *rangeEnd != 0 {
+		config.RangeEnd = *rangeEnd
+	}
+	if *seedPrefix != "" {
+		config.SeedPrefix = *seedPrefix
+	}
+	if *seed != 0 {
+		config.Seed = *seed
+	}
+
+	// Validate tenant routing keys are present (required by server)
+	if config.TenantKey == "" || config.ChannelKey == "" {
+		logger.Warn("tenant_key and/or channel_key are empty — server may reject batch requests with 422",
+			zap.String("tenantKey", config.TenantKey),
+			zap.String("channelKey", config.ChannelKey))
 	}
 
 	// If run once mode, set max count to start count

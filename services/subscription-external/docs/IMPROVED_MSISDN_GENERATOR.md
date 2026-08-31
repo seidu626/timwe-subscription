@@ -15,14 +15,15 @@ The MSISDN generator has been significantly improved to provide better efficienc
 - **Batch Processing**: Efficient batch validation to reduce database calls
 
 ### 2. **Enhanced Security**
-- **Cryptographically Secure Random Numbers**: Replaced `math/rand` with `crypto/rand` for better security
-- **Secure Random Generation**: Uses `crypto/rand.Int()` for generating MSISDN suffixes
+- **Cryptographically Secure Random Numbers**: Non-deterministic generation paths use `crypto/rand` (via `secureRandomInt`) instead of `math/rand`
+- **Secure Random Generation**: Uses `crypto/rand` for selecting prefixes and generating MSISDN suffixes
 - **No Predictable Patterns**: Eliminates potential for predictable MSISDN generation
+- **Deterministic exception**: `GenerateMSISDNsFromSeed` intentionally keeps `math/rand/v2` (PCG) so the same seed reproduces the same sequence for test fixtures and auditable bulk generation. The seed path is documented as reproducible, not unpredictable.
 
 ### 3. **Improved Caching Strategy**
 - **Dual Cache System**: Separate caches for valid and invalid MSISDNs
-- **Timestamp-based Cleanup**: Automatic cleanup of old cache entries (24-hour TTL)
-- **Thread-safe Implementation**: Uses `sync.Map` for concurrent access
+- **Timestamp-based Cleanup**: Automatic cleanup of old cache entries (24-hour TTL for `MSISDNCache`; 30-minute default for `MSISDNValidator`)
+- **Thread-safe Implementation**: `MSISDNCache` uses `sync.Map`; `MSISDNValidator` uses plain maps guarded by `sync.RWMutex` (default cache expiry 30 minutes, see `MSISDNValidationConfig.CacheExpiry`)
 - **Memory Management**: Prevents memory leaks through periodic cleanup
 
 ### 4. **Better Performance**
@@ -55,7 +56,7 @@ The MSISDN generator has been significantly improved to provide better efficienc
 #### `GenerateBatchMSISDNSConcurrently(telco, count, config, repo)`
 - Generates multiple MSISDNs concurrently
 - Uses worker pool pattern for efficiency
-- Configurable worker count (default: 10 workers)
+- Configurable worker count (`OptimizedMSISDNGenerator` constructor defaults to 10 workers when the provided value is <= 0; the HTTP handler defaults `MaxConcurrent` to 50)
 
 #### `GenerateBatchMSISDNSWithValidation(ctx, telco, count, config, repo)`
 - Comprehensive batch generation with validation
@@ -185,8 +186,9 @@ utils.CleanupMSISDNCache()
 ### Batch Generation (100 MSISDNs)
 - **Average Time**: 500ms-2s (concurrent generation)
 - **Database Calls**: 2-4 batch calls
-- **Concurrency**: 10 workers by default
+- **Concurrency**: Constructor default is 10 workers; HTTP handler default is 50
 - **Memory Usage**: Proportional to batch size
+- **Exact-count guarantee**: `GenerateBatchMSISDNSOptimized` always returns exactly the requested number of unique MSISDNs, or an error (never a silent short batch)
 
 ### Cache Performance
 - **Hit Rate**: 80-95% for repeated operations

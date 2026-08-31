@@ -9,10 +9,15 @@ import (
 
 	"sync"
 
-	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"github.com/seidu626/subscription-manager/common/pii"
+	"github.com/seidu626/subscription-manager/subscription-external/internal/repository"
 	"go.uber.org/zap"
 )
+
+// nonDigitRegex strips any non-digit character from an MSISDN. Hoisted to a
+// package-level value because IsValidMSISDNFormat / formatMSISDN are called per
+// generated MSISDN (millions of times per batch) and regexp compilation is slow.
+var nonDigitRegex = regexp.MustCompile(`\D`)
 
 // GhanaTelecomPrefixes defines default valid prefixes for Ghana telecom operators
 // These are used as fallback if no prefixes are configured
@@ -291,8 +296,7 @@ func (v *MSISDNValidator) ValidateMSISDN(ctx context.Context, msisdn string) (*V
 // formatMSISDN ensures MSISDN is in correct format (233xxxxxxxxx)
 func (v *MSISDNValidator) formatMSISDN(msisdn string) (string, error) {
 	// Remove any non-digit characters
-	re := regexp.MustCompile(`\D`)
-	cleanMSISDN := re.ReplaceAllString(msisdn, "")
+	cleanMSISDN := nonDigitRegex.ReplaceAllString(msisdn, "")
 
 	// Handle different input formats
 	switch {
@@ -513,8 +517,7 @@ func (v *MSISDNValidator) GetValidationStats() *MSISDNValidationStats {
 // IsValidMSISDNFormat performs basic format validation without database checks
 func IsValidMSISDNFormat(msisdn string) bool {
 	// Remove any non-digit characters
-	re := regexp.MustCompile(`\D`)
-	cleanMSISDN := re.ReplaceAllString(msisdn, "")
+	cleanMSISDN := nonDigitRegex.ReplaceAllString(msisdn, "")
 
 	// Check if it's a valid format
 	switch {

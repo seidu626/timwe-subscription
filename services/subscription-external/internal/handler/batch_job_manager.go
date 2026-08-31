@@ -45,9 +45,64 @@ func NewBatchJobManager() *BatchJobManager {
 	return &BatchJobManager{jobs: make(map[string]*batchJobEntry)}
 }
 
+// batchJobRetention and batchJobHardCap govern eviction of terminal jobs so the
+// jobs map cannot grow without bound in a long-lived server.
+const (
+	batchJobRetention = 24 * time.Hour
+	batchJobHardCap   = 10000
+)
+
+// PruneCompleted removes terminal (completed/failed/cancelled) jobs. Jobs are
+// kept for batchJobRetention to give pollers time to read their results; if the
+// map still exceeds batchJobHardCap, the oldest terminal jobs are evicted
+// regardless of age. Pending and running jobs are never evicted.
+func (m *BatchJobManager) PruneCompleted() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.jobs) <= batchJobHardCap {
+		return 0
+	}
+	cutoff := time.Now().Add(-batchJobRetention)
+	evicted := 0
+	for id, entry := range m.jobs {
+		switch entry.status.State {
+		case BatchJobCompleted, BatchJobFailed, BatchJobCancelled:
+			if entry.status.CompletedAt != nil && entry.status.CompletedAt.Before(cutoff) {
+				delete(m.jobs, id)
+				evicted++
+			}
+		}
+	}
+	// Hard cap: if still over the limit, evict the oldest terminal jobs.
+	for len(m.jobs) > batchJobHardCap {
+		var oldestID string
+		var oldest time.Time
+		found := false
+		for id, entry := range m.jobs {
+			switch entry.status.State {
+			case BatchJobCompleted, BatchJobFailed, BatchJobCancelled:
+				at := time.Time{}
+				if entry.status.CompletedAt != nil {
+					at = *entry.status.CompletedAt
+				}
+				if !found || at.Before(oldest) {
+					oldestID, oldest, found = id, at, true
+				}
+			}
+		}
+		if !found {
+			break // only live jobs remain; do not evict them
+		}
+		delete(m.jobs, oldestID)
+		evicted++
+	}
+	return evicted
+}
+
 // CreateJob creates a new job entry. Returns the status and a context that is
 // cancelled when CancelJob is called for this id.
 func (m *BatchJobManager) CreateJob(id string, total int) (*BatchJobStatus, context.Context) {
+	m.PruneCompleted()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -67,6 +122,7 @@ func (m *BatchJobManager) CreateJob(id string, total int) (*BatchJobStatus, cont
 // StopBatchHandler so that BackfillOptinHandler / ResubscribeHandler goroutines
 // exit on their next select iteration.
 func (m *BatchJobManager) CreateJobWithTenant(id string, total int, tenantKey, channelKey string) (*BatchJobStatus, context.Context) {
+	m.PruneCompleted()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -90,6 +146,93 @@ func (m *BatchJobManager) GetJob(id string) (*BatchJobStatus, bool) {
 		return nil, false
 	}
 	return entry.status, true
+}
+
+// Snapshot returns a deep copy of the job status captured while holding the
+// manager lock. Consumers (e.g. HTTP status handlers that serialize to JSON)
+// must use this instead of GetJob + direct field reads, because GetJob returns
+// the live pointer and worker goroutines mutate its fields concurrently.
+func (m *BatchJobManager) Snapshot(id string) (*BatchJobStatus, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	entry, ok := m.jobs[id]
+	if !ok {
+		return nil, false
+	}
+	src := entry.status
+	if src == nil {
+		return nil, false
+	}
+	cp := *src
+	if src.ErrorDetails != nil {
+		cp.ErrorDetails = make(map[string]interface{}, len(src.ErrorDetails))
+		for k, v := range src.ErrorDetails {
+			cp.ErrorDetails[k] = v
+		}
+	}
+	if src.CompletedAt != nil {
+		t := *src.CompletedAt
+		cp.CompletedAt = &t
+	}
+	return &cp, true
+}
+
+// SetCounters updates a job's terminal counters (Success/Failed) and Total
+// under the manager lock. Callers that mutate status fields concurrently with
+// status polling must use these helpers so reads under the lock stay race-free.
+func (m *BatchJobManager) SetCounters(id string, total int, success, failed int64) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	entry, ok := m.jobs[id]
+	if !ok {
+		return false
+	}
+	entry.status.Total = total
+	entry.status.Successful = success
+	entry.status.Failed = failed
+	return true
+}
+
+// SetTotal updates a job's Total under the manager lock.
+func (m *BatchJobManager) SetTotal(id string, total int) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	entry, ok := m.jobs[id]
+	if !ok {
+		return false
+	}
+	entry.status.Total = total
+	return true
+}
+
+// Owner returns the owning tenant key for a job, read under the manager lock.
+func (m *BatchJobManager) Owner(id string) (string, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	entry, ok := m.jobs[id]
+	if !ok {
+		return "", false
+	}
+	return entry.status.TenantKey, true
+}
+
+// Count returns the number of tracked jobs (for health/lifecycle reporting).
+func (m *BatchJobManager) Count() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.jobs)
+}
+
+// SetErrorDetails records terminal error details under the manager lock.
+func (m *BatchJobManager) SetErrorDetails(id string, details map[string]interface{}) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	entry, ok := m.jobs[id]
+	if !ok {
+		return false
+	}
+	entry.status.ErrorDetails = details
+	return true
 }
 
 // CancelJob cancels a running or pending job by triggering context cancellation.

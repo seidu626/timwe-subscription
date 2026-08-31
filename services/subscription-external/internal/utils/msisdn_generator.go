@@ -2,8 +2,9 @@ package utils
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	mrand "math/rand/v2" // Use math/rand/v2 for Go 1.22+
+	mrand "math/rand/v2" // Deterministic PRNG for seeded/range generation only
 	"strings"
 	"sync"
 	"time"
@@ -100,14 +101,38 @@ func (c *MSISDNCache) Cleanup() {
 // Global cache instance
 var globalMSISDNCache = NewMSISDNCache(nil)
 
-// secureRandomInt returns a random integer in the range [min, max)
+// secureRandomInt returns a cryptographically secure random integer in [min, max).
+// Unlike math/rand, crypto/rand is not predictable, so generated MSISDNs cannot be
+// enumerated by an attacker who knows the algorithm. It is only used for the
+// non-deterministic generation paths; seeded/range generation keeps math/rand/v2.
 func secureRandomInt(min, max int) (int, error) {
 	if min >= max {
 		return 0, fmt.Errorf("invalid range: min (%d) must be less than max (%d)", min, max)
 	}
 	width := max - min
-	n := mrand.IntN(width)
-	return min + n, nil
+
+	bigWidth := uint64(width)
+	maxUint := uint64(^uint(0))
+	if bigWidth == 0 {
+		return min, nil
+	}
+
+	// Rejection sampling to avoid modulo bias.
+	limit := maxUint - (maxUint % bigWidth)
+	var n uint64
+	for {
+		buf := make([]byte, 8)
+		if _, err := rand.Read(buf); err != nil {
+			return 0, fmt.Errorf("failed to read secure random bytes: %w", err)
+		}
+		n = uint64(buf[0])<<56 | uint64(buf[1])<<48 | uint64(buf[2])<<40 | uint64(buf[3])<<32 |
+			uint64(buf[4])<<24 | uint64(buf[5])<<16 | uint64(buf[6])<<8 | uint64(buf[7])
+		if n < limit {
+			break
+		}
+	}
+
+	return min + int(n%bigWidth), nil
 }
 
 // validateMSISDN checks if an MSISDN is valid by checking multiple criteria
@@ -158,11 +183,15 @@ func validateMSISDN(ctx context.Context, repo repository.UserBaseRepositoryInter
 }
 
 // generateMSISDN generates a single MSISDN with the given prefix
-// Enhanced to follow patterns from real Tigo userbase
+// Enhanced to follow patterns from real Tigo userbase.
+// Dynamically calculates suffix length so total MSISDN is always 12 digits (233 + 9).
 func generateMSISDN(prefix string) (string, error) {
-	// Generate a 6-digit suffix following patterns from real data
-	// Most Tigo numbers have patterns like: 075653, 234567, 345678
-	// These appear to follow sequential patterns in blocks
+	// Ghana MSISDNs are 12 digits: country code 233 (3 digits) + 9 subscriber digits.
+	// Prefix length varies (3, 5, or 6 digits), so suffix must fill the remainder.
+	requiredSuffixLen := 12 - len(prefix)
+	if requiredSuffixLen < 1 || requiredSuffixLen > 9 {
+		return "", fmt.Errorf("prefix %q (len %d) cannot produce a 12-digit MSISDN", prefix, len(prefix))
+	}
 
 	// Choose generation strategy
 	strategy, err := secureRandomInt(0, 3)
@@ -174,41 +203,82 @@ func generateMSISDN(prefix string) (string, error) {
 	switch strategy {
 	case 0:
 		// Sequential pattern (like 234567, 345678)
-		base, err := secureRandomInt(100000, 900000)
+		minSuffix := 1
+		for i := 1; i < requiredSuffixLen; i++ {
+			minSuffix *= 10
+		}
+		maxSuffix := minSuffix * 10
+		base, err := secureRandomInt(minSuffix, maxSuffix)
 		if err != nil {
 			return "", err
 		}
-		suffix = base + (base % 111111) // Create sequential-like patterns
+		// Create sequential-like patterns by repeating digit groups
+		if requiredSuffixLen >= 6 {
+			suffix = base + (base % (minSuffix / 10 * 10)) // NOLINT
+		} else {
+			suffix = base
+		}
 
 	case 1:
 		// Block pattern (like 075653, 075654, 075655)
-		block, err := secureRandomInt(0, 999)
+		blockSize := requiredSuffixLen / 2
+		if blockSize < 1 {
+			blockSize = 1
+		}
+		subBlockSize := requiredSuffixLen - blockSize
+		if subBlockSize < 1 {
+			subBlockSize = 1
+		}
+
+		minBlock := 1
+		for i := 1; i < blockSize; i++ {
+			minBlock *= 10
+		}
+		maxBlock := minBlock * 10
+
+		minSub := 1
+		for i := 1; i < subBlockSize; i++ {
+			minSub *= 10
+		}
+		maxSub := minSub * 10
+
+		block, err := secureRandomInt(minBlock, maxBlock)
 		if err != nil {
 			return "", err
 		}
-		subblock, err := secureRandomInt(0, 999)
+		subblock, err := secureRandomInt(minSub, maxSub)
 		if err != nil {
 			return "", err
 		}
-		suffix = block*1000 + subblock
+		suffix = block*minSub + subblock
 
 	default:
 		// Random pattern
-		suffix, err = secureRandomInt(100000, 1000000)
+		minSuffix := 1
+		for i := 1; i < requiredSuffixLen; i++ {
+			minSuffix *= 10
+		}
+		maxSuffix := minSuffix * 10
+		suffix, err = secureRandomInt(minSuffix, maxSuffix)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	// Ensure suffix is 6 digits
-	if suffix >= 1000000 {
-		suffix = suffix % 1000000
+	// Ensure suffix is within valid range
+	maxSuffix := 1
+	for i := 0; i < requiredSuffixLen; i++ {
+		maxSuffix *= 10
 	}
-	if suffix < 100000 {
-		suffix += 100000
+	if suffix >= maxSuffix {
+		suffix = suffix % maxSuffix
+	}
+	minSuffix := maxSuffix / 10
+	if suffix < minSuffix {
+		suffix += minSuffix
 	}
 
-	return fmt.Sprintf("%s%06d", prefix, suffix), nil
+	return fmt.Sprintf("%s%0*d", prefix, requiredSuffixLen, suffix), nil
 }
 
 // generateFromPool generates an MSISDN based on patterns from the sample pool
@@ -227,19 +297,17 @@ func generateFromPool(prefix string) (string, error) {
 	}
 
 	sample := globalMSISDNPool.tigoSamples[sampleIdx]
-	if len(sample) < 12 {
+	requiredSuffixLen := 12 - len(prefix)
+	if requiredSuffixLen < 1 || requiredSuffixLen > 9 || len(sample) < 12 {
 		return generateMSISDN(prefix)
 	}
 
-	// Extract the last 6 digits and modify them slightly
-	if len(sample) < 12 {
-		return generateMSISDN(prefix)
-	}
-	lastSix := sample[len(sample)-6:]
+	// Extract the subscriber digits from the template and modify them slightly
+	lastDigits := sample[len(sample)-requiredSuffixLen:]
 
 	// Convert to number and add small random variation
 	var baseNum int
-	_, _ = fmt.Sscanf(lastSix, "%d", &baseNum)
+	_, _ = fmt.Sscanf(lastDigits, "%d", &baseNum)
 
 	variation, err := secureRandomInt(-1000, 1000)
 	if err != nil {
@@ -247,14 +315,22 @@ func generateFromPool(prefix string) (string, error) {
 	}
 
 	newSuffix := baseNum + variation
-	if newSuffix < 100000 {
-		newSuffix = 100000 + (newSuffix % 100000)
+
+	// Clamp to valid range
+	minSuffix := 1
+	for i := 1; i < requiredSuffixLen; i++ {
+		minSuffix *= 10
 	}
-	if newSuffix >= 1000000 {
-		newSuffix = newSuffix % 1000000
+	maxSuffix := minSuffix * 10
+
+	if newSuffix < minSuffix {
+		newSuffix = minSuffix + (newSuffix % minSuffix)
+	}
+	if newSuffix >= maxSuffix {
+		newSuffix = newSuffix % maxSuffix
 	}
 
-	return fmt.Sprintf("%s%06d", prefix, newSuffix), nil
+	return fmt.Sprintf("%s%0*d", prefix, requiredSuffixLen, newSuffix), nil
 }
 
 // GenerateRandomMSISDN generates a random MSISDN ensuring it doesn't belong to Premier/Staff users or invalid logs
@@ -673,4 +749,74 @@ func LoadMSISDNSamples(samples []string) {
 	if len(samples) > 0 {
 		globalMSISDNPool.tigoSamples = append(globalMSISDNPool.tigoSamples, samples...)
 	}
+}
+
+// GenerateMSISDNRange generates sequential MSISDNs within a prefix block.
+// start and end are the 0-based subscriber-number offsets within the prefix.
+// Example: prefix "233278", start 0, end 999 produces 2332780000000..2332780000999
+// The produced count is bounded by the prefix capacity and the (start,end) window.
+func GenerateMSISDNRange(prefix string, start, end int) ([]string, error) {
+	requiredSuffixLen := 12 - len(prefix)
+	if requiredSuffixLen < 1 || requiredSuffixLen > 9 {
+		return nil, fmt.Errorf("prefix %q (len %d) cannot produce a 12-digit MSISDN", prefix, len(prefix))
+	}
+
+	maxSuffix := 1
+	for i := 0; i < requiredSuffixLen; i++ {
+		maxSuffix *= 10
+	}
+
+	if start < 0 {
+		start = 0
+	}
+	if end >= maxSuffix {
+		end = maxSuffix - 1
+	}
+	if start > end {
+		return []string{}, nil
+	}
+	if end-start+1 > 100000 {
+		// Guard against pathological memory use; callers should chunk large ranges
+		return nil, fmt.Errorf("range too large: %d items (max 100000 per call)", end-start+1)
+	}
+
+	results := make([]string, 0, end-start+1)
+	for i := start; i <= end; i++ {
+		results = append(results, fmt.Sprintf("%s%0*d", prefix, requiredSuffixLen, i))
+	}
+	return results, nil
+}
+
+// GenerateMSISDNsFromSeed generates deterministic MSISDNs using a seeded PRNG.
+// The same seed, prefix, and count always produce the same sequence, which is
+// useful for reproducible test fixtures and auditable bulk generation.
+func GenerateMSISDNsFromSeed(seed int64, prefix string, count int) ([]string, error) {
+	if count <= 0 {
+		return []string{}, nil
+	}
+	requiredSuffixLen := 12 - len(prefix)
+	if requiredSuffixLen < 1 || requiredSuffixLen > 9 {
+		return nil, fmt.Errorf("prefix %q (len %d) cannot produce a 12-digit MSISDN", prefix, len(prefix))
+	}
+
+	rng := mrand.New(mrand.NewPCG(uint64(seed), uint64(seed)^uint64(0x9E3779B97F4A7C15)))
+
+	maxSuffix := 1
+	for i := 0; i < requiredSuffixLen; i++ {
+		maxSuffix *= 10
+	}
+	minSuffix := maxSuffix / 10
+
+	results := make([]string, 0, count)
+	seen := make(map[string]struct{}, count)
+	for len(results) < count {
+		suffix := minSuffix + rng.IntN(maxSuffix-minSuffix)
+		msisdn := fmt.Sprintf("%s%0*d", prefix, requiredSuffixLen, suffix)
+		if _, dup := seen[msisdn]; dup {
+			continue
+		}
+		seen[msisdn] = struct{}{}
+		results = append(results, msisdn)
+	}
+	return results, nil
 }
