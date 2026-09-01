@@ -20,6 +20,7 @@ var defaultAdminManagementSchemaPaths = []string{
 	"migrations/add_tenant_admin_memberships.sql",
 	"migrations/add_tenant_channel_secrets.sql",
 	"migrations/revoke_channel_credential.sql",
+	"migrations/add_msisdn_catalog.sql",
 }
 
 var requiredAdminManagementRelations = []string{
@@ -31,6 +32,8 @@ var requiredAdminManagementRelations = []string{
 	"public.tenant_channel_credentials",
 	"public.tenant_channel_secrets",
 	"public.tenant_admin_memberships",
+	"public.msisdn_catalog",
+	"public.msisdn_catalog_pool_counts",
 }
 
 // EnsureSchema ensures admin-management tables/indexes exist using the SQL migration file,

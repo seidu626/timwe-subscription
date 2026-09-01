@@ -13,6 +13,7 @@ import (
 
 	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/common/config"
+	msisdncatalog "github.com/seidu626/subscription-manager/common/msisdn/catalog"
 	"github.com/seidu626/subscription-manager/common/pii"
 	"go.uber.org/zap"
 
@@ -32,8 +33,29 @@ type SubscriptionHandler struct {
 	jobs            *BatchJobManager
 	batchGuard      *batchAdminGuard
 	processOptinFn  func(*domain.OptinRequest) error // optional override for tests
-	msisdnGenerator *utils.OptimizedMSISDNGenerator  // optimized MSISDN generator
+	msisdnGenerator msisdnBatchGenerator             // optimized MSISDN generator
+	msisdnCatalog   generatedMSISDNCatalog
+	msisdnVerifier  generatedMSISDNVerifier
+	tenantResolver  catalogTenantResolver
 	startTime       time.Time
+}
+
+type msisdnBatchGenerator interface {
+	GenerateBatchMSISDNSOptimized(context.Context, string, int, *config.Config) ([]string, error)
+	GetDetailedStats() map[string]interface{}
+}
+
+type generatedMSISDNCatalog interface {
+	InsertGenerated(context.Context, string, string, string, string, []string) ([]msisdncatalog.Record, error)
+	SaveVerification(context.Context, string, int64, msisdncatalog.VerificationResult) error
+}
+
+type generatedMSISDNVerifier interface {
+	Verify(context.Context, string) msisdncatalog.VerificationResult
+}
+
+type catalogTenantResolver interface {
+	TenantIDByKey(string) (string, error)
 }
 
 // normalizeEntryChannels ensures proper entry channel configuration for backward compatibility
@@ -145,6 +167,15 @@ func NewSubscriptionHandler(logger *zap.Logger, service *service.SubscriptionSer
 		batchGuard:      guard,
 		msisdnGenerator: msisdnGenerator,
 		startTime:       time.Now(),
+	}
+	if service != nil {
+		if resolver, ok := service.GetRepository().(catalogTenantResolver); ok {
+			handler.tenantResolver = resolver
+		}
+		if dbGetter, ok := service.GetRepository().(repository.DBGetter); ok && dbGetter.GetDB() != nil {
+			handler.msisdnCatalog = msisdncatalog.NewStore(dbGetter.GetDB())
+			handler.msisdnVerifier = msisdncatalog.NewMADAPIClient(msisdncatalog.MADAPIConfigFromEnv(), nil)
+		}
 	}
 
 	// Preload Bloom Filter if available (always enabled for now)
@@ -1093,8 +1124,13 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 			zap.Int("count", req.Count),
 			zap.String("telco", req.Telco))
 
-		// Use the optimized MSISDN generator to create the requested number of MSISDNs
-		msisdns, err = h.msisdnGenerator.GenerateBatchMSISDNSOptimized(ctx, req.Telco, req.Count, h.config)
+		// MTN Ghana candidates are cataloged and MADAPI-verified before they
+		// enter the opt-in worker queue. Other telcos retain the legacy path.
+		if strings.EqualFold(strings.TrimSpace(req.Telco), "MTN") {
+			msisdns, err = h.generateVerifiedCatalogMSISDNs(ctx, jobID, req)
+		} else {
+			msisdns, err = h.msisdnGenerator.GenerateBatchMSISDNSOptimized(ctx, req.Telco, req.Count, h.config)
+		}
 		if err != nil {
 			h.logger.Error("Failed to generate MSISDNs using optimized generator",
 				zap.String("jobId", jobID),
@@ -1208,15 +1244,6 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 					return
 				}
 			}
-
-			if len(errorBatch) > 0 {
-				h.logger.Error("Final batch of subscription failures",
-					zap.String("jobId", jobID),
-					zap.Int("workerId", workerID),
-					zap.Int("count", len(errorBatch)),
-					zap.String("sampleError", errorBatch[0].Error()))
-			}
-			h.logger.Debug("Worker finished", zap.String("jobId", jobID), zap.Int("workerId", workerID))
 		}(i)
 	}
 
@@ -1255,6 +1282,102 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	}
 	totalBatchJobsCompleted.Add(1)
 	h.logger.Info("Batch job completed", zap.String("jobId", jobID), zap.Int64("successful", st.Successful), zap.Int64("failed", st.Failed))
+}
+
+func (h *SubscriptionHandler) generateVerifiedCatalogMSISDNs(ctx context.Context, jobID string, req *domain.BatchOptinRequest) ([]string, error) {
+	if h.msisdnCatalog == nil || h.msisdnVerifier == nil || h.tenantResolver == nil {
+		return nil, fmt.Errorf("MTN Ghana MSISDN catalog verification is not configured")
+	}
+	if configurable, ok := h.msisdnVerifier.(interface{ Configured() bool }); ok && !configurable.Configured() {
+		return nil, fmt.Errorf("MADAPI environment is incomplete")
+	}
+	tenantID, err := h.tenantResolver.TenantIDByKey(req.TenantKey)
+	if err != nil {
+		return nil, fmt.Errorf("resolve catalog tenant: %w", err)
+	}
+
+	verified := make([]string, 0, req.Count)
+	seen := make(map[string]struct{}, req.Count)
+	const maxRounds = 8
+	for round := 0; round < maxRounds && len(verified) < req.Count; round++ {
+		remaining := req.Count - len(verified)
+		candidates, err := h.msisdnGenerator.GenerateBatchMSISDNSOptimized(ctx, req.Telco, remaining, h.config)
+		if err != nil {
+			return nil, err
+		}
+		normalized := make([]string, 0, len(candidates))
+		for _, candidate := range candidates {
+			msisdn, region, normalizeErr := msisdncatalog.Normalize(candidate, msisdncatalog.RegionGhana)
+			if normalizeErr != nil || region != msisdncatalog.RegionGhana {
+				continue
+			}
+			if _, duplicate := seen[msisdn]; duplicate {
+				continue
+			}
+			seen[msisdn] = struct{}{}
+			normalized = append(normalized, msisdn)
+		}
+		inserted, err := h.msisdnCatalog.InsertGenerated(ctx, tenantID, msisdncatalog.RegionGhana, "MTN", jobID, normalized)
+		if err != nil {
+			return nil, fmt.Errorf("persist generated MSISDN catalog: %w", err)
+		}
+		verified = append(verified, h.verifyGeneratedCatalogRecords(ctx, tenantID, inserted)...)
+	}
+	if len(verified) < req.Count {
+		return nil, fmt.Errorf("MADAPI verified %d of %d requested unique catalog candidates", len(verified), req.Count)
+	}
+	return verified[:req.Count], nil
+}
+
+func (h *SubscriptionHandler) verifyGeneratedCatalogRecords(ctx context.Context, tenantID string, records []msisdncatalog.Record) []string {
+	if len(records) == 0 {
+		return nil
+	}
+	workerCount := 8
+	if raw := strings.TrimSpace(os.Getenv("MADAPI_MAX_CONCURRENCY")); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil && value > 0 && value <= 64 {
+			workerCount = value
+		}
+	}
+	if workerCount > len(records) {
+		workerCount = len(records)
+	}
+	jobs := make(chan msisdncatalog.Record)
+	verified := make(chan string, len(records))
+	var wg sync.WaitGroup
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for record := range jobs {
+				result := h.msisdnVerifier.Verify(ctx, record.MSISDN)
+				if err := h.msisdnCatalog.SaveVerification(ctx, tenantID, record.ID, result); err != nil {
+					h.logger.Error("Failed to persist MSISDN verification verdict", zap.Int64("catalogId", record.ID), zap.Error(err))
+					continue
+				}
+				if result.Status == msisdncatalog.StatusVerified {
+					verified <- record.MSISDN
+				}
+			}
+		}()
+	}
+	go func() {
+		defer close(jobs)
+		for _, record := range records {
+			select {
+			case jobs <- record:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	wg.Wait()
+	close(verified)
+	result := make([]string, 0, len(records))
+	for msisdn := range verified {
+		result = append(result, msisdn)
+	}
+	return result
 }
 
 // calculateOptimalWorkers determines the optimal number of workers based on request volume

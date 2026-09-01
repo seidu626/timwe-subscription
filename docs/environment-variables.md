@@ -79,6 +79,23 @@ AES-256-GCM encrypted secret store backed by the `tenant_channel_secrets` table.
 | `ADMIN_AUTH0_AUDIENCE` | Auth0 API Audience/Identifier expected in `aud` claim (for this project: `https://dev-chliep5q.auth0.com/api/v2/`). | - | Yes |
 | `ACQUISITION_ADMIN_CORS_ORIGINS` | Comma-separated allowed CORS origins | `http://localhost:4200` | No |
 
+### MTN Ghana MSISDN Catalog Verification
+
+Both `subscription-external` and `acquisition-api` use the same MADAPI settings. The batch path fails closed when these are incomplete; the admin catalog remains searchable and DND uploads remain available.
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `MADAPI_BASE_URL` | MADAPI KYC API base URL | - | Yes for verification |
+| `MADAPI_TOKEN_URL` | Full OAuth client-credentials token URL | - | Yes for verification |
+| `MADAPI_KYC_PATH` | KYC path containing `{customerId}` | `/kyc/{customerId}` | No |
+| `MADAPI_CLIENT_ID` | Approved MADAPI OAuth client ID | - | Yes for verification |
+| `MADAPI_CLIENT_SECRET` | Approved MADAPI OAuth client secret | - | Yes for verification |
+| `MADAPI_TIMEOUT` | Per-request HTTP timeout | `15s` | No |
+| `MADAPI_MAX_RETRIES` | Retries for transport, 408, 429, and 5xx failures | `3` | No |
+| `MADAPI_MAX_CONCURRENCY` | Maximum concurrent batch verification calls | `8` | No |
+
+The catalog stores only verdict status, timestamps, attempt count, and MADAPI transaction reference. It never stores the returned KYC identity payload.
+
 ### Acquisition API Campaign Asset Storage (Optional)
 
 | Variable | Description | Default | Required |

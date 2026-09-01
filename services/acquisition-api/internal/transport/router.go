@@ -356,6 +356,46 @@ func NewRouter(
 			return
 
 		// Admin userbase management
+		case strings.EqualFold(path, "/v1/admin/msisdn-catalog/stats"):
+			if method == fasthttp.MethodGet {
+				adminManagementHandler.GetMSISDNCatalogStats(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.EqualFold(path, "/v1/admin/msisdn-catalog/dnd-imports"):
+			if method == fasthttp.MethodPost {
+				adminManagementHandler.ImportMSISDNDND(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.EqualFold(path, "/v1/admin/msisdn-catalog/verify"):
+			if method == fasthttp.MethodPost {
+				adminManagementHandler.VerifyMSISDNCatalog(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.EqualFold(path, "/v1/admin/msisdn-catalog"):
+			if method == fasthttp.MethodGet {
+				adminManagementHandler.ListMSISDNCatalog(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
+		case strings.HasPrefix(path, "/v1/admin/msisdn-catalog/"):
+			if method == fasthttp.MethodPatch {
+				adminManagementHandler.SetMSISDNCatalogFlags(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		case strings.EqualFold(path, "/v1/admin/userbase"):
 			switch method {
 			case fasthttp.MethodGet:
