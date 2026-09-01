@@ -3,11 +3,17 @@ FROM docker.io/library/golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Copy everything including vendor
-COPY . .
+# Resolve the service module and its local common-module replacement from the
+# repository-root build context. Vendor directories are intentionally untracked.
+COPY common/go.mod common/go.sum /common/
+COPY services/subscription-external/go.mod services/subscription-external/go.sum ./
+RUN go mod download
 
-# Build the application using vendored dependencies
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo -o subscription-external ./cmd
+COPY common /common
+COPY services/subscription-external/ .
+
+# Build without relying on machine-local vendor trees.
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=readonly -a -installsuffix cgo -o subscription-external ./cmd
 
 # Stage 2: Run
 FROM docker.io/library/alpine:latest
@@ -21,7 +27,7 @@ WORKDIR /app
 COPY --from=builder /app/subscription-external .
 
 # Copy config file (secrets should come from environment variables)
-COPY config.yaml .
+COPY services/subscription-external/config.yaml .
 
 EXPOSE 8083
 
