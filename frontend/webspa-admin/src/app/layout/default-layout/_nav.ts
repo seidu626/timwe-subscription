@@ -77,6 +77,12 @@ export const navItems: any[] = [
     permissions: ['vr:manage']
   },
   {
+    name: 'MSISDN Catalog',
+    url: '/msisdn-catalog',
+    iconComponent: { name: 'cil-address-book' },
+    permissions: ['vr:manage']
+  },
+  {
     name: 'Operations',
     url: '/operations',
     iconComponent: { name: 'cil-settings' },

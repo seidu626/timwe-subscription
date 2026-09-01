@@ -17,6 +17,7 @@ import (
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/service"
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
+	msisdncatalog "github.com/seidu626/subscription-manager/common/msisdn/catalog"
 	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/valyala/fasthttp"
 	"github.com/xuri/excelize/v2"
@@ -884,6 +885,156 @@ type upsertUserbaseRequest struct {
 	PerformedBy string `json:"performed_by,omitempty"`
 }
 
+type catalogFlagRequest struct {
+	DND         *bool  `json:"dnd"`
+	Invalid     *bool  `json:"invalid"`
+	Reason      string `json:"reason,omitempty"`
+	PerformedBy string `json:"performed_by,omitempty"`
+}
+
+type catalogVerifyRequest struct {
+	IDs         []int64 `json:"ids,omitempty"`
+	Limit       int     `json:"limit,omitempty"`
+	PerformedBy string  `json:"performed_by,omitempty"`
+}
+
+func (h *AdminManagementHandler) ListMSISDNCatalog(ctx *fasthttp.RequestCtx) {
+	tenant, _, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	page, pageSize := parsePageArgs(ctx, 25, 200)
+	filter := msisdncatalog.ListFilter{
+		TenantID:           tenant.ID,
+		Query:              strings.TrimSpace(string(ctx.QueryArgs().Peek("q"))),
+		Region:             strings.TrimSpace(string(ctx.QueryArgs().Peek("region"))),
+		Telco:              strings.TrimSpace(string(ctx.QueryArgs().Peek("telco"))),
+		VerificationStatus: strings.TrimSpace(string(ctx.QueryArgs().Peek("status"))),
+		Limit:              pageSize,
+		Offset:             (page - 1) * pageSize,
+	}
+	if value, ok := parseOptionalBoolQuery(ctx, "dnd"); ok {
+		filter.DND = &value
+	}
+	if value, ok := parseOptionalBoolQuery(ctx, "invalid"); ok {
+		filter.Invalid = &value
+	}
+	records, total, err := h.service.ListMSISDNCatalog(context.Background(), filter)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, map[string]any{"records": records, "total_count": total, "page": page, "page_size": pageSize})
+}
+
+func (h *AdminManagementHandler) GetMSISDNCatalogStats(ctx *fasthttp.RequestCtx) {
+	tenant, _, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	stats, err := h.service.MSISDNCatalogStats(context.Background(), tenant.ID)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, stats)
+}
+
+func (h *AdminManagementHandler) ImportMSISDNDND(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	fileHeader, err := ctx.FormFile("file")
+	if err != nil {
+		ctx.Error("CSV file is required", fasthttp.StatusBadRequest)
+		return
+	}
+	if !strings.HasSuffix(strings.ToLower(fileHeader.Filename), ".csv") {
+		ctx.Error("DND upload must be a CSV file", fasthttp.StatusBadRequest)
+		return
+	}
+	if fileHeader.Size > 10*1024*1024 {
+		ctx.Error("DND CSV must not exceed 10 MB", fasthttp.StatusRequestEntityTooLarge)
+		return
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		ctx.Error("failed to open DND CSV", fasthttp.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+	msisdns, err := parseDNDCSV(file)
+	if err != nil {
+		ctx.Error("failed to parse DND CSV: "+err.Error(), fasthttp.StatusBadRequest)
+		return
+	}
+	actor := actorFromPayloadIdentityOrRequest("", identity, ctx)
+	result, err := h.service.ImportDND(context.Background(), tenant.ID,
+		string(ctx.FormValue("region")), string(ctx.FormValue("telco")), msisdns, actor, requestIDFromHeader(ctx))
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, result)
+}
+
+func (h *AdminManagementHandler) VerifyMSISDNCatalog(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	var req catalogVerifyRequest
+	if len(ctx.PostBody()) > 0 {
+		if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+			ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+			return
+		}
+	}
+	if len(req.IDs) > 500 {
+		ctx.Error("At most 500 records can be verified at once", fasthttp.StatusBadRequest)
+		return
+	}
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
+	verificationCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	summary, err := h.service.VerifyMSISDNCatalog(verificationCtx, tenant.ID, req.IDs, req.Limit, actor, requestIDFromHeader(ctx))
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, summary)
+}
+
+func (h *AdminManagementHandler) SetMSISDNCatalogFlags(ctx *fasthttp.RequestCtx) {
+	tenant, identity, err := h.currentTenantFromRequest(ctx)
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	id, err := parseCatalogIDFromPath(string(ctx.Path()))
+	if err != nil {
+		ctx.Error("Invalid catalog id", fasthttp.StatusBadRequest)
+		return
+	}
+	var req catalogFlagRequest
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		ctx.Error("Invalid request body", fasthttp.StatusBadRequest)
+		return
+	}
+	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
+	record, err := h.service.SetMSISDNCatalogFlags(context.Background(), tenant.ID, id, req.DND, req.Invalid, req.Reason, actor, requestIDFromHeader(ctx))
+	if err != nil {
+		h.handleServiceError(ctx, err)
+		return
+	}
+	writeJSON(ctx, fasthttp.StatusOK, record)
+}
+
 func (h *AdminManagementHandler) ListUserbase(ctx *fasthttp.RequestCtx) {
 	tenant, _, err := h.currentTenantFromRequest(ctx)
 	if err != nil {
@@ -1154,6 +1305,23 @@ func parsePageArgs(ctx *fasthttp.RequestCtx, defaultSize, maxSize int) (int, int
 	return page, pageSize
 }
 
+func parseOptionalBoolQuery(ctx *fasthttp.RequestCtx, key string) (bool, bool) {
+	raw := strings.TrimSpace(string(ctx.QueryArgs().Peek(key)))
+	if raw == "" {
+		return false, false
+	}
+	value, err := strconv.ParseBool(raw)
+	return value, err == nil
+}
+
+func parseCatalogIDFromPath(path string) (int64, error) {
+	parts := splitPathParts(path)
+	if len(parts) != 4 || parts[0] != "v1" || parts[1] != "admin" || parts[2] != "msisdn-catalog" {
+		return 0, errors.New("invalid catalog path")
+	}
+	return strconv.ParseInt(parts[3], 10, 64)
+}
+
 func parseProductIDFromPath(path string) (int, error) {
 	parts := splitPathParts(path)
 	if len(parts) < 4 {
@@ -1398,6 +1566,30 @@ func parseCSVImportRows(r io.Reader) ([]domain.UserbaseImportInputRow, error) {
 		})
 	}
 	return out, nil
+}
+
+func parseDNDCSV(r io.Reader) ([]string, error) {
+	reader := csv.NewReader(io.LimitReader(r, 10*1024*1024+1))
+	reader.TrimLeadingSpace = true
+	reader.FieldsPerRecord = -1
+	rows, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]string, 0, len(rows))
+	for index, row := range rows {
+		if len(row) == 0 {
+			continue
+		}
+		value := strings.TrimSpace(row[0])
+		if index == 0 && strings.EqualFold(value, "msisdn") {
+			continue
+		}
+		if value != "" {
+			result = append(result, value)
+		}
+	}
+	return result, nil
 }
 
 func parseXLSXImportRows(r io.Reader) ([]domain.UserbaseImportInputRow, error) {

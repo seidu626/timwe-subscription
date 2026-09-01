@@ -1,0 +1,85 @@
+<main class="catalog-page">
+  <section class="catalog-hero" aria-labelledby="catalog-title">
+    <div class="hero-copy">
+      <div class="eyebrow"><span class="live-dot"></span> Number intelligence</div>
+      <h1 id="catalog-title">MSISDN catalog</h1>
+      <p>One durable record for every generated number. Search Ghana and Nigeria, inspect MADAPI verdicts, and keep DND and invalid pools out of batch traffic.</p>
+      <div class="hero-actions">
+        <button mat-flat-button class="verify-button" (click)="verify()" [disabled]="actionPending">
+          <mat-icon>verified_user</mat-icon>
+          {{ selected.size ? 'Verify selected (' + selected.size + ')' : 'Verify next 100' }}
+        </button>
+        <button mat-stroked-button class="upload-button" (click)="uploadExpanded = !uploadExpanded">
+          <mat-icon>upload_file</mat-icon> Upload DND
+        </button>
+      </div>
+    </div>
+
+    <div class="signal-panel" aria-label="Catalog status summary">
+      <div class="signal-heading"><span>Catalog signal</span><strong>{{ stats.total | number }}</strong></div>
+      <div class="signal-track"><span [style.width.%]="stats.total ? (stats.ready / stats.total * 100) : 0"></span></div>
+      <div class="signal-legend"><span>{{ stats.ready | number }} ready</span><span>{{ stats.pending | number }} awaiting check</span></div>
+      <div class="market-stamp"><span>GH</span><i></i><span>NG</span><small>regional index online</small></div>
+    </div>
+  </section>
+
+  <section class="metric-rail" aria-label="MSISDN pool totals">
+    <article class="metric ready"><span class="metric-icon"><mat-icon>task_alt</mat-icon></span><div><small>Ready pool</small><strong>{{ stats.ready | number }}</strong></div></article>
+    <article class="metric"><span class="metric-icon"><mat-icon>pending_actions</mat-icon></span><div><small>Pending</small><strong>{{ stats.pending | number }}</strong></div></article>
+    <article class="metric guarded"><span class="metric-icon"><mat-icon>do_not_disturb_on</mat-icon></span><div><small>DND protected</small><strong>{{ stats.dnd | number }}</strong></div></article>
+    <article class="metric invalid"><span class="metric-icon"><mat-icon>report_problem</mat-icon></span><div><small>Invalid pool</small><strong>{{ stats.invalid | number }}</strong></div></article>
+  </section>
+
+  <section *ngIf="uploadExpanded" class="dnd-drawer" aria-labelledby="dnd-heading">
+    <div class="dnd-copy">
+      <span class="section-kicker">Fast guardrail</span>
+      <h2 id="dnd-heading">Populate the DND pool</h2>
+      <p>Upload one CSV with a single <code>msisdn</code> column. Existing catalog records are marked DND; new numbers are added without a MADAPI call.</p>
+    </div>
+    <div class="dnd-controls">
+      <mat-form-field appearance="outline"><mat-label>Region</mat-label><mat-select [(ngModel)]="dndRegion"><mat-option value="GH">Ghana</mat-option><mat-option value="NG">Nigeria</mat-option></mat-select></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Telco</mat-label><input matInput [(ngModel)]="dndTelco" placeholder="MTN" /></mat-form-field>
+      <label class="file-drop" for="dnd-file"><mat-icon>description</mat-icon><span>{{ dndFile?.name || 'Choose CSV' }}</span><input id="dnd-file" type="file" accept=".csv,text/csv" (change)="onDNDFile($event)" /></label>
+      <button mat-flat-button color="primary" (click)="uploadDND()" [disabled]="actionPending || !dndFile">Save DND list</button>
+    </div>
+    <div *ngIf="dndResult" class="import-result" aria-live="polite"><strong>{{ dndResult.imported | number }}</strong> saved <span *ngIf="dndResult.rejected">· {{ dndResult.rejected }} rejected</span></div>
+  </section>
+
+  <section class="catalog-workspace">
+    <header class="workspace-header">
+      <div><span class="section-kicker">Live inventory</span><h2>Number records</h2></div>
+      <button mat-icon-button (click)="refresh()" [disabled]="loading" matTooltip="Refresh catalog" aria-label="Refresh catalog"><mat-icon>refresh</mat-icon></button>
+    </header>
+
+    <form class="filter-grid" (ngSubmit)="applyFilters()">
+      <mat-form-field appearance="outline" class="search-field"><mat-label>Search MSISDN prefix</mat-label><mat-icon matPrefix>search</mat-icon><input matInput [(ngModel)]="filters.q" name="q" inputmode="numeric" placeholder="23355" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Region</mat-label><mat-select [(ngModel)]="filters.region" name="region"><mat-option value="">All regions</mat-option><mat-option value="GH">Ghana · GH</mat-option><mat-option value="NG">Nigeria · NG</mat-option></mat-select></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Telco</mat-label><mat-select [(ngModel)]="filters.telco" name="telco"><mat-option value="">All telcos</mat-option><mat-option value="MTN">MTN</mat-option><mat-option value="TELECEL">Telecel</mat-option><mat-option value="AIRTELTIGO">AirtelTigo</mat-option><mat-option value="UNKNOWN">Unknown</mat-option></mat-select></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Verification</mat-label><mat-select [(ngModel)]="filters.status" name="status"><mat-option value="">Any verdict</mat-option><mat-option value="VERIFIED">Verified</mat-option><mat-option value="PENDING">Pending</mat-option><mat-option value="INVALID">Invalid</mat-option><mat-option value="ERROR">Needs retry</mat-option></mat-select></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Pool</mat-label><mat-select [(ngModel)]="filters.pool" name="pool"><mat-option value="">All records</mat-option><mat-option value="READY">Ready</mat-option><mat-option value="DND">DND</mat-option><mat-option value="INVALID">Invalid</mat-option></mat-select></mat-form-field>
+      <div class="filter-actions"><button mat-flat-button color="primary" type="submit" [disabled]="loading">Apply</button><button mat-button type="button" (click)="clearFilters()" [disabled]="loading">Reset</button></div>
+    </form>
+
+    <mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+
+    <div class="table-shell" [class.is-loading]="loading">
+      <table mat-table [dataSource]="dataSource" [trackBy]="trackById">
+        <ng-container matColumnDef="select">
+          <th mat-header-cell *matHeaderCellDef><mat-checkbox [checked]="pageSelected()" [indeterminate]="pagePartiallySelected()" (change)="togglePage($event.checked)" aria-label="Select this page"></mat-checkbox></th>
+          <td mat-cell *matCellDef="let row"><mat-checkbox [checked]="selected.has(row.id)" (change)="toggleSelection(row.id, $event.checked)" [attr.aria-label]="'Select ' + row.msisdn"></mat-checkbox></td>
+        </ng-container>
+        <ng-container matColumnDef="msisdn"><th mat-header-cell *matHeaderCellDef>MSISDN</th><td mat-cell *matCellDef="let row"><div class="number-cell"><strong>{{ row.msisdn }}</strong><small>#{{ row.id }}</small></div></td></ng-container>
+        <ng-container matColumnDef="market"><th mat-header-cell *matHeaderCellDef>Market</th><td mat-cell *matCellDef="let row"><div class="market-cell"><span>{{ row.region }}</span><div><strong>{{ row.telco }}</strong><small>{{ row.region === 'GH' ? 'Ghana' : 'Nigeria' }}</small></div></div></td></ng-container>
+        <ng-container matColumnDef="verification"><th mat-header-cell *matHeaderCellDef>Verification</th><td mat-cell *matCellDef="let row"><span class="status-pill" [attr.data-status]="row.verification_status">{{ statusLabel(row.verification_status) }}</span><small class="attempts">{{ row.verification_attempts }} attempt{{ row.verification_attempts === 1 ? '' : 's' }}</small></td></ng-container>
+        <ng-container matColumnDef="guardrails"><th mat-header-cell *matHeaderCellDef>Guardrails</th><td mat-cell *matCellDef="let row"><div class="guardrail-list"><span *ngIf="row.dnd" class="guard dnd">DND</span><span *ngIf="row.invalid" class="guard bad">Invalid</span><span *ngIf="!row.dnd && !row.invalid" class="guard clear">Clear</span></div></td></ng-container>
+        <ng-container matColumnDef="source"><th mat-header-cell *matHeaderCellDef>Origin</th><td mat-cell *matCellDef="let row"><span class="source-label">{{ sourceLabel(row.source) }}</span><small *ngIf="row.generation_batch_id" class="batch-ref" [matTooltip]="row.generation_batch_id">batch {{ row.generation_batch_id | slice:0:8 }}</small></td></ng-container>
+        <ng-container matColumnDef="checked"><th mat-header-cell *matHeaderCellDef>Last checked</th><td mat-cell *matCellDef="let row"><span>{{ row.last_verification_at ? (row.last_verification_at | date:'medium') : 'Not checked' }}</span><small *ngIf="row.last_error" class="error-note" [matTooltip]="row.last_error">verification error</small></td></ng-container>
+        <ng-container matColumnDef="actions"><th mat-header-cell *matHeaderCellDef><span class="visually-hidden">Actions</span></th><td mat-cell *matCellDef="let row"><button mat-icon-button [matMenuTriggerFor]="rowMenu" [disabled]="actionPending" [attr.aria-label]="'Manage ' + row.msisdn"><mat-icon>more_horiz</mat-icon></button><mat-menu #rowMenu="matMenu"><button mat-menu-item (click)="setDND(row, !row.dnd)"><mat-icon>{{ row.dnd ? 'remove_circle_outline' : 'do_not_disturb_on' }}</mat-icon><span>{{ row.dnd ? 'Remove from DND' : 'Move to DND' }}</span></button><button mat-menu-item (click)="setInvalid(row, !row.invalid)"><mat-icon>{{ row.invalid ? 'restore' : 'report_problem' }}</mat-icon><span>{{ row.invalid ? 'Return to pending' : 'Mark invalid' }}</span></button></mat-menu></td></ng-container>
+        <tr mat-header-row *matHeaderRowDef="columns"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns" [class.selected-row]="selected.has(row.id)"></tr>
+        <tr class="empty-row" *matNoDataRow><td [attr.colspan]="columns.length"><mat-icon>manage_search</mat-icon><strong>No records found</strong><span>Adjust the filters or let the batch processor generate new candidates.</span></td></tr>
+      </table>
+    </div>
+    <mat-paginator [length]="totalCount" [pageIndex]="page - 1" [pageSize]="pageSize" [pageSizeOptions]="pageSizes" (page)="onPage($event)" showFirstLastButtons></mat-paginator>
+  </section>
+</main>

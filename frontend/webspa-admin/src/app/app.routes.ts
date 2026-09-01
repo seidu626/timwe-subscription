@@ -36,6 +36,7 @@ export const routes: Routes = [
         loadChildren: () => import('./features/tenant/tenant.module').then(m => m.TenantModule)
       },
       { path: 'userbase', loadChildren: () => import('./features/userbase/userbase.module').then(m => m.UserbaseModule) },
+      { path: 'msisdn-catalog', loadChildren: () => import('./features/msisdn-catalog/msisdn-catalog.module').then(m => m.MSISDNCatalogModule) },
       { path: 'operations', loadChildren: () => import('./features/operations/operations.module').then(m => m.OperationsModule) },
       { path: 'settings', loadChildren: () => import('./features/settings/settings.module').then(m => m.SettingsModule) },
       {

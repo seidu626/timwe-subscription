@@ -4,19 +4,23 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/domain"
 	"github.com/seidu626/subscription-manager/acquisition-api/internal/repository"
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
+	msisdncatalog "github.com/seidu626/subscription-manager/common/msisdn/catalog"
 	"go.uber.org/zap"
 )
 
@@ -87,10 +91,189 @@ type AdminManagementService struct {
 	repo              *repository.AdminManagementRepository
 	logger            *zap.Logger
 	credentialSecrets ChannelCredentialSecretStore
+	msisdnCatalog     *msisdncatalog.Store
+	msisdnVerifier    MSISDNVerifier
 }
 
 func NewAdminManagementService(repo *repository.AdminManagementRepository, logger *zap.Logger) *AdminManagementService {
-	return &AdminManagementService{repo: repo, logger: logger}
+	service := &AdminManagementService{repo: repo, logger: logger}
+	if repo != nil && repo.DB() != nil {
+		service.msisdnCatalog = msisdncatalog.NewStore(repo.DB())
+		service.msisdnVerifier = msisdncatalog.NewMADAPIClient(msisdncatalog.MADAPIConfigFromEnv(), nil)
+	}
+	return service
+}
+
+type MSISDNVerifier interface {
+	Verify(context.Context, string) msisdncatalog.VerificationResult
+}
+
+type configurableMSISDNVerifier interface {
+	Configured() bool
+}
+
+func (s *AdminManagementService) SetMSISDNVerifier(verifier MSISDNVerifier) {
+	s.msisdnVerifier = verifier
+}
+
+type DNDImportResult struct {
+	Imported int      `json:"imported"`
+	Rejected int      `json:"rejected"`
+	Errors   []string `json:"errors,omitempty"`
+}
+
+type VerificationSummary struct {
+	Requested int `json:"requested"`
+	Verified  int `json:"verified"`
+	Invalid   int `json:"invalid"`
+	Errors    int `json:"errors"`
+}
+
+func (s *AdminManagementService) ListMSISDNCatalog(ctx context.Context, filter msisdncatalog.ListFilter) ([]msisdncatalog.Record, int64, error) {
+	if s.msisdnCatalog == nil {
+		return nil, 0, ErrAdminDependencyUnavailable
+	}
+	return s.msisdnCatalog.List(ctx, filter)
+}
+
+func (s *AdminManagementService) MSISDNCatalogStats(ctx context.Context, tenantID string) (msisdncatalog.Stats, error) {
+	if s.msisdnCatalog == nil {
+		return msisdncatalog.Stats{}, ErrAdminDependencyUnavailable
+	}
+	return s.msisdnCatalog.Stats(ctx, strings.TrimSpace(tenantID))
+}
+
+func (s *AdminManagementService) ImportDND(ctx context.Context, tenantID, region, telco string, rawMSISDNs []string, actor, requestID *string) (DNDImportResult, error) {
+	if s.msisdnCatalog == nil {
+		return DNDImportResult{}, ErrAdminDependencyUnavailable
+	}
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return DNDImportResult{}, ErrTenantContextMissing
+	}
+	if len(rawMSISDNs) == 0 {
+		return DNDImportResult{}, fmt.Errorf("%w: CSV contains no MSISDNs", ErrInvalidInput)
+	}
+	if len(rawMSISDNs) > 250000 {
+		return DNDImportResult{}, fmt.Errorf("%w: DND upload is limited to 250000 rows", ErrInvalidInput)
+	}
+
+	unique := make(map[string]struct{}, len(rawMSISDNs))
+	normalized := make([]string, 0, len(rawMSISDNs))
+	result := DNDImportResult{Errors: make([]string, 0)}
+	resolvedRegion := strings.ToUpper(strings.TrimSpace(region))
+	for index, raw := range rawMSISDNs {
+		msisdn, rowRegion, err := msisdncatalog.Normalize(raw, resolvedRegion)
+		if err != nil {
+			result.Rejected++
+			if len(result.Errors) < 25 {
+				result.Errors = append(result.Errors, fmt.Sprintf("row %d: %v", index+1, err))
+			}
+			continue
+		}
+		if resolvedRegion == "" {
+			resolvedRegion = rowRegion
+		}
+		if rowRegion != resolvedRegion {
+			result.Rejected++
+			continue
+		}
+		if _, seen := unique[msisdn]; seen {
+			continue
+		}
+		unique[msisdn] = struct{}{}
+		normalized = append(normalized, msisdn)
+	}
+	if len(normalized) == 0 {
+		return result, fmt.Errorf("%w: DND upload contains no valid MSISDNs", ErrInvalidInput)
+	}
+	resolvedTelco := msisdncatalog.NormalizeTelco(telco, resolvedRegion, normalized[0])
+	imported, err := s.msisdnCatalog.MarkDND(ctx, tenantID, resolvedRegion, resolvedTelco, normalized)
+	if err != nil {
+		return result, err
+	}
+	result.Imported = imported
+	s.logActivity(tenantID, "msisdn_catalog", "dnd-import", "import_dnd", actor, requestID, nil, nil, map[string]any{
+		"region": resolvedRegion, "telco": resolvedTelco, "imported": imported, "rejected": result.Rejected,
+	})
+	return result, nil
+}
+
+func (s *AdminManagementService) SetMSISDNCatalogFlags(ctx context.Context, tenantID string, id int64, dnd, invalid *bool, reason string, actor, requestID *string) (msisdncatalog.Record, error) {
+	if s.msisdnCatalog == nil {
+		return msisdncatalog.Record{}, ErrAdminDependencyUnavailable
+	}
+	record, err := s.msisdnCatalog.SetFlags(ctx, tenantID, id, dnd, invalid, reason)
+	if errors.Is(err, sql.ErrNoRows) {
+		return msisdncatalog.Record{}, ErrAdminNotFound
+	}
+	if err != nil {
+		return msisdncatalog.Record{}, err
+	}
+	s.logActivity(tenantID, "msisdn_catalog", strconv.FormatInt(id, 10), "set_flags", actor, requestID, nil, record, map[string]any{"dnd": dnd, "invalid": invalid})
+	return record, nil
+}
+
+func (s *AdminManagementService) VerifyMSISDNCatalog(ctx context.Context, tenantID string, ids []int64, limit int, actor, requestID *string) (VerificationSummary, error) {
+	if s.msisdnCatalog == nil || s.msisdnVerifier == nil {
+		return VerificationSummary{}, ErrAdminDependencyUnavailable
+	}
+	if configurable, ok := s.msisdnVerifier.(configurableMSISDNVerifier); ok && !configurable.Configured() {
+		return VerificationSummary{}, fmt.Errorf("%w: MADAPI environment is incomplete", ErrAdminDependencyUnavailable)
+	}
+	candidates, err := s.msisdnCatalog.PendingForVerification(ctx, tenantID, ids, limit)
+	if err != nil {
+		return VerificationSummary{}, err
+	}
+	summary := VerificationSummary{Requested: len(candidates)}
+	if len(candidates) == 0 {
+		return summary, nil
+	}
+
+	workers := 8
+	if len(candidates) < workers {
+		workers = len(candidates)
+	}
+	jobs := make(chan msisdncatalog.Record)
+	results := make(chan msisdncatalog.VerificationResult, len(candidates))
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for candidate := range jobs {
+				verification := s.msisdnVerifier.Verify(ctx, candidate.MSISDN)
+				if saveErr := s.msisdnCatalog.SaveVerification(ctx, tenantID, candidate.ID, verification); saveErr != nil {
+					verification.Status = msisdncatalog.StatusError
+				}
+				results <- verification
+			}
+		}()
+	}
+	go func() {
+		defer close(jobs)
+		for _, candidate := range candidates {
+			select {
+			case jobs <- candidate:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	wg.Wait()
+	close(results)
+	for result := range results {
+		switch result.Status {
+		case msisdncatalog.StatusVerified:
+			summary.Verified++
+		case msisdncatalog.StatusInvalid:
+			summary.Invalid++
+		default:
+			summary.Errors++
+		}
+	}
+	s.logActivity(tenantID, "msisdn_catalog", "verification", "verify", actor, requestID, nil, nil, summary)
+	return summary, nil
 }
 
 func (s *AdminManagementService) SetChannelCredentialSecretStore(store ChannelCredentialSecretStore) {

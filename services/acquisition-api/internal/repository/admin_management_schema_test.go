@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 	expectRelationExists(mock, "public.tenant_channel_credentials")
 	expectRelationExists(mock, "public.tenant_channel_secrets")
 	expectRelationExists(mock, "public.tenant_admin_memberships")
+	expectRelationExists(mock, "public.msisdn_catalog")
+	expectRelationExists(mock, "public.msisdn_catalog_pool_counts")
 
 	if err := repo.EnsureSchema(context.Background(), file); err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -86,6 +88,8 @@ CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 	expectRelationExists(mock, "public.tenant_channel_credentials")
 	expectRelationExists(mock, "public.tenant_channel_secrets")
 	expectRelationExists(mock, "public.tenant_admin_memberships")
+	expectRelationExists(mock, "public.msisdn_catalog")
+	expectRelationExists(mock, "public.msisdn_catalog_pool_counts")
 
 	err = repo.EnsureSchema(context.Background(), file)
 	if err == nil {
@@ -167,6 +171,36 @@ func TestAdminManagementMigrationAddsTenantScopedAdminTables(t *testing.T) {
 	for _, want := range required {
 		if !strings.Contains(sql, want) {
 			t.Fatalf("migration missing %q", want)
+		}
+	}
+}
+
+func TestMSISDNCatalogMigrationDefinesScaleAndPrivacyBoundaries(t *testing.T) {
+	migrationPath := filepath.Join("..", "..", "migrations", "add_msisdn_catalog.sql")
+	body, err := os.ReadFile(migrationPath)
+	if err != nil {
+		t.Fatalf("failed to read migration: %v", err)
+	}
+	sql := string(body)
+	required := []string{
+		"CREATE TABLE IF NOT EXISTS msisdn_catalog",
+		"UNIQUE INDEX IF NOT EXISTS idx_msisdn_catalog_tenant_region_msisdn",
+		"idx_msisdn_catalog_msisdn_prefix",
+		"idx_msisdn_catalog_tenant_newest",
+		"text_pattern_ops",
+		"idx_msisdn_catalog_pending_verification",
+		"CREATE TABLE IF NOT EXISTS msisdn_catalog_pool_counts",
+		"REFERENCING NEW TABLE AS new_catalog_rows",
+		"REFERENCING OLD TABLE AS old_catalog_rows NEW TABLE AS new_catalog_rows",
+	}
+	for _, want := range required {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("MSISDN catalog migration missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{"first_name", "last_name", "id_number", "date_of_birth", "residential_address"} {
+		if strings.Contains(strings.ToLower(sql), forbidden) {
+			t.Fatalf("MSISDN catalog must not persist KYC field %q", forbidden)
 		}
 	}
 }

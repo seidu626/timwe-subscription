@@ -34,6 +34,15 @@ func NewAdminManagementRepository(db *sql.DB, logger *zap.Logger) *AdminManageme
 	return &AdminManagementRepository{db: db, logger: logger}
 }
 
+// DB exposes the shared connection to narrowly scoped companion stores owned by
+// the admin service. Callers must not close it.
+func (r *AdminManagementRepository) DB() *sql.DB {
+	if r == nil {
+		return nil
+	}
+	return r.db
+}
+
 func (r *AdminManagementRepository) CreateTenantWithActivityLog(input *domain.TenantCreateInput, entry *domain.AdminActivityLog) (*domain.AdminTenant, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
