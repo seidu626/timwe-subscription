@@ -2475,7 +2475,28 @@
         "deploy": "2026-08-24 12:51Z: acquisition-api + webspa-admin images reloaded, krakend Endpoint.tmpl updated + service restarted",
         "smoke": "PUT /v1/admin/tenants/current/branding via gateway -> 401 (registered, auth-gated); console 200; /v1/app/catalog 200 with artwork; bundle contains Save Branding + current/branding + product-artwork-thumb"
       }
+    },
+    {
+      "id": "SUB-FEED-001",
+      "class": "vertical_slice",
+      "name": "subscription-processor-feed",
+      "description": "Subscribe explicit MSISDNs from file, HTTP or PostgreSQL sources through the existing batch API.",
+      "state": "concluded",
+      "priority": "P1",
+      "depends_on": [],
+      "actor": "subscription operator",
+      "entrypoint": "subscription-processor -config config.json",
+      "outcome": "Only supplied MSISDNs are processed with checkpointed batch recovery.",
+      "branch": "agent/codex/subscription-processor",
+      "verification": {
+        "automated": [
+          "cd services/subscription-external && go test -race ./cmd/subscription-processor"
+        ],
+        "manual_smoke": [],
+        "dod_path": "slices/SUB-FEED-001/dod.md",
+        "result": "pass: local source, race, PostgreSQL, build and binary smoke checks; not deployed"
+      }
     }
   ],
-  "updated_at": "2026-08-24T10:07:01Z"
+  "updated_at": "2026-09-18"
 }

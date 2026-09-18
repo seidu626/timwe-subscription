@@ -1,0 +1,19 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+GO_BIN := env_var_or_default("GO", "go")
+
+# Build the feed subscription processor.
+build:
+    "{{ GO_BIN }}" build -o subscription-processor .
+
+# Validate the configured feed without submitting subscriptions.
+dry-run: build
+    ./subscription-processor -config config.json -dry-run
+
+# Submit the configured feed, or resume its checkpoint.
+run: build
+    ./subscription-processor -config config.json
+
+# Run focused source and processor checks.
+test:
+    "{{ GO_BIN }}" test -race .
