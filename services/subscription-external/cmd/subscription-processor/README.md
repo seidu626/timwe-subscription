@@ -6,6 +6,24 @@ or PostgreSQL query. It uses the same asynchronous batch API as `batch-processor
 Every request contains a nonempty `msisdns` list and its actual count. It never
 requests random number generation.
 
+Every batch uses `subscription_only: true`. The server must advertise this
+capability before the processor submits. This path performs the TIMWE opt-in and
+persists the subscription with its resolved tenant/channel. It does not trigger
+application SMS, SMS fallback, renewal, or charging follow-ups. SMS entry mode is
+rejected. Provider-managed messages are outside this application control.
+
+TIMWE `INVALID_MSISDN` responses are saved synchronously in `invalid_msisdn_logs`;
+a persistence failure fails the item. Numbers already in that table are skipped
+with a failed item result before contacting TIMWE. Only `OPTIN_ALREADY_ACTIVE` and
+`OPTIN_ACTIVE_WAIT_CHARGING` results are persisted as successful subscriptions; pending
+confirmation or unexpected results require reconciliation. Successful processing
+does not imply a completed charge.
+
+While polling, the binary prints state, processed/total, successful and failed
+counts whenever progress changes. Checkpoints from the earlier processor mode
+are intentionally incompatible; retain them as history and use a fresh checkpoint
+for a new, nonoverlapping feed.
+
 ## Configure and run
 
 Run these commands from this directory:

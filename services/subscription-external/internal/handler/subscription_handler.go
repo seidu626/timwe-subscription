@@ -283,6 +283,11 @@ func (h *SubscriptionHandler) BatchOptinHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	if req.SubscriptionOnly && (len(req.MSISDNS) == 0 || strings.TrimSpace(req.EntryChannel) == "" || strings.EqualFold(strings.TrimSpace(req.EntryChannel), "SMS")) {
+		ctx.Error("subscription_only requires explicit MSISDNs and a non-SMS entry_channel", fasthttp.StatusUnprocessableEntity)
+		return
+	}
+
 	// Resolve tenant context from request body or headers.
 	tenantKey := req.TenantKey
 	if tenantKey == "" {
@@ -330,6 +335,15 @@ func (h *SubscriptionHandler) BatchOptinHandler(ctx *fasthttp.RequestCtx) {
 // BatchStatusHandler returns status for a batch job.
 // NF1: apply the same auth + tenant ownership check as GetBatchProgressHandler.
 func (h *SubscriptionHandler) BatchStatusHandler(ctx *fasthttp.RequestCtx) {
+	if string(ctx.QueryArgs().Peek("capabilities")) == "1" {
+		if _, ok := h.batchGuard.authorise(ctx, string(ctx.QueryArgs().Peek("tenant_key"))); !ok {
+			return
+		}
+		ctx.SetContentType("application/json")
+		_ = json.NewEncoder(ctx).Encode(map[string]bool{"subscription_only": true, "invalid_msisdn_logging": true})
+		return
+	}
+
 	jobID := string(ctx.QueryArgs().Peek("jobId"))
 	if jobID == "" {
 		ctx.Error("jobId is required", fasthttp.StatusBadRequest)
@@ -1139,11 +1153,11 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 				zap.Int("count", req.Count))
 
 			// Set error details and mark job as failed
-			st.ErrorDetails = map[string]interface{}{
+			h.jobs.setErrorDetails(jobID, map[string]interface{}{
 				"error": fmt.Sprintf("MSISDN generation failed: %v", err),
 				"telco": req.Telco,
 				"count": req.Count,
-			}
+			})
 			h.jobs.setCompleted(jobID, true)
 			return
 		}
@@ -1161,7 +1175,7 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	}
 
 	// Update total count based on actual MSISDNs available
-	st.Total = len(msisdns)
+	h.jobs.setTotal(jobID, len(msisdns))
 	h.logger.Info("Batch job MSISDNs ready", zap.String("jobId", jobID), zap.Int("totalMSISDNs", len(msisdns)))
 
 	// Concurrency parameters
@@ -1230,9 +1244,11 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 							errorBatch = errorBatch[:0]
 						}
 						atomic.AddUint64(&errorCount, 1)
+						st.incFailed()
 						totalBatchRequestsFailed.Add(1)
 					} else {
 						atomic.AddUint64(&successCount, 1)
+						st.incSuccess()
 						totalBatchRequestsSucceeded.Add(1)
 					}
 					st.incProcessed()
@@ -1255,11 +1271,12 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	go func() {
 		for i, msisdn := range msisdns {
 			optinRequestChan <- &domain.OptinRequest{
-				Telco:        req.Telco,
-				Msisdn:       msisdn,
-				EntryChannel: req.EntryChannel,
-				ProductIds:   req.ProductIds,
-				TenantRoute:  tenantRoute,
+				SubscriptionOnly: req.SubscriptionOnly,
+				Telco:            req.Telco,
+				Msisdn:           msisdn,
+				EntryChannel:     req.EntryChannel,
+				ProductIds:       req.ProductIds,
+				TenantRoute:      tenantRoute,
 			}
 			if i%1000 == 0 {
 				h.logger.Debug("Fed requests", zap.String("jobId", jobID), zap.Int("fed", i+1))
@@ -1272,16 +1289,14 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	h.logger.Info("Waiting for workers to complete", zap.String("jobId", jobID))
 	wg.Wait()
 
-	st.Successful = int64(successCount)
-	st.Failed = int64(errorCount)
-	if errorCount > 0 && firstErrorDetails != nil {
-		st.ErrorDetails = firstErrorDetails
+	if errorCount > 0 {
+		h.jobs.setErrorDetails(jobID, firstErrorDetails)
 		h.jobs.setCompleted(jobID, true)
 	} else {
 		h.jobs.setCompleted(jobID, false)
 	}
 	totalBatchJobsCompleted.Add(1)
-	h.logger.Info("Batch job completed", zap.String("jobId", jobID), zap.Int64("successful", st.Successful), zap.Int64("failed", st.Failed))
+	h.logger.Info("Batch job completed", zap.String("jobId", jobID), zap.Uint64("successful", successCount), zap.Uint64("failed", errorCount))
 }
 
 func (h *SubscriptionHandler) generateVerifiedCatalogMSISDNs(ctx context.Context, jobID string, req *domain.BatchOptinRequest) ([]string, error) {

@@ -9,13 +9,14 @@ import (
 )
 
 type BatchOptinRequest struct {
-	Telco        string   `json:"telco"`
-	Count        int      `json:"count"`
-	EntryChannel string   `json:"entry_channel"`
-	MSISDNS      []string `json:"msisdns,omitempty"` // if provided, skip generation
-	ProductIds   []string `json:"product_ids,omitempty"`
-	TenantKey    string   `json:"tenant_key,omitempty"`
-	ChannelKey   string   `json:"channel_key,omitempty"`
+	SubscriptionOnly bool     `json:"subscription_only,omitempty"`
+	Telco            string   `json:"telco"`
+	Count            int      `json:"count"`
+	EntryChannel     string   `json:"entry_channel"`
+	MSISDNS          []string `json:"msisdns,omitempty"` // if provided, skip generation
+	ProductIds       []string `json:"product_ids,omitempty"`
+	TenantKey        string   `json:"tenant_key,omitempty"`
+	ChannelKey       string   `json:"channel_key,omitempty"`
 }
 
 type BackfillRequest struct {
@@ -52,30 +53,33 @@ type BatchOptinResponse struct {
 }
 
 type OptinRequest struct {
-	Telco        string             `json:"telco"`
-	EntryChannel string             `json:"entry_channel"`
-	Msisdn       string             `json:"msisdn"`
-	ProductIds   []string           `json:"product_ids"`
-	TenantRoute  TenantRouteContext `json:"-"`
+	SubscriptionOnly bool               `json:"-"`
+	Telco            string             `json:"telco"`
+	EntryChannel     string             `json:"entry_channel"`
+	Msisdn           string             `json:"msisdn"`
+	ProductIds       []string           `json:"product_ids"`
+	TenantRoute      TenantRouteContext `json:"-"`
 }
 
 type MTRequest struct {
-	ProductID          int                `json:"productId"`
-	PricepointID       int                `json:"pricepointId"`
-	MCC                string             `json:"mcc"`
-	MNC                string             `json:"mnc"`
-	UserIdentifier     string             `json:"userIdentifier"`
-	UserIdentifierType string             `json:"userIdentifierType"`
-	EntryChannel       string             `json:"entryChannel"`
-	SubKeyword         string             `json:"subKeyword"`
-	LargeAccount       string             `json:"largeAccount"`
-	CampaignUrl        string             `json:"campaignUrl"`
-	SendDate           string             `json:"sendDate"`
-	Priority           string             `json:"priority"`
-	Timezone           string             `json:"timezone"`
-	Context            string             `json:"context"`
-	MoTransactionUUID  string             `json:"moTransactionUUID"`
-	TenantRoute        TenantRouteContext `json:"-"`
+	ProviderPartnerRoleID int                `json:"-"`
+	SubscriptionOnly      bool               `json:"-"`
+	ProductID             int                `json:"productId"`
+	PricepointID          int                `json:"pricepointId"`
+	MCC                   string             `json:"mcc"`
+	MNC                   string             `json:"mnc"`
+	UserIdentifier        string             `json:"userIdentifier"`
+	UserIdentifierType    string             `json:"userIdentifierType"`
+	EntryChannel          string             `json:"entryChannel"`
+	SubKeyword            string             `json:"subKeyword"`
+	LargeAccount          string             `json:"largeAccount"`
+	CampaignUrl           string             `json:"campaignUrl"`
+	SendDate              string             `json:"sendDate"`
+	Priority              string             `json:"priority"`
+	Timezone              string             `json:"timezone"`
+	Context               string             `json:"context"`
+	MoTransactionUUID     string             `json:"moTransactionUUID"`
+	TenantRoute           TenantRouteContext `json:"-"`
 }
 
 type TenantRouteContext struct {

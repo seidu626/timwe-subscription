@@ -51,6 +51,11 @@ func TestCLIChunksExplicitNumbersAndResumesCompletedFeed(t *testing.T) {
 	var requests []domain.BatchOptinRequest
 	polls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("capabilities") == "1" {
+			io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true}`)
+			return
+		}
+
 		body, _ := io.ReadAll(r.Body)
 		mac := hmac.New(sha256.New, []byte("test-secret"))
 		mac.Write(append([]byte(r.Header.Get("X-Internal-Timestamp")), body...))
@@ -68,7 +73,7 @@ func TestCLIChunksExplicitNumbersAndResumesCompletedFeed(t *testing.T) {
 			if err := json.Unmarshal(body, &req); err != nil {
 				t.Error(err)
 			}
-			if len(req.MSISDNS) == 0 || req.Count != len(req.MSISDNS) || req.TenantKey != c.TenantKey || req.ChannelKey != c.ChannelKey || req.EntryChannel != c.EntryChannel || req.Telco != c.Telco || !reflect.DeepEqual(req.ProductIds, c.ProductIDs) {
+			if !req.SubscriptionOnly || len(req.MSISDNS) == 0 || req.Count != len(req.MSISDNS) || req.TenantKey != c.TenantKey || req.ChannelKey != c.ChannelKey || req.EntryChannel != c.EntryChannel || req.Telco != c.Telco || !reflect.DeepEqual(req.ProductIds, c.ProductIDs) {
 				t.Errorf("wrong request: %+v", req)
 			}
 			requests = append(requests, req)
@@ -104,6 +109,11 @@ func TestPollingFailureResumesWithoutReenqueue(t *testing.T) {
 	c := testConfig(t)
 	posts, polls := 0, 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("capabilities") == "1" {
+			io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true}`)
+			return
+		}
+
 		if r.Method == "POST" {
 			posts++
 			w.WriteHeader(202)
@@ -135,7 +145,15 @@ func TestPollingFailureResumesWithoutReenqueue(t *testing.T) {
 func TestUnknownEnqueueOutcomeNeverReplays(t *testing.T) {
 	c := testConfig(t)
 	posts := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { posts++; w.WriteHeader(202); io.WriteString(w, `{}`) }))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("capabilities") == "1" {
+			io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true}`)
+			return
+		}
+		posts++
+		w.WriteHeader(202)
+		io.WriteString(w, `{}`)
+	}))
 	defer server.Close()
 	c.BaseURL = server.URL
 	path := writeConfig(t, c)
@@ -193,6 +211,11 @@ func TestTerminalStatesAndCancellation(t *testing.T) {
 		t.Run(state, func(t *testing.T) {
 			c := testConfig(t)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Query().Get("capabilities") == "1" {
+					io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true}`)
+					return
+				}
+
 				status := jobStatus{ID: "job", State: state, Total: 1, Failed: 1}
 				if state == "inconsistent" {
 					status.State = "completed"
@@ -221,5 +244,51 @@ func TestTerminalStatesAndCancellation(t *testing.T) {
 				t.Fatal("unfinished batch advanced")
 			}
 		})
+	}
+}
+
+func TestUnsupportedSubscriptionOnlyServerNeverEnqueues(t *testing.T) {
+	c := testConfig(t)
+	posts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			posts++
+		}
+		io.WriteString(w, `{"subscription_only":false,"invalid_msisdn_logging":false}`)
+	}))
+	defer server.Close()
+	c.BaseURL = server.URL
+	t.Setenv("INTERNAL_API_SECRET", "test-secret")
+	if err := runCLI(context.Background(), []string{"-config", writeConfig(t, c)}, strings.NewReader("233270000001"), io.Discard); err == nil {
+		t.Fatal("unsupported server accepted")
+	}
+	if posts != 0 {
+		t.Fatal("POST sent before server capability verification")
+	}
+	if _, err := os.Stat(c.StateFile); !os.IsNotExist(err) {
+		t.Fatal("unsupported server wrote submission checkpoint")
+	}
+}
+
+func TestPollingReportsLiveProgress(t *testing.T) {
+	c := testConfig(t)
+	polls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		polls++
+		state := "running"
+		if polls == 2 {
+			state = "completed"
+		}
+		json.NewEncoder(w).Encode(jobStatus{ID: "job", State: state, Total: 2, Processed: polls, Successful: polls})
+	}))
+	defer server.Close()
+	c.BaseURL = server.URL
+	var output strings.Builder
+	p := processor{config: c, client: server.Client(), secret: "test", output: &output}
+	if _, err := p.poll(context.Background(), "job"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "processed=1/2 successful=1 failed=0") || !strings.Contains(output.String(), "processed=2/2 successful=2 failed=0") {
+		t.Fatal("live counts missing: " + output.String())
 	}
 }

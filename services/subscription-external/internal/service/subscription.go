@@ -303,9 +303,12 @@ func (s *SubscriptionService) getProductsCached(productIds []string) ([]*domain.
 	return products, nil
 }
 
-func (s *SubscriptionService) ProcessOptin(req *domain.OptinRequest) error {
+func (s *SubscriptionService) ProcessOptin(req *domain.OptinRequest) (retErr error) {
 	defer func() {
 		if r := recover(); r != nil {
+			if req.SubscriptionOnly {
+				retErr = fmt.Errorf("subscription-only processing panicked")
+			}
 			s.logger.Error("PANIC RECOVERED in ProcessOptin",
 				zap.Any("panic_value", r),
 				zap.String("panic_type", fmt.Sprintf("%T", r)),
@@ -338,6 +341,16 @@ func (s *SubscriptionService) ProcessOptin(req *domain.OptinRequest) error {
 		return fmt.Errorf("MSISDN %s is excluded type and cannot be processed for optin", req.Msisdn)
 	}
 
+	if req.SubscriptionOnly {
+		invalid, err := s.UserBaseRepository.GetInvalidMSISDNSFast(context.Background(), req.Msisdn)
+		if err != nil {
+			return fmt.Errorf("check invalid-MSISDN registry: %w", err)
+		}
+		if invalid {
+			return &domain.MTResponseError{Code: SubscriptionResultInvalidMsisdn, Message: "MSISDN is already recorded as invalid"}
+		}
+	}
+
 	// Fetch products from cache to avoid per-call DB lookups
 	products, err = s.getProductsCached(req.ProductIds)
 	if err != nil {
@@ -354,9 +367,12 @@ func (s *SubscriptionService) ProcessOptin(req *domain.OptinRequest) error {
 }
 
 // processOptinForProduct handles the optin process for a single product with retry logic
-func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, product *domain.Product) error {
+func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, product *domain.Product) (retErr error) {
 	defer func() {
 		if r := recover(); r != nil {
+			if req.SubscriptionOnly {
+				retErr = fmt.Errorf("subscription-only processing panicked")
+			}
 			s.logger.Error("PANIC RECOVERED in processOptinForProduct",
 				zap.Any("panic_value", r),
 				zap.String("panic_type", fmt.Sprintf("%T", r)),
@@ -419,6 +435,7 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 
 	// First attempt with original entry channel
 	mtReq := domain.MTRequest{
+		SubscriptionOnly:   req.SubscriptionOnly,
 		ProductID:          productId,
 		PricepointID:       product.PricePointId,
 		UserIdentifier:     req.Msisdn,
@@ -437,11 +454,48 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 		TenantRoute:        req.TenantRoute,
 	}
 
+	subscriptionPartnerRoleID := 0
+	if req.SubscriptionOnly {
+		if strings.TrimSpace(req.EntryChannel) == "" || strings.EqualFold(strings.TrimSpace(req.EntryChannel), "SMS") {
+			return fmt.Errorf("subscription-only processing requires a non-SMS entry channel")
+		}
+		providerCfg, err := s.providerConfigForRoute(context.Background(), ChannelOperationMT, req.TenantRoute)
+		if err != nil {
+			return err
+		}
+		mtReq.TenantRoute = canonicalTenantRoute(req.TenantRoute, providerCfg)
+		if mtReq.TenantRoute.TenantID == "" || mtReq.TenantRoute.ChannelID == "" {
+			return fmt.Errorf("subscription-only processing requires canonical tenant and channel IDs")
+		}
+		subscriptionPartnerRoleID, err = strconv.Atoi(providerCfg.PartnerRoleID)
+		if err != nil {
+			return fmt.Errorf("invalid provider partner role ID")
+		}
+	}
+
 	realm := s.config.Application.TIMWE.Realm
 	response, err := s.SendMT(mtReq, realm, req.EntryChannel)
 	if err != nil {
 		s.logger.Error("Error sending MT for msisdn", zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)), zap.Error(err))
 		return err
+	}
+
+	if req.SubscriptionOnly {
+		if response == nil || response.Code != ResponseCodeSuccess {
+			return fmt.Errorf("subscription-only opt-in did not return SUCCESS")
+		}
+		result, _ := response.ResponseData["subscriptionResult"].(string)
+		if result != SubscriptionResultOptinAlreadyActive && result != SubscriptionResultOptinActiveWaitCharging {
+			return fmt.Errorf("subscription-only opt-in requires reconciliation: %s", result)
+		}
+		transactionID, err := s.getTransactionID(response)
+		if err != nil {
+			return err
+		}
+		request := domain.MapMTRequestToSubscriptionRequest(mtReq, transactionID, subscriptionPartnerRoleID, "INTERNAL", "INTERNAL")
+		// Persist directly with the resolved route. Do not enter renewal,
+		// charging, confirmation or SMS follow-up handlers.
+		return s.repo.CreateSubscription(&request)
 	}
 
 	// Check if we need to retry with SMS entry channel
@@ -770,6 +824,13 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 		return nil, err
 	}
 	reqData.TenantRoute = canonicalTenantRoute(reqData.TenantRoute, providerCfg)
+	if reqData.SubscriptionOnly {
+		reqData.ProviderPartnerRoleID, err = strconv.Atoi(providerCfg.PartnerRoleID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid provider partner role ID")
+		}
+	}
+
 	authKey, err := providerCfg.AuthKey()
 	if err != nil {
 		s.logger.Error("failed to resolve auth key", zap.Error(err))
@@ -810,7 +871,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 	}
 
 	// Check if we need to retry with SMS entry channel for OPTIN_CONFIG_NOT_FOUND
-	if s.shouldRetryWithSMS(resp) {
+	if !reqData.SubscriptionOnly && s.shouldRetryWithSMS(resp) {
 		s.logger.Info("OPTIN_CONFIG_NOT_FOUND detected in SendMT, retrying with SMS entry channel",
 			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 			zap.String("originalChannel", channel))
@@ -1037,6 +1098,16 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 			continue
 		}
 
+		if mtResponse.ResponseData == nil && mtResponse.Code == SubscriptionResultInvalidMsisdn {
+			mtResponse.ResponseData = map[string]interface{}{}
+		}
+		// Retain the exact provider-request id even when the provider omits it
+		// from responseData. Downstream notification handoffs use this value to
+		// deduplicate against a delayed callback for the same opt-in request.
+		if responseExternalTxID, ok := mtResponse.ResponseData["externalTxId"].(string); mtResponse.ResponseData != nil && (!ok || strings.TrimSpace(responseExternalTxID) == "") {
+			mtResponse.ResponseData["externalTxId"] = externalTxID
+		}
+
 		// Validate and handle different response scenarios
 		if err := s.validateMTResponse(&mtResponse, reqData); err != nil {
 			s.logger.Error("MT response validation failed",
@@ -1045,12 +1116,6 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 				zap.Error(err))
 
 			return nil, err
-		}
-		// Retain the exact provider-request id even when the provider omits it
-		// from responseData. Downstream notification handoffs use this value to
-		// deduplicate against a delayed callback for the same opt-in request.
-		if responseExternalTxID, ok := mtResponse.ResponseData["externalTxId"].(string); !ok || strings.TrimSpace(responseExternalTxID) == "" {
-			mtResponse.ResponseData["externalTxId"] = externalTxID
 		}
 
 		// Handle different response codes
@@ -1082,13 +1147,19 @@ func (s *SubscriptionService) validateMTResponse(response *domain.MTResponse, mt
 	}
 
 	// Detect and log INVALID_MSISDN responses (non-blocking)
-	partnerRoleID, err := strconv.Atoi(s.config.Application.TIMWE.PartnerRoleID)
+	partnerRoleID := mtReq.ProviderPartnerRoleID
+	var err error
+	if partnerRoleID == 0 {
+		partnerRoleID, err = strconv.Atoi(s.config.Application.TIMWE.PartnerRoleID)
+	}
 	if err != nil {
 		s.logger.Error("Failed to parse partner role ID", zap.Int("partnerRoleID", partnerRoleID), zap.Error(err))
 		return fmt.Errorf("invalid partner role ID: %w", err)
 	}
 
-	s.detectAndLogInvalidMSISDN(response, mtReq, partnerRoleID)
+	if err := s.detectAndLogInvalidMSISDN(response, mtReq, partnerRoleID); err != nil {
+		return err
+	}
 
 	// Handle BLACKLISTED responses by adding user to blacklist and removing subscriptions
 	if response.Code == ResponseCodeBlacklisted {
@@ -1403,7 +1474,7 @@ func (s *SubscriptionService) getTransactionID(response *domain.MTResponse) (str
 }
 
 // Helper method to detect and log INVALID_MSISDN responses
-func (s *SubscriptionService) detectAndLogInvalidMSISDN(response *domain.MTResponse, mtReq domain.MTRequest, partnerId int) {
+func (s *SubscriptionService) detectAndLogInvalidMSISDN(response *domain.MTResponse, mtReq domain.MTRequest, partnerId int) error {
 	// Check if the response indicates INVALID_MSISDN
 	isInvalidMSISDN := false
 	subscriptionResult := ""
@@ -1458,16 +1529,28 @@ func (s *SubscriptionService) detectAndLogInvalidMSISDN(response *domain.MTRespo
 			CreatedAt:          time.Now(),
 		}
 
-		// Save to database (non-blocking)
+		if tx, ok := response.ResponseData["externalTxId"].(string); ok && tx != "" {
+			logEntry.ExternalTxID = tx
+		}
+		if tx, ok := response.ResponseData["transactionId"].(string); ok {
+			logEntry.TransactionID = tx
+		}
+		// Persist before the invalid result is returned to the batch worker.
 		if err := s.repo.CreateInvalidMSISDNLog(logEntry); err != nil {
+			if mtReq.SubscriptionOnly {
+				return fmt.Errorf("persist INVALID_MSISDN evidence: %w", err)
+			}
 			s.logger.Error("Failed to save invalid MSISDN log",
 				zap.String("msisdn", pii.MaskMSISDN(mtReq.UserIdentifier)),
 				zap.Error(err))
 		}
 
 		// Enhanced: Process cleanup asynchronously for better performance
-		go s.handleInvalidMSISDNCleanup(mtReq.UserIdentifier, mtReq.ProductID, response.RequestID)
+		if !mtReq.SubscriptionOnly {
+			go s.handleInvalidMSISDNCleanup(mtReq.UserIdentifier, mtReq.ProductID, response.RequestID)
+		}
 	}
+	return nil
 }
 
 // handleInvalidMSISDNCleanup handles the cleanup of invalid MSISDN subscriptions asynchronously

@@ -89,7 +89,13 @@ func (m *BatchJobManager) GetJob(id string) (*BatchJobStatus, bool) {
 	if !ok {
 		return nil, false
 	}
-	return entry.status, true
+	st := entry.status
+	return &BatchJobStatus{
+		ID: st.ID, State: st.State, Total: st.Total,
+		Processed: atomic.LoadInt64(&st.Processed), Successful: atomic.LoadInt64(&st.Successful), Failed: atomic.LoadInt64(&st.Failed),
+		TenantKey: st.TenantKey, ChannelKey: st.ChannelKey, ErrorDetails: st.ErrorDetails,
+		StartedAt: st.StartedAt, CompletedAt: st.CompletedAt,
+	}, true
 }
 
 // CancelJob cancels a running or pending job by triggering context cancellation.
@@ -141,3 +147,19 @@ func (m *BatchJobManager) setCompleted(id string, failed bool) {
 func (st *BatchJobStatus) incProcessed() { atomic.AddInt64(&st.Processed, 1) }
 func (st *BatchJobStatus) incSuccess()   { atomic.AddInt64(&st.Successful, 1) }
 func (st *BatchJobStatus) incFailed()    { atomic.AddInt64(&st.Failed, 1) }
+
+func (m *BatchJobManager) setTotal(id string, total int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if entry, ok := m.jobs[id]; ok {
+		entry.status.Total = total
+	}
+}
+
+func (m *BatchJobManager) setErrorDetails(id string, details map[string]interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if entry, ok := m.jobs[id]; ok {
+		entry.status.ErrorDetails = details
+	}
+}

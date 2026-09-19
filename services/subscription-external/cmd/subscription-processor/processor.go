@@ -18,6 +18,7 @@ import (
 
 type jobStatus struct {
 	ID         string `json:"id"`
+	Processed  int    `json:"processed"`
 	State      string `json:"state"`
 	Total      int    `json:"total"`
 	Successful int    `json:"successful"`
@@ -73,6 +74,7 @@ func (p *processor) poll(ctx context.Context, id string) (jobStatus, error) {
 	ctx, cancel := context.WithTimeout(ctx, p.config.maxPoll)
 	defer cancel()
 	endpoint := p.config.BaseURL + "/api/v1/subscription-external/batch?jobId=" + url.QueryEscape(id)
+	lastProgress := ""
 	for {
 		var status jobStatus
 		if err := p.request(ctx, http.MethodGet, endpoint, nil, &status); err != nil {
@@ -80,6 +82,11 @@ func (p *processor) poll(ctx context.Context, id string) (jobStatus, error) {
 		}
 		if status.ID != id {
 			return status, fmt.Errorf("status response job ID does not match checkpoint")
+		}
+		progress := fmt.Sprintf("Job %s: state=%s processed=%d/%d successful=%d failed=%d", id, status.State, status.Processed, status.Total, status.Successful, status.Failed)
+		if progress != lastProgress {
+			fmt.Fprintln(p.output, progress)
+			lastProgress = progress
 		}
 		switch status.State {
 		case "completed", "failed":
@@ -104,13 +111,25 @@ func (p *processor) run(ctx context.Context, numbers []string, state *checkpoint
 		return fmt.Errorf("previous submission outcome is unknown; reconcile it before editing or replacing the checkpoint")
 	}
 	endpoint := p.config.BaseURL + "/api/v1/subscription-external/batch"
+	if state.Next < len(numbers) && state.JobID == "" {
+		var capabilities struct {
+			SubscriptionOnly     bool `json:"subscription_only"`
+			InvalidMSISDNLogging bool `json:"invalid_msisdn_logging"`
+		}
+		if err := p.request(ctx, http.MethodGet, endpoint+"?capabilities=1&tenant_key="+url.QueryEscape(p.config.TenantKey), nil, &capabilities); err != nil {
+			return fmt.Errorf("subscription-only preflight failed; nothing submitted: %w", err)
+		}
+		if !capabilities.SubscriptionOnly || !capabilities.InvalidMSISDNLogging {
+			return fmt.Errorf("server does not support subscription-only processing and durable invalid-MSISDN logging; nothing submitted")
+		}
+	}
 	for state.Next < len(numbers) {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		end := state.Next + min(p.config.BatchSize, len(numbers)-state.Next)
 		if state.JobID == "" {
-			request := domain.BatchOptinRequest{Count: end - state.Next, MSISDNS: numbers[state.Next:end],
+			request := domain.BatchOptinRequest{SubscriptionOnly: true, Count: end - state.Next, MSISDNS: numbers[state.Next:end],
 				Telco: p.config.Telco, EntryChannel: p.config.EntryChannel, ProductIds: p.config.ProductIDs,
 				TenantKey: p.config.TenantKey, ChannelKey: p.config.ChannelKey}
 			body, err := json.Marshal(request)
