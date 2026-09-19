@@ -9,13 +9,14 @@ import (
 )
 
 type BatchOptinRequest struct {
-	Telco        string   `json:"telco"`
-	Count        int      `json:"count"`
-	EntryChannel string   `json:"entry_channel"`
-	MSISDNS      []string `json:"msisdns,omitempty"` // if provided, skip generation
-	ProductIds   []string `json:"product_ids,omitempty"`
-	TenantKey    string   `json:"tenant_key,omitempty"`
-	ChannelKey   string   `json:"channel_key,omitempty"`
+	SubscriptionOnly bool     `json:"subscription_only,omitempty"`
+	Telco            string   `json:"telco"`
+	Count            int      `json:"count"`
+	EntryChannel     string   `json:"entry_channel"`
+	MSISDNS          []string `json:"msisdns,omitempty"` // if provided, skip generation
+	ProductIds       []string `json:"product_ids,omitempty"`
+	TenantKey        string   `json:"tenant_key,omitempty"`
+	ChannelKey       string   `json:"channel_key,omitempty"`
 }
 
 type BackfillRequest struct {
@@ -51,31 +52,60 @@ type BatchOptinResponse struct {
 	ErrorDetails *map[string]interface{} `json:"errorDetails,omitempty"` // Details of the first error encountered
 }
 
+// BatchItemFailure is a PII-safe receipt for one failed submitted item.
+// ItemIndex is zero-based within the submitted batch/chunk. IdentityHash is
+// job-scoped and can be matched only by re-hashing the caller's retained input.
+type BatchItemFailure struct {
+	ItemIndex             int    `json:"itemIndex"`
+	IdentityHash          string `json:"identityHash"`
+	Code                  string `json:"code"`
+	Message               string `json:"message"`
+	Outcome               string `json:"outcome,omitempty"`
+	ProviderCode          string `json:"providerCode,omitempty"`
+	AcceptedByProvider    bool   `json:"acceptedByProvider"`
+	ProviderRequestID     string `json:"providerRequestId,omitempty"`
+	ProviderTransactionID string `json:"providerTransactionId,omitempty"`
+	ExternalTransactionID string `json:"externalTransactionId,omitempty"`
+	TrackingID            string `json:"trackingId,omitempty"`
+	ProviderAcceptedAt    string `json:"providerAcceptedAt,omitempty"`
+	LocalPersistenceStage string `json:"localPersistenceStage,omitempty"`
+	TenantID              string `json:"tenantId,omitempty"`
+	ChannelID             string `json:"channelId,omitempty"`
+	ProductID             int    `json:"productId,omitempty"`
+	SubscriptionResult    string `json:"subscriptionResult,omitempty"`
+	PersistenceAttempts   int    `json:"persistenceAttempts,omitempty"`
+	PostgresCode          string `json:"postgresCode,omitempty"`
+	TransientPersistence  bool   `json:"transientPersistenceError,omitempty"`
+}
+
 type OptinRequest struct {
-	Telco        string             `json:"telco"`
-	EntryChannel string             `json:"entry_channel"`
-	Msisdn       string             `json:"msisdn"`
-	ProductIds   []string           `json:"product_ids"`
-	TenantRoute  TenantRouteContext `json:"-"`
+	SubscriptionOnly bool               `json:"-"`
+	Telco            string             `json:"telco"`
+	EntryChannel     string             `json:"entry_channel"`
+	Msisdn           string             `json:"msisdn"`
+	ProductIds       []string           `json:"product_ids"`
+	TenantRoute      TenantRouteContext `json:"-"`
 }
 
 type MTRequest struct {
-	ProductID          int                `json:"productId"`
-	PricepointID       int                `json:"pricepointId"`
-	MCC                string             `json:"mcc"`
-	MNC                string             `json:"mnc"`
-	UserIdentifier     string             `json:"userIdentifier"`
-	UserIdentifierType string             `json:"userIdentifierType"`
-	EntryChannel       string             `json:"entryChannel"`
-	SubKeyword         string             `json:"subKeyword"`
-	LargeAccount       string             `json:"largeAccount"`
-	CampaignUrl        string             `json:"campaignUrl"`
-	SendDate           string             `json:"sendDate"`
-	Priority           string             `json:"priority"`
-	Timezone           string             `json:"timezone"`
-	Context            string             `json:"context"`
-	MoTransactionUUID  string             `json:"moTransactionUUID"`
-	TenantRoute        TenantRouteContext `json:"-"`
+	ProviderPartnerRoleID int                `json:"-"`
+	SubscriptionOnly      bool               `json:"-"`
+	ProductID             int                `json:"productId"`
+	PricepointID          int                `json:"pricepointId"`
+	MCC                   string             `json:"mcc"`
+	MNC                   string             `json:"mnc"`
+	UserIdentifier        string             `json:"userIdentifier"`
+	UserIdentifierType    string             `json:"userIdentifierType"`
+	EntryChannel          string             `json:"entryChannel"`
+	SubKeyword            string             `json:"subKeyword"`
+	LargeAccount          string             `json:"largeAccount"`
+	CampaignUrl           string             `json:"campaignUrl"`
+	SendDate              string             `json:"sendDate"`
+	Priority              string             `json:"priority"`
+	Timezone              string             `json:"timezone"`
+	Context               string             `json:"context"`
+	MoTransactionUUID     string             `json:"moTransactionUUID"`
+	TenantRoute           TenantRouteContext `json:"-"`
 }
 
 type TenantRouteContext struct {
@@ -91,6 +121,7 @@ type MTResponse struct {
 	InError      bool                   `json:"inError"`
 	RequestID    string                 `json:"requestId"`
 	Code         string                 `json:"code"`
+	ExternalTxID string                 `json:"-"`
 }
 
 // Custom error types for better error handling

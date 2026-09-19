@@ -18,6 +18,23 @@ type MockUserBaseRepositoryForBlacklisted struct {
 	mock.Mock
 }
 
+const blacklistTestTenantID = "tenant-blacklist"
+
+func (m *MockUserBaseRepositoryForBlacklisted) UpsertBlacklistedUser(ctx context.Context, tenantID, msisdn string) error {
+	args := m.Called(ctx, tenantID, msisdn)
+	return args.Error(0)
+}
+
+func (m *MockUserBaseRepositoryForBlacklisted) IsExcludedUserForTenant(ctx context.Context, tenantID, msisdn string) (bool, error) {
+	args := m.Called(ctx, tenantID, msisdn)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockSubscriptionRepositoryComplete) DeleteSubscriptionRecordsForTenant(ctx context.Context, tenantID, msisdn string) error {
+	args := m.Called(ctx, tenantID, msisdn)
+	return args.Error(0)
+}
+
 func (m *MockUserBaseRepositoryForBlacklisted) InsertUserRecords(ctx context.Context, users []*domain.UserBase) error {
 	args := m.Called(ctx, users)
 	return args.Error(0)
@@ -108,8 +125,8 @@ func TestEnhancedBlacklistedUserHandling(t *testing.T) {
 	partnerId := 789
 
 	// Set up mock expectations for the complete flow
-	mockUserBaseRepo.On("InsertUserRecords", mock.Anything, mock.AnythingOfType("[]*domain.UserBase")).Return(nil)
-	mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(nil)
+	mockUserBaseRepo.On("UpsertBlacklistedUser", mock.Anything, blacklistTestTenantID, msisdn).Return(nil)
+	mockRepo.On("DeleteSubscriptionRecordsForTenant", mock.Anything, blacklistTestTenantID, msisdn).Return(nil)
 
 	// Create test response
 	response := &domain.MTResponse{
@@ -123,7 +140,7 @@ func TestEnhancedBlacklistedUserHandling(t *testing.T) {
 	}
 
 	// Execute the enhanced flow
-	service.handleBlacklistedUserEnhanced(msisdn, productId, requestID, partnerId, response)
+	service.handleBlacklistedUserEnhanced(blacklistTestTenantID, msisdn, productId, requestID, partnerId, response)
 
 	// Wait for async operations to complete
 	time.Sleep(200 * time.Millisecond)
@@ -152,11 +169,11 @@ func TestBlacklistedUserRetryLogic(t *testing.T) {
 	partnerId := 790
 
 	// Set up mock expectations for retry scenario
-	mockUserBaseRepo.On("InsertUserRecords", mock.Anything, mock.AnythingOfType("[]*domain.UserBase")).
+	mockUserBaseRepo.On("UpsertBlacklistedUser", mock.Anything, blacklistTestTenantID, msisdn).
 		Return(assert.AnError).Once() // First attempt fails
-	mockUserBaseRepo.On("InsertUserRecords", mock.Anything, mock.AnythingOfType("[]*domain.UserBase")).
+	mockUserBaseRepo.On("UpsertBlacklistedUser", mock.Anything, blacklistTestTenantID, msisdn).
 		Return(nil).Once() // Second attempt succeeds
-	mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(nil)
+	mockRepo.On("DeleteSubscriptionRecordsForTenant", mock.Anything, blacklistTestTenantID, msisdn).Return(nil)
 
 	response := &domain.MTResponse{
 		Code:      "BLACKLISTED",
@@ -165,7 +182,7 @@ func TestBlacklistedUserRetryLogic(t *testing.T) {
 	}
 
 	// Execute the enhanced flow
-	service.handleBlacklistedUserEnhanced(msisdn, productId, requestID, partnerId, response)
+	service.handleBlacklistedUserEnhanced(blacklistTestTenantID, msisdn, productId, requestID, partnerId, response)
 
 	// Wait for completion (including retries)
 	time.Sleep(600 * time.Millisecond)
@@ -223,6 +240,7 @@ func TestBatchBlacklistedUserProcessing(t *testing.T) {
 			UserIdentifierType: "MSISDN",
 			EntryChannel:       "WEB",
 			MoTransactionUUID:  "test-tx-id-1",
+			TenantRoute:        domain.TenantRouteContext{TenantID: blacklistTestTenantID},
 		},
 		{
 			ProductID:          124,
@@ -231,6 +249,7 @@ func TestBatchBlacklistedUserProcessing(t *testing.T) {
 			UserIdentifierType: "MSISDN",
 			EntryChannel:       "SMS",
 			MoTransactionUUID:  "test-tx-id-2",
+			TenantRoute:        domain.TenantRouteContext{TenantID: blacklistTestTenantID},
 		},
 		{
 			ProductID:          125,
@@ -239,15 +258,16 @@ func TestBatchBlacklistedUserProcessing(t *testing.T) {
 			UserIdentifierType: "MSISDN",
 			EntryChannel:       "WEB",
 			MoTransactionUUID:  "test-tx-id-3",
+			TenantRoute:        domain.TenantRouteContext{TenantID: blacklistTestTenantID},
 		},
 	}
 
 	partnerId := 789
 
 	// Set up mock expectations for the two blacklisted users
-	mockUserBaseRepo.On("InsertUserRecords", mock.Anything, mock.AnythingOfType("[]*domain.UserBase")).Return(nil).Times(2)
-	mockRepo.On("DeleteSubscriptionRecord", "233123456789").Return(nil)
-	mockRepo.On("DeleteSubscriptionRecord", "233123456791").Return(nil)
+	mockUserBaseRepo.On("UpsertBlacklistedUser", mock.Anything, blacklistTestTenantID, mock.AnythingOfType("string")).Return(nil).Times(2)
+	mockRepo.On("DeleteSubscriptionRecordsForTenant", mock.Anything, blacklistTestTenantID, "233123456789").Return(nil)
+	mockRepo.On("DeleteSubscriptionRecordsForTenant", mock.Anything, blacklistTestTenantID, "233123456791").Return(nil)
 
 	// Process batch
 	service.BatchHandleBlacklistedUsers(responses, requests, partnerId)
@@ -279,8 +299,8 @@ func TestBlacklistedUserAuditLogging(t *testing.T) {
 	partnerId := 791
 
 	// Set up mock expectations
-	mockUserBaseRepo.On("InsertUserRecords", mock.Anything, mock.AnythingOfType("[]*domain.UserBase")).Return(nil)
-	mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(nil)
+	mockUserBaseRepo.On("UpsertBlacklistedUser", mock.Anything, blacklistTestTenantID, msisdn).Return(nil)
+	mockRepo.On("DeleteSubscriptionRecordsForTenant", mock.Anything, blacklistTestTenantID, msisdn).Return(nil)
 
 	response := &domain.MTResponse{
 		Code:      "BLACKLISTED",
@@ -289,7 +309,7 @@ func TestBlacklistedUserAuditLogging(t *testing.T) {
 	}
 
 	// Execute the enhanced flow
-	service.handleBlacklistedUserEnhanced(msisdn, productId, requestID, partnerId, response)
+	service.handleBlacklistedUserEnhanced(blacklistTestTenantID, msisdn, productId, requestID, partnerId, response)
 
 	// Wait for completion
 	time.Sleep(100 * time.Millisecond)
@@ -364,7 +384,7 @@ func TestBlacklistedUserErrorHandling(t *testing.T) {
 	partnerId := 793
 
 	// Set up mock expectations for error scenario
-	mockUserBaseRepo.On("InsertUserRecords", mock.Anything, mock.AnythingOfType("[]*domain.UserBase")).
+	mockUserBaseRepo.On("UpsertBlacklistedUser", mock.Anything, blacklistTestTenantID, msisdn).
 		Return(assert.AnError).Times(3) // All retries fail
 
 	response := &domain.MTResponse{
@@ -374,7 +394,7 @@ func TestBlacklistedUserErrorHandling(t *testing.T) {
 	}
 
 	// Execute the enhanced flow (should fail after retries)
-	service.handleBlacklistedUserEnhanced(msisdn, productId, requestID, partnerId, response)
+	service.handleBlacklistedUserEnhanced(blacklistTestTenantID, msisdn, productId, requestID, partnerId, response)
 
 	// Wait for completion (including retries)
 	time.Sleep(600 * time.Millisecond)
@@ -404,8 +424,8 @@ func TestBlacklistedUserConfiguration(t *testing.T) {
 
 	for _, msisdn := range testCases {
 		// Set up mock expectations
-		mockUserBaseRepo.On("InsertUserRecords", mock.Anything, mock.AnythingOfType("[]*domain.UserBase")).Return(nil)
-		mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(nil)
+		mockUserBaseRepo.On("UpsertBlacklistedUser", mock.Anything, blacklistTestTenantID, msisdn).Return(nil)
+		mockRepo.On("DeleteSubscriptionRecordsForTenant", mock.Anything, blacklistTestTenantID, msisdn).Return(nil)
 
 		response := &domain.MTResponse{
 			Code:      "BLACKLISTED",
@@ -414,7 +434,7 @@ func TestBlacklistedUserConfiguration(t *testing.T) {
 		}
 
 		// Execute the enhanced flow
-		service.handleBlacklistedUserEnhanced(msisdn, 123, "test-request-id", 789, response)
+		service.handleBlacklistedUserEnhanced(blacklistTestTenantID, msisdn, 123, "test-request-id", 789, response)
 
 		// Wait for completion
 		time.Sleep(100 * time.Millisecond)
@@ -461,12 +481,13 @@ func TestBlacklistedUserPerformance(t *testing.T) {
 			UserIdentifierType: "MSISDN",
 			EntryChannel:       "WEB",
 			MoTransactionUUID:  fmt.Sprintf("test-tx-id-%d", i),
+			TenantRoute:        domain.TenantRouteContext{TenantID: blacklistTestTenantID},
 		}
 
 		// Set up mock expectations
 		msisdn := fmt.Sprintf("233123456%03d", i)
-		mockUserBaseRepo.On("InsertUserRecords", mock.Anything, mock.AnythingOfType("[]*domain.UserBase")).Return(nil)
-		mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(nil)
+		mockUserBaseRepo.On("UpsertBlacklistedUser", mock.Anything, blacklistTestTenantID, msisdn).Return(nil)
+		mockRepo.On("DeleteSubscriptionRecordsForTenant", mock.Anything, blacklistTestTenantID, msisdn).Return(nil)
 	}
 
 	partnerId := 789

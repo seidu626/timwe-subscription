@@ -258,6 +258,9 @@ func (r *SubscriptionRepository) FetchActiveMsisdnsWithProductsWindow(productIds
 
 // CreateSubscription inserts a new subscription record into the database.
 func (r *SubscriptionRepository) CreateSubscription(request *domain.SubscriptionRequest) error {
+	ctx, cancel := r.getContextWithTimeout(30 * time.Second)
+	defer cancel()
+
 	if request.TenantID != nil && strings.TrimSpace(*request.TenantID) != "" {
 		query := `
         INSERT INTO subscriptions (
@@ -282,7 +285,7 @@ func (r *SubscriptionRepository) CreateSubscription(request *domain.Subscription
             start_date = COALESCE(subscriptions.start_date, EXCLUDED.start_date),
 			status = EXCLUDED.status
     `
-		_, err := r.db.Exec(query, nullStringPtr(request.TenantID), nullStringPtr(request.ChannelID), request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId)
+		_, err := r.db.ExecContext(ctx, query, nullStringPtr(request.TenantID), nullStringPtr(request.ChannelID), request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId)
 		if err != nil {
 			return fmt.Errorf("failed to create tenant subscription: %w", err)
 		}
@@ -311,7 +314,7 @@ func (r *SubscriptionRepository) CreateSubscription(request *domain.Subscription
             start_date = COALESCE(subscriptions.start_date, EXCLUDED.start_date),
 			status = EXCLUDED.status
     `
-	_, err := r.db.Exec(query, request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId)
+	_, err := r.db.ExecContext(ctx, query, request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId)
 	if err != nil {
 		return fmt.Errorf("failed to create subscription: %w", err)
 	}
@@ -681,7 +684,6 @@ func (r *SubscriptionRepository) GetSubscriptionByMSISDNAndProduct(msisdn string
 	return &sub, nil
 }
 
-
 // TenantRouteForSubscription fetches the tenant_id and channel_id from the
 // subscriptions row for the given MSISDN + product, and returns a TenantRouteContext.
 // If the subscription exists but has no tenant_id/channel_id set (legacy row),
@@ -709,6 +711,7 @@ func (r *SubscriptionRepository) TenantRouteForSubscription(msisdn string, produ
 		ChannelID: strings.TrimSpace(channelID.String),
 	}, nil
 }
+
 // GetLastOptinNotificationTime retrieves the timestamp of the last USER_OPTIN notification
 // for a specific MSISDN and product ID
 func (r *SubscriptionRepository) GetLastOptinNotificationTime(msisdn string, productID int) (*time.Time, error) {
@@ -967,6 +970,32 @@ func (r *SubscriptionRepository) DeleteSubscriptionRecord(msisdn string) error {
 	return nil
 }
 
+// DeleteSubscriptionRecordsForTenant removes subscriptions for one user within one tenant.
+// Blacklist handling must use this method so a provider response cannot affect another tenant.
+func (r *SubscriptionRepository) DeleteSubscriptionRecordsForTenant(ctx context.Context, tenantID, msisdn string) error {
+	tenantID = strings.TrimSpace(tenantID)
+	msisdn = strings.TrimSpace(msisdn)
+	if tenantID == "" {
+		return fmt.Errorf("tenant_id is required to delete blacklisted subscriptions")
+	}
+	if msisdn == "" {
+		return fmt.Errorf("msisdn is required to delete blacklisted subscriptions")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	const query = `
+		DELETE FROM subscriptions
+		WHERE tenant_id = $1
+		  AND user_identifier = $2
+	`
+	if _, err := r.db.ExecContext(ctx, query, tenantID, msisdn); err != nil {
+		return fmt.Errorf("failed to delete tenant subscriptions for blacklisted user: %w", err)
+	}
+
+	return nil
+}
+
 // GetTotalSubscriptionsCount returns the total count of active subscriptions
 func (r *SubscriptionRepository) GetTotalSubscriptionsCount() (int64, error) {
 	query := `
@@ -1154,20 +1183,20 @@ func (r *SubscriptionRepository) CreateAdminActionLog(logEntry *domain.AdminSubs
 // adminActionSortableColumns maps frontend identifiers to SQL columns.
 // Any value outside this whitelist falls back to the default created_at DESC.
 var adminActionSortableColumns = map[string]string{
-	"createdAt":          "created_at",
-	"created_at":         "created_at",
-	"operation":          "operation",
-	"msisdn":             "msisdn",
-	"productId":          "product_id",
-	"product_id":         "product_id",
-	"partnerRoleId":      "partner_role_id",
-	"partner_role_id":    "partner_role_id",
-	"responseStatusCode": "response_status_code",
+	"createdAt":            "created_at",
+	"created_at":           "created_at",
+	"operation":            "operation",
+	"msisdn":               "msisdn",
+	"productId":            "product_id",
+	"product_id":           "product_id",
+	"partnerRoleId":        "partner_role_id",
+	"partner_role_id":      "partner_role_id",
+	"responseStatusCode":   "response_status_code",
 	"response_status_code": "response_status_code",
-	"durationMs":         "duration_ms",
-	"duration_ms":        "duration_ms",
-	"hasError":           "error_payload",
-	"has_error":          "error_payload",
+	"durationMs":           "duration_ms",
+	"duration_ms":          "duration_ms",
+	"hasError":             "error_payload",
+	"has_error":            "error_payload",
 }
 
 // resolveAdminActionSortClause is a SQL-injection-safe ORDER BY builder using

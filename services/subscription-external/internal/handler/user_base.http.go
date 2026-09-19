@@ -1,12 +1,9 @@
 package handler
 
 import (
-	"context"
 	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"strings"
 
 	"github.com/seidu626/subscription-manager/common/config"
@@ -31,72 +28,16 @@ func NewUserBaseHandler(logger *zap.Logger, service *service.UserBaseService, c 
 }
 
 // UploadHandler godoc
-// @Summary Upload user base file
-// @Description Upload and process CSV or XLSX files containing user base data
+// @Summary Legacy user base upload endpoint (retired)
+// @Description This endpoint is retired. Use the authenticated POST /v1/admin/userbase/imports endpoint.
 // @Tags UserBase
-// @Accept multipart/form-data
 // @Produce json
-// @Param file formData file true "CSV or XLSX file containing user data"
-// @Success 200 {string} string "Successfully processed records"
-// @Failure 400 {string} string "Invalid file format or failed to retrieve file"
-// @Failure 500 {string} string "Failed to parse file or store records"
+// @Failure 410 {object} map[string]string "Legacy endpoint retired"
 // @Router /api/v1/userbase/upload [post]
 func (h *UserBaseHandler) UploadHandler(ctx *fasthttp.RequestCtx) {
-	// Extract uploaded file
-	fileHeader, err := ctx.FormFile("file")
-	if err != nil {
-		ctx.Error("Failed to retrieve file", fasthttp.StatusBadRequest)
-		return
-	}
-	file, err := fileHeader.Open()
-	if err != nil {
-		ctx.Error("Unable to open uploaded file", fasthttp.StatusInternalServerError)
-		return
-	}
-	defer func(file multipart.File) {
-		err := file.Close()
-		if err != nil {
-
-		}
-	}(file)
-
-	// Determine file type and process accordingly
-	filename := fileHeader.Filename
-	var userRecords []*domain.UserBase
-	if strings.HasSuffix(filename, ".csv") {
-		userRecords, err = parseCSV(file)
-	} else if strings.HasSuffix(filename, ".xlsx") {
-		userRecords, err = parseExcel(file)
-	} else {
-		ctx.Error("Unsupported file format. Upload CSV or XLSX files only", fasthttp.StatusBadRequest)
-		return
-	}
-
-	if err != nil {
-		ctx.Error(fmt.Sprintf("Failed to parse file: %v", err), fasthttp.StatusInternalServerError)
-		return
-	}
-
-	// Process and store valid records in database
-	err = h.service.ValidateAndStoreUserRecords(context.Background(), userRecords)
-	if err != nil {
-		ctx.Error(fmt.Sprintf("Failed to store records: %v", err), fasthttp.StatusInternalServerError)
-		return
-	}
-
-	// Create proper JSON response
-	response := domain.SubscribeResponse{
-		Status:  "success",
-		Message: "Successfully processed records",
-	}
-
 	ctx.SetContentType("application/json")
-	ctx.SetStatusCode(fasthttp.StatusOK)
-	if err := json.NewEncoder(ctx).Encode(response); err != nil {
-		h.logger.Error("Failed to encode response", zap.Error(err))
-		ctx.Error("Failed to format response", fasthttp.StatusInternalServerError)
-		return
-	}
+	ctx.SetStatusCode(fasthttp.StatusGone)
+	ctx.SetBodyString(`{"error":"legacy userbase upload endpoint is retired","canonical_endpoint":"/v1/admin/userbase/imports","message":"Use the authenticated tenant-scoped userbase import endpoint."}`)
 }
 
 // parseCSV reads and parses CSV file content into UserBase records

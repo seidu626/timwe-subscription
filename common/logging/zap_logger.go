@@ -27,7 +27,7 @@ func NewZapLogger(logFilePath string, cfg *config.Config) (*zap.Logger, error) {
 		MessageKey:     "msg",
 		StacktraceKey:  "stacktrace",
 		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
 		EncodeTime:     zapcore.ISO8601TimeEncoder,
 		EncodeDuration: zapcore.SecondsDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,

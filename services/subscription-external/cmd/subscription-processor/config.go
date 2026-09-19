@@ -56,6 +56,9 @@ func (c *Config) validate() error {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return fmt.Errorf("base_url must be an HTTP(S) URL without credentials, query or fragment")
 	}
+	if strings.EqualFold(strings.TrimSpace(c.EntryChannel), "SMS") {
+		return fmt.Errorf("subscription-processor does not allow the SMS entry channel")
+	}
 	c.BaseURL = strings.TrimRight(c.BaseURL, "/")
 	if c.Source == "database" && (strings.TrimSpace(c.DatabaseURLEnv) == "" || strings.TrimSpace(c.DatabaseQuery) == "") {
 		return fmt.Errorf("database source requires database_url_env and database_query")

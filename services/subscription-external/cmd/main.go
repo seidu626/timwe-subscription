@@ -453,10 +453,17 @@ func main() {
 
 	// Get the connection string from the config
 	connStr := config.GetDBConnectionString()
-	db, err := sql.Open("postgres", connStr)
+	db, err := config.OpenDatabase(context.Background(), "postgres", connStr, cfg)
 	if err != nil {
-		log.Fatalf("Failed to connect to the database: %v", err)
+		log.Fatalf("Failed to initialize the database pool: %v", err)
 	}
+	logger.Info("database pool initialized",
+		zap.Int("max_open_connections", cfg.Database.Postgresql.MaxOpenConns),
+		zap.Int("max_idle_connections", cfg.Database.Postgresql.MaxIdleConns),
+		zap.Duration("connection_max_lifetime", cfg.Database.Postgresql.ConnMaxLifetime),
+		zap.Int("max_workers_per_job", cfg.Application.Batch.MaxWorkersPerJob),
+		zap.Int("max_concurrent_optins", cfg.Application.Batch.MaxConcurrentOptins),
+	)
 	defer func(db *sql.DB) {
 		err := db.Close()
 		if err != nil {

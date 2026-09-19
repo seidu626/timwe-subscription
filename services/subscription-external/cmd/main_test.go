@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
+	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/seidu626/subscription-manager/common/config"
 )
@@ -47,6 +51,55 @@ func TestValidateTIMWEStartupConfig(t *testing.T) {
 				t.Fatalf("unexpected error state: err=%v wantErr=%v", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestOpenDatabaseBoundsConcurrentConnections(t *testing.T) {
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	poolConfig := &config.Config{}
+	poolConfig.Database.Postgresql.MaxOpenConns = 3
+	poolConfig.Database.Postgresql.MaxIdleConns = 1
+	poolConfig.Database.Postgresql.ConnMaxLifetime = time.Minute
+	poolConfig.Database.Postgresql.ConnectionTimeout = 2 * time.Second
+	db, err := config.OpenDatabase(context.Background(), "postgres", dsn, poolConfig)
+	if err != nil {
+		t.Fatalf("NewSQLDB() error: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	start := make(chan struct{})
+	errs := make(chan error, 12)
+	var wg sync.WaitGroup
+	for i := 0; i < cap(errs); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			var one int
+			errs <- db.QueryRowContext(context.Background(), "SELECT 1 FROM pg_sleep(0.1)").Scan(&one)
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent query error: %v", err)
+		}
+	}
+
+	stats := db.Stats()
+	if stats.MaxOpenConnections != 3 {
+		t.Fatalf("MaxOpenConnections = %d, want 3", stats.MaxOpenConnections)
+	}
+	if stats.OpenConnections > 3 {
+		t.Fatalf("OpenConnections = %d, exceeds configured maximum 3", stats.OpenConnections)
+	}
+	if stats.WaitCount == 0 {
+		t.Fatal("WaitCount = 0, expected excess concurrent work to queue")
 	}
 }
 

@@ -5,30 +5,34 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 )
 
 type BatchJobState string
 
 const (
-	BatchJobPending   BatchJobState = "pending"
-	BatchJobRunning   BatchJobState = "running"
-	BatchJobCompleted BatchJobState = "completed"
-	BatchJobFailed    BatchJobState = "failed"
-	BatchJobCancelled BatchJobState = "cancelled"
+	BatchJobPending    BatchJobState = "pending"
+	BatchJobRunning    BatchJobState = "running"
+	BatchJobCancelling BatchJobState = "cancelling"
+	BatchJobCompleted  BatchJobState = "completed"
+	BatchJobFailed     BatchJobState = "failed"
+	BatchJobCancelled  BatchJobState = "cancelled"
 )
 
 type BatchJobStatus struct {
-	ID           string                 `json:"id"`
-	State        BatchJobState          `json:"state"`
-	Total        int                    `json:"total"`
-	Processed    int64                  `json:"processed"`
-	Successful   int64                  `json:"successful"`
-	Failed       int64                  `json:"failed"`
-	TenantKey    string                 `json:"tenantKey,omitempty"`
-	ChannelKey   string                 `json:"channelKey,omitempty"`
-	ErrorDetails map[string]interface{} `json:"errorDetails,omitempty"`
-	StartedAt    time.Time              `json:"startedAt"`
-	CompletedAt  *time.Time             `json:"completedAt,omitempty"`
+	ID           string                    `json:"id"`
+	State        BatchJobState             `json:"state"`
+	Total        int                       `json:"total"`
+	Processed    int64                     `json:"processed"`
+	Successful   int64                     `json:"successful"`
+	Failed       int64                     `json:"failed"`
+	TenantKey    string                    `json:"tenantKey,omitempty"`
+	ChannelKey   string                    `json:"channelKey,omitempty"`
+	ErrorDetails map[string]interface{}    `json:"errorDetails,omitempty"`
+	Failures     []domain.BatchItemFailure `json:"failures,omitempty"`
+	StartedAt    time.Time                 `json:"startedAt"`
+	CompletedAt  *time.Time                `json:"completedAt,omitempty"`
 }
 
 type batchJobEntry struct {
@@ -89,7 +93,13 @@ func (m *BatchJobManager) GetJob(id string) (*BatchJobStatus, bool) {
 	if !ok {
 		return nil, false
 	}
-	return entry.status, true
+	st := entry.status
+	return &BatchJobStatus{
+		ID: st.ID, State: st.State, Total: st.Total,
+		Processed: atomic.LoadInt64(&st.Processed), Successful: atomic.LoadInt64(&st.Successful), Failed: atomic.LoadInt64(&st.Failed),
+		TenantKey: st.TenantKey, ChannelKey: st.ChannelKey, ErrorDetails: st.ErrorDetails,
+		Failures: append([]domain.BatchItemFailure(nil), st.Failures...), StartedAt: st.StartedAt, CompletedAt: st.CompletedAt,
+	}, true
 }
 
 // CancelJob cancels a running or pending job by triggering context cancellation.
@@ -104,16 +114,15 @@ func (m *BatchJobManager) CancelJob(id string) bool {
 	if entry.status.State != BatchJobRunning && entry.status.State != BatchJobPending {
 		return false
 	}
+	entry.status.State = BatchJobCancelling
+	entry.status.CompletedAt = nil
 	entry.cancel()
-	entry.status.State = BatchJobCancelled
-	now := time.Now()
-	entry.status.CompletedAt = &now
 	return true
 }
 
 func (m *BatchJobManager) setRunning(id string) {
 	m.mu.Lock()
-	if entry, ok := m.jobs[id]; ok {
+	if entry, ok := m.jobs[id]; ok && entry.status.State == BatchJobPending {
 		entry.status.State = BatchJobRunning
 	}
 	m.mu.Unlock()
@@ -123,8 +132,9 @@ func (m *BatchJobManager) setCompleted(id string, failed bool) {
 	m.mu.Lock()
 	if entry, ok := m.jobs[id]; ok {
 		st := entry.status
-		// Don't overwrite a cancelled state.
-		if st.State != BatchJobCancelled {
+		if st.State == BatchJobCancelling || st.State == BatchJobCancelled {
+			st.State = BatchJobCancelled
+		} else {
 			if failed {
 				st.State = BatchJobFailed
 			} else {
@@ -141,3 +151,27 @@ func (m *BatchJobManager) setCompleted(id string, failed bool) {
 func (st *BatchJobStatus) incProcessed() { atomic.AddInt64(&st.Processed, 1) }
 func (st *BatchJobStatus) incSuccess()   { atomic.AddInt64(&st.Successful, 1) }
 func (st *BatchJobStatus) incFailed()    { atomic.AddInt64(&st.Failed, 1) }
+
+func (m *BatchJobManager) setTotal(id string, total int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if entry, ok := m.jobs[id]; ok {
+		entry.status.Total = total
+	}
+}
+
+func (m *BatchJobManager) setErrorDetails(id string, details map[string]interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if entry, ok := m.jobs[id]; ok {
+		entry.status.ErrorDetails = details
+	}
+}
+
+func (m *BatchJobManager) addFailure(id string, failure domain.BatchItemFailure) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if entry, ok := m.jobs[id]; ok {
+		entry.status.Failures = append(entry.status.Failures, failure)
+	}
+}

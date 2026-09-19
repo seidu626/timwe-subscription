@@ -6,6 +6,51 @@ or PostgreSQL query. It uses the same asynchronous batch API as `batch-processor
 Every request contains a nonempty `msisdns` list and its actual count. It never
 requests random number generation.
 
+Every batch uses `subscription_only: true`. The server must advertise this
+capability before the processor submits. This path performs the TIMWE opt-in and
+persists the subscription with its resolved tenant/channel. It does not trigger
+application SMS, SMS fallback, renewal, or charging follow-ups. SMS entry mode is
+rejected. Provider-managed messages are outside this application control.
+
+TIMWE `INVALID_MSISDN` responses are saved synchronously in `invalid_msisdn_logs`;
+a persistence failure fails the item. Numbers already in that table are skipped
+with a failed item result before contacting TIMWE. Only `OPTIN_ALREADY_ACTIVE` and
+`OPTIN_ACTIVE_WAIT_CHARGING` results are persisted as successful subscriptions; pending
+confirmation or unexpected results require reconciliation. Successful processing
+does not imply a completed charge.
+
+While polling, the binary prints state, processed/total, successful and failed
+counts whenever progress changes. Checkpoints from the earlier processor mode
+are intentionally incompatible; retain them as history and use a fresh checkpoint
+for a new, nonoverlapping feed.
+
+The server must also advertise `failure_receipts`. Each completed batch is saved
+atomically to `<state_file>.batch-<first>-<last>.json` with private file permissions
+**before** its checkpoint advances. The receipt includes the job ID, source
+fingerprint, normalized source range, totals and every failed item. If the receipt
+cannot be written or its item identities do not match the input, the job remains
+in the checkpoint; resuming polls that job without submitting it again.
+Cancellation first enters `cancelling` while active requests drain. Once
+`cancelled`, the CLI saves the partial receipt and retains the checkpoint for
+reconciliation; it does not submit the remaining numbers automatically.
+
+Failure indexes are zero-based within the submitted chunk. The identity hash is
+SHA-256 of `jobId:index:normalizedMSISDN`. Keep the original normalized feed to
+resolve these hashes; receipts do not contain raw MSISDNs. A provider-accepted
+failure includes provider correlation IDs, the separate local tracking ID,
+acceptance time and its persistence outcome. Reconcile that local write using
+the receipt; do not repeat the provider opt-in. API status responses are bounded
+to 16 MiB to accommodate detailed failures in large batches.
+
+Subscription-only processing makes one provider attempt, including when the
+network response is ambiguous. The service retries transient local database
+writes after provider acceptance without repeating the provider request. Its
+database pool and batch concurrency are deployment settings. For the observed shared PostgreSQL instance
+with 50 total connection slots, the service defaults are five open connections,
+two idle connections, five workers per batch, and five concurrent opt-ins across
+batches. Operators must budget these against all other database clients; the
+service cannot reserve capacity against unrelated clients.
+
 ## Configure and run
 
 Run these commands from this directory:

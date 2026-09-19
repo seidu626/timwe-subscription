@@ -31,7 +31,7 @@ func loadCheckpoint(c Config, numbers []string) (*checkpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256(data)
+	sum := sha256.Sum256(append([]byte("subscription-only-v1:"), data...))
 	fingerprint := hex.EncodeToString(sum[:])
 	state := &checkpoint{Version: 1, Fingerprint: fingerprint}
 	data, err = os.ReadFile(c.StateFile)
@@ -57,7 +57,11 @@ func loadCheckpoint(c Config, numbers []string) (*checkpoint, error) {
 }
 
 func saveCheckpoint(path string, state *checkpoint) error {
-	data, err := json.MarshalIndent(state, "", "  ")
+	return saveJSONAtomically(path, state)
+}
+
+func saveJSONAtomically(path string, value any) error {
+	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return err
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -20,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/seidu626/subscription-manager/common/config"
 	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
@@ -73,7 +75,172 @@ const (
 	timweDefaultEntryChannel = "INTERNAL"
 	timweDefaultClientIP     = "INTERNAL"
 	timweDefaultMSISDNType   = "MSISDN"
+
+	subscriptionPersistenceMaxAttempts = 3
+	subscriptionPersistenceBaseDelay   = 25 * time.Millisecond
 )
+
+// AcceptedSubscriptionPersistenceError reports that TIMWE accepted an opt-in
+// but the local tenant-scoped subscription upsert did not complete. Its error
+// text and SafeDetails omit subscriber data and database error text.
+type AcceptedSubscriptionPersistenceError struct {
+	ProviderRequestID     string
+	ProviderTransactionID string
+	ExternalTransactionID string
+	TrackingID            string
+	ProviderAcceptedAt    time.Time
+	FailureStage          string
+	TenantID              string
+	ChannelID             string
+	ProductID             int
+	SubscriptionResult    string
+	Attempts              int
+	PostgresCode          string
+	Transient             bool
+	cause                 error
+}
+
+func (e *AcceptedSubscriptionPersistenceError) Error() string {
+	return "provider accepted subscription but local persistence failed"
+}
+
+func (e *AcceptedSubscriptionPersistenceError) Unwrap() error { return e.cause }
+
+// SafeDetails returns correlation fields suitable for batch status and logs.
+func (e *AcceptedSubscriptionPersistenceError) SafeDetails() map[string]interface{} {
+	return map[string]interface{}{
+		"acceptedByProvider":        true,
+		"providerRequestId":         e.ProviderRequestID,
+		"providerTransactionId":     e.ProviderTransactionID,
+		"externalTransactionId":     e.ExternalTransactionID,
+		"trackingId":                e.TrackingID,
+		"providerAcceptedAt":        e.ProviderAcceptedAt.UTC().Format(time.RFC3339Nano),
+		"localPersistenceStage":     e.FailureStage,
+		"tenantId":                  e.TenantID,
+		"channelId":                 e.ChannelID,
+		"productId":                 e.ProductID,
+		"subscriptionResult":        e.SubscriptionResult,
+		"persistenceAttempts":       e.Attempts,
+		"postgresCode":              e.PostgresCode,
+		"transientPersistenceError": e.Transient,
+	}
+}
+
+// SubscriptionOnlyLocalEvidenceError reports a known provider rejection whose
+// required local registry/evidence write did not complete.
+type SubscriptionOnlyLocalEvidenceError struct {
+	Outcome               string
+	ProviderCode          string
+	ProviderRequestID     string
+	ExternalTransactionID string
+	TrackingID            string
+	TenantID              string
+	ChannelID             string
+	ProductID             int
+	LocalPersistenceStage string
+	Attempts              int
+	PostgresCode          string
+	Transient             bool
+	cause                 error
+}
+
+func (e *SubscriptionOnlyLocalEvidenceError) Error() string {
+	return "subscription-only local registry operation failed"
+}
+
+func (e *SubscriptionOnlyLocalEvidenceError) Unwrap() error { return e.cause }
+
+func (e *SubscriptionOnlyLocalEvidenceError) SafeDetails() map[string]interface{} {
+	outcome := e.Outcome
+	if outcome == "" {
+		outcome = "provider_rejected"
+	}
+	return map[string]interface{}{
+		"acceptedByProvider":        false,
+		"outcome":                   outcome,
+		"providerCode":              e.ProviderCode,
+		"providerRequestId":         e.ProviderRequestID,
+		"externalTransactionId":     e.ExternalTransactionID,
+		"trackingId":                e.TrackingID,
+		"tenantId":                  e.TenantID,
+		"channelId":                 e.ChannelID,
+		"productId":                 e.ProductID,
+		"localPersistenceStage":     e.LocalPersistenceStage,
+		"persistenceAttempts":       e.Attempts,
+		"postgresCode":              e.PostgresCode,
+		"transientPersistenceError": e.Transient,
+	}
+}
+
+func subscriptionOnlyPreflightReadError(route domain.TenantRouteContext, stage string, cause error) error {
+	transient, postgresCode := classifyTransientPersistenceError(cause)
+	return &SubscriptionOnlyLocalEvidenceError{
+		Outcome:               "provider_not_attempted",
+		TenantID:              route.TenantID,
+		ChannelID:             route.ChannelID,
+		LocalPersistenceStage: stage,
+		Attempts:              1,
+		PostgresCode:          postgresCode,
+		Transient:             transient,
+		cause:                 cause,
+	}
+}
+
+type blacklistLocalWriteError struct {
+	stage    string
+	attempts int
+	cause    error
+}
+
+func (e *blacklistLocalWriteError) Error() string { return "blacklist local persistence failed" }
+func (e *blacklistLocalWriteError) Unwrap() error { return e.cause }
+
+// SubscriptionOnlyProviderOutcomeUnknownError reports a single provider POST
+// whose result could not be established safely. Correlation fields exclude the
+// subscriber identifier while allowing later provider-side reconciliation.
+type SubscriptionOnlyProviderOutcomeUnknownError struct {
+	ExternalTransactionID string
+	TrackingID            string
+	ProviderRequestID     string
+	TenantID              string
+	ChannelID             string
+	ProductID             int
+	cause                 error
+}
+
+func (e *SubscriptionOnlyProviderOutcomeUnknownError) Error() string {
+	return "subscription-only provider outcome unknown"
+}
+
+func (e *SubscriptionOnlyProviderOutcomeUnknownError) Unwrap() error { return e.cause }
+
+func (e *SubscriptionOnlyProviderOutcomeUnknownError) SafeDetails() map[string]interface{} {
+	return map[string]interface{}{
+		"acceptedByProvider":    false,
+		"outcome":               "outcome_unknown",
+		"providerRequestId":     e.ProviderRequestID,
+		"externalTransactionId": e.ExternalTransactionID,
+		"trackingId":            e.TrackingID,
+		"tenantId":              e.TenantID,
+		"channelId":             e.ChannelID,
+		"productId":             e.ProductID,
+	}
+}
+
+func providerOutcomeUnknownError(req domain.MTRequest, externalTxID, providerRequestID string, cause error) error {
+	if !req.SubscriptionOnly {
+		return cause
+	}
+	return &SubscriptionOnlyProviderOutcomeUnknownError{
+		ExternalTransactionID: externalTxID,
+		TrackingID:            req.MoTransactionUUID,
+		ProviderRequestID:     providerRequestID,
+		TenantID:              req.TenantRoute.TenantID,
+		ChannelID:             req.TenantRoute.ChannelID,
+		ProductID:             req.ProductID,
+		cause:                 cause,
+	}
+}
 
 type timweOptinPayload struct {
 	UserIdentifier     string `json:"userIdentifier"`
@@ -149,6 +316,18 @@ type SubscriptionService struct {
 	renewalService     RenewalServiceInterface // Interface for renewal operations
 	msisdnValidator    *utils.MSISDNValidator  // MSISDN validation service
 	cleanupTicker      *time.Ticker            // Ticker for periodic cleanup
+}
+
+type tenantScopedExclusionReader interface {
+	IsExcludedUserForTenant(ctx context.Context, tenantID, msisdn string) (bool, error)
+}
+
+type tenantScopedBlacklistWriter interface {
+	UpsertBlacklistedUser(ctx context.Context, tenantID, msisdn string) error
+}
+
+type tenantScopedSubscriptionDeleter interface {
+	DeleteSubscriptionRecordsForTenant(ctx context.Context, tenantID, msisdn string) error
 }
 
 func NewSubscriptionService(logger *zap.Logger, repo repository.SubscriptionRepositoryInterface,
@@ -303,9 +482,12 @@ func (s *SubscriptionService) getProductsCached(productIds []string) ([]*domain.
 	return products, nil
 }
 
-func (s *SubscriptionService) ProcessOptin(req *domain.OptinRequest) error {
+func (s *SubscriptionService) ProcessOptin(req *domain.OptinRequest) (retErr error) {
 	defer func() {
 		if r := recover(); r != nil {
+			if req.SubscriptionOnly {
+				retErr = fmt.Errorf("subscription-only processing panicked")
+			}
 			s.logger.Error("PANIC RECOVERED in ProcessOptin",
 				zap.Any("panic_value", r),
 				zap.String("panic_type", fmt.Sprintf("%T", r)),
@@ -325,17 +507,50 @@ func (s *SubscriptionService) ProcessOptin(req *domain.OptinRequest) error {
 	var products []*domain.Product
 	var err error
 
-	// Check if MSISDN is excluded (Staff, Premier, or Blacklisted) and exclude from processing
-	isExcluded, err := s.UserBaseRepository.IsExcludedUser(req.Msisdn)
-	if err != nil {
-		s.logger.Error("Failed to check MSISDN type", zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)), zap.Error(err))
-		return fmt.Errorf("failed to check MSISDN type for %s: %w", req.Msisdn, err)
+	// Subscription-only execution must resolve the canonical tenant before an
+	// exclusion lookup. The legacy path remains global for compatibility.
+	if req.SubscriptionOnly {
+		providerCfg, routeErr := s.providerConfigForRoute(context.Background(), ChannelOperationMT, req.TenantRoute)
+		if routeErr != nil {
+			return routeErr
+		}
+		req.TenantRoute = canonicalTenantRoute(req.TenantRoute, providerCfg)
+		if req.TenantRoute.TenantID == "" || req.TenantRoute.ChannelID == "" {
+			return fmt.Errorf("subscription-only processing requires canonical tenant and channel IDs")
+		}
+		exclusionReader, ok := s.UserBaseRepository.(tenantScopedExclusionReader)
+		if !ok {
+			return fmt.Errorf("subscription-only tenant-scoped exclusion lookup is not supported")
+		}
+		isExcluded, exclusionErr := exclusionReader.IsExcludedUserForTenant(context.Background(), req.TenantRoute.TenantID, req.Msisdn)
+		if exclusionErr != nil {
+			return subscriptionOnlyPreflightReadError(req.TenantRoute, "tenant_exclusion_read", exclusionErr)
+		}
+		if isExcluded {
+			return fmt.Errorf("subscriber is excluded for tenant and cannot be processed for opt-in")
+		}
+	} else {
+		isExcluded, exclusionErr := s.UserBaseRepository.IsExcludedUser(req.Msisdn)
+		if exclusionErr != nil {
+			s.logger.Error("Failed to check MSISDN type", zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)), zap.Error(exclusionErr))
+			return fmt.Errorf("failed to check MSISDN type for %s: %w", req.Msisdn, exclusionErr)
+		}
+
+		if isExcluded {
+			s.logger.Info("MSISDN is excluded type (Staff/Premier/Blacklisted), excluding from optin processing",
+				zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)))
+			return fmt.Errorf("MSISDN %s is excluded type and cannot be processed for optin", req.Msisdn)
+		}
 	}
 
-	if isExcluded {
-		s.logger.Info("MSISDN is excluded type (Staff/Premier/Blacklisted), excluding from optin processing",
-			zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)))
-		return fmt.Errorf("MSISDN %s is excluded type and cannot be processed for optin", req.Msisdn)
+	if req.SubscriptionOnly {
+		invalid, err := s.UserBaseRepository.GetInvalidMSISDNSFast(context.Background(), req.Msisdn)
+		if err != nil {
+			return subscriptionOnlyPreflightReadError(req.TenantRoute, "invalid_msisdn_registry_read", err)
+		}
+		if invalid {
+			return &domain.MTResponseError{Code: SubscriptionResultInvalidMsisdn, Message: "MSISDN is already recorded as invalid"}
+		}
 	}
 
 	// Fetch products from cache to avoid per-call DB lookups
@@ -354,9 +569,12 @@ func (s *SubscriptionService) ProcessOptin(req *domain.OptinRequest) error {
 }
 
 // processOptinForProduct handles the optin process for a single product with retry logic
-func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, product *domain.Product) error {
+func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, product *domain.Product) (retErr error) {
 	defer func() {
 		if r := recover(); r != nil {
+			if req.SubscriptionOnly {
+				retErr = fmt.Errorf("subscription-only processing panicked")
+			}
 			s.logger.Error("PANIC RECOVERED in processOptinForProduct",
 				zap.Any("panic_value", r),
 				zap.String("panic_type", fmt.Sprintf("%T", r)),
@@ -419,6 +637,7 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 
 	// First attempt with original entry channel
 	mtReq := domain.MTRequest{
+		SubscriptionOnly:   req.SubscriptionOnly,
 		ProductID:          productId,
 		PricepointID:       product.PricePointId,
 		UserIdentifier:     req.Msisdn,
@@ -437,11 +656,64 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 		TenantRoute:        req.TenantRoute,
 	}
 
+	subscriptionPartnerRoleID := 0
+	if req.SubscriptionOnly {
+		if strings.TrimSpace(req.EntryChannel) == "" || strings.EqualFold(strings.TrimSpace(req.EntryChannel), "SMS") {
+			return fmt.Errorf("subscription-only processing requires a non-SMS entry channel")
+		}
+		providerCfg, err := s.providerConfigForRoute(context.Background(), ChannelOperationMT, req.TenantRoute)
+		if err != nil {
+			return err
+		}
+		mtReq.TenantRoute = canonicalTenantRoute(req.TenantRoute, providerCfg)
+		if mtReq.TenantRoute.TenantID == "" || mtReq.TenantRoute.ChannelID == "" {
+			return fmt.Errorf("subscription-only processing requires canonical tenant and channel IDs")
+		}
+		subscriptionPartnerRoleID, err = strconv.Atoi(providerCfg.PartnerRoleID)
+		if err != nil {
+			return fmt.Errorf("invalid provider partner role ID")
+		}
+	}
+
 	realm := s.config.Application.TIMWE.Realm
 	response, err := s.SendMT(mtReq, realm, req.EntryChannel)
 	if err != nil {
 		s.logger.Error("Error sending MT for msisdn", zap.String("msisdn", pii.MaskMSISDN(req.Msisdn)), zap.Error(err))
 		return err
+	}
+
+	if req.SubscriptionOnly {
+		if response == nil || response.Code != ResponseCodeSuccess {
+			return fmt.Errorf("subscription-only opt-in did not return SUCCESS")
+		}
+		result, resultOK := response.ResponseData["subscriptionResult"].(string)
+		if result != SubscriptionResultOptinAlreadyActive && result != SubscriptionResultOptinActiveWaitCharging {
+			cause := fmt.Errorf("subscription-only SUCCESS response has missing or unsupported subscription result")
+			if resultOK {
+				cause = fmt.Errorf("subscription-only SUCCESS response has unsupported subscription result")
+			}
+			return providerOutcomeUnknownError(mtReq, response.ExternalTxID, response.RequestID, cause)
+		}
+		providerAcceptedAt := time.Now().UTC()
+		transactionID, err := s.getTransactionID(response)
+		if err != nil {
+			return &AcceptedSubscriptionPersistenceError{
+				ProviderRequestID:     response.RequestID,
+				ExternalTransactionID: response.ExternalTxID,
+				TrackingID:            mtReq.MoTransactionUUID,
+				ProviderAcceptedAt:    providerAcceptedAt,
+				FailureStage:          "provider_transaction_id",
+				TenantID:              mtReq.TenantRoute.TenantID,
+				ChannelID:             mtReq.TenantRoute.ChannelID,
+				ProductID:             mtReq.ProductID,
+				SubscriptionResult:    result,
+				cause:                 err,
+			}
+		}
+		request := domain.MapMTRequestToSubscriptionRequest(mtReq, transactionID, subscriptionPartnerRoleID, "INTERNAL", "INTERNAL")
+		// Persist directly with the resolved route. Do not enter renewal,
+		// charging, confirmation or SMS follow-up handlers.
+		return s.persistAcceptedSubscription(&request, response, mtReq, result, providerAcceptedAt)
 	}
 
 	// Check if we need to retry with SMS entry channel
@@ -532,6 +804,100 @@ func (s *SubscriptionService) processOptinForProduct(req *domain.OptinRequest, p
 			zap.String("requestId", response.RequestID))
 	}
 	return nil
+}
+
+func (s *SubscriptionService) persistAcceptedSubscription(
+	request *domain.SubscriptionRequest,
+	response *domain.MTResponse,
+	mtReq domain.MTRequest,
+	subscriptionResult string,
+	providerAcceptedAt time.Time,
+) error {
+	trackingID := ""
+	if request.TrackingId != nil {
+		trackingID = *request.TrackingId
+	}
+	var persistenceErr error
+	for attempt := 1; attempt <= subscriptionPersistenceMaxAttempts; attempt++ {
+		persistenceErr = s.repo.CreateSubscription(request)
+		if persistenceErr == nil {
+			return nil
+		}
+
+		transient, postgresCode := classifyTransientPersistenceError(persistenceErr)
+		if !transient || attempt == subscriptionPersistenceMaxAttempts {
+			return &AcceptedSubscriptionPersistenceError{
+				ProviderRequestID:     response.RequestID,
+				ProviderTransactionID: request.TransactionId,
+				ExternalTransactionID: response.ExternalTxID,
+				TrackingID:            trackingID,
+				ProviderAcceptedAt:    providerAcceptedAt,
+				FailureStage:          "subscription_upsert",
+				TenantID:              mtReq.TenantRoute.TenantID,
+				ChannelID:             mtReq.TenantRoute.ChannelID,
+				ProductID:             mtReq.ProductID,
+				SubscriptionResult:    subscriptionResult,
+				Attempts:              attempt,
+				PostgresCode:          postgresCode,
+				Transient:             transient,
+				cause:                 persistenceErr,
+			}
+		}
+
+		s.logger.Warn("Retrying local subscription persistence after transient PostgreSQL failure",
+			zap.String("providerRequestId", response.RequestID),
+			zap.String("providerTransactionId", request.TransactionId),
+			zap.String("externalTransactionId", response.ExternalTxID),
+			zap.String("trackingId", trackingID),
+			zap.Time("providerAcceptedAt", providerAcceptedAt),
+			zap.String("tenantId", mtReq.TenantRoute.TenantID),
+			zap.String("channelId", mtReq.TenantRoute.ChannelID),
+			zap.Int("productId", mtReq.ProductID),
+			zap.String("postgresCode", postgresCode),
+			zap.Int("attempt", attempt),
+			zap.Int("maxAttempts", subscriptionPersistenceMaxAttempts))
+
+		time.Sleep(subscriptionPersistenceBaseDelay * time.Duration(attempt))
+	}
+
+	return &AcceptedSubscriptionPersistenceError{
+		ProviderRequestID:     response.RequestID,
+		ProviderTransactionID: request.TransactionId,
+		ExternalTransactionID: response.ExternalTxID,
+		TrackingID:            trackingID,
+		ProviderAcceptedAt:    providerAcceptedAt,
+		FailureStage:          "subscription_upsert",
+		TenantID:              mtReq.TenantRoute.TenantID,
+		ChannelID:             mtReq.TenantRoute.ChannelID,
+		ProductID:             mtReq.ProductID,
+		SubscriptionResult:    subscriptionResult,
+		Attempts:              subscriptionPersistenceMaxAttempts,
+		PostgresCode:          postgresCodeOf(persistenceErr),
+		Transient:             true,
+		cause:                 persistenceErr,
+	}
+}
+
+func classifyTransientPersistenceError(err error) (bool, string) {
+	code := postgresCodeOf(err)
+	if code == "40001" || code == "40P01" || code == "55P03" || code == "57P03" ||
+		code == "53300" || code == "53400" || strings.HasPrefix(code, "08") {
+		return true, code
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		// The tenant-scoped upsert is idempotent, so retrying an ambiguous local
+		// timeout cannot create a second subscription or repeat the TIMWE call.
+		return true, code
+	}
+	return false, code
+}
+
+func postgresCodeOf(err error) string {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		return string(pqErr.Code)
+	}
+	return ""
 }
 
 // shouldRetryWithSMS checks if the response indicates OPTIN_CONFIG_NOT_FOUND and should trigger SMS retry
@@ -770,6 +1136,13 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 		return nil, err
 	}
 	reqData.TenantRoute = canonicalTenantRoute(reqData.TenantRoute, providerCfg)
+	if reqData.SubscriptionOnly {
+		reqData.ProviderPartnerRoleID, err = strconv.Atoi(providerCfg.PartnerRoleID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid provider partner role ID")
+		}
+	}
+
 	authKey, err := providerCfg.AuthKey()
 	if err != nil {
 		s.logger.Error("failed to resolve auth key", zap.Error(err))
@@ -797,7 +1170,11 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 		return nil, err
 	}
 
-	resp, callErr := s.sendMTWithRetry(reqData, url, providerCfg.APIKey, authKey, requestBody, 3)
+	maxAttempts := 3
+	if reqData.SubscriptionOnly {
+		maxAttempts = 1
+	}
+	resp, callErr := s.sendMTWithRetry(reqData, url, providerCfg.APIKey, authKey, requestBody, maxAttempts)
 	success := callErr == nil || s.isNonBreakerError(callErr)
 	done(success)
 	if callErr != nil {
@@ -810,7 +1187,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 	}
 
 	// Check if we need to retry with SMS entry channel for OPTIN_CONFIG_NOT_FOUND
-	if s.shouldRetryWithSMS(resp) {
+	if !reqData.SubscriptionOnly && s.shouldRetryWithSMS(resp) {
 		s.logger.Info("OPTIN_CONFIG_NOT_FOUND detected in SendMT, retrying with SMS entry channel",
 			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 			zap.String("originalChannel", channel))
@@ -849,7 +1226,12 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 // Classify errors that should NOT count toward breaker failures
 func (s *SubscriptionService) isNonBreakerError(err error) bool {
 	// Treat domain-level MTResponseError and 4xx as non-breaker failures
-	if _, ok := err.(*domain.MTResponseError); ok {
+	var mtErr *domain.MTResponseError
+	if errors.As(err, &mtErr) {
+		return true
+	}
+	var localEvidenceErr *SubscriptionOnlyLocalEvidenceError
+	if errors.As(err, &localEvidenceErr) {
 		return true
 	}
 	// Additionally, unwrap specific HTTP status-based errors we generate
@@ -889,9 +1271,6 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 	baseDelay := 200 * time.Millisecond
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Create context with timeout for this request
-		ctx, cancel := context.WithTimeout(context.Background(), s.config.Application.TIMWE.Timeout)
-
 		req := fasthttp.AcquireRequest()
 		res := fasthttp.AcquireResponse()
 		externalTxID := uuid.New().String()
@@ -912,72 +1291,48 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 		req.Header.Set("Accept", "*/*")
 		req.SetBody(requestBody)
 
-		// Send request with context timeout
-		requestDone := make(chan error, 1)
-		go func() {
-			select {
-			case requestDone <- s.client.Do(req, res):
-			case <-ctx.Done():
-				// Context was cancelled, don't block
-				select {
-				case requestDone <- ctx.Err():
-				default:
-				}
-			}
-		}()
-
-		// Wait for request completion or timeout
-		select {
-		case err := <-requestDone:
-			// Request completed
-			if err != nil {
-				s.logger.Warn("Failed to send request",
-					zap.Int("attempt", attempt),
-					zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
-					zap.Error(err))
-
-				if attempt == maxRetries {
-					return nil, fmt.Errorf("failed to subscribe user after %d attempts: %v", maxRetries, err)
-				}
-
-				// Exponential backoff for network errors
-				delay := time.Duration(math.Pow(2, float64(attempt-1))) * baseDelay
-				time.Sleep(delay)
-				continue
-			}
-		case <-ctx.Done():
-			// Context timeout or cancellation
-			cancel()
-
-			if attempt == maxRetries {
-				return nil, fmt.Errorf("request timeout after %d attempts: %v", maxRetries, ctx.Err())
-			}
-
-			s.logger.Warn("Request timeout, retrying",
+		// DoTimeout is synchronous, so pooled request/response objects cannot be
+		// released while the client still owns them.
+		if err := s.client.DoTimeout(req, res, s.config.Application.TIMWE.Timeout); err != nil {
+			s.logger.Warn("Failed to send request",
 				zap.Int("attempt", attempt),
 				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
-				zap.Error(ctx.Err()))
+				zap.Error(err))
 
-			// Exponential backoff for timeout errors
+			if attempt == maxRetries {
+				cause := fmt.Errorf("failed to subscribe user after %d attempts: %w", maxRetries, err)
+				return nil, providerOutcomeUnknownError(reqData, externalTxID, "", cause)
+			}
+
+			// Exponential backoff for network errors
 			delay := time.Duration(math.Pow(2, float64(attempt-1))) * baseDelay
 			time.Sleep(delay)
 			continue
 		}
 
-		// Clean up context
-		cancel()
-
 		// Check HTTP status code
 		if res.StatusCode() != fasthttp.StatusOK {
-			s.logger.Error("MT request failed with non-200 status",
-				zap.Int("attempt", attempt),
-				zap.Int("statusCode", res.StatusCode()),
-				zap.String("responseBody", string(res.Body())),
-				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
-				zap.String("url", url))
+			if reqData.SubscriptionOnly {
+				s.logger.Error("MT request failed with non-200 status",
+					zap.Int("attempt", attempt),
+					zap.Int("statusCode", res.StatusCode()),
+					zap.String("externalTransactionId", externalTxID),
+					zap.String("trackingId", reqData.MoTransactionUUID),
+					zap.String("tenantId", reqData.TenantRoute.TenantID),
+					zap.String("channelId", reqData.TenantRoute.ChannelID),
+					zap.Int("productId", reqData.ProductID))
+			} else {
+				s.logger.Error("MT request failed with non-200 status",
+					zap.Int("attempt", attempt),
+					zap.Int("statusCode", res.StatusCode()),
+					zap.String("responseBody", string(res.Body())),
+					zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
+					zap.String("url", url))
+			}
 
 			if attempt == maxRetries {
-				return nil, fmt.Errorf("subscription request failed with status code: %d", res.StatusCode())
+				cause := fmt.Errorf("subscription request failed with status code: %d", res.StatusCode())
+				return nil, providerOutcomeUnknownError(reqData, externalTxID, "", cause)
 			}
 
 			// Exponential backoff for HTTP errors
@@ -995,7 +1350,8 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 				zap.Error(err))
 
 			if attempt == maxRetries {
-				return nil, fmt.Errorf("failed to parse response: %v", err)
+				cause := fmt.Errorf("failed to parse response: %w", err)
+				return nil, providerOutcomeUnknownError(reqData, externalTxID, "", cause)
 			}
 
 			// Exponential backoff for parsing errors
@@ -1003,15 +1359,28 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 			time.Sleep(delay)
 			continue
 		}
+		mtResponse.ExternalTxID = externalTxID
 
-		// Log the raw response for debugging
-		s.logger.Info("MT API response received",
-			zap.Int("attempt", attempt),
-			zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
-			zap.String("code", mtResponse.Code),
-			zap.Bool("inError", mtResponse.InError),
-			zap.String("requestId", mtResponse.RequestID),
-			zap.Any("responseData", mtResponse.ResponseData))
+		if reqData.SubscriptionOnly {
+			s.logger.Info("MT API response received",
+				zap.Int("attempt", attempt),
+				zap.String("code", mtResponse.Code),
+				zap.String("requestId", mtResponse.RequestID),
+				zap.String("externalTransactionId", externalTxID),
+				zap.String("trackingId", reqData.MoTransactionUUID),
+				zap.String("tenantId", reqData.TenantRoute.TenantID),
+				zap.String("channelId", reqData.TenantRoute.ChannelID),
+				zap.Int("productId", reqData.ProductID))
+		} else {
+			// Preserve legacy diagnostics outside the subscription-only path.
+			s.logger.Info("MT API response received",
+				zap.Int("attempt", attempt),
+				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
+				zap.String("code", mtResponse.Code),
+				zap.Bool("inError", mtResponse.InError),
+				zap.String("requestId", mtResponse.RequestID),
+				zap.Any("responseData", mtResponse.ResponseData))
+		}
 
 		// Check for INTERNAL_ERROR and retry if needed
 		if mtResponse.Code == ResponseCodeInternalError {
@@ -1024,7 +1393,8 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 				s.logger.Error("MT request failed with internal error after all retries",
 					zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 					zap.String("requestId", mtResponse.RequestID))
-				return nil, fmt.Errorf("MT request failed with internal error after %d attempts: requestId=%s", maxRetries, mtResponse.RequestID)
+				cause := fmt.Errorf("MT request failed with internal error after %d attempts: requestId=%s", maxRetries, mtResponse.RequestID)
+				return nil, providerOutcomeUnknownError(reqData, externalTxID, mtResponse.RequestID, cause)
 			}
 
 			// Exponential backoff for INTERNAL_ERROR
@@ -1037,6 +1407,16 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 			continue
 		}
 
+		if mtResponse.ResponseData == nil && mtResponse.Code == SubscriptionResultInvalidMsisdn {
+			mtResponse.ResponseData = map[string]interface{}{}
+		}
+		// Retain the exact provider-request id even when the provider omits it
+		// from responseData. Downstream notification handoffs use this value to
+		// deduplicate against a delayed callback for the same opt-in request.
+		if responseExternalTxID, ok := mtResponse.ResponseData["externalTxId"].(string); mtResponse.ResponseData != nil && (!ok || strings.TrimSpace(responseExternalTxID) == "") {
+			mtResponse.ResponseData["externalTxId"] = externalTxID
+		}
+
 		// Validate and handle different response scenarios
 		if err := s.validateMTResponse(&mtResponse, reqData); err != nil {
 			s.logger.Error("MT response validation failed",
@@ -1045,12 +1425,6 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 				zap.Error(err))
 
 			return nil, err
-		}
-		// Retain the exact provider-request id even when the provider omits it
-		// from responseData. Downstream notification handoffs use this value to
-		// deduplicate against a delayed callback for the same opt-in request.
-		if responseExternalTxID, ok := mtResponse.ResponseData["externalTxId"].(string); !ok || strings.TrimSpace(responseExternalTxID) == "" {
-			mtResponse.ResponseData["externalTxId"] = externalTxID
 		}
 
 		// Handle different response codes
@@ -1078,17 +1452,27 @@ func (s *SubscriptionService) sendMTWithRetry(reqData domain.MTRequest, url, api
 func (s *SubscriptionService) validateMTResponse(response *domain.MTResponse, mtReq domain.MTRequest) error {
 	// Check if response data exists
 	if response.ResponseData == nil {
+		if mtReq.SubscriptionOnly && response.Code == ResponseCodeSuccess {
+			return providerOutcomeUnknownError(mtReq, response.ExternalTxID, response.RequestID,
+				fmt.Errorf("subscription-only SUCCESS response data is missing"))
+		}
 		return fmt.Errorf("response data is nil")
 	}
 
 	// Detect and log INVALID_MSISDN responses (non-blocking)
-	partnerRoleID, err := strconv.Atoi(s.config.Application.TIMWE.PartnerRoleID)
+	partnerRoleID := mtReq.ProviderPartnerRoleID
+	var err error
+	if partnerRoleID == 0 {
+		partnerRoleID, err = strconv.Atoi(s.config.Application.TIMWE.PartnerRoleID)
+	}
 	if err != nil {
 		s.logger.Error("Failed to parse partner role ID", zap.Int("partnerRoleID", partnerRoleID), zap.Error(err))
 		return fmt.Errorf("invalid partner role ID: %w", err)
 	}
 
-	s.detectAndLogInvalidMSISDN(response, mtReq, partnerRoleID)
+	if err := s.detectAndLogInvalidMSISDN(response, mtReq, partnerRoleID); err != nil {
+		return err
+	}
 
 	// Handle BLACKLISTED responses by adding user to blacklist and removing subscriptions
 	if response.Code == ResponseCodeBlacklisted {
@@ -1096,8 +1480,33 @@ func (s *SubscriptionService) validateMTResponse(response *domain.MTResponse, mt
 			zap.String("msisdn", pii.MaskMSISDN(mtReq.UserIdentifier)),
 			zap.String("requestId", response.RequestID))
 
-		// Enhanced: Process blacklisted user handling asynchronously for better performance
-		go s.handleBlacklistedUserEnhanced(mtReq.UserIdentifier, mtReq.ProductID, response.RequestID, partnerRoleID, response)
+		if mtReq.SubscriptionOnly {
+			if err := s.handleBlacklistedUserEnhanced(mtReq.TenantRoute.TenantID, mtReq.UserIdentifier, mtReq.ProductID, response.RequestID, partnerRoleID, response); err != nil {
+				localErr := &blacklistLocalWriteError{stage: "blacklist_registry", attempts: 1, cause: err}
+				var classified *blacklistLocalWriteError
+				if errors.As(err, &classified) {
+					localErr = classified
+				}
+				transient, postgresCode := classifyTransientPersistenceError(localErr)
+				return &SubscriptionOnlyLocalEvidenceError{
+					ProviderCode:          ResponseCodeBlacklisted,
+					ProviderRequestID:     response.RequestID,
+					ExternalTransactionID: response.ExternalTxID,
+					TrackingID:            mtReq.MoTransactionUUID,
+					TenantID:              mtReq.TenantRoute.TenantID,
+					ChannelID:             mtReq.TenantRoute.ChannelID,
+					ProductID:             mtReq.ProductID,
+					LocalPersistenceStage: localErr.stage,
+					Attempts:              localErr.attempts,
+					PostgresCode:          postgresCode,
+					Transient:             transient,
+					cause:                 localErr,
+				}
+			}
+		} else {
+			// Preserve legacy asynchronous local processing outside subscription-only.
+			go s.handleBlacklistedUserEnhanced(mtReq.TenantRoute.TenantID, mtReq.UserIdentifier, mtReq.ProductID, response.RequestID, partnerRoleID, response)
+		}
 
 		// Return error to indicate the operation failed
 		return &domain.MTResponseError{
@@ -1129,6 +1538,12 @@ func (s *SubscriptionService) validateMTResponse(response *domain.MTResponse, mt
 			Message: response.Message,
 			Details: response.ResponseData,
 		}
+	}
+	// Subscription-only classifies every SUCCESS payload at the orchestration
+	// boundary, where the exact outbound correlations and acceptance time are
+	// available for a durable failure receipt.
+	if mtReq.SubscriptionOnly {
+		return nil
 	}
 
 	// Check subscription result
@@ -1403,7 +1818,7 @@ func (s *SubscriptionService) getTransactionID(response *domain.MTResponse) (str
 }
 
 // Helper method to detect and log INVALID_MSISDN responses
-func (s *SubscriptionService) detectAndLogInvalidMSISDN(response *domain.MTResponse, mtReq domain.MTRequest, partnerId int) {
+func (s *SubscriptionService) detectAndLogInvalidMSISDN(response *domain.MTResponse, mtReq domain.MTRequest, partnerId int) error {
 	// Check if the response indicates INVALID_MSISDN
 	isInvalidMSISDN := false
 	subscriptionResult := ""
@@ -1458,16 +1873,56 @@ func (s *SubscriptionService) detectAndLogInvalidMSISDN(response *domain.MTRespo
 			CreatedAt:          time.Now(),
 		}
 
-		// Save to database (non-blocking)
-		if err := s.repo.CreateInvalidMSISDNLog(logEntry); err != nil {
+		if tx, ok := response.ResponseData["externalTxId"].(string); ok && tx != "" {
+			logEntry.ExternalTxID = tx
+		}
+		if tx, ok := response.ResponseData["transactionId"].(string); ok {
+			logEntry.TransactionID = tx
+		}
+		// Persist before the invalid result is returned to the batch worker.
+		var persistenceErr error
+		maxAttempts := 1
+		if mtReq.SubscriptionOnly {
+			maxAttempts = subscriptionPersistenceMaxAttempts
+		}
+		for attempt := 1; attempt <= maxAttempts; attempt++ {
+			persistenceErr = s.repo.CreateInvalidMSISDNLog(logEntry)
+			if persistenceErr == nil {
+				break
+			}
+			transient, postgresCode := classifyTransientPersistenceError(persistenceErr)
+			if mtReq.SubscriptionOnly && (!transient || attempt == maxAttempts) {
+				return &SubscriptionOnlyLocalEvidenceError{
+					ProviderCode:          SubscriptionResultInvalidMsisdn,
+					ProviderRequestID:     response.RequestID,
+					ExternalTransactionID: response.ExternalTxID,
+					TrackingID:            mtReq.MoTransactionUUID,
+					TenantID:              mtReq.TenantRoute.TenantID,
+					ChannelID:             mtReq.TenantRoute.ChannelID,
+					ProductID:             mtReq.ProductID,
+					LocalPersistenceStage: "invalid_msisdn_registry",
+					Attempts:              attempt,
+					PostgresCode:          postgresCode,
+					Transient:             transient,
+					cause:                 persistenceErr,
+				}
+			}
+			if mtReq.SubscriptionOnly {
+				time.Sleep(subscriptionPersistenceBaseDelay * time.Duration(attempt))
+			}
+		}
+		if persistenceErr != nil && !mtReq.SubscriptionOnly {
 			s.logger.Error("Failed to save invalid MSISDN log",
 				zap.String("msisdn", pii.MaskMSISDN(mtReq.UserIdentifier)),
-				zap.Error(err))
+				zap.Error(persistenceErr))
 		}
 
 		// Enhanced: Process cleanup asynchronously for better performance
-		go s.handleInvalidMSISDNCleanup(mtReq.UserIdentifier, mtReq.ProductID, response.RequestID)
+		if !mtReq.SubscriptionOnly {
+			go s.handleInvalidMSISDNCleanup(mtReq.UserIdentifier, mtReq.ProductID, response.RequestID)
+		}
 	}
+	return nil
 }
 
 // handleInvalidMSISDNCleanup handles the cleanup of invalid MSISDN subscriptions asynchronously
@@ -3025,67 +3480,6 @@ func (s *SubscriptionService) GetRepository() repository.SubscriptionRepositoryI
 	return s.repo
 }
 
-// handleBlacklistedUser adds a user to the blacklist and removes their subscriptions
-func (s *SubscriptionService) handleBlacklistedUser(msisdn string, response *domain.MTResponse) error {
-	s.logger.Info("Processing BLACKLISTED user",
-		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
-		zap.String("requestId", response.RequestID))
-
-	// Add user to blacklist in userbase
-	if err := s.addUserToBlacklist(msisdn); err != nil {
-		s.logger.Error("Failed to add user to blacklist",
-			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
-			zap.Error(err))
-		return fmt.Errorf("failed to add user to blacklist: %w", err)
-	}
-
-	// Remove user's subscriptions
-	if err := s.removeUserSubscriptions(msisdn); err != nil {
-		s.logger.Error("Failed to remove user subscriptions",
-			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
-			zap.Error(err))
-		return fmt.Errorf("failed to remove user subscriptions: %w", err)
-	}
-
-	s.logger.Info("Successfully processed BLACKLISTED user",
-		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
-		zap.String("requestId", response.RequestID))
-
-	return nil
-}
-
-// addUserToBlacklist adds a user to the blacklist in the userbase
-func (s *SubscriptionService) addUserToBlacklist(msisdn string) error {
-	// Create blacklist user record
-	blacklistUser := &domain.UserBase{
-		Msisdn: msisdn,
-		Type:   "BLACKLISTED",
-	}
-
-	// Insert or update the user in userbase
-	if err := s.UserBaseRepository.InsertUserRecords(context.Background(), []*domain.UserBase{blacklistUser}); err != nil {
-		return fmt.Errorf("failed to insert blacklisted user: %w", err)
-	}
-
-	s.logger.Info("Successfully added user to blacklist",
-		zap.String("msisdn", pii.MaskMSISDN(msisdn)))
-
-	return nil
-}
-
-// removeUserSubscriptions removes all subscriptions for a blacklisted user
-func (s *SubscriptionService) removeUserSubscriptions(msisdn string) error {
-	// Use the existing DeleteSubscriptionRecord method to remove all subscriptions
-	if err := s.repo.DeleteSubscriptionRecord(msisdn); err != nil {
-		return fmt.Errorf("failed to delete subscription records: %w", err)
-	}
-
-	s.logger.Info("Successfully removed all subscriptions for blacklisted user",
-		zap.String("msisdn", pii.MaskMSISDN(msisdn)))
-
-	return nil
-}
-
 // Stop gracefully shuts down the subscription service
 func (s *SubscriptionService) Stop() {
 	s.logger.Info("Stopping subscription service...")
@@ -3106,8 +3500,8 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-// handleBlacklistedUserEnhanced handles the enhanced processing of blacklisted users asynchronously
-func (s *SubscriptionService) handleBlacklistedUserEnhanced(msisdn string, productId int, requestID string, partnerId int, response *domain.MTResponse) {
+// handleBlacklistedUserEnhanced performs tenant-scoped blacklist persistence.
+func (s *SubscriptionService) handleBlacklistedUserEnhanced(tenantID, msisdn string, productId int, requestID string, partnerId int, response *domain.MTResponse) error {
 	startTime := time.Now()
 	success := false
 	defer func() {
@@ -3129,19 +3523,19 @@ func (s *SubscriptionService) handleBlacklistedUserEnhanced(msisdn string, produ
 	}()
 
 	// Step 1: Add user to blacklist in userbase with retry logic
-	if err := s.addUserToBlacklistWithRetry(msisdn, productId, requestID, partnerId, response); err != nil {
+	if err := s.addUserToBlacklistWithRetry(tenantID, msisdn, productId, requestID, partnerId, response); err != nil {
 		s.logger.Error("Failed to add user to blacklist with retry",
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
-			zap.Error(err))
-		return
+			zap.String("postgresCode", postgresCodeOf(err)))
+		return err
 	}
 
 	// Step 2: Check if user has subscriptions and remove them with retry logic
-	if err := s.removeUserSubscriptionsWithRetry(msisdn); err != nil {
+	if err := s.removeUserSubscriptionsWithRetry(tenantID, msisdn); err != nil {
 		s.logger.Error("Failed to remove user subscriptions with retry",
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
-			zap.Error(err))
-		return
+			zap.String("postgresCode", postgresCodeOf(err)))
+		return err
 	}
 
 	// Step 3: Create audit log entry
@@ -3156,24 +3550,27 @@ func (s *SubscriptionService) handleBlacklistedUserEnhanced(msisdn string, produ
 	s.logger.Info("Successfully processed enhanced BLACKLISTED user",
 		zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 		zap.String("requestId", requestID))
+	return nil
 }
 
 // addUserToBlacklistWithRetry adds a user to the blacklist with retry logic
-func (s *SubscriptionService) addUserToBlacklistWithRetry(msisdn string, productId int, requestID string, partnerId int, response *domain.MTResponse) error {
+func (s *SubscriptionService) addUserToBlacklistWithRetry(tenantID, msisdn string, productId int, requestID string, partnerId int, response *domain.MTResponse) error {
 	maxRetries := 3
+	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		if err := s.addUserToBlacklistEnhanced(msisdn, productId, requestID, partnerId, response); err == nil {
+		if err := s.addUserToBlacklistEnhanced(tenantID, msisdn, productId, requestID, partnerId, response); err == nil {
 			s.logger.Info("Successfully added user to blacklist",
 				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("attempt", attempt))
 			return nil
 		} else {
+			lastErr = err
 			// Log retry attempt
 			s.logger.Warn("Failed to add user to blacklist, retrying",
 				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("attempt", attempt),
 				zap.Int("maxRetries", maxRetries),
-				zap.Error(err))
+				zap.String("postgresCode", postgresCodeOf(err)))
 
 			// Wait before retry with exponential backoff
 			if attempt < maxRetries {
@@ -3183,20 +3580,17 @@ func (s *SubscriptionService) addUserToBlacklistWithRetry(msisdn string, product
 		}
 	}
 
-	return fmt.Errorf("failed to add user to blacklist after %d retries", maxRetries)
+	return &blacklistLocalWriteError{stage: "blacklist_registry", attempts: maxRetries, cause: lastErr}
 }
 
 // addUserToBlacklistEnhanced adds a user to the blacklist with enhanced logging and metadata
-func (s *SubscriptionService) addUserToBlacklistEnhanced(msisdn string, productId int, requestID string, partnerId int, response *domain.MTResponse) error {
-	// Create enhanced blacklist user record
-	blacklistUser := &domain.UserBase{
-		Msisdn: msisdn,
-		Type:   "BLACKLISTED",
+func (s *SubscriptionService) addUserToBlacklistEnhanced(tenantID, msisdn string, productId int, requestID string, partnerId int, response *domain.MTResponse) error {
+	blacklistWriter, ok := s.UserBaseRepository.(tenantScopedBlacklistWriter)
+	if !ok {
+		return fmt.Errorf("tenant-scoped blacklist persistence is not supported")
 	}
-
-	// Insert or update the user in userbase
-	if err := s.UserBaseRepository.InsertUserRecords(context.Background(), []*domain.UserBase{blacklistUser}); err != nil {
-		return fmt.Errorf("failed to insert blacklisted user: %w", err)
+	if err := blacklistWriter.UpsertBlacklistedUser(context.Background(), tenantID, msisdn); err != nil {
+		return fmt.Errorf("failed to upsert tenant-scoped blacklisted user: %w", err)
 	}
 
 	s.logger.Info("Successfully added user to blacklist (enhanced)",
@@ -3209,21 +3603,27 @@ func (s *SubscriptionService) addUserToBlacklistEnhanced(msisdn string, productI
 }
 
 // removeUserSubscriptionsWithRetry removes user subscriptions with retry logic
-func (s *SubscriptionService) removeUserSubscriptionsWithRetry(msisdn string) error {
+func (s *SubscriptionService) removeUserSubscriptionsWithRetry(tenantID, msisdn string) error {
+	deleter, ok := s.repo.(tenantScopedSubscriptionDeleter)
+	if !ok {
+		return fmt.Errorf("tenant-scoped subscription cleanup is not supported")
+	}
 	maxRetries := 3
+	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		if err := s.repo.DeleteSubscriptionRecord(msisdn); err == nil {
+		if err := deleter.DeleteSubscriptionRecordsForTenant(context.Background(), tenantID, msisdn); err == nil {
 			s.logger.Info("Successfully removed user subscriptions",
 				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("attempt", attempt))
 			return nil
 		} else {
+			lastErr = err
 			// Log retry attempt
 			s.logger.Warn("Failed to remove user subscriptions, retrying",
 				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("attempt", attempt),
 				zap.Int("maxRetries", maxRetries),
-				zap.Error(err))
+				zap.String("postgresCode", postgresCodeOf(err)))
 
 			// Wait before retry with exponential backoff
 			if attempt < maxRetries {
@@ -3233,7 +3633,7 @@ func (s *SubscriptionService) removeUserSubscriptionsWithRetry(msisdn string) er
 		}
 	}
 
-	return fmt.Errorf("failed to remove user subscriptions after %d retries", maxRetries)
+	return &blacklistLocalWriteError{stage: "subscription_cleanup", attempts: maxRetries, cause: lastErr}
 }
 
 // createBlacklistedUserAuditLog creates an audit log entry for blacklisted user operations
@@ -3311,6 +3711,7 @@ func (s *SubscriptionService) BatchHandleBlacklistedUsers(responses []*domain.MT
 			defer func() { <-semaphore }() // Release semaphore
 
 			s.handleBlacklistedUserEnhanced(
+				request.TenantRoute.TenantID,
 				request.UserIdentifier,
 				request.ProductID,
 				response.RequestID,
