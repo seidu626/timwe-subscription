@@ -17,12 +17,23 @@ import (
 )
 
 type jobStatus struct {
-	ID         string `json:"id"`
-	Processed  int    `json:"processed"`
-	State      string `json:"state"`
-	Total      int    `json:"total"`
-	Successful int    `json:"successful"`
-	Failed     int    `json:"failed"`
+	ID         string                    `json:"id"`
+	Processed  int                       `json:"processed"`
+	State      string                    `json:"state"`
+	Total      int                       `json:"total"`
+	Successful int                       `json:"successful"`
+	Failed     int                       `json:"failed"`
+	Failures   []domain.BatchItemFailure `json:"failures,omitempty"`
+}
+
+const maxAPIResponseBytes = 16 << 20
+
+type batchReceipt struct {
+	Version     int       `json:"version"`
+	Fingerprint string    `json:"fingerprint"`
+	Start       int       `json:"start_index"`
+	End         int       `json:"end_index_exclusive"`
+	Job         jobStatus `json:"job"`
 }
 
 type processor struct {
@@ -57,12 +68,12 @@ func (p *processor) request(ctx context.Context, method, endpoint string, body [
 	if resp.StatusCode != expected {
 		return fmt.Errorf("%s returned HTTP %d", method, resp.StatusCode)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxAPIResponseBytes+1))
 	if err != nil {
 		return fmt.Errorf("read API response: %w", err)
 	}
-	if len(data) > 1<<20 {
-		return fmt.Errorf("API response exceeds 1 MiB")
+	if len(data) > maxAPIResponseBytes {
+		return fmt.Errorf("API response exceeds 16 MiB")
 	}
 	if err := json.Unmarshal(data, result); err != nil {
 		return fmt.Errorf("invalid API response")
@@ -89,11 +100,9 @@ func (p *processor) poll(ctx context.Context, id string) (jobStatus, error) {
 			lastProgress = progress
 		}
 		switch status.State {
-		case "completed", "failed":
+		case "completed", "failed", "cancelled":
 			return status, nil
-		case "cancelled":
-			return status, fmt.Errorf("job %s is %s; reconcile before starting another run", id, status.State)
-		case "pending", "running":
+		case "pending", "running", "cancelling":
 		default:
 			return status, fmt.Errorf("job returned an unknown state")
 		}
@@ -115,12 +124,13 @@ func (p *processor) run(ctx context.Context, numbers []string, state *checkpoint
 		var capabilities struct {
 			SubscriptionOnly     bool `json:"subscription_only"`
 			InvalidMSISDNLogging bool `json:"invalid_msisdn_logging"`
+			FailureReceipts      bool `json:"failure_receipts"`
 		}
 		if err := p.request(ctx, http.MethodGet, endpoint+"?capabilities=1&tenant_key="+url.QueryEscape(p.config.TenantKey), nil, &capabilities); err != nil {
 			return fmt.Errorf("subscription-only preflight failed; nothing submitted: %w", err)
 		}
-		if !capabilities.SubscriptionOnly || !capabilities.InvalidMSISDNLogging {
-			return fmt.Errorf("server does not support subscription-only processing and durable invalid-MSISDN logging; nothing submitted")
+		if !capabilities.SubscriptionOnly || !capabilities.InvalidMSISDNLogging || !capabilities.FailureReceipts {
+			return fmt.Errorf("server does not support subscription-only processing, invalid-MSISDN logging and per-item failure receipts; nothing submitted")
 		}
 	}
 	for state.Next < len(numbers) {
@@ -162,8 +172,20 @@ func (p *processor) run(ctx context.Context, numbers []string, state *checkpoint
 			return fmt.Errorf("job %s retained in checkpoint: %w", state.JobID, err)
 		}
 		count := end - state.Next
-		if status.Total != count || status.Successful < 0 || status.Successful > count || status.Failed < 0 || status.Failed != count-status.Successful {
+		cancelled := status.State == "cancelled"
+		if status.Total != count || status.Processed < 0 || status.Processed > count || status.Successful < 0 || status.Successful > status.Processed || status.Failed < 0 || status.Failed != status.Processed-status.Successful || (!cancelled && (status.Processed != count || (status.State == "completed") != (status.Failed == 0))) {
 			return fmt.Errorf("job %s returned inconsistent totals; checkpoint retained", state.JobID)
+		}
+		if err := validateFailures(status, numbers[state.Next:end]); err != nil {
+			return fmt.Errorf("job %s failure evidence is inconsistent; checkpoint retained: %w", state.JobID, err)
+		}
+		receiptPath := fmt.Sprintf("%s.batch-%d-%d.json", p.config.StateFile, state.Next+1, end)
+		if err := saveJSONAtomically(receiptPath, batchReceipt{Version: 1, Fingerprint: state.Fingerprint, Start: state.Next, End: end, Job: status}); err != nil {
+			return fmt.Errorf("job %s result receipt could not be saved; checkpoint retained: %w", state.JobID, err)
+		}
+		fmt.Fprintf(p.output, "Saved result receipt: %s\n", receiptPath)
+		if cancelled {
+			return fmt.Errorf("job %s is cancelled; receipt saved and checkpoint retained for reconciliation", state.JobID)
 		}
 		fmt.Fprintf(p.output, "Completed job %s: successful=%d failed=%d\n", state.JobID, status.Successful, status.Failed)
 		state.Next, state.JobID = end, ""
@@ -181,6 +203,25 @@ func (p *processor) run(ctx context.Context, numbers []string, state *checkpoint
 	fmt.Fprintf(p.output, "Finished: processed=%d successful=%d failed=%d\n", state.Next, state.Successful, state.Failed)
 	if state.Failed > 0 {
 		return fmt.Errorf("%d subscription attempts failed; completed batches will not be replayed", state.Failed)
+	}
+	return nil
+}
+
+func validateFailures(status jobStatus, numbers []string) error {
+	if len(status.Failures) != status.Failed {
+		return fmt.Errorf("failure count does not match item receipts")
+	}
+	seen := make(map[int]bool, len(status.Failures))
+	for _, failure := range status.Failures {
+		index := failure.ItemIndex
+		if index < 0 || index >= len(numbers) || seen[index] {
+			return fmt.Errorf("failure index is out of range or repeated")
+		}
+		seen[index] = true
+		sum := sha256.Sum256([]byte(fmt.Sprintf("%s:%d:%s", status.ID, index, numbers[index])))
+		if failure.IdentityHash != hex.EncodeToString(sum[:]) {
+			return fmt.Errorf("failure identity does not match the submitted input")
+		}
 	}
 	return nil
 }

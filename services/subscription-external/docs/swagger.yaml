@@ -1814,31 +1814,18 @@ paths:
       - Worker
   /api/v1/userbase/upload:
     post:
-      consumes:
-      - multipart/form-data
-      description: Upload and process CSV or XLSX files containing user base data
-      parameters:
-      - description: CSV or XLSX file containing user data
-        in: formData
-        name: file
-        required: true
-        type: file
+      description: This endpoint is retired. Use the authenticated POST /v1/admin/userbase/imports
+        endpoint.
       produces:
       - application/json
       responses:
-        "200":
-          description: Successfully processed records
+        "410":
+          description: Legacy endpoint retired
           schema:
-            type: string
-        "400":
-          description: Invalid file format or failed to retrieve file
-          schema:
-            type: string
-        "500":
-          description: Failed to parse file or store records
-          schema:
-            type: string
-      summary: Upload user base file
+            additionalProperties:
+              type: string
+            type: object
+      summary: Legacy user base upload endpoint (retired)
       tags:
       - UserBase
   /health:

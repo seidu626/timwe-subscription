@@ -52,7 +52,7 @@ func TestCLIChunksExplicitNumbersAndResumesCompletedFeed(t *testing.T) {
 	polls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("capabilities") == "1" {
-			io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true}`)
+			io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true,"failure_receipts":true}`)
 			return
 		}
 
@@ -84,7 +84,7 @@ func TestCLIChunksExplicitNumbersAndResumesCompletedFeed(t *testing.T) {
 		polls++
 		id := r.URL.Query().Get("jobId")
 		count := len(requests[len(requests)-1].MSISDNS)
-		json.NewEncoder(w).Encode(jobStatus{ID: id, State: "completed", Total: count, Successful: count})
+		json.NewEncoder(w).Encode(jobStatus{ID: id, State: "completed", Total: count, Processed: count, Successful: count})
 	}))
 	defer server.Close()
 	c.BaseURL = server.URL
@@ -110,7 +110,7 @@ func TestPollingFailureResumesWithoutReenqueue(t *testing.T) {
 	posts, polls := 0, 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("capabilities") == "1" {
-			io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true}`)
+			io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true,"failure_receipts":true}`)
 			return
 		}
 
@@ -125,7 +125,7 @@ func TestPollingFailureResumesWithoutReenqueue(t *testing.T) {
 			w.WriteHeader(503)
 			return
 		}
-		io.WriteString(w, `{"id":"accepted","state":"completed","total":1,"successful":1,"failed":0}`)
+		io.WriteString(w, `{"id":"accepted","state":"completed","total":1,"processed":1,"successful":1,"failed":0}`)
 	}))
 	defer server.Close()
 	c.BaseURL = server.URL
@@ -147,7 +147,7 @@ func TestUnknownEnqueueOutcomeNeverReplays(t *testing.T) {
 	posts := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("capabilities") == "1" {
-			io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true}`)
+			io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true,"failure_receipts":true}`)
 			return
 		}
 		posts++
@@ -207,16 +207,18 @@ func TestCheckpointExcludesConcurrentRuns(t *testing.T) {
 }
 
 func TestTerminalStatesAndCancellation(t *testing.T) {
-	for _, state := range []string{"failed", "cancelled", "unexpected", "running", "inconsistent"} {
+	for _, state := range []string{"failed", "cancelled", "cancelling", "unexpected", "running", "inconsistent"} {
 		t.Run(state, func(t *testing.T) {
 			c := testConfig(t)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Query().Get("capabilities") == "1" {
-					io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true}`)
+					io.WriteString(w, `{"subscription_only":true,"invalid_msisdn_logging":true,"failure_receipts":true}`)
 					return
 				}
 
-				status := jobStatus{ID: "job", State: state, Total: 1, Failed: 1}
+				status := jobStatus{ID: "job", State: state, Total: 1, Processed: 1, Failed: 1}
+				sum := sha256.Sum256([]byte("job:0:233240000001"))
+				status.Failures = []domain.BatchItemFailure{{ItemIndex: 0, IdentityHash: hex.EncodeToString(sum[:]), Code: "INVALID_MSISDN"}}
 				if state == "inconsistent" {
 					status.State = "completed"
 					status.Total = 0

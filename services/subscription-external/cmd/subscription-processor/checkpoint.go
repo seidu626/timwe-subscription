@@ -57,7 +57,11 @@ func loadCheckpoint(c Config, numbers []string) (*checkpoint, error) {
 }
 
 func saveCheckpoint(path string, state *checkpoint) error {
-	data, err := json.MarshalIndent(state, "", "  ")
+	return saveJSONAtomically(path, state)
+}
+
+func saveJSONAtomically(path string, value any) error {
+	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return err
 	}

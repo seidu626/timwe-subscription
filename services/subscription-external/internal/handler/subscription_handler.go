@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -37,7 +39,16 @@ type SubscriptionHandler struct {
 	msisdnCatalog   generatedMSISDNCatalog
 	msisdnVerifier  generatedMSISDNVerifier
 	tenantResolver  catalogTenantResolver
+	batchSlotsOnce  sync.Once
+	batchOptinSlots chan struct{}
 	startTime       time.Time
+}
+
+const defaultBatchOptinConcurrency = 5
+
+type batchOptinWork struct {
+	itemIndex int
+	request   *domain.OptinRequest
 }
 
 type msisdnBatchGenerator interface {
@@ -340,7 +351,11 @@ func (h *SubscriptionHandler) BatchStatusHandler(ctx *fasthttp.RequestCtx) {
 			return
 		}
 		ctx.SetContentType("application/json")
-		_ = json.NewEncoder(ctx).Encode(map[string]bool{"subscription_only": true, "invalid_msisdn_logging": true})
+		_ = json.NewEncoder(ctx).Encode(map[string]bool{
+			"subscription_only":      true,
+			"invalid_msisdn_logging": true,
+			"failure_receipts":       true,
+		})
 		return
 	}
 
@@ -1117,7 +1132,7 @@ func (h *SubscriptionHandler) StopBatchHandler(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 	_ = json.NewEncoder(ctx).Encode(map[string]string{
 		"batch_id": req.BatchID,
-		"status":   "cancelled",
+		"status":   "cancelling",
 	})
 }
 
@@ -1180,12 +1195,12 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	h.logger.Info("Batch job MSISDNs ready", zap.String("jobId", jobID), zap.Int("totalMSISDNs", len(msisdns)))
 
 	// Concurrency parameters
-	maxWorkers := calculateOptimalWorkers(len(msisdns))
+	maxWorkers := h.batchWorkerLimit(len(msisdns))
 	batchSize := calculateOptimalBatchSize(len(msisdns))
 	h.logger.Info("Batch processing parameters", zap.String("jobId", jobID), zap.Int("maxWorkers", maxWorkers), zap.Int("batchSize", batchSize))
 
 	var wg sync.WaitGroup
-	optinRequestChan := make(chan *domain.OptinRequest, batchSize)
+	optinRequestChan := make(chan batchOptinWork, batchSize)
 
 	// First error tracking
 	var firstErrorDetails map[string]interface{}
@@ -1211,39 +1226,45 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 		go func(workerID int) {
 			defer wg.Done()
 			h.logger.Debug("Worker started", zap.String("jobId", jobID), zap.Int("workerId", workerID))
-			var errorBatch []error
-			errorBatchSize := 10
-			errorBatchTicker := time.NewTicker(5 * time.Second)
-			defer errorBatchTicker.Stop()
 
 			for {
+				if workerCtx.Err() != nil {
+					return
+				}
 				select {
-				case request, ok := <-optinRequestChan:
+				case work, ok := <-optinRequestChan:
 					if !ok {
 						// Channel closed, worker should exit
 						return
 					}
+					if workerCtx.Err() != nil {
+						return
+					}
 
-					// Process request with context timeout
-					if err := batchProcessOptin(request); err != nil {
+					select {
+					case h.sharedBatchOptinSlots() <- struct{}{}:
+					case <-workerCtx.Done():
+						return
+					}
+					if workerCtx.Err() != nil {
+						<-h.sharedBatchOptinSlots()
+						return
+					}
+					err := batchProcessOptin(work.request)
+					<-h.sharedBatchOptinSlots()
+
+					if err != nil {
+						failure := safeBatchItemFailure(jobID, work.itemIndex, work.request.Msisdn, err)
+						h.jobs.addFailure(jobID, failure)
 						firstErrorMutex.Lock()
 						if firstErrorDetails == nil {
-							if mtErr, ok := err.(*domain.MTResponseError); ok {
-								firstErrorDetails = mtErr.Details
-							} else {
-								firstErrorDetails = map[string]interface{}{"error": err.Error()}
-							}
+							firstErrorDetails = batchFailureDetails(failure)
 						}
 						firstErrorMutex.Unlock()
-						errorBatch = append(errorBatch, err)
-						if len(errorBatch) >= errorBatchSize {
-							h.logger.Error("Batch of subscription failures",
-								zap.String("jobId", jobID),
-								zap.Int("workerId", workerID),
-								zap.Int("count", len(errorBatch)),
-								zap.String("sampleError", errorBatch[0].Error()))
-							errorBatch = errorBatch[:0]
-						}
+						h.logger.Error("Batch subscription item failed",
+							zap.String("jobId", jobID),
+							zap.Int("workerId", workerID),
+							zap.Reflect("failure", failure))
 						atomic.AddUint64(&errorCount, 1)
 						st.incFailed()
 						totalBatchRequestsFailed.Add(1)
@@ -1271,13 +1292,22 @@ func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, 
 	}
 	go func() {
 		for i, msisdn := range msisdns {
-			optinRequestChan <- &domain.OptinRequest{
-				SubscriptionOnly: req.SubscriptionOnly,
-				Telco:            req.Telco,
-				Msisdn:           msisdn,
-				EntryChannel:     req.EntryChannel,
-				ProductIds:       req.ProductIds,
-				TenantRoute:      tenantRoute,
+			work := batchOptinWork{
+				itemIndex: i,
+				request: &domain.OptinRequest{
+					SubscriptionOnly: req.SubscriptionOnly,
+					Telco:            req.Telco,
+					Msisdn:           msisdn,
+					EntryChannel:     req.EntryChannel,
+					ProductIds:       req.ProductIds,
+					TenantRoute:      tenantRoute,
+				},
+			}
+			select {
+			case optinRequestChan <- work:
+			case <-workerCtx.Done():
+				close(optinRequestChan)
+				return
 			}
 			if i%1000 == 0 {
 				h.logger.Debug("Fed requests", zap.String("jobId", jobID), zap.Int("fed", i+1))
@@ -1410,6 +1440,142 @@ func calculateOptimalWorkers(requestCount int) int {
 		return 100 // Very large batches
 	default:
 		return 200 // Massive batches (10k+)
+	}
+}
+
+func (h *SubscriptionHandler) batchWorkerLimit(requestCount int) int {
+	limit := defaultBatchOptinConcurrency
+	if h.config != nil && h.config.Application.Batch.MaxWorkersPerJob > 0 {
+		limit = h.config.Application.Batch.MaxWorkersPerJob
+	}
+	workers := calculateOptimalWorkers(requestCount)
+	if workers > limit {
+		workers = limit
+	}
+	if requestCount > 0 && workers > requestCount {
+		workers = requestCount
+	}
+	if workers <= 0 {
+		return 1
+	}
+	return workers
+}
+
+func (h *SubscriptionHandler) sharedBatchOptinSlots() chan struct{} {
+	h.batchSlotsOnce.Do(func() {
+		limit := defaultBatchOptinConcurrency
+		if h.config != nil && h.config.Application.Batch.MaxConcurrentOptins > 0 {
+			limit = h.config.Application.Batch.MaxConcurrentOptins
+		}
+		h.batchOptinSlots = make(chan struct{}, limit)
+	})
+	return h.batchOptinSlots
+}
+
+func safeBatchItemFailure(jobID string, itemIndex int, msisdn string, err error) domain.BatchItemFailure {
+	digest := sha256.Sum256([]byte(fmt.Sprintf("%s:%d:%s", jobID, itemIndex, msisdn)))
+	failure := domain.BatchItemFailure{
+		ItemIndex:    itemIndex,
+		IdentityHash: fmt.Sprintf("%x", digest[:]),
+		Code:         "processing_failed",
+		Message:      "subscription processing failed",
+	}
+
+	var persistenceErr *service.AcceptedSubscriptionPersistenceError
+	if errors.As(err, &persistenceErr) {
+		failure.Code = "accepted_persistence_failed"
+		failure.Message = "provider accepted subscription but local persistence failed"
+		failure.AcceptedByProvider = true
+		failure.ProviderRequestID = persistenceErr.ProviderRequestID
+		failure.ProviderTransactionID = persistenceErr.ProviderTransactionID
+		failure.ExternalTransactionID = persistenceErr.ExternalTransactionID
+		failure.TrackingID = persistenceErr.TrackingID
+		failure.ProviderAcceptedAt = persistenceErr.ProviderAcceptedAt.UTC().Format(time.RFC3339Nano)
+		failure.LocalPersistenceStage = persistenceErr.FailureStage
+		failure.TenantID = persistenceErr.TenantID
+		failure.ChannelID = persistenceErr.ChannelID
+		failure.ProductID = persistenceErr.ProductID
+		failure.SubscriptionResult = persistenceErr.SubscriptionResult
+		failure.PersistenceAttempts = persistenceErr.Attempts
+		failure.PostgresCode = persistenceErr.PostgresCode
+		failure.TransientPersistence = persistenceErr.Transient
+		if persistenceErr.FailureStage == "provider_transaction_id" {
+			failure.Code = "accepted_materialization_failed"
+			failure.Message = "provider accepted subscription but transaction correlation is incomplete"
+		}
+		return failure
+	}
+
+	var localEvidenceErr *service.SubscriptionOnlyLocalEvidenceError
+	if errors.As(err, &localEvidenceErr) {
+		failure.Code = "local_evidence_persistence_failed"
+		failure.Message = "provider rejection recorded but required local evidence persistence failed"
+		failure.Outcome = localEvidenceErr.Outcome
+		if failure.Outcome == "" {
+			failure.Outcome = "provider_rejected"
+		}
+		if failure.Outcome == "provider_not_attempted" {
+			failure.Code = "local_preflight_read_failed"
+			failure.Message = "provider was not attempted because a required local registry read failed"
+		}
+		failure.ProviderCode = localEvidenceErr.ProviderCode
+		failure.ProviderRequestID = localEvidenceErr.ProviderRequestID
+		failure.ExternalTransactionID = localEvidenceErr.ExternalTransactionID
+		failure.TrackingID = localEvidenceErr.TrackingID
+		failure.TenantID = localEvidenceErr.TenantID
+		failure.ChannelID = localEvidenceErr.ChannelID
+		failure.ProductID = localEvidenceErr.ProductID
+		failure.LocalPersistenceStage = localEvidenceErr.LocalPersistenceStage
+		failure.PersistenceAttempts = localEvidenceErr.Attempts
+		failure.PostgresCode = localEvidenceErr.PostgresCode
+		failure.TransientPersistence = localEvidenceErr.Transient
+		return failure
+	}
+
+	var unknownErr *service.SubscriptionOnlyProviderOutcomeUnknownError
+	if errors.As(err, &unknownErr) {
+		failure.Code = "provider_outcome_unknown"
+		failure.Message = "subscription provider outcome requires reconciliation"
+		failure.Outcome = "outcome_unknown"
+		failure.ProviderRequestID = unknownErr.ProviderRequestID
+		failure.ExternalTransactionID = unknownErr.ExternalTransactionID
+		failure.TrackingID = unknownErr.TrackingID
+		failure.TenantID = unknownErr.TenantID
+		failure.ChannelID = unknownErr.ChannelID
+		failure.ProductID = unknownErr.ProductID
+		return failure
+	}
+
+	var mtErr *domain.MTResponseError
+	if errors.As(err, &mtErr) {
+		failure.Code = mtErr.Code
+		failure.Message = "provider rejected subscription"
+	}
+	return failure
+}
+
+func batchFailureDetails(failure domain.BatchItemFailure) map[string]interface{} {
+	return map[string]interface{}{
+		"itemIndex":                 failure.ItemIndex,
+		"identityHash":              failure.IdentityHash,
+		"code":                      failure.Code,
+		"message":                   failure.Message,
+		"outcome":                   failure.Outcome,
+		"providerCode":              failure.ProviderCode,
+		"acceptedByProvider":        failure.AcceptedByProvider,
+		"providerRequestId":         failure.ProviderRequestID,
+		"providerTransactionId":     failure.ProviderTransactionID,
+		"externalTransactionId":     failure.ExternalTransactionID,
+		"trackingId":                failure.TrackingID,
+		"providerAcceptedAt":        failure.ProviderAcceptedAt,
+		"localPersistenceStage":     failure.LocalPersistenceStage,
+		"tenantId":                  failure.TenantID,
+		"channelId":                 failure.ChannelID,
+		"productId":                 failure.ProductID,
+		"subscriptionResult":        failure.SubscriptionResult,
+		"persistenceAttempts":       failure.PersistenceAttempts,
+		"postgresCode":              failure.PostgresCode,
+		"transientPersistenceError": failure.TransientPersistence,
 	}
 }
 

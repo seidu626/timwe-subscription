@@ -2,6 +2,8 @@ package config
 
 import (
 	"bufio"
+	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"strings"
@@ -13,6 +15,58 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
+
+// ConfigureDatabasePool applies the configured finite limits to database/sql.
+// A missing or invalid open-connection limit is rejected because database/sql
+// otherwise defaults to an unlimited number of open connections.
+func ConfigureDatabasePool(db *sql.DB, config *Config) error {
+	if db == nil {
+		return fmt.Errorf("database pool is nil")
+	}
+	if config == nil {
+		return fmt.Errorf("database config is nil")
+	}
+	pool := config.Database.Postgresql
+	if pool.MaxOpenConns <= 0 {
+		return fmt.Errorf("max open connections must be positive: %d", pool.MaxOpenConns)
+	}
+	if pool.MaxIdleConns < 0 || pool.MaxIdleConns > pool.MaxOpenConns {
+		return fmt.Errorf("max idle connections must be between 0 and %d: %d", pool.MaxOpenConns, pool.MaxIdleConns)
+	}
+	if pool.ConnMaxLifetime <= 0 {
+		return fmt.Errorf("connection max lifetime must be positive: %s", pool.ConnMaxLifetime)
+	}
+	db.SetMaxOpenConns(pool.MaxOpenConns)
+	db.SetMaxIdleConns(pool.MaxIdleConns)
+	db.SetConnMaxLifetime(pool.ConnMaxLifetime)
+	return nil
+}
+
+// OpenDatabase opens, bounds, and verifies a database/sql pool. The pool is
+// closed before returning if configuration or startup connectivity fails.
+func OpenDatabase(ctx context.Context, driverName, connString string, config *Config) (*sql.DB, error) {
+	if config == nil {
+		return nil, fmt.Errorf("database config is nil")
+	}
+	if config.Database.Postgresql.ConnectionTimeout <= 0 {
+		return nil, fmt.Errorf("connection timeout must be positive: %s", config.Database.Postgresql.ConnectionTimeout)
+	}
+	db, err := sql.Open(driverName, connString)
+	if err != nil {
+		return nil, fmt.Errorf("open database pool: %w", err)
+	}
+	if err := ConfigureDatabasePool(db, config); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	pingCtx, cancel := context.WithTimeout(ctx, config.Database.Postgresql.ConnectionTimeout)
+	defer cancel()
+	if err := db.PingContext(pingCtx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("verify database connection: %w", err)
+	}
+	return db, nil
+}
 
 type Environment string
 
@@ -255,6 +309,12 @@ func InitConfig(logger *zap.Logger, path string, files []string) *Config {
 	_ = v.BindEnv("DATABASE.POSTGRESQL.PASSWORD", "APP_DATABASE_POSTGRESQL_PASSWORD", "DB.POSTGRESQL.PASSWORD", "DB_POSTGRESQL_PASSWORD", "PG_PASSWORD", "PGPASSWORD")
 	_ = v.BindEnv("DATABASE.POSTGRESQL.DB_NAME", "APP_DATABASE_POSTGRESQL_DB_NAME", "DB.POSTGRESQL.DB_NAME", "DB_POSTGRESQL_DB_NAME", "PG_DB", "PGDATABASE")
 	_ = v.BindEnv("DATABASE.POSTGRESQL.SSL_MODE", "APP_DATABASE_POSTGRESQL_SSL_MODE", "DB.POSTGRESQL.SSL_MODE", "DB_POSTGRESQL_SSL_MODE", "PGSSLMODE")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.MAX_OPEN_CONNS", "APP_DATABASE_POSTGRESQL_MAX_OPEN_CONNS", "DB.POSTGRESQL.MAX_OPEN_CONNS", "DB_POSTGRESQL_MAX_OPEN_CONNS", "PGMAX_OPEN_CONNS")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.MAX_IDLE_CONNS", "APP_DATABASE_POSTGRESQL_MAX_IDLE_CONNS", "DB.POSTGRESQL.MAX_IDLE_CONNS", "DB_POSTGRESQL_MAX_IDLE_CONNS", "PGMAX_IDLE_CONNS")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.CONN_MAX_LIFETIME", "APP_DATABASE_POSTGRESQL_CONN_MAX_LIFETIME", "DB.POSTGRESQL.CONN_MAX_LIFETIME", "DB_POSTGRESQL_CONN_MAX_LIFETIME", "PGCONN_MAX_LIFETIME")
+	_ = v.BindEnv("DATABASE.POSTGRESQL.CONNECTION_TIMEOUT", "APP_DATABASE_POSTGRESQL_CONNECTION_TIMEOUT", "DB.POSTGRESQL.CONNECTION_TIMEOUT", "DB_POSTGRESQL_CONNECTION_TIMEOUT", "PGCONNECTION_TIMEOUT")
+	_ = v.BindEnv("APPLICATION.BATCH.MAX_WORKERS_PER_JOB", "APP_APPLICATION_BATCH_MAX_WORKERS_PER_JOB")
+	_ = v.BindEnv("APPLICATION.BATCH.MAX_CONCURRENT_OPTINS", "APP_APPLICATION_BATCH_MAX_CONCURRENT_OPTINS")
 
 	// Bind cache/Redis environment variables (APP_* and legacy CACHE.REDIS.* keys).
 	_ = v.BindEnv("CACHE.REDIS.HOST", "APP_CACHE_REDIS_HOST", "CACHE.REDIS.HOST", "CACHE_REDIS_HOST", "REDIS_HOST")

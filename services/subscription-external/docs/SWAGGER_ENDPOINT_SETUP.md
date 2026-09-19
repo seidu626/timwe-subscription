@@ -27,9 +27,8 @@ This document describes the complete Swagger endpoint setup for the subscription
 
 #### User Base Upload Endpoint
 - **URL**: `POST /api/v1/userbase/upload`
-- **Description**: Upload and process CSV or XLSX files containing user base data
-- **Content-Type**: `multipart/form-data`
-- **Parameters**: `file` (CSV or XLSX file)
+- **Description**: Retired legacy endpoint; returns `410 Gone` without parsing or storing the request
+- **Canonical endpoint**: Authenticated `POST /v1/admin/userbase/imports`
 - **Swagger Tag**: UserBase
 
 ### 3. **Existing Endpoints Enhanced**
@@ -87,7 +86,7 @@ curl http://localhost:8083/swagger/index.html
 |--------|----------|-------------|------|
 | POST | `/api/v1/subscription-external` | Opt-in a single subscription | Subscriptions |
 | POST | `/api/v1/subscription-external/batch` | Batch opt-in subscriptions | Subscriptions |
-| POST | `/api/v1/userbase/upload` | Upload user base file | UserBase |
+| POST | `/api/v1/userbase/upload` | Retired; use authenticated `/v1/admin/userbase/imports` | UserBase |
 
 ## Swagger Documentation Structure
 
@@ -165,4 +164,4 @@ The subscription-external service now has a complete Swagger endpoint setup with
 - ✅ Proper error handling and response documentation
 - ✅ Easy-to-use API testing interface
 
-The Swagger UI provides a comprehensive interface for testing and understanding all available endpoints in the service. 
+The Swagger UI provides a comprehensive interface for testing and understanding all available endpoints in the service.

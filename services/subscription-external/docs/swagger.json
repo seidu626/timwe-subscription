@@ -1946,43 +1946,22 @@
         },
         "/api/v1/userbase/upload": {
             "post": {
-                "description": "Upload and process CSV or XLSX files containing user base data",
-                "consumes": [
-                    "multipart/form-data"
-                ],
+                "description": "This endpoint is retired. Use the authenticated POST /v1/admin/userbase/imports endpoint.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "UserBase"
                 ],
-                "summary": "Upload user base file",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "CSV or XLSX file containing user data",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
+                "summary": "Legacy user base upload endpoint (retired)",
                 "responses": {
-                    "200": {
-                        "description": "Successfully processed records",
+                    "410": {
+                        "description": "Legacy endpoint retired",
                         "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid file format or failed to retrieve file",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Failed to parse file or store records",
-                        "schema": {
-                            "type": "string"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }

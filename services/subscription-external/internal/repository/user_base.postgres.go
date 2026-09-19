@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -23,6 +24,8 @@ type UserBaseRepository struct {
 	ctx    context.Context
 }
 
+const tenantUserBaseQueryTimeout = 10 * time.Second
+
 // NewUserBaseRepository initializes a new UserBaseRepository with the database connection
 func NewUserBaseRepository(db *sql.DB, logger *zap.Logger, client cached.RedisClient) *UserBaseRepository {
 	return &UserBaseRepository{db: db,
@@ -35,6 +38,10 @@ func NewUserBaseRepository(db *sql.DB, logger *zap.Logger, client cached.RedisCl
 // cacheKey generates a Redis key for storing UserIdentifier lookup results
 func cacheKey(msisdn string) string {
 	return fmt.Sprintf("userbase:msisdn:%s", msisdn)
+}
+
+func tenantCacheKey(tenantID, msisdn string) string {
+	return fmt.Sprintf("userbase:tenant:%s:msisdn:%s", tenantID, msisdn)
 }
 
 // GetExistingMSISDNS fetches MSISDNS that already exist in the database from a given list.
@@ -99,6 +106,95 @@ func (repo *UserBaseRepository) InsertUserRecords(ctx context.Context, records [
 	}
 
 	return nil
+}
+
+// UpsertBlacklistedUser records a blacklist decision within one tenant.
+// The conflict target matches idx_userbase_tenant_msisdn in the tenant-aware schema.
+func (repo *UserBaseRepository) UpsertBlacklistedUser(ctx context.Context, tenantID, msisdn string) error {
+	tenantID = strings.TrimSpace(tenantID)
+	msisdn = strings.TrimSpace(msisdn)
+	if tenantID == "" {
+		return fmt.Errorf("tenant_id is required to blacklist a user")
+	}
+	if msisdn == "" {
+		return fmt.Errorf("msisdn is required to blacklist a user")
+	}
+	ctx, cancel := context.WithTimeout(ctx, tenantUserBaseQueryTimeout)
+	defer cancel()
+
+	const query = `
+		INSERT INTO userbase (tenant_id, msisdn, type)
+		VALUES ($1, $2, 'BLACKLISTED')
+		ON CONFLICT (tenant_id, msisdn)
+		DO UPDATE SET type = EXCLUDED.type
+	`
+	if _, err := repo.db.ExecContext(ctx, query, tenantID, msisdn); err != nil {
+		return fmt.Errorf("failed to upsert tenant blacklist record: %w", err)
+	}
+	repo.cacheTenantExclusion(ctx, tenantID, msisdn, "BLACKLISTED")
+
+	return nil
+}
+
+// IsExcludedUserForTenant checks exclusion state without consulting global userbase caches.
+func (repo *UserBaseRepository) IsExcludedUserForTenant(ctx context.Context, tenantID, msisdn string) (bool, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	msisdn = strings.TrimSpace(msisdn)
+	if tenantID == "" {
+		return false, fmt.Errorf("tenant_id is required to check user exclusion")
+	}
+	if msisdn == "" {
+		return false, fmt.Errorf("msisdn is required to check user exclusion")
+	}
+	ctx, cancel := context.WithTimeout(ctx, tenantUserBaseQueryTimeout)
+	defer cancel()
+
+	key := tenantCacheKey(tenantID, msisdn)
+	if repo.redis != nil {
+		cachedType, err := repo.redis.Get(ctx, key)
+		if err == nil {
+			switch cachedType {
+			case "Premier", "Staff", "BLACKLISTED":
+				return true, nil
+			}
+		} else if !errors.Is(err, redis.Nil) {
+			repo.logger.Warn("Failed to read tenant-scoped userbase cache",
+				zap.String("tenant_id", tenantID),
+				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
+				zap.Error(err))
+		}
+	}
+
+	var userType string
+	err := repo.db.QueryRowContext(ctx, `
+		SELECT type
+		FROM userbase
+		WHERE tenant_id = $1
+		  AND msisdn = $2
+		  AND type IN ('Premier', 'Staff', 'BLACKLISTED')
+		LIMIT 1
+	`, tenantID, msisdn).Scan(&userType)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to check tenant user exclusion: %w", err)
+	}
+
+	repo.cacheTenantExclusion(ctx, tenantID, msisdn, userType)
+	return true, nil
+}
+
+func (repo *UserBaseRepository) cacheTenantExclusion(ctx context.Context, tenantID, msisdn, userType string) {
+	if repo.redis == nil {
+		return
+	}
+	if err := repo.redis.Set(ctx, tenantCacheKey(tenantID, msisdn), userType, 24*time.Hour); err != nil {
+		repo.logger.Warn("Failed to write tenant-scoped userbase cache",
+			zap.String("tenant_id", tenantID),
+			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
+			zap.Error(err))
+	}
 }
 
 // LoadExclusionList loads MSISDNS for Premier, Staff, and Blacklisted users in memory for batch filtering

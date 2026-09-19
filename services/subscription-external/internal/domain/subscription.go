@@ -52,6 +52,32 @@ type BatchOptinResponse struct {
 	ErrorDetails *map[string]interface{} `json:"errorDetails,omitempty"` // Details of the first error encountered
 }
 
+// BatchItemFailure is a PII-safe receipt for one failed submitted item.
+// ItemIndex is zero-based within the submitted batch/chunk. IdentityHash is
+// job-scoped and can be matched only by re-hashing the caller's retained input.
+type BatchItemFailure struct {
+	ItemIndex             int    `json:"itemIndex"`
+	IdentityHash          string `json:"identityHash"`
+	Code                  string `json:"code"`
+	Message               string `json:"message"`
+	Outcome               string `json:"outcome,omitempty"`
+	ProviderCode          string `json:"providerCode,omitempty"`
+	AcceptedByProvider    bool   `json:"acceptedByProvider"`
+	ProviderRequestID     string `json:"providerRequestId,omitempty"`
+	ProviderTransactionID string `json:"providerTransactionId,omitempty"`
+	ExternalTransactionID string `json:"externalTransactionId,omitempty"`
+	TrackingID            string `json:"trackingId,omitempty"`
+	ProviderAcceptedAt    string `json:"providerAcceptedAt,omitempty"`
+	LocalPersistenceStage string `json:"localPersistenceStage,omitempty"`
+	TenantID              string `json:"tenantId,omitempty"`
+	ChannelID             string `json:"channelId,omitempty"`
+	ProductID             int    `json:"productId,omitempty"`
+	SubscriptionResult    string `json:"subscriptionResult,omitempty"`
+	PersistenceAttempts   int    `json:"persistenceAttempts,omitempty"`
+	PostgresCode          string `json:"postgresCode,omitempty"`
+	TransientPersistence  bool   `json:"transientPersistenceError,omitempty"`
+}
+
 type OptinRequest struct {
 	SubscriptionOnly bool               `json:"-"`
 	Telco            string             `json:"telco"`
@@ -95,6 +121,7 @@ type MTResponse struct {
 	InError      bool                   `json:"inError"`
 	RequestID    string                 `json:"requestId"`
 	Code         string                 `json:"code"`
+	ExternalTxID string                 `json:"-"`
 }
 
 // Custom error types for better error handling

@@ -6,12 +6,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
+	"github.com/seidu626/subscription-manager/common/config"
 	"github.com/seidu626/subscription-manager/common/pii"
 	"github.com/seidu626/subscription-manager/subscription-external/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -114,12 +117,100 @@ func TestBatchJobLifecycle_ProgressAndStop(t *testing.T) {
 	cancelled := mgr.CancelJob("job-1")
 	assert.True(t, cancelled)
 	retrieved, _ = mgr.GetJob("job-1")
+	assert.Equal(t, BatchJobCancelling, retrieved.State)
+	assert.Nil(t, retrieved.CompletedAt)
+
+	// The terminal state is published only after workers have drained.
+	mgr.setCompleted("job-1", false)
+	retrieved, _ = mgr.GetJob("job-1")
 	assert.Equal(t, BatchJobCancelled, retrieved.State)
 	assert.NotNil(t, retrieved.CompletedAt)
 
 	// Cancelling again must return false (already terminal)
 	cancelled2 := mgr.CancelJob("job-1")
 	assert.False(t, cancelled2)
+}
+
+func TestBatchJobSetRunningDoesNotOverwriteCancelledPendingJob(t *testing.T) {
+	mgr := NewBatchJobManager()
+	mgr.CreateJob("cancelled-before-start", 1)
+	if !mgr.CancelJob("cancelled-before-start") {
+		t.Fatal("pending job was not cancelled")
+	}
+
+	mgr.setRunning("cancelled-before-start")
+	status, ok := mgr.GetJob("cancelled-before-start")
+	if !ok {
+		t.Fatal("cancelled job missing")
+	}
+	if status.State != BatchJobCancelling || status.CompletedAt != nil {
+		t.Fatalf("setRunning overwrote cancelled job: %+v", status)
+	}
+}
+
+func TestBatchCancellationDrainsInflightAndSkipsBufferedWork(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Application.Batch.MaxWorkersPerJob = 1
+	cfg.Application.Batch.MaxConcurrentOptins = 1
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var calls int32
+	h := &SubscriptionHandler{
+		config: cfg,
+		logger: zap.NewNop(),
+		jobs:   NewBatchJobManager(),
+		processOptinFn: func(*domain.OptinRequest) error {
+			if atomic.AddInt32(&calls, 1) == 1 {
+				close(started)
+			}
+			<-release
+			return errors.New("in-flight failure")
+		},
+	}
+	status, jobCtx := h.jobs.CreateJob("cancel-drain", 2)
+	done := make(chan struct{})
+	go func() {
+		h.runBatchJob(jobCtx, "cancel-drain", status, &domain.BatchOptinRequest{
+			SubscriptionOnly: true,
+			EntryChannel:     "WAP",
+			MSISDNS:          []string{"233241234567", "233241234568"},
+		})
+		close(done)
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first in-flight item did not start")
+	}
+	if !h.jobs.CancelJob("cancel-drain") {
+		t.Fatal("running job was not accepted for cancellation")
+	}
+	draining, _ := h.jobs.GetJob("cancel-drain")
+	if draining.State != BatchJobCancelling || draining.CompletedAt != nil {
+		t.Fatalf("job published a terminal state before worker drain: %+v", draining)
+	}
+
+	close(release)
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("cancelled job did not drain")
+	}
+
+	final, _ := h.jobs.GetJob("cancel-drain")
+	if final.State != BatchJobCancelled || final.CompletedAt == nil || final.Processed != 1 || final.Failed != 1 || len(final.Failures) != 1 {
+		t.Fatalf("unexpected final cancelled receipt: %+v", final)
+	}
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Fatalf("buffered work started after cancellation: calls=%d", got)
+	}
+	again, _ := h.jobs.GetJob("cancel-drain")
+	if again.State != final.State || again.Processed != final.Processed || again.Failed != final.Failed || len(again.Failures) != len(final.Failures) ||
+		again.CompletedAt == nil || !again.CompletedAt.Equal(*final.CompletedAt) {
+		t.Fatalf("terminal cancelled snapshot changed: first=%+v second=%+v", final, again)
+	}
 }
 
 // TestGetBatchProgressHandler verifies progress endpoint returns job state.
@@ -201,7 +292,8 @@ func TestStopBatchHandler(t *testing.T) {
 
 		// Verify state
 		retrieved, _ := h.jobs.GetJob("job-stop")
-		assert.Equal(t, BatchJobCancelled, retrieved.State)
+		assert.Equal(t, BatchJobCancelling, retrieved.State)
+		assert.Nil(t, retrieved.CompletedAt)
 	})
 
 	t.Run("409 when job is already cancelled", func(t *testing.T) {
@@ -717,7 +809,6 @@ func TestResubscribeWorker_ExitsOnCancel(t *testing.T) {
 	}
 }
 
-
 // ── New security gap closure tests ───────────────────────────────────────────
 
 // TestBatchOptinHandler_UnauthenticatedReject verifies S7: unauthenticated
@@ -818,7 +909,7 @@ func TestEnhancedResubscribeHandler_InternalHMACAccepted(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"product_ids":          []string{"p1"},
+		"product_ids":           []string{"p1"},
 		"use_charging_failures": false,
 	})
 	ctx := makeHMACCtx(testHMACSecret, body)
