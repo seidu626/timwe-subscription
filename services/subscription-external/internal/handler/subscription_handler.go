@@ -1122,6 +1122,7 @@ func (h *SubscriptionHandler) StopBatchHandler(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *SubscriptionHandler) runBatchJob(jobCtx context.Context, jobID string, st *BatchJobStatus, req *domain.BatchOptinRequest) {
+	h.jobs.setRunning(jobID)
 	h.logger.Info("Starting batch job", zap.String("jobId", jobID), zap.Int("totalRequests", len(req.MSISDNS)), zap.Int("requestedCount", req.Count))
 
 	// Create context with timeout for the entire batch job, also honouring cancellation.

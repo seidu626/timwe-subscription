@@ -70,7 +70,7 @@ func TestSubscriptionOnlyBatchPropagationAndLiveProgress(t *testing.T) {
 		t.Fatal("no optin")
 	}
 	snapshot, ok := h.jobs.GetJob(accepted["jobId"])
-	if !ok || snapshot.Total != 1 || snapshot.Processed != 0 {
+	if !ok || snapshot.State != BatchJobRunning || snapshot.Total != 1 || snapshot.Processed != 0 {
 		t.Fatalf("bad running snapshot: %+v", snapshot)
 	}
 	release <- struct{}{}
