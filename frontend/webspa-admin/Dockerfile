@@ -26,7 +26,7 @@ COPY --from=builder /app/dist/webspa-admin/browser /usr/share/nginx/html
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=5s \
-  CMD wget -q --spider http://localhost:80/ || exit 1
+  CMD wget -q --spider http://127.0.0.1:80/ || exit 1
 
 EXPOSE 80
 
