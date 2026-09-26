@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,8 +17,9 @@ import (
 
 // ReportsHandler handles admin reporting endpoints
 type ReportsHandler struct {
-	reportsRepo *repository.ReportsRepository
-	logger      *zap.Logger
+	reportsRepo      *repository.ReportsRepository
+	logger           *zap.Logger
+	reportStaleAfter time.Duration
 }
 
 type reportFilterError struct {
@@ -39,8 +41,15 @@ func NewReportsHandler(
 	logger *zap.Logger,
 ) *ReportsHandler {
 	return &ReportsHandler{
-		reportsRepo: reportsRepo,
-		logger:      logger,
+		reportsRepo:      reportsRepo,
+		logger:           logger,
+		reportStaleAfter: 30 * time.Minute,
+	}
+}
+
+func (h *ReportsHandler) SetTIMWEReportPollInterval(interval time.Duration) {
+	if interval > 0 {
+		h.reportStaleAfter = 2 * interval
 	}
 }
 
@@ -157,6 +166,54 @@ func (h *ReportsHandler) GetKPIs(ctx *fasthttp.RequestCtx) {
 	}
 
 	h.jsonResponse(ctx, kpis)
+}
+
+// GetSubscriptionHealth returns the latest local subscriber state and imported
+// TIMWE billing observations for exactly one authenticated tenant.
+func (h *ReportsHandler) GetSubscriptionHealth(ctx *fasthttp.RequestCtx) {
+	ctx.Response.Header.Set("Cache-Control", "no-store")
+	if ctx.QueryArgs().Has("channelId") || ctx.QueryArgs().Has("channel_id") || ctx.QueryArgs().Has("all_tenants") {
+		h.errorResponse(ctx, "subscription health requires one tenant and has no channel billing attribution", fasthttp.StatusBadRequest)
+		return
+	}
+	filters, err := h.parseFilters(ctx)
+	if err != nil {
+		h.reportFilterErrorResponse(ctx, err)
+		return
+	}
+	if filters.TenantID == nil {
+		h.errorResponse(ctx, "tenant context is required", fasthttp.StatusForbidden)
+		return
+	}
+	end := filters.EndDate.AddDate(0, 0, -1)
+	if end.Before(filters.StartDate) || end.Sub(filters.StartDate) > 30*24*time.Hour {
+		h.errorResponse(ctx, "date range must contain at most 31 inclusive days", fasthttp.StatusBadRequest)
+		return
+	}
+	productID := 0
+	if raw := strings.TrimSpace(string(ctx.QueryArgs().Peek("productId"))); raw != "" {
+		productID, err = strconv.Atoi(raw)
+		if err != nil || productID <= 0 {
+			h.errorResponse(ctx, "productId must be a positive integer", fasthttp.StatusBadRequest)
+			return
+		}
+	}
+	shortcode := strings.TrimSpace(string(ctx.QueryArgs().Peek("shortcode")))
+	if len(shortcode) > 50 {
+		h.errorResponse(ctx, "shortcode is too long", fasthttp.StatusBadRequest)
+		return
+	}
+	staleAfter := h.reportStaleAfter
+	if staleAfter <= 0 {
+		staleAfter = 30 * time.Minute
+	}
+	result, err := h.reportsRepo.GetSubscriptionHealth(ctx, *filters.TenantID, filters.StartDate, end, productID, shortcode, staleAfter)
+	if err != nil {
+		h.logger.Error("Failed to get subscription health", zap.Error(err))
+		h.errorResponse(ctx, "Failed to retrieve subscription health", fasthttp.StatusInternalServerError)
+		return
+	}
+	h.jsonResponse(ctx, result)
 }
 
 // GetAcquisitionFunnel handles GET /v1/admin/reports/acquisition-funnel

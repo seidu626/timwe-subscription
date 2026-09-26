@@ -2,7 +2,7 @@
   "version": 1,
   "roadmap": "tenant-multichannel-platform",
   "generated_at": "2026-05-08T01:50:00Z",
-  "current_slice": null,
+  "current_slice": "SUB-DASH-001",
   "source_domain_brief": "slices/TMP-000-domain-grounding/domain-brief.md",
   "supporting_documents": [
     "slices/README.md",
@@ -2496,7 +2496,26 @@
         "dod_path": "slices/SUB-FEED-001/dod.md",
         "result": "pass: local source, race, PostgreSQL, build and binary smoke checks; not deployed"
       }
+    },
+    {
+      "id": "SUB-DASH-001",
+      "class": "vertical_slice",
+      "name": "timwe-subscription-operations-dashboard",
+      "description": "Import TIMWE daily charge totals and present them with current tenant subscription state in Operations.",
+      "state": "verifying",
+      "priority": "P1",
+      "depends_on": [],
+      "actor": "tenant operations admin",
+      "entrypoint": "GET /v1/admin/reports/subscription-health and /operations",
+      "outcome": "Source-labelled current subscriptions and provider daily billings with honest freshness.",
+      "branch": "agent/codex/timwe-subscription-dashboard-20260926",
+      "spec_decision": "slices/SUB-DASH-001/spec.md",
+      "verification": {
+        "automated": ["cd services/acquisition-api && go test ./internal/... && go build ./...", "cd frontend/webspa-admin && npm run build"],
+        "manual_smoke": ["Authenticated Operations browser journey with source freshness and stale state"],
+        "dod_path": "slices/SUB-DASH-001/dod.md"
+      }
     }
   ],
-  "updated_at": "2026-09-18"
+  "updated_at": "2026-09-26"
 }

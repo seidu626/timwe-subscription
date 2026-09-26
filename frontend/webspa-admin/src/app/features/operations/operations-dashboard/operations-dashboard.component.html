@@ -1,8 +1,249 @@
 <div class="operations-page">
   <h2>Operations</h2>
-  <p class="subtitle">Audit trail, userbase import history, batch operations, and renewal worker management.</p>
+  <p class="subtitle">Subscription health, audit trail, userbase import history, batch operations, and renewal worker management.</p>
 
   <mat-tab-group>
+
+    <!-- ── Subscription Health ───────────────────────────────────────── -->
+    <mat-tab label="Subscription Health">
+      <mat-card class="card">
+        <mat-card-content>
+          <form class="row filters" (ngSubmit)="loadHealth()" aria-label="Subscription health filters">
+            <mat-form-field appearance="outline">
+              <mat-label>Start date</mat-label>
+              <input matInput type="date" name="healthStart" [(ngModel)]="healthFilters.startDate" required />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>End date</mat-label>
+              <input matInput type="date" name="healthEnd" [(ngModel)]="healthFilters.endDate" required />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Shortcode</mat-label>
+              <input matInput name="healthShortcode" [(ngModel)]="healthFilters.shortcode" placeholder="All shortcodes" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Product ID</mat-label>
+              <input matInput type="number" name="healthProductId" min="1" step="1"
+                     [(ngModel)]="healthFilters.productId" placeholder="All products" />
+            </mat-form-field>
+            <div class="actions">
+              <button mat-raised-button color="primary" type="submit" [disabled]="healthLoading">Apply</button>
+              <button mat-stroked-button type="button" [disabled]="healthLoading" (click)="clearHealthFilters()">Reset</button>
+              <button mat-icon-button type="button" [disabled]="healthLoading" (click)="loadHealth()"
+                      matTooltip="Refresh now" aria-label="Refresh subscription health now">
+                <mat-icon>refresh</mat-icon>
+              </button>
+            </div>
+          </form>
+          <p class="health-hint">
+            Up to {{ healthMaxRangeDays }} days including both ends. Dates are calendar days in {{ healthTimezone }}.
+          </p>
+
+          <p *ngIf="healthValidationError" class="health-banner health-banner--error" role="alert">
+            <mat-icon aria-hidden="true">error_outline</mat-icon>
+            <span>{{ healthValidationError }}</span>
+          </p>
+
+          <div *ngIf="healthLoading" class="loading" role="status" aria-live="polite">
+            <mat-spinner diameter="36" aria-label="Loading subscription health"></mat-spinner>
+          </div>
+
+          <div *ngIf="healthError && !healthLoading" class="health-banner health-banner--error" role="alert">
+            <mat-icon aria-hidden="true">cloud_off</mat-icon>
+            <span>
+              Could not load subscription health: {{ healthError }}.
+              <ng-container *ngIf="health && healthLoadedAt">
+                Figures below are from the last successful load at {{ healthLoadedAt | date:'mediumTime' }} and may be out of date.
+              </ng-container>
+            </span>
+            <button mat-stroked-button type="button" (click)="loadHealth()">Retry</button>
+          </div>
+
+          <p *ngIf="!health && !healthLoading && !healthError && !healthValidationError" class="health-empty">
+            No subscription health data loaded yet.
+          </p>
+        </mat-card-content>
+      </mat-card>
+
+      <ng-container *ngIf="health as h">
+        <p class="health-scope">
+          Showing {{ healthQuery?.startDate }} to {{ healthQuery?.endDate }} · {{ healthScopeLabel }}
+        </p>
+        <p class="health-refresh" role="status">
+          <mat-icon aria-hidden="true" [class.spin]="healthRefreshing">autorenew</mat-icon>
+          <span>
+            Dashboard re-checks every {{ healthRefreshSeconds }} seconds while this page is open
+            <ng-container *ngIf="healthLoadedAt"> · last updated {{ healthLoadedAt | date:'mediumTime' }}</ng-container>
+            <ng-container *ngIf="healthRefreshing"> · refreshing…</ng-container>
+          </span>
+        </p>
+
+        <div class="health-grid" [class.health-grid--dimmed]="healthLoading">
+
+          <!-- Local subscriptions (our database, refreshed on every load) -->
+          <mat-card class="card health-card" aria-labelledby="health-local-title">
+            <mat-card-content>
+              <header class="health-card__head">
+                <h3 id="health-local-title">Local subscriptions</h3>
+                <span class="state-badge state-badge--local">Current</span>
+              </header>
+              <p class="health-card__meta">
+                Source: subscription database · as of {{ h.as_of | date:'medium' }}
+              </p>
+              <p class="health-card__note">Point-in-time snapshot, refreshed on every load.</p>
+              <dl class="stat-grid">
+                <div class="stat">
+                  <dt>Active</dt>
+                  <dd>{{ h.subscriptions.active | number }}</dd>
+                </div>
+                <div class="stat">
+                  <dt>Inactive</dt>
+                  <dd>{{ h.subscriptions.inactive | number }}</dd>
+                </div>
+                <div class="stat">
+                  <dt>Other</dt>
+                  <dd>{{ h.subscriptions.other | number }}</dd>
+                </div>
+                <div class="stat stat--total">
+                  <dt>Total</dt>
+                  <dd>{{ h.subscriptions.total | number }}</dd>
+                </div>
+              </dl>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- TIMWE provider billing (imported report, never live) -->
+          <mat-card class="card health-card"
+                    [ngClass]="'health-card--' + h.provider.state"
+                    aria-labelledby="health-provider-title">
+            <mat-card-content>
+              <header class="health-card__head">
+                <h3 id="health-provider-title">TIMWE billing</h3>
+                <span class="state-badge" [ngClass]="'state-badge--' + h.provider.state">
+                  <mat-icon aria-hidden="true">{{
+                    h.provider.state === 'fresh' ? 'check_circle'
+                    : h.provider.state === 'stale' ? 'schedule' : 'block' }}</mat-icon>
+                  {{ providerStateLabel(h.provider.state) }}
+                </span>
+              </header>
+              <p class="health-card__meta">
+                Source: TIMWE daily report import ·
+                <ng-container *ngIf="h.provider.last_imported_at; else neverImported">
+                  last imported {{ h.provider.last_imported_at | date:'medium' }}
+                </ng-container>
+                <ng-template #neverImported>never imported</ng-template>
+              </p>
+              <p class="health-card__note">
+                Not live: the server imports the TIMWE report periodically, so rely on the last import time above
+                for how current these figures are. Refreshing this page does not fetch a new report from TIMWE.
+              </p>
+
+              <p *ngIf="h.provider.state === 'stale'" class="health-banner health-banner--warn" role="status">
+                <mat-icon aria-hidden="true">warning_amber</mat-icon>
+                <span>The latest import is overdue. These figures are from the last successful import and are not live.</span>
+              </p>
+              <p *ngIf="h.provider.state === 'unavailable'" class="health-banner health-banner--muted" role="status">
+                <mat-icon aria-hidden="true">info</mat-icon>
+                <span>No TIMWE report is available for this scope. Totals are not shown rather than reported as zero.</span>
+              </p>
+
+              <dl class="stat-grid stat-grid--two">
+                <div class="stat">
+                  <dt>Successful billings</dt>
+                  <dd>
+                    <ng-container *ngIf="h.provider.success_billings !== null; else notAvailable">
+                      {{ h.provider.success_billings | number }}
+                    </ng-container>
+                  </dd>
+                </div>
+                <div class="stat">
+                  <dt>Revenue</dt>
+                  <dd>
+                    <ng-container *ngIf="h.provider.revenue !== null; else notAvailable">
+                      <span class="mono">{{ h.provider.revenue }}</span>
+                      <span class="currency" [class.currency--unknown]="!h.provider.currency">
+                        {{ h.provider.currency || 'currency unknown' }}
+                      </span>
+                    </ng-container>
+                  </dd>
+                </div>
+              </dl>
+              <ng-template #notAvailable>
+                <span class="not-available">Not available</span>
+              </ng-template>
+
+              <p *ngIf="h.provider.state !== 'unavailable' && h.provider.daily.length" class="health-card__note">
+                Totals span {{ healthDimensions.shortcodes }} shortcode(s), {{ healthDimensions.products }} product(s)
+                and {{ healthDimensions.pricepoints }} pricepoint(s); see the daily breakdown below.
+              </p>
+              <p *ngIf="healthRangeIncludesToday && h.provider.state !== 'unavailable'" class="health-card__note">
+                Includes today ({{ healthToday }}, {{ healthTimezone }}), which is provisional and may change on the next import.
+              </p>
+            </mat-card-content>
+          </mat-card>
+        </div>
+
+        <!-- Daily provider breakdown -->
+        <mat-card class="card" *ngIf="h.provider.state !== 'unavailable'">
+          <mat-card-title>TIMWE daily billings</mat-card-title>
+          <mat-card-content>
+            <div class="table-scroll" *ngIf="h.provider.daily.length; else noDaily">
+            <table
+                   mat-table [dataSource]="h.provider.daily" [trackBy]="trackByDailyRow" class="mat-elevation-z2">
+              <caption class="cdk-visually-hidden">
+                TIMWE successful billings and revenue per day, shortcode, product and pricepoint
+                ({{ healthTimezone }} dates), {{ h.provider.currency || 'currency unknown' }}
+              </caption>
+              <ng-container matColumnDef="date">
+                <th mat-header-cell *matHeaderCellDef scope="col">Date ({{ healthTimezone }})</th>
+                <td mat-cell *matCellDef="let row" class="nowrap">{{ row.date }}</td>
+              </ng-container>
+              <ng-container matColumnDef="shortcode">
+                <th mat-header-cell *matHeaderCellDef scope="col">Shortcode</th>
+                <td mat-cell *matCellDef="let row" class="mono">{{ row.shortcode || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="product">
+                <th mat-header-cell *matHeaderCellDef scope="col">Product</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="dim-name">{{ row.product_name || 'Unnamed product' }}</span>
+                  <span class="dim-id">ID {{ row.product_id }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="pricepoint">
+                <th mat-header-cell *matHeaderCellDef scope="col">Pricepoint ID</th>
+                <td mat-cell *matCellDef="let row" class="mono">{{ row.pricepoint_id }}</td>
+              </ng-container>
+              <ng-container matColumnDef="success_billings">
+                <th mat-header-cell *matHeaderCellDef scope="col" class="num">Successful billings</th>
+                <td mat-cell *matCellDef="let row" class="num">{{ row.success_billings | number }}</td>
+              </ng-container>
+              <ng-container matColumnDef="revenue">
+                <th mat-header-cell *matHeaderCellDef scope="col" class="num">
+                  Revenue ({{ h.provider.currency || 'currency unknown' }})
+                </th>
+                <td mat-cell *matCellDef="let row" class="num mono">{{ row.revenue }}</td>
+              </ng-container>
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef scope="col">Status</th>
+                <td mat-cell *matCellDef="let row">
+                  <span *ngIf="isProvisional(row); else finalRow" class="state-badge state-badge--provisional">
+                    Provisional
+                  </span>
+                  <ng-template #finalRow><span class="row-final">Imported</span></ng-template>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="healthDailyColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: healthDailyColumns;"
+                  [class.row-provisional]="isProvisional(row)"></tr>
+            </table>
+            </div>
+            <ng-template #noDaily>
+              <p class="health-empty">The import succeeded but reported no billings in this range.</p>
+            </ng-template>
+          </mat-card-content>
+        </mat-card>
+      </ng-container>
+    </mat-tab>
 
     <!-- ── Activity Logs ─────────────────────────────────────────────── -->
     <mat-tab label="Activity Logs">

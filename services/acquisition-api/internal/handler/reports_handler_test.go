@@ -284,3 +284,16 @@ func setReportTenant(ctx *fasthttp.RequestCtx) {
 		TrustSource: tenantctx.TrustSourceJWT,
 	})
 }
+
+func TestSubscriptionHealthRejectsChannelAndPlatformAggregate(t *testing.T) {
+	h := &ReportsHandler{}
+	for _, query := range []string{"channelId=22222222-2222-2222-2222-222222222222", "channel_id=22222222-2222-2222-2222-222222222222", "all_tenants=true"} {
+		ctx := &fasthttp.RequestCtx{}
+		ctx.QueryArgs().Parse(query)
+		setReportTenant(ctx)
+		h.GetSubscriptionHealth(ctx)
+		if ctx.Response.StatusCode() != fasthttp.StatusBadRequest {
+			t.Fatalf("%s: status %d, want 400", query, ctx.Response.StatusCode())
+		}
+	}
+}
