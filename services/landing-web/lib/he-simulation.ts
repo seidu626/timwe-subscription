@@ -198,7 +198,16 @@ function normalizeLocalRedirect(redirect: string): string {
   if (!trimmed.startsWith('/') || trimmed.startsWith('//')) {
     return '/'
   }
-  return trimmed
+  // The URL parser reads '\' as '/' and drops tabs/newlines, so '/\evil.com'
+  // and '/\t/evil.com' would leave the site; keep only same-origin paths.
+  const base = 'http://local.invalid'
+  let resolved: URL
+  try {
+    resolved = new URL(trimmed, base)
+  } catch {
+    return '/'
+  }
+  return resolved.origin === base ? trimmed : '/'
 }
 
 /**
