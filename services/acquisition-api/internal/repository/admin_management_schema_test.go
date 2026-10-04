@@ -261,6 +261,37 @@ func TestTenantChannelCredentialsMigrationStoresReferencesOnly(t *testing.T) {
 	}
 }
 
+func TestNRGTenantChannelSeedStoresCredentialReferenceOnly(t *testing.T) {
+	migrationPath := filepath.Join("..", "..", "migrations", "seed_nrg_tenant_channel.sql")
+	body, err := os.ReadFile(migrationPath)
+	if err != nil {
+		t.Fatalf("failed to read migration: %v", err)
+	}
+	sql := string(body)
+
+	required := []string{
+		"'nrg'",
+		"'web-gh-airteltigo'",
+		"'timwe'",
+		"'provider_api'",
+		"'env://NRG_TIMWE_API_SECRET'",
+		"'nrg-timwe-api'",
+		"ON CONFLICT (tenant_id, channel_key) DO UPDATE",
+		"ON CONFLICT (tenant_id, channel_id, purpose, version) DO UPDATE",
+	}
+	for _, want := range required {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("migration missing %q", want)
+		}
+	}
+	forbidden := []string{"timwe_api_key", "timwe_psk", "secret_value", "password", "token_value"}
+	for _, bad := range forbidden {
+		if strings.Contains(strings.ToLower(sql), bad) {
+			t.Fatalf("migration contains plaintext-like value %q", bad)
+		}
+	}
+}
+
 func TestTenantAcquisitionFlowMigrationDropsLegacyCampaignSlugForeignKeys(t *testing.T) {
 	migrationPath := filepath.Join("..", "..", "migrations", "add_tenant_zz_acquisition_flow.sql")
 	body, err := os.ReadFile(migrationPath)
