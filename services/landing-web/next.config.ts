@@ -44,6 +44,14 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/__he/:path*',
+        destination: '/api/he/:path*',
+      },
+    ];
+  },
 };
 
 const sentryConfig = {

@@ -39,6 +39,22 @@ export interface HESimConfig {
   secret: string
   cookieName: string
   ttlSeconds: number
+  cookieSecure: boolean
+  allowedMsisdns: string[]
+}
+
+export interface HESimulationInput {
+  msisdn?: string | null
+  operator?: string | null
+  mcc?: string | null
+  mnc?: string | null
+  redirect?: string | null
+}
+
+export interface HESimulationScenario {
+  identity: Omit<HEIdentity, 'source'>
+  redirect: string
+  maskedMsisdn: string
 }
 
 // Ghana operator definitions (from docs/ghana-header-enrichment-parameters.md)
@@ -48,6 +64,8 @@ export const GHANA_OPERATORS = {
   AT_03: { mcc: '620', mnc: '03', name: 'AT Ghana (ex-AirtelTigo)' },
   AT_06: { mcc: '620', mnc: '06', name: 'AT Ghana (ex-AirtelTigo)' },
 } as const
+
+type GhanaOperatorKey = keyof typeof GHANA_OPERATORS
 
 // Candidate MSISDN headers to check (in order of preference)
 export const MSISDN_HEADERS = [
@@ -60,11 +78,26 @@ export const MSISDN_HEADERS = [
  * Load HE simulation configuration from environment variables
  */
 export function getHESimConfig(): HESimConfig {
+  const cookieSecure = process.env.HE_SIM_COOKIE_SECURE
+  const ttlSeconds = Number.parseInt(process.env.HE_SIM_TTL_SECONDS || '180', 10)
+
   return {
     enabled: process.env.HE_SIMULATION_ENABLED === 'true',
     secret: process.env.HE_SIM_SECRET || '',
     cookieName: process.env.HE_SIM_COOKIE_NAME || 'he_sim_token',
-    ttlSeconds: parseInt(process.env.HE_SIM_TTL_SECONDS || '180', 10),
+    ttlSeconds: Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 180,
+    cookieSecure: cookieSecure ? cookieSecure === 'true' : process.env.NODE_ENV === 'production',
+    allowedMsisdns: parseCsv(process.env.HE_SIM_ALLOWED_MSISDNS).map(normalizeMsisdn),
+  }
+}
+
+export function getDefaultHESimulationInput(): HESimulationInput {
+  return {
+    msisdn: process.env.HE_SIM_DEFAULT_MSISDN || '',
+    operator: process.env.HE_SIM_DEFAULT_OPERATOR || 'MTN',
+    mcc: process.env.HE_SIM_DEFAULT_MCC || '',
+    mnc: process.env.HE_SIM_DEFAULT_MNC || '',
+    redirect: process.env.HE_SIM_DEFAULT_REDIRECT || '/',
   }
 }
 
@@ -81,6 +114,91 @@ export function normalizeMsisdn(msisdn: string): string {
 export function isValidMsisdn(msisdn: string): boolean {
   const normalized = normalizeMsisdn(msisdn)
   return /^\d{9,15}$/.test(normalized)
+}
+
+export function maskMsisdnForDisplay(msisdn: string): string {
+  const normalized = normalizeMsisdn(msisdn)
+  if (normalized.length <= 6) {
+    return '*'.repeat(normalized.length)
+  }
+
+  return `${normalized.slice(0, 5)}${'*'.repeat(normalized.length - 8)}${normalized.slice(-3)}`
+}
+
+export function resolveHESimulationScenario(
+  input: HESimulationInput,
+  config: HESimConfig = getHESimConfig()
+): HESimulationScenario {
+  const defaults = getDefaultHESimulationInput()
+  const msisdn = normalizeMsisdn(cleanString(input.msisdn) || cleanString(defaults.msisdn))
+
+  if (!msisdn || !isValidMsisdn(msisdn)) {
+    throw new Error('Invalid MSISDN format')
+  }
+
+  if (config.allowedMsisdns.length > 0 && !config.allowedMsisdns.includes(msisdn)) {
+    throw new Error('MSISDN is not allowed for HE simulation')
+  }
+
+  const operator = cleanString(input.operator) || cleanString(defaults.operator) || 'MTN'
+  const operatorKey = normalizeOperatorKey(operator)
+  const isCustomOperator = operatorKey === 'CUSTOM'
+  let mcc = cleanString(input.mcc) || cleanString(defaults.mcc)
+  let mnc = cleanString(input.mnc) || cleanString(defaults.mnc)
+  let operatorId = operator
+
+  if (isCustomOperator) {
+    mcc ||= '620'
+    mnc ||= '01'
+    operatorId = `${mcc}-${mnc}`
+  } else {
+    const opConfig = GHANA_OPERATORS[operatorKey as GhanaOperatorKey]
+    if (!opConfig) {
+      throw new Error('Unsupported HE operator')
+    }
+    mcc = opConfig.mcc
+    mnc = opConfig.mnc
+    operatorId = opConfig.name
+  }
+
+  if (!/^\d{3}$/.test(mcc) || !/^\d{2,3}$/.test(mnc)) {
+    throw new Error('Invalid MCC/MNC format')
+  }
+
+  return {
+    identity: {
+      msisdn,
+      operatorId,
+      mcc,
+      mnc,
+      country: 'GH',
+    },
+    redirect: normalizeLocalRedirect(cleanString(input.redirect) || cleanString(defaults.redirect) || '/'),
+    maskedMsisdn: maskMsisdnForDisplay(msisdn),
+  }
+}
+
+function cleanString(value: string | null | undefined): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function parseCsv(value: string | undefined): string[] {
+  return (value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function normalizeOperatorKey(operator: string): string {
+  return operator.trim().toUpperCase().replace(/[\s-]+/g, '_')
+}
+
+function normalizeLocalRedirect(redirect: string): string {
+  const trimmed = redirect.trim()
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) {
+    return '/'
+  }
+  return trimmed
 }
 
 /**

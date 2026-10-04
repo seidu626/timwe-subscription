@@ -79,7 +79,11 @@ Implement **multiple layers**; do not rely on only one.
 | `HE_SIMULATION_ENABLED` | `true` (staging), `false` (prod) | Master switch |
 | `HE_SIM_SECRET` | long random | Token signing secret (staging only) |
 | `HE_SIM_COOKIE_NAME` | `he_sim_token` | Cookie key |
+| `HE_SIM_COOKIE_SECURE` | `false` (local HTTP), `true` (staging HTTPS) | Override Secure cookie behavior when `next start` runs with `NODE_ENV=production` locally |
 | `HE_SIM_TTL_SECONDS` | `180` | Token TTL |
+| `HE_SIM_DEFAULT_MSISDN` | `23324...` | Optional gitignored local default for pre-filling your personal test number |
+| `HE_SIM_DEFAULT_OPERATOR` | `MTN` | Optional local default operator (`MTN`, `TELECEL`, `AT_03`, `AT_06`, or `custom`) |
+| `HE_SIM_DEFAULT_REDIRECT` | `/lp/...` | Optional local default redirect after setting the simulation cookie |
 | `HE_SIM_IP_ALLOWLIST` | `10.0.0.0/8,1.2.3.4/32` | Restrict simulator usage |
 | `HE_SIM_BASIC_AUTH` | `user:hashedpass` | Optional protection for simulator routes |
 | `HE_SIM_ALLOWED_MSISDNS` | `26133...,26134...` | Optional allowlist |

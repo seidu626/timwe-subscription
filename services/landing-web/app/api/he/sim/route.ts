@@ -1,26 +1,78 @@
 /**
  * HE Simulator Route - Staging/Local Only
  *
- * GET  /__he/sim - Display simulator form
- * POST /__he/sim - Generate simulation token and set cookie
+ * GET  /api/he/sim - Display simulator form
+ * POST /api/he/sim - Generate simulation token and set cookie
+ *
+ * next.config.ts rewrites /__he/sim to this route so the public local
+ * simulator URL does not live in a private App Router folder.
  *
  * SECURITY: Returns 404 when HE_SIMULATION_ENABLED !== 'true'
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  getHESimConfig,
   createSimulationToken,
-  normalizeMsisdn,
-  isValidMsisdn,
-  GHANA_OPERATORS,
+  getDefaultHESimulationInput,
+  getHESimConfig,
+  HESimulationInput,
+  resolveHESimulationScenario,
 } from '@/lib/he-simulation'
+
+function escapeHtml(value: string | null | undefined): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function selected(current: string | null | undefined, value: string): string {
+  return current === value ? ' selected' : ''
+}
+
+function wantsJSON(request: NextRequest): boolean {
+  return request.headers.get('accept')?.includes('application/json') === true
+    || request.headers.get('content-type')?.includes('application/json') === true
+}
+
+function jsonOrTextError(request: NextRequest, message: string, status: number): NextResponse {
+  if (wantsJSON(request)) {
+    return NextResponse.json({ error: message }, { status })
+  }
+
+  return new NextResponse(message, { status })
+}
+
+async function readSimulationInput(request: NextRequest): Promise<HESimulationInput> {
+  if (request.headers.get('content-type')?.includes('application/json')) {
+    const body = await request.json() as Record<string, unknown>
+    return {
+      msisdn: typeof body.msisdn === 'string' ? body.msisdn : undefined,
+      operator: typeof body.operator === 'string' ? body.operator : undefined,
+      mcc: typeof body.mcc === 'string' ? body.mcc : undefined,
+      mnc: typeof body.mnc === 'string' ? body.mnc : undefined,
+      redirect: typeof body.redirect === 'string' ? body.redirect : undefined,
+    }
+  }
+
+  const formData = await request.formData()
+  return {
+    msisdn: formData.get('msisdn') as string | null,
+    operator: formData.get('operator') as string | null,
+    mcc: formData.get('mcc') as string | null,
+    mnc: formData.get('mnc') as string | null,
+    redirect: formData.get('redirect') as string | null,
+  }
+}
 
 /**
  * GET /__he/sim - Display simulator form
  */
 export async function GET() {
   const config = getHESimConfig()
+  const defaults = getDefaultHESimulationInput()
+  const defaultOperator = String(defaults.operator || 'MTN').trim().toUpperCase().replace(/[\s-]+/g, '_')
 
   if (!config.enabled) {
     return new NextResponse('Not Found', { status: 404 })
@@ -144,6 +196,7 @@ export async function GET() {
         id="msisdn"
         name="msisdn"
         placeholder="233240000001"
+        value="${escapeHtml(defaults.msisdn)}"
         pattern="[0-9]{9,15}"
         required
       />
@@ -151,19 +204,19 @@ export async function GET() {
 
       <label for="operator">Operator</label>
       <select id="operator" name="operator">
-        <option value="MTN">MTN Ghana (MCC 620, MNC 01)</option>
-        <option value="TELECEL">Telecel Ghana (MCC 620, MNC 02)</option>
-        <option value="AT_03">AT Ghana (MCC 620, MNC 03)</option>
-        <option value="AT_06">AT Ghana (MCC 620, MNC 06)</option>
-        <option value="custom">Custom...</option>
+        <option value="MTN"${selected(defaultOperator, 'MTN')}>MTN Ghana (MCC 620, MNC 01)</option>
+        <option value="TELECEL"${selected(defaultOperator, 'TELECEL')}>Telecel Ghana (MCC 620, MNC 02)</option>
+        <option value="AT_03"${selected(defaultOperator, 'AT_03')}>AT Ghana (MCC 620, MNC 03)</option>
+        <option value="AT_06"${selected(defaultOperator, 'AT_06')}>AT Ghana (MCC 620, MNC 06)</option>
+        <option value="custom"${selected(defaultOperator, 'CUSTOM')}>Custom...</option>
       </select>
 
       <div id="custom-fields" style="display: none;">
         <label for="mcc">MCC (Mobile Country Code)</label>
-        <input type="text" id="mcc" name="mcc" placeholder="620" />
+        <input type="text" id="mcc" name="mcc" placeholder="620" value="${escapeHtml(defaults.mcc)}" />
 
         <label for="mnc">MNC (Mobile Network Code)</label>
-        <input type="text" id="mnc" name="mnc" placeholder="01" />
+        <input type="text" id="mnc" name="mnc" placeholder="01" value="${escapeHtml(defaults.mnc)}" />
       </div>
 
       <label for="redirect">Redirect To (after setting cookie)</label>
@@ -171,7 +224,7 @@ export async function GET() {
         type="text"
         id="redirect"
         name="redirect"
-        value="/"
+        value="${escapeHtml(defaults.redirect)}"
         placeholder="/lp/campaign-slug"
       />
       <p class="help">Landing page path to redirect to after simulation starts</p>
@@ -223,66 +276,42 @@ export async function POST(request: NextRequest) {
   const config = getHESimConfig()
 
   if (!config.enabled) {
-    return new NextResponse('Not Found', { status: 404 })
+    return jsonOrTextError(request, 'Not Found', 404)
   }
 
   if (!config.secret) {
-    return new NextResponse('HE_SIM_SECRET not configured', { status: 500 })
+    return jsonOrTextError(request, 'HE_SIM_SECRET not configured', 500)
   }
 
-  // Parse form data
-  const formData = await request.formData()
-  const msisdn = formData.get('msisdn') as string
-  const operator = formData.get('operator') as string
-  const customMcc = formData.get('mcc') as string
-  const customMnc = formData.get('mnc') as string
-  const redirect = (formData.get('redirect') as string) || '/'
-
-  // Validate MSISDN
-  if (!msisdn || !isValidMsisdn(msisdn)) {
-    return new NextResponse('Invalid MSISDN format', { status: 400 })
-  }
-
-  // Resolve operator MCC/MNC
-  let mcc: string
-  let mnc: string
-  let operatorId: string
-
-  if (operator === 'custom') {
-    mcc = customMcc || '620'
-    mnc = customMnc || '01'
-    operatorId = `${mcc}-${mnc}`
-  } else {
-    const opConfig = GHANA_OPERATORS[operator as keyof typeof GHANA_OPERATORS]
-    if (opConfig) {
-      mcc = opConfig.mcc
-      mnc = opConfig.mnc
-      operatorId = opConfig.name
-    } else {
-      mcc = '620'
-      mnc = '01'
-      operatorId = 'Unknown'
-    }
+  let scenario
+  try {
+    scenario = resolveHESimulationScenario(await readSimulationInput(request), config)
+  } catch (error) {
+    return jsonOrTextError(request, error instanceof Error ? error.message : 'Invalid HE simulation request', 400)
   }
 
   // Create signed token
-  const token = await createSimulationToken(
-    {
-      msisdn: normalizeMsisdn(msisdn),
-      operatorId,
-      mcc,
-      mnc,
-      country: 'GH',
-    },
-    config
-  )
+  const token = await createSimulationToken(scenario.identity, config)
 
-  // Create redirect response with cookie
-  const response = NextResponse.redirect(new URL(redirect, request.url), 302)
+  const response = wantsJSON(request)
+    ? NextResponse.json({
+      ok: true,
+      redirect: scenario.redirect,
+      identity: {
+        source: 'SIMULATED',
+        msisdn: scenario.maskedMsisdn,
+        operatorId: scenario.identity.operatorId,
+        mcc: scenario.identity.mcc,
+        mnc: scenario.identity.mnc,
+        country: scenario.identity.country,
+      },
+      ttlSeconds: config.ttlSeconds,
+    })
+    : NextResponse.redirect(new URL(scenario.redirect, request.url), 302)
 
   response.cookies.set(config.cookieName, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: config.cookieSecure,
     sameSite: 'lax',
     maxAge: config.ttlSeconds,
     path: '/',
