@@ -106,6 +106,7 @@
 
 {{/* Admin API Routes - Acquisition Reports */}}
 {{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/kpis" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/kpis" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
+{{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/subscription-health" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/subscription-health" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
 {{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/acquisition-funnel" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/acquisition-funnel" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
 {{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/campaign-performance" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/campaign-performance" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},
 {{ template "AdminApiEndpoint" (dict "Endpoint" "/v1/admin/reports/campaign-performance/export" "METHOD" "GET" "BackendUrlPattern" "/v1/admin/reports/campaign-performance/export" "BackendHost" $service.acquisition_api_url "Auth0Domain" $service.admin_auth0_domain "Auth0Audience" $service.admin_auth0_audience) }},

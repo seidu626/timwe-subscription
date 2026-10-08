@@ -78,6 +78,11 @@ func main() {
 	postbackRepo := repository.NewPostbackRepository(db, logger)
 	landingEventRepo := repository.NewLandingEventRepository(db, logger)
 	reportsRepo := repository.NewReportsRepository(db, logger)
+	providerReportSync, err := worker.NewTIMWEReportSyncFromEnv(reportsRepo, logger)
+	if err != nil {
+		logger.Error("TIMWE report importer disabled: invalid configuration", zap.Error(err))
+		providerReportSync = nil
+	}
 	outboundClickRepo := repository.NewOutboundClickRepository(db, logger)
 	adminManagementRepo := repository.NewAdminManagementRepository(db, logger)
 
@@ -156,6 +161,9 @@ func main() {
 	internalHandler := handler.NewInternalHandler(transactionService, logger)
 	analyticsHandler := handler.NewAnalyticsHandler(landingEventRepo, logger)
 	reportsHandler := handler.NewReportsHandler(reportsRepo, logger)
+	if providerReportSync != nil {
+		reportsHandler.SetTIMWEReportPollInterval(providerReportSync.PollInterval())
+	}
 	postbackAdminHandler := handler.NewPostbackAdminHandler(postbackRepo, logger)
 	transactionAdminHandler := handler.NewTransactionAdminHandler(transactionRepo, postbackRepo, transactionService, logger)
 	adminManagementHandler := handler.NewAdminManagementHandler(adminManagementService, logger)
@@ -265,6 +273,10 @@ func main() {
 	dispatcher := worker.NewPostbackDispatcher(postbackRepo, logger, worker.PostbackDispatcherConfig{})
 	go dispatcher.Start(dispatcherCtx)
 	logger.Info("Postback dispatcher started")
+	if providerReportSync != nil {
+		go providerReportSync.Run(dispatcherCtx)
+		logger.Info("TIMWE report importer started")
+	}
 
 	// Set up signal handling for graceful shutdown
 	quit := make(chan os.Signal, 1)

@@ -78,3 +78,38 @@ type TimeSeriesPoint struct {
 	Charged          int64     `json:"charged"`
 	EstimatedRevenue float64   `json:"estimated_revenue"`
 }
+
+// SubscriptionHealthResponse keeps local state and provider billing observations separate.
+// Provider revenue is a decimal string because the report does not declare a currency.
+type SubscriptionHealthResponse struct {
+	AsOf          time.Time               `json:"as_of"`
+	Timezone      string                  `json:"timezone"`
+	Subscriptions SubscriptionStateCounts `json:"subscriptions"`
+	Provider      TIMWEProviderSummary    `json:"provider"`
+}
+
+type SubscriptionStateCounts struct {
+	Active   int64 `json:"active"`
+	Inactive int64 `json:"inactive"`
+	Other    int64 `json:"other"`
+	Total    int64 `json:"total"`
+}
+
+type TIMWEProviderSummary struct {
+	State           string           `json:"state"`
+	LastImportedAt  *time.Time       `json:"last_imported_at"`
+	SuccessBillings *int64           `json:"success_billings"`
+	Revenue         *string          `json:"revenue"`
+	Currency        *string          `json:"currency"`
+	Daily           []TIMWEDailyItem `json:"daily"`
+}
+
+type TIMWEDailyItem struct {
+	Date            string `json:"date"`
+	Shortcode       string `json:"shortcode"`
+	ProductID       int    `json:"product_id"`
+	ProductName     string `json:"product_name"`
+	PricepointID    int    `json:"pricepoint_id"`
+	SuccessBillings int64  `json:"success_billings"`
+	Revenue         string `json:"revenue"`
+}

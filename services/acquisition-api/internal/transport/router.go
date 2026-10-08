@@ -599,6 +599,14 @@ func NewRouter(
 			return
 
 		// Admin reporting endpoints (token-protected)
+		case strings.EqualFold(path, "/v1/admin/reports/subscription-health"):
+			if method == fasthttp.MethodGet {
+				reportsHandler.GetSubscriptionHealth(ctx)
+			} else {
+				ctx.Error("Method Not Allowed", fasthttp.StatusMethodNotAllowed)
+			}
+			return
+
 		case strings.EqualFold(path, "/v1/admin/reports/kpis"):
 			if method == fasthttp.MethodGet {
 				reportsHandler.GetKPIs(ctx)

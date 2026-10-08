@@ -40,3 +40,285 @@
 table {
   width: 100%;
 }
+
+// ── Subscription health ─────────────────────────────────────────────────────
+
+.health-scope {
+  margin: 1rem 0 0;
+  color: var(--admin-text-muted);
+  font-size: 0.875rem;
+}
+
+.health-hint {
+  margin: -0.5rem 0 0;
+  color: var(--admin-text-muted);
+  font-size: 0.8125rem;
+}
+
+.health-refresh {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0;
+  color: var(--admin-text-muted);
+  font-size: 0.8125rem;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .spin {
+    animation: health-spin 1s linear infinite;
+  }
+}
+
+@keyframes health-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .health-refresh .spin {
+    animation: none;
+  }
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.dim-name {
+  display: block;
+}
+
+.dim-id {
+  display: block;
+  color: var(--admin-text-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.health-empty {
+  color: var(--admin-text-muted);
+  margin: 0.5rem 0 0;
+}
+
+.health-grid {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  transition: opacity var(--admin-transition);
+
+  &--dimmed {
+    opacity: 0.6;
+  }
+}
+
+.health-card {
+  border-top: 3px solid var(--admin-secondary-light);
+
+  &.health-card--fresh {
+    border-top-color: var(--admin-success);
+  }
+
+  &.health-card--stale {
+    border-top-color: var(--admin-warning);
+  }
+
+  &.health-card--unavailable {
+    border-top-color: var(--admin-border);
+  }
+
+  // Stale provider figures stay readable but visibly muted so they never read as live.
+  &.health-card--stale .stat dd {
+    color: var(--admin-text-muted);
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+
+    h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+  }
+
+  &__meta {
+    margin: 0.25rem 0 0;
+    color: var(--admin-text-muted);
+    font-size: 0.8125rem;
+  }
+
+  &__note {
+    margin: 0.75rem 0 0;
+    color: var(--admin-text-muted);
+    font-size: 0.8125rem;
+  }
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+
+  &--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.stat {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+
+  dt {
+    color: var(--admin-text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  dd {
+    margin: 0.25rem 0 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--admin-text);
+    overflow-wrap: anywhere;
+  }
+
+  &--total {
+    background: var(--admin-bg);
+  }
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.currency {
+  margin-left: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--admin-text-muted);
+
+  &--unknown {
+    font-style: italic;
+  }
+}
+
+.not-available {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--admin-text-muted);
+}
+
+.state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  // Dark text on tinted backgrounds keeps contrast above WCAG AA in both themes.
+  &--local {
+    color: var(--admin-secondary-dark);
+    background: rgba(100, 116, 139, 0.1);
+  }
+
+  &--fresh {
+    color: #047857;
+    background: rgba(16, 185, 129, 0.12);
+  }
+
+  &--stale {
+    color: var(--admin-accent-dark);
+    background: rgba(var(--admin-accent-rgb), 0.15);
+  }
+
+  &--unavailable {
+    color: var(--admin-secondary-dark);
+    background: rgba(100, 116, 139, 0.12);
+  }
+
+  &--provisional {
+    color: var(--admin-accent-dark);
+    background: rgba(var(--admin-accent-rgb), 0.12);
+    border-style: dashed;
+  }
+}
+
+.health-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--admin-radius-sm);
+  font-size: 0.875rem;
+
+  mat-icon {
+    flex: none;
+  }
+
+  span {
+    flex: 1;
+  }
+
+  &--error {
+    color: #991b1b;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+  }
+
+  &--warn {
+    color: var(--admin-accent-dark);
+    background: rgba(var(--admin-accent-rgb), 0.12);
+    border: 1px solid rgba(var(--admin-accent-rgb), 0.4);
+  }
+
+  &--muted {
+    color: var(--admin-text-muted);
+    background: var(--admin-bg);
+    border: 1px solid var(--admin-border);
+  }
+}
+
+th.num,
+td.num {
+  text-align: right;
+}
+
+.row-provisional td {
+  font-style: italic;
+  background: rgba(var(--admin-accent-rgb), 0.05);
+}
+
+.row-final {
+  color: var(--admin-text-muted);
+  font-size: 0.8125rem;
+}
