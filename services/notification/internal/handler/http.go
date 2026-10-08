@@ -368,6 +368,15 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 		ctx.Error(body, status)
 		return
 	}
+	productOwned := false
+	if !res.ContextGiven {
+		// Provider callbacks registered without tenant_key/channel_key (TIMWE posts
+		// bare /notification/{type}/{partnerRole}) fall back to the product owner.
+		if tenantID := h.tenantFromProductOwner(ctx.PostBody()); tenantID != "" {
+			res = tenantResolution{TenantID: tenantID, ContextGiven: true}
+			productOwned = true
+		}
+	}
 	if !res.ContextGiven && h.requireTenantContext {
 		body := `{"message":"tenant context is required: supply tenant_key and channel_key query parameters","code":"TENANT_CONTEXT_REQUIRED","inError":"true"}`
 		ctx.Error(body, fasthttp.StatusUnprocessableEntity)
@@ -382,6 +391,10 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 
 	notification.PartnerRole = partnerRole
 	notification.Type = notificationType
+	if productOwned {
+		// The tenant came from product ownership; never trust a body-supplied channel.
+		notification.ChannelID = nil
+	}
 	if res.TenantID != "" {
 		notification.TenantID = &res.TenantID
 	}
@@ -396,6 +409,26 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	ctx.SetBody([]byte(`{"message": "NotificationRequest processed successfully", "code": "SUCCESS", "inError": "false"}`))
+}
+
+// tenantFromProductOwner returns the active tenant that owns the callback's
+// productId, or "" when the body carries no product or the owner is not unique.
+func (h *NotificationHandler) tenantFromProductOwner(body []byte) string {
+	if h.service == nil {
+		return ""
+	}
+	var payload struct {
+		ProductID int `json:"productId"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil || payload.ProductID <= 0 {
+		return ""
+	}
+	tenantID, err := h.service.TenantIDByProductID(context.Background(), payload.ProductID)
+	if err != nil {
+		log.Printf("no unique tenant owns notification product %d: %v", payload.ProductID, err)
+		return ""
+	}
+	return tenantID
 }
 
 func channelIDFromRequest(ctx *fasthttp.RequestCtx) string {

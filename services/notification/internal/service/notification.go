@@ -18,6 +18,7 @@ type notificationRepository interface {
 	FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error)
 	TenantIDByKey(ctx context.Context, tenantKey string) (string, error)
 	ChannelIDByKeys(ctx context.Context, tenantID, channelKey string) (string, error)
+	TenantIDByProductID(ctx context.Context, productID int) (string, error)
 	ProcessNotification(ctx context.Context, notification *domain.NotificationRequest) error
 	ListSMSTemplates(ctx context.Context, tenantID string) ([]domain.SMSTemplate, error)
 	GetSMSTemplate(ctx context.Context, tenantID string, productID int, eventType string) (*domain.SMSTemplate, error)
@@ -76,6 +77,10 @@ func (s *NotificationService) TenantIDByKey(ctx context.Context, tenantKey strin
 
 func (s *NotificationService) ChannelIDByKeys(ctx context.Context, tenantID, channelKey string) (string, error) {
 	return s.repo.ChannelIDByKeys(ctx, tenantID, channelKey)
+}
+
+func (s *NotificationService) TenantIDByProductID(ctx context.Context, productID int) (string, error) {
+	return s.repo.TenantIDByProductID(ctx, productID)
 }
 
 func (s *NotificationService) ProcessNotification(notification *domain.NotificationRequest) error {
