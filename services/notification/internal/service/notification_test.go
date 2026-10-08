@@ -49,6 +49,10 @@ func (s *serviceRepoStub) ChannelIDByKeys(_ context.Context, tenantID, channelKe
 	return strings.TrimSpace(channelKey) + "-uuid", nil
 }
 
+func (s *serviceRepoStub) TenantIDByProductID(context.Context, int) (string, error) {
+	return "", errors.New("product is not owned by exactly one active tenant")
+}
+
 func TestGetNotifications_DefaultPaginationAndErrorContext(t *testing.T) {
 	rootErr := errors.New("db offline")
 	stub := &serviceRepoStub{

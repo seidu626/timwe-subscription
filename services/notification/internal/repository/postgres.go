@@ -139,6 +139,46 @@ func (r *NotificationRepository) ChannelIDByKeys(ctx context.Context, tenantID, 
 	return channelID, nil
 }
 
+// ErrProductOwnerNotUnique is returned when no active tenant, or more than one,
+// owns a provider product ID.
+var ErrProductOwnerNotUnique = errors.New("product is not owned by exactly one active tenant")
+
+// TenantIDByProductID resolves the active tenant that owns a provider product ID.
+// Provider callbacks registered without tenant_key/channel_key carry only the
+// product, so unknown or shared products fail closed.
+func (r *NotificationRepository) TenantIDByProductID(ctx context.Context, productID int) (string, error) {
+	if productID <= 0 {
+		return "", ErrProductOwnerNotUnique
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT p.tenant_id::text
+		FROM products p
+		JOIN tenants t ON t.id = p.tenant_id AND t.status = 'ACTIVE'
+		WHERE p.product_id = $1
+		LIMIT 2
+	`, productID)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var owners []string
+	for rows.Next() {
+		var tenantID string
+		if err := rows.Scan(&tenantID); err != nil {
+			return "", err
+		}
+		owners = append(owners, tenantID)
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	if len(owners) != 1 {
+		return "", ErrProductOwnerNotUnique
+	}
+	return owners[0], nil
+}
+
 // GenerateCacheKey generates a unique cache key for query filters.
 func (r *NotificationRepository) GenerateCacheKey(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, channel, notificationType, sortBy, sortDir string, page, pageSize int) string {
 	return fmt.Sprintf("notifications:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%d:%d", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), tenantID, channelID, partnerRole, msisdn, channel, notificationType, sortBy, sortDir, page, pageSize)
