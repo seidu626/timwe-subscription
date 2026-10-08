@@ -70,9 +70,7 @@ services:
     ports:
       - "8081:8081"
     environment:
-      # No effect yet: partner's config has no APPLICATION.ENVIRONMENT key for
-      # viper to override, and it only selects the zap logger.
-      - APPLICATION_ENVIRONMENT=PRODUCTION
+      - APP_APPLICATION_ENVIRONMENT=PRODUCTION
       - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
       - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
