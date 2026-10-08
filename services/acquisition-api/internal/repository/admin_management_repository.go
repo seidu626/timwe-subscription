@@ -661,6 +661,19 @@ func (r *AdminManagementRepository) GetProductByID(tenantID string, id int) (*do
 	return &p, nil
 }
 
+// ProductIDOwnedByOtherTenant reports whether a tenant other than tenantID has
+// registered productID. Provider callbacks that carry only the product resolve
+// their tenant from it, so a product ID must belong to one tenant.
+func (r *AdminManagementRepository) ProductIDOwnedByOtherTenant(tenantID, productID string) (bool, error) {
+	var owned bool
+	if err := r.db.QueryRow(`
+		SELECT EXISTS (SELECT 1 FROM products WHERE product_id = $1 AND tenant_id <> $2)
+	`, productID, tenantID).Scan(&owned); err != nil {
+		return false, fmt.Errorf("failed to check product ownership: %w", err)
+	}
+	return owned, nil
+}
+
 func (r *AdminManagementRepository) CreateProduct(product *domain.AdminProduct) (*domain.AdminProduct, error) {
 	query := `
 		INSERT INTO products (tenant_id, product_id, name, price_point_id, price_point_value, short_code)
