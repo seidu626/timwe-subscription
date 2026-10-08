@@ -17,9 +17,8 @@
 #   - APP_CACHE_REDIS_PORT: Override Redis port (default: 6379)
 # -----------------------------------------
 
-ENVIRONMENT: DEVELOPMENT
-
 APPLICATION:
+  ENVIRONMENT: DEVELOPMENT
   PORT: 8081
   ALLOWED_ORIGINS:
     - http://localhost:4200
