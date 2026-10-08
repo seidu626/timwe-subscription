@@ -77,6 +77,8 @@ services:
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
       - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - PGMAX_OPEN_CONNS=4
+      - PGMAX_IDLE_CONNS=1
       - APP_CACHE_REDIS_HOST=${REDIS_HOST:-host.docker.internal}
       - APP_CACHE_REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET}
@@ -105,12 +107,23 @@ services:
       - ./services/subscription-external/config:/app/config:ro
     environment:
       - APPLICATION_ENVIRONMENT=PRODUCTION
+      - APP_DATABASE_POSTGRESQL_MAX_OPEN_CONNS=5
+      - APP_DATABASE_POSTGRESQL_MAX_IDLE_CONNS=2
+      - APP_DATABASE_POSTGRESQL_CONN_MAX_LIFETIME=5m
+      - APP_DATABASE_POSTGRESQL_CONNECTION_TIMEOUT=10s
+      - APP_APPLICATION_BATCH_MAX_WORKERS_PER_JOB=5
+      - APP_APPLICATION_BATCH_MAX_CONCURRENT_OPTINS=5
       - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
       - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
       - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - PGMAX_OPEN_CONNS=4
+      - PGMAX_IDLE_CONNS=1
+      # Droplet compose has a stray backslash before this reference, so the live
+      # key is "\" + .env value. Dropping it rotates the key and ends all Dayline sessions.
+      - DAYLINE_APP_JWT_SECRET=${DAYLINE_APP_JWT_SECRET}
       - APP_CACHE_REDIS_HOST=${REDIS_HOST:-host.docker.internal}
       - APP_CACHE_REDIS_PORT=6379
       - TIMWE_API_KEY=${TIMWE_API_KEY}
@@ -118,6 +131,7 @@ services:
       - APP_APPLICATION_TIMWE_MA_API_KEY=${TIMWE_API_KEY}
       - APP_APPLICATION_TIMWE_MA_PSK=${TIMWE_PSK}
       - ACQUISITION_API_URL=http://acquisition-api:8084
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
       - TENANT_SECRET_MASTER_KEY=${TENANT_SECRET_MASTER_KEY}
       # Verifies the X-Service-Signature on trusted service-to-service calls
       # (acquisition-api opt-in MT). Without it tenant-routed requests fail
@@ -189,6 +203,8 @@ services:
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
       - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - PGMAX_OPEN_CONNS=4
+      - PGMAX_IDLE_CONNS=1
       - APP_CACHE_REDIS_HOST=${REDIS_HOST:-host.docker.internal}
       - APP_CACHE_REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET}
@@ -221,8 +237,11 @@ services:
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
       - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - PGMAX_OPEN_CONNS=4
+      - PGMAX_IDLE_CONNS=1
       - NOTIFICATION_WORKER_MT_BASE_URL=${NOTIFICATION_WORKER_MT_BASE_URL:-http://subscription-external:8083}
       - NOTIFICATION_WORKER_MT_CHANNEL=${NOTIFICATION_WORKER_MT_CHANNEL:-SMS}
+      - TENANT_SECRET_MASTER_KEY=${TENANT_SECRET_MASTER_KEY}
     networks:
       - backend
     extra_hosts:
@@ -281,6 +300,11 @@ services:
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
       - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - PGMAX_OPEN_CONNS=4
+      - PGMAX_IDLE_CONNS=1
+      # Droplet compose has a stray backslash before this reference, so the live
+      # key is "\" + .env value. Dropping it rotates the key and ends all Dayline sessions.
+      - DAYLINE_APP_JWT_SECRET=${DAYLINE_APP_JWT_SECRET}
       - TIMWE_API_KEY=${TIMWE_API_KEY}
       - TIMWE_PSK=${TIMWE_PSK}
       - TIMWE_REPORT_URL=${TIMWE_REPORT_URL:-}
@@ -291,6 +315,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - TENANT_SECRET_MASTER_KEY=${TENANT_SECRET_MASTER_KEY}
       - SUBSCRIPTION_EXTERNAL_URL=${SUBSCRIPTION_EXTERNAL_URL:-https://api.nouveauricheglobalgroup.com}
+      - GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
       - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
       - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
       - ACQUISITION_ADMIN_CORS_ORIGINS=${ACQUISITION_ADMIN_CORS_ORIGINS:-*}
@@ -344,10 +369,13 @@ services:
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
       - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - PGMAX_OPEN_CONNS=4
+      - PGMAX_IDLE_CONNS=1
       - CADENCE_ADMIN_HTTP_ADDR=:8091
       - ADMIN_AUTH0_DOMAIN=${ADMIN_AUTH0_DOMAIN:-dev-chliep5q.auth0.com}
       - ADMIN_AUTH0_AUDIENCE=${ADMIN_AUTH0_AUDIENCE:-https://dev-chliep5q.auth0.com/api/v2/}
       - CADENCE_ADMIN_CORS_ORIGINS=${CADENCE_ADMIN_CORS_ORIGINS:-*}
+      - CADENCE_ADMIN_TOKEN=${CADENCE_ADMIN_TOKEN}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8091/health"]
       interval: 30s
@@ -370,6 +398,8 @@ services:
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
       - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
+      - PGMAX_OPEN_CONNS=4
+      - PGMAX_IDLE_CONNS=1
     networks:
       - backend
     extra_hosts:
