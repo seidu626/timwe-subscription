@@ -627,6 +627,9 @@ func (s *AdminManagementService) CreateProduct(tenantID string, input *domain.Ad
 	if err := validateProductInput(input); err != nil {
 		return nil, err
 	}
+	if err := s.ensureProductIDNotOwnedElsewhere(tenantID, input.ProductID); err != nil {
+		return nil, err
+	}
 	input.TenantID = tenantID
 	created, err := s.repo.CreateProduct(input)
 	if err != nil {
@@ -659,6 +662,11 @@ func (s *AdminManagementService) UpdateProduct(tenantID string, id int, input *d
 			return nil, ErrAdminNotFound
 		}
 		return nil, err
+	}
+	if input.ProductID != before.ProductID {
+		if err := s.ensureProductIDNotOwnedElsewhere(tenantID, input.ProductID); err != nil {
+			return nil, err
+		}
 	}
 
 	input.TenantID = tenantID
@@ -728,6 +736,9 @@ func (s *AdminManagementService) BatchUpsertProducts(tenantID string, items []*d
 	for i := range items {
 		if err := validateProductInput(items[i]); err != nil {
 			return 0, fmt.Errorf("%w: item %d: %v", ErrInvalidInput, i+1, err)
+		}
+		if err := s.ensureProductIDNotOwnedElsewhere(tenantID, items[i].ProductID); err != nil {
+			return 0, fmt.Errorf("item %d: %w", i+1, err)
 		}
 		items[i].TenantID = tenantID
 	}
@@ -1278,6 +1289,20 @@ func (s *AdminManagementService) logActivity(
 			zap.Error(err),
 		)
 	}
+}
+
+// ensureProductIDNotOwnedElsewhere rejects a product ID another tenant already
+// registered. TIMWE callbacks without tenant params resolve the tenant by product,
+// and a shared product makes that lookup fail closed for the original owner.
+func (s *AdminManagementService) ensureProductIDNotOwnedElsewhere(tenantID, productID string) error {
+	owned, err := s.repo.ProductIDOwnedByOtherTenant(tenantID, productID)
+	if err != nil {
+		return err
+	}
+	if owned {
+		return fmt.Errorf("%w: product_id_owned_by_other_tenant", ErrAdminInvalidState)
+	}
+	return nil
 }
 
 func validateProductInput(input *domain.AdminProduct) error {

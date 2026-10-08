@@ -339,3 +339,142 @@ func TestBindChannelCredentialAcceptsValidPurposeBlob(t *testing.T) {
 		t.Fatalf("expected valid blob to reach the secret store, got %d calls", store.calls)
 	}
 }
+
+const productOwnerQuery = "SELECT EXISTS (SELECT 1 FROM products WHERE product_id = $1 AND tenant_id <> $2)"
+
+func testProduct(productID string) *domain.AdminProduct {
+	return &domain.AdminProduct{ProductID: productID, Name: "Daily Tips", PricePointID: 7, PricePointValue: 0.5, ShortCode: "4060"}
+}
+
+func expectProductOwner(mock sqlmock.Sqlmock, productID, tenantID string, ownedElsewhere bool) {
+	mock.ExpectQuery(regexp.QuoteMeta(productOwnerQuery)).
+		WithArgs(productID, tenantID).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(ownedElsewhere))
+}
+
+func TestCreateProductRejectsProductOwnedByOtherTenant(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	expectProductOwner(mock, "1001", tenantID, true)
+
+	svc := NewAdminManagementService(repository.NewAdminManagementRepository(db, zap.NewNop()), zap.NewNop())
+	_, err = svc.CreateProduct(tenantID, testProduct("  1001  "), nil, nil)
+	if !errors.Is(err, ErrAdminInvalidState) || !strings.Contains(err.Error(), "product_id_owned_by_other_tenant") {
+		t.Fatalf("expected product_id_owned_by_other_tenant, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestCreateProductInsertsUnownedProduct(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	expectProductOwner(mock, "1001", tenantID, false)
+	mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO products")).
+		WithArgs(tenantID, "1001", "Daily Tips", 7, 0.5, "4060").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(42, now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	svc := NewAdminManagementService(repository.NewAdminManagementRepository(db, zap.NewNop()), zap.NewNop())
+	created, err := svc.CreateProduct(tenantID, testProduct("1001"), nil, nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if created.ID != 42 || created.TenantID != tenantID {
+		t.Fatalf("unexpected product: %#v", created)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateProductRejectsRenameToProductOwnedByOtherTenant(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, product_id, name, price_point_id, price_point_value, short_code, created_at")).
+		WithArgs(tenantID, 42).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "product_id", "name", "price_point_id", "price_point_value", "short_code", "created_at"}).
+			AddRow(42, tenantID, "1001", "Daily Tips", 7, 0.5, "4060", now))
+	expectProductOwner(mock, "2002", tenantID, true)
+
+	svc := NewAdminManagementService(repository.NewAdminManagementRepository(db, zap.NewNop()), zap.NewNop())
+	_, err = svc.UpdateProduct(tenantID, 42, testProduct("2002"), nil, nil)
+	if !errors.Is(err, ErrAdminInvalidState) || !strings.Contains(err.Error(), "product_id_owned_by_other_tenant") {
+		t.Fatalf("expected product_id_owned_by_other_tenant, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateProductSkipsOwnerCheckWhenProductIDUnchanged(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	productCols := []string{"id", "tenant_id", "product_id", "name", "price_point_id", "price_point_value", "short_code", "created_at"}
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_id, product_id, name, price_point_id, price_point_value, short_code, created_at")).
+		WithArgs(tenantID, 42).
+		WillReturnRows(sqlmock.NewRows(productCols).AddRow(42, tenantID, "1001", "Old Name", 7, 0.5, "4060", now))
+	mock.ExpectQuery(regexp.QuoteMeta("UPDATE products")).
+		WithArgs("1001", "Daily Tips", 7, 0.5, "4060", tenantID, 42).
+		WillReturnRows(sqlmock.NewRows(productCols).AddRow(42, tenantID, "1001", "Daily Tips", 7, 0.5, "4060", now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	svc := NewAdminManagementService(repository.NewAdminManagementRepository(db, zap.NewNop()), zap.NewNop())
+	updated, err := svc.UpdateProduct(tenantID, 42, testProduct("1001"), nil, nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if updated.Name != "Daily Tips" {
+		t.Fatalf("unexpected product: %#v", updated)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestBatchUpsertProductsRejectsProductOwnedByOtherTenant(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	expectProductOwner(mock, "1001", tenantID, false)
+	expectProductOwner(mock, "2002", tenantID, true)
+
+	svc := NewAdminManagementService(repository.NewAdminManagementRepository(db, zap.NewNop()), zap.NewNop())
+	_, err = svc.BatchUpsertProducts(tenantID, []*domain.AdminProduct{testProduct("1001"), testProduct("2002")}, nil, nil)
+	if !errors.Is(err, ErrAdminInvalidState) || !strings.Contains(err.Error(), "item 2") {
+		t.Fatalf("expected item 2 ownership rejection, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
