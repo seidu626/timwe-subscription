@@ -155,3 +155,9 @@ func TestGenerateCacheKeyIncludesTenantID(t *testing.T) {
 		t.Fatalf("expected tenant id in cache key, got %q", nrgKey)
 	}
 }
+
+func TestCreateNotificationQuery_ReplayIsNoOp(t *testing.T) {
+	if !strings.Contains(createNotificationQuery, "ON CONFLICT DO NOTHING") {
+		t.Fatalf("a replayed webhook must not fail on the notifications unique index, got: %s", createNotificationQuery)
+	}
+}

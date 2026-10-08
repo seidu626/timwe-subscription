@@ -375,9 +375,9 @@ func (r *SubscriptionRepository) CreateSubscription(request *domain.Subscription
 	return nil
 }
 
-// CreateNotification inserts an inbound TIMWE notification into the notifications table.
-func (r *SubscriptionRepository) CreateNotification(notification *domain.NotificationRequest) error {
-	query := `
+// createNotificationQuery treats a replayed webhook that hits the
+// (tenant_id, type, transaction_uuid) unique index (migration 032) as a no-op.
+const createNotificationQuery = `
         INSERT INTO notifications (
             partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn, large_account, transaction_uuid,
             entry_channel, message_type, message, mno_delivery_code, tags, type, tenant_id, channel_id
@@ -385,9 +385,13 @@ func (r *SubscriptionRepository) CreateNotification(notification *domain.Notific
             $1, $2, $3, $4, $5, $6, $7, $8, $9,
             $10, $11, $12, $13, $14, $15, NULLIF($16, ''::text)::uuid, NULLIF($17, ''::text)::uuid
         )
+        ON CONFLICT DO NOTHING
     `
+
+// CreateNotification inserts an inbound TIMWE notification into the notifications table.
+func (r *SubscriptionRepository) CreateNotification(notification *domain.NotificationRequest) error {
 	_, err := r.db.Exec(
-		query,
+		createNotificationQuery,
 		notification.PartnerRole,
 		notification.ExternalTxID,
 		notification.ProductID,

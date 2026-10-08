@@ -410,8 +410,9 @@ func nullStringPtr(val sql.NullString) *string {
 }
 
 // ProcessNotification persists the carrier callback and atomically enqueues an
-// enabled USER_OPTIN confirmation. The unique idempotency key makes callback
-// replay safe even when concurrent requests race.
+// enabled USER_OPTIN confirmation. TIMWE re-posts a callback until it gets a
+// 2xx; the (tenant_id, type, transaction_uuid) unique index (migration 032)
+// turns a replay into a no-op success that enqueues nothing.
 func (r *NotificationRepository) ProcessNotification(ctx context.Context, notification *domain.NotificationRequest) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -426,8 +427,9 @@ func (r *NotificationRepository) ProcessNotification(ctx context.Context, notifi
             message, tags, type
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
-        )`
-	_, err = tx.ExecContext(ctx, query,
+        )
+        ON CONFLICT DO NOTHING`
+	result, err := tx.ExecContext(ctx, query,
 		nullStringPtrValue(notification.TenantID),
 		nullStringPtrValue(notification.ChannelID),
 		notification.PartnerRole,
@@ -448,6 +450,13 @@ func (r *NotificationRepository) ProcessNotification(ctx context.Context, notifi
 	)
 	if err != nil {
 		return fmt.Errorf("failed to save notification: %w", err)
+	}
+	inserted, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("inspect notification insert: %w", err)
+	}
+	if inserted == 0 {
+		return nil
 	}
 
 	if notification.Type == domain.UserOptinEvent && notification.TenantID != nil && !notification.SkipOptinSMS {
