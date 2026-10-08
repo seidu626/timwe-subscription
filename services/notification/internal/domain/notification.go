@@ -52,4 +52,7 @@ type NotificationRequest struct {
 	MnoDeliveryCode string   `json:"mnoDeliveryCode,omitempty"`
 	Tags            []string `json:"tags"`
 	Type            string   `json:"type"`
+	// SkipOptinSMS is set server-side when the tenant was inferred from product
+	// ownership rather than supplied by the caller; never decoded from the body.
+	SkipOptinSMS bool `json:"-"`
 }

@@ -450,7 +450,7 @@ func (r *NotificationRepository) ProcessNotification(ctx context.Context, notifi
 		return fmt.Errorf("failed to save notification: %w", err)
 	}
 
-	if notification.Type == domain.UserOptinEvent && notification.TenantID != nil {
+	if notification.Type == domain.UserOptinEvent && notification.TenantID != nil && !notification.SkipOptinSMS {
 		if err := enqueueOptinConfirmation(ctx, tx, notification); err != nil {
 			return err
 		}
