@@ -63,6 +63,21 @@ func TestHandleNotification_ProductOwnerFallback(t *testing.T) {
 		}
 	})
 
+	t.Run("owned opt-in is stored but flagged to skip the SMS confirmation", func(t *testing.T) {
+		repo := &handlerRepoStub{productOwners: owners}
+		h := NewNotificationHandler(service.NewNotificationService(repo))
+
+		ctx := makeCtx("/api/v1/notification/user-optin/2117", `{"msisdn":"233241234567","productId":32535,"externalTxId":"tx-9"}`)
+		h.UserOptinHandler(ctx)
+
+		if ctx.Response.StatusCode() != fasthttp.StatusOK {
+			t.Fatalf("expected 200, got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+		}
+		if repo.saved == nil || !repo.saved.SkipOptinSMS {
+			t.Fatalf("expected SkipOptinSMS on an inferred tenant, got %#v", repo.saved)
+		}
+	})
+
 	t.Run("unowned product → 422 TENANT_CONTEXT_REQUIRED", func(t *testing.T) {
 		repo := &handlerRepoStub{productOwners: owners}
 		h := NewNotificationHandler(service.NewNotificationService(repo))
@@ -102,7 +117,7 @@ func TestHandleNotification_ProductOwnerFallback(t *testing.T) {
 		h := NewNotificationHandler(service.NewNotificationService(repo))
 
 		ctx := makeCtx("/api/v1/notification/charge/2117?tenant_key=careerify&channel_key=web-gh-airteltigo",
-			`{"msisdn":"233241234567","productId":8509}`)
+			`{"msisdn":"233241234567","productId":8509,"SkipOptinSMS":true}`)
 		h.ChargeHandler(ctx)
 
 		if ctx.Response.StatusCode() != fasthttp.StatusOK {
@@ -113,6 +128,9 @@ func TestHandleNotification_ProductOwnerFallback(t *testing.T) {
 		}
 		if repo.saved.ChannelID == nil || *repo.saved.ChannelID != careerifyChannelID {
 			t.Fatalf("expected channel %q, got %#v", careerifyChannelID, repo.saved.ChannelID)
+		}
+		if repo.saved.SkipOptinSMS {
+			t.Fatal("explicit tenant context must not skip SMS, and the body must not set the flag")
 		}
 	})
 }

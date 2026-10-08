@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	"github.com/seidu626/subscription-manager/notification/internal/domain"
 )
 
 func newNotificationRepoWithMock(t *testing.T) (*NotificationRepository, sqlmock.Sqlmock) {
@@ -70,6 +71,45 @@ func TestTenantIDByProductID(t *testing.T) {
 
 		if _, err := repo.TenantIDByProductID(context.Background(), 14392); err == nil || errors.Is(err, ErrProductOwnerNotUnique) {
 			t.Fatalf("expected raw db error, got %v", err)
+		}
+	})
+}
+
+func TestProcessNotification_SkipOptinSMSNeverReadsTemplates(t *testing.T) {
+	tenantID := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	optin := func(skip bool) *domain.NotificationRequest {
+		return &domain.NotificationRequest{
+			TenantID: &tenantID, ProductID: 32535, MSISDN: "233241234567",
+			ExternalTxID: "tx-forged-1", Type: domain.UserOptinEvent, SkipOptinSMS: skip,
+		}
+	}
+
+	t.Run("inferred tenant: insert only, no template lookup or outbox write", func(t *testing.T) {
+		repo, mock := newNotificationRepoWithMock(t)
+		mock.ExpectBegin()
+		mock.ExpectExec(`INSERT INTO notifications`).WillReturnResult(sqlmock.NewResult(1, 1))
+		mock.ExpectCommit()
+
+		if err := repo.ProcessNotification(context.Background(), optin(true)); err != nil {
+			t.Fatalf("ProcessNotification: %v", err)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("explicit tenant: template lookup still runs", func(t *testing.T) {
+		repo, mock := newNotificationRepoWithMock(t)
+		mock.ExpectBegin()
+		mock.ExpectExec(`INSERT INTO notifications`).WillReturnResult(sqlmock.NewResult(1, 1))
+		mock.ExpectQuery(`FROM tenant_product_sms_templates`).WillReturnRows(sqlmock.NewRows([]string{"id", "template"}))
+		mock.ExpectCommit()
+
+		if err := repo.ProcessNotification(context.Background(), optin(false)); err != nil {
+			t.Fatalf("ProcessNotification: %v", err)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Fatal(err)
 		}
 	})
 }

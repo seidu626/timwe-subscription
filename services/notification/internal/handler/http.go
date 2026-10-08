@@ -392,8 +392,10 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 	notification.PartnerRole = partnerRole
 	notification.Type = notificationType
 	if productOwned {
-		// The tenant came from product ownership; never trust a body-supplied channel.
+		// The tenant came from product ownership; never trust a body-supplied channel,
+		// and never send SMS on an unauthenticated, inferred attribution.
 		notification.ChannelID = nil
+		notification.SkipOptinSMS = true
 	}
 	if res.TenantID != "" {
 		notification.TenantID = &res.TenantID
