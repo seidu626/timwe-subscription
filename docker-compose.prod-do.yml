@@ -70,6 +70,9 @@ services:
     ports:
       - "8081:8081"
     environment:
+      # No effect yet: partner's config has no APPLICATION.ENVIRONMENT key for
+      # viper to override, and it only selects the zap logger.
+      - APPLICATION_ENVIRONMENT=PRODUCTION
       - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
       - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
@@ -89,6 +92,7 @@ services:
       start_period: 5s
     networks:
       - backend
+      - cache
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -102,6 +106,7 @@ services:
     volumes:
       - ./services/subscription-external/config:/app/config:ro
     environment:
+      - APPLICATION_ENVIRONMENT=PRODUCTION
       - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
       - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
@@ -138,6 +143,7 @@ services:
       start_period: 5s
     networks:
       - backend
+      - cache
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -178,6 +184,7 @@ services:
     ports:
       - "8082:8082"
     environment:
+      - APPLICATION_ENVIRONMENT=PRODUCTION
       - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
       - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
@@ -200,6 +207,7 @@ services:
       start_period: 5s
     networks:
       - backend
+      - cache
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -437,22 +445,25 @@ services:
   # ============================================
   # Infrastructure Services
   # ============================================
-  # Redis runs on host - not in Docker
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: subscription_redis
-  #   ports:
-  #     - "6379:6379"
-  #   healthcheck:
-  #     test: ["CMD", "redis-cli", "ping"]
-  #     interval: 5s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     - backend
-  #   volumes:
-  #     - redis_data:/data
-  #   restart: always
+  # Shared cache for notification, subscription-external and subscription-partner
+  # (APP_CACHE_REDIS_HOST=${REDIS_HOST} = redis). Only those three join the
+  # internal "cache" network, so other backend containers cannot reach it. Host
+  # redis-server already owns 6379 and requires a password these services lack.
+  # Every key carries a TTL, so volatile-lru eviction is safe.
+  redis:
+    image: redis:7-alpine
+    container_name: subscription_redis
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cache
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
 
   # Portainer (Docker UI) - bound to localhost (use SSH tunnel)
   portainer:
@@ -469,7 +480,11 @@ services:
 networks:
   backend:
     driver: bridge
+  cache:
+    driver: bridge
+    internal: true
 
 volumes:
   portainer_data:
   minio_data:
+  redis_data:
