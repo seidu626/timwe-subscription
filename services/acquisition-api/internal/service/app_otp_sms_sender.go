@@ -55,6 +55,15 @@ type smsGatewayConfig struct {
 	// which Arkesel v2 varies between endpoints.
 	SuccessField string `json:"success_field"`
 	SuccessValue string `json:"success_value"`
+	// Delivery-tracking fields are consumed only by notification-service's
+	// delivery poller (dispatcher/tenant_gateway.go), which shares this blob.
+	// OTP sends ignore them; they are declared so the strict console-bind
+	// decode accepts a blob the notification runtime is configured with.
+	MessageIDPath         string   `json:"message_id_path"`
+	StatusURL             string   `json:"status_url"`
+	StatusPath            string   `json:"status_path"`
+	StatusDeliveredValues []string `json:"status_delivered_values"`
+	StatusFailedValues    []string `json:"status_failed_values"`
 }
 
 func (c *smsGatewayConfig) validate() error {

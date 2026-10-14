@@ -26,6 +26,10 @@ func TestValidateCredentialSecretValue(t *testing.T) {
 		{"sms half a success marker", "sms_api",
 			`{"url":"https://sms.example/send","body_template":"x","success_field":"status"}`,
 			"must be set together"},
+		// notification-service's delivery poller reads these from the same blob.
+		{"sms delivery tracking fields", "sms_api", strings.TrimSuffix(validSMS, "}") +
+			`,"message_id_path":"data.0.id","status_url":"https://sms.arkesel.com/api/v2/sms/{{message_id}}",` +
+			`"status_path":"data.status","status_delivered_values":["DELIVERED"],"status_failed_values":["FAILED","REJECTED"]}`, ""},
 		{"sms unknown field", "sms_api", `{"url":"https://x/y","body_template":"z","typo":1}`, "unknown field"},
 		{"sms malformed json", "sms_api", `not json`, "sms gateway config"},
 
