@@ -12,11 +12,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
@@ -26,7 +29,59 @@ import (
 
 const tenantEventContractVersion = "tenant-channel-v1.0.0"
 
+// tenantEventHTTPClient calls the platform's own subscription-external for opt-outs, an internal address.
 var tenantEventHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
+// tenantWebhookHTTPClient posts to tenant-configured URLs. A tenant admin chooses that URL, so the
+// client dials only public addresses (checked after DNS resolution, so rebinding cannot reach an
+// internal service), ignores proxy settings and never follows redirects.
+var tenantWebhookHTTPClient = newTenantWebhookHTTPClient(tenantevents.AllowPrivateTargets())
+
+var errTenantWebhookTargetBlocked = errors.New("tenant webhook target is not a public address")
+
+func newTenantWebhookHTTPClient(allowPrivate bool) *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   5 * time.Second,
+		KeepAlive: 30 * time.Second,
+		Control: func(_, address string, _ syscall.RawConn) error {
+			if allowPrivate {
+				return nil
+			}
+			host, _, err := net.SplitHostPort(address)
+			if err != nil {
+				return errTenantWebhookTargetBlocked
+			}
+			addr, err := netip.ParseAddr(host)
+			if err != nil || !tenantevents.PublicAddr(addr) {
+				return fmt.Errorf("%w: %s", errTenantWebhookTargetBlocked, host)
+			}
+			return nil
+		},
+	}
+	transport := &http.Transport{
+		Proxy:                 nil,
+		DialContext:           dialer.DialContext,
+		ForceAttemptHTTP2:     true,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		MaxIdleConns:          20,
+		IdleConnTimeout:       90 * time.Second,
+	}
+	return &http.Client{
+		Timeout:       10 * time.Second,
+		Transport:     transport,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+}
+
+// activeTenantEventBindingSQL picks the credential events are delivered with: an ACTIVE tenant_events
+// credential on an ACTIVE channel of an ACTIVE tenant, newest version first. Enqueue and dispatch share
+// it, so an event is only queued for a binding the dispatcher would also accept.
+const activeTenantEventBindingSQL = `SELECT c.channel_id::text, c.secret_ref FROM tenant_channel_credentials c
+  JOIN tenants t ON t.id = c.tenant_id AND t.status = 'ACTIVE'
+  JOIN tenant_channels ch ON ch.id = c.channel_id AND ch.tenant_id = c.tenant_id AND ch.status = 'ACTIVE'
+  WHERE c.tenant_id = $1::uuid AND c.purpose = 'tenant_events' AND c.status = 'ACTIVE'
+  ORDER BY c.version DESC, c.channel_id LIMIT 1`
 
 // tenantEventBatch caps deliveries per dispatcher tick so the opt-out queue still gets a turn.
 const tenantEventBatch = 200
@@ -129,7 +184,7 @@ func (r *NotificationRepository) dispatchOneTenantEvent(ctx context.Context) (bo
 	req.Header.Set("X-Timwe-Event-Id", job.ID)
 	req.Header.Set("X-Timwe-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
 	req.Header.Set("X-Timwe-Contract-Version", tenantEventContractVersion)
-	resp, err := tenantEventHTTPClient.Do(req)
+	resp, err := tenantWebhookHTTPClient.Do(req)
 	if err != nil {
 		return true, r.finishTenantEvent(ctx, job, 0, nil, err.Error(), true, false)
 	}
@@ -158,9 +213,7 @@ type cachedTenantEventConfig struct {
 // Resolve the active binding on every delivery so revocation bypasses the decrypt cache.
 func (r *NotificationRepository) resolveTenantEventConfig(ctx context.Context, tenantID string) (*tenantevents.Config, error) {
 	var channelID, ref string
-	err := r.db.QueryRowContext(ctx, `SELECT channel_id::text, secret_ref FROM tenant_channel_credentials
-  WHERE tenant_id = $1::uuid AND purpose = 'tenant_events' AND status = 'ACTIVE'
-  ORDER BY version DESC, channel_id LIMIT 1`, tenantID).Scan(&channelID, &ref)
+	err := r.db.QueryRowContext(ctx, activeTenantEventBindingSQL, tenantID).Scan(&channelID, &ref)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

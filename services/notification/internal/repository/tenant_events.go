@@ -39,23 +39,36 @@ func (r *NotificationRepository) enqueueTenantEvent(ctx context.Context, tx *sql
 	if kind != "USER_OPTIN" && kind != "CHARGE" && kind != "USER_RENEWED" && kind != "USER_OPTOUT" {
 		return nil
 	}
-	var enabled bool
-	err := tx.QueryRowContext(ctx, `SELECT EXISTS (
-  SELECT 1 FROM tenant_channel_credentials WHERE tenant_id = $1::uuid
-  AND purpose = 'tenant_events' AND status = 'ACTIVE')`, *n.TenantID).Scan(&enabled)
+	// Same binding the dispatcher delivers with; nothing is queued for a binding it would refuse.
+	var bindingChannelID, bindingRef string
+	err := tx.QueryRowContext(ctx, activeTenantEventBindingSQL, *n.TenantID).Scan(&bindingChannelID, &bindingRef)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("lookup tenant event credential: %w", err)
 	}
-	if !enabled {
-		return nil
+	// TIMWE posts bare callbacks, so the tenant is usually inferred from the product (SkipOptinSMS).
+	// Those callbacks are authenticated at the edge: nginx admits the callback routes only from TIMWE's
+	// egress address. What the event path adds is the product check the SMS path gets from its
+	// (tenant, product) template key: a tenant only hears about a product it alone owns, whichever way
+	// the tenant was resolved.
+	var ownsProduct bool
+	err = tx.QueryRowContext(ctx, `SELECT COALESCE(bool_and(p.tenant_id = $1::uuid), false) AND count(DISTINCT p.tenant_id) = 1
+  FROM products p JOIN tenants t ON t.id = p.tenant_id AND t.status = 'ACTIVE'
+  WHERE p.product_id = $2`, *n.TenantID, n.ProductID).Scan(&ownsProduct)
+	if err != nil {
+		return fmt.Errorf("lookup tenant event product owner: %w", err)
+	}
+	// An explicit callback channel must be an ACTIVE channel of this tenant; otherwise the binding's channel.
+	channelArg := nullStringPtrValue(n.ChannelID)
+	if !channelArg.Valid {
+		channelArg = sql.NullString{String: bindingChannelID, Valid: true}
 	}
 	var channelKey, channelOperator string
 	var channelID sql.NullString
 	err = tx.QueryRowContext(ctx, `SELECT id::text, channel_key, COALESCE(operator,'') FROM tenant_channels
-  WHERE tenant_id = $1::uuid AND status = 'ACTIVE'
-   AND (id = $2::uuid OR ($2::uuid IS NULL AND id IN
-    (SELECT channel_id FROM tenant_channel_credentials WHERE tenant_id = $1::uuid AND purpose = 'tenant_events' AND status = 'ACTIVE')))
-  ORDER BY channel_key LIMIT 1`, *n.TenantID, nullStringPtrValue(n.ChannelID)).Scan(&channelID, &channelKey, &channelOperator)
+  WHERE tenant_id = $1::uuid AND status = 'ACTIVE' AND id = $2::uuid`, *n.TenantID, channelArg).Scan(&channelID, &channelKey, &channelOperator)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("lookup tenant event channel: %w", err)
 	}
@@ -75,7 +88,10 @@ func (r *NotificationRepository) enqueueTenantEvent(ctx context.Context, tx *sql
 		eventID = "timwe:" + kind + ":" + hex.EncodeToString(sum[:])
 	}
 	status, reason := "pending", ""
-	if (kind == "CHARGE" || kind == "USER_RENEWED") && strings.TrimSpace(n.TransactionUUID) == "" {
+	if !ownsProduct {
+		status, reason = "skipped", "PRODUCT_NOT_OWNED"
+		log.Printf("tenant event skipped: notification_id=%d product_id=%d reason=%s", notificationID, n.ProductID, reason)
+	} else if (kind == "CHARGE" || kind == "USER_RENEWED") && strings.TrimSpace(n.TransactionUUID) == "" {
 		status, reason = "skipped", "NO_TRANSACTION_UUID"
 		log.Printf("tenant charge event skipped: notification_id=%d reason=%s", notificationID, reason)
 	}
