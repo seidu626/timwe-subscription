@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type ListResponse struct {
 	Data        []*Notification `json:"data"`
@@ -35,23 +38,27 @@ type Notification struct {
 }
 
 type NotificationRequest struct {
-	TenantID        *string  `json:"tenantId,omitempty"`
-	ChannelID       *string  `json:"channelId,omitempty"`
-	PartnerRole     int      `json:"partnerRole"`
-	ExternalTxID    string   `json:"externalTxId"`
-	ProductID       int      `json:"productId"`
-	PricepointID    int      `json:"pricepointId"`
-	MCC             string   `json:"mcc"`
-	MNC             string   `json:"mnc"`
-	MSISDN          string   `json:"msisdn"`
-	LargeAccount    string   `json:"largeAccount"`
-	TransactionUUID string   `json:"transactionUUID"`
-	EntryChannel    string   `json:"entryChannel,omitempty"`
-	MessageType     string   `json:"messageType"`
-	Message         string   `json:"message"`
-	MnoDeliveryCode string   `json:"mnoDeliveryCode,omitempty"`
-	Tags            []string `json:"tags"`
-	Type            string   `json:"type"`
+	TenantID        *string         `json:"tenantId,omitempty"`
+	ChannelID       *string         `json:"channelId,omitempty"`
+	PartnerRole     int             `json:"partnerRole"`
+	ExternalTxID    string          `json:"externalTxId"`
+	ProductID       int             `json:"productId"`
+	PricepointID    int             `json:"pricepointId"`
+	MCC             string          `json:"mcc"`
+	MNC             string          `json:"mnc"`
+	MSISDN          string          `json:"msisdn"`
+	LargeAccount    string          `json:"largeAccount"`
+	TransactionUUID string          `json:"transactionUUID"`
+	EntryChannel    string          `json:"entryChannel,omitempty"`
+	MessageType     string          `json:"messageType"`
+	Message         string          `json:"message"`
+	MnoDeliveryCode string          `json:"mnoDeliveryCode,omitempty"`
+	Tags            []string        `json:"tags"`
+	Type            string          `json:"type"`
+	Amount          json.RawMessage `json:"amount,omitempty"`
+	Currency        string          `json:"currency,omitempty"`
+	OccurredAt      string          `json:"occurredAt,omitempty"`
+	Timestamp       string          `json:"timestamp,omitempty"`
 	// SkipOptinSMS is set server-side when the tenant was inferred from product
 	// ownership rather than supplied by the caller; never decoded from the body.
 	SkipOptinSMS bool `json:"-"`

@@ -114,6 +114,7 @@ github.com/seidu626/subscription-manager/common/auth/tenantctx
 github.com/seidu626/subscription-manager/common/cache
 github.com/seidu626/subscription-manager/common/pii
 github.com/seidu626/subscription-manager/common/secretcrypto
+github.com/seidu626/subscription-manager/common/tenantevents
 # github.com/sony/gobreaker v1.0.0
 ## explicit; go 1.12
 github.com/sony/gobreaker
