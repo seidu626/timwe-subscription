@@ -17,6 +17,7 @@ import {
   OtpGatewaySecretValue,
   RevokeCredentialResponse,
   SmsGatewaySecretValue,
+  TenantEventSecretValue,
   TenantCreatePayload,
   TenantMemberPayload,
   TenantMemberRole,
@@ -95,6 +96,7 @@ export class TenantListComponent implements OnInit, OnDestroy {
   credentialForm = this.emptyCredentialForm();
   credentialValueForm = this.emptyCredentialValueForm();
   smsGatewayForm = this.emptySmsGatewayForm();
+  tenantEventForm = this.emptyTenantEventForm();
   otpGatewayForm = this.emptyOtpGatewayForm();
   testSmsMsisdn = '';
   testSmsMessage = '';
@@ -209,6 +211,7 @@ export class TenantListComponent implements OnInit, OnDestroy {
     this.credentialForm = this.emptyCredentialForm();
     this.credentialValueForm = this.emptyCredentialValueForm();
     this.smsGatewayForm = this.emptySmsGatewayForm();
+    this.tenantEventForm = this.emptyTenantEventForm();
     this.otpGatewayForm = this.emptyOtpGatewayForm();
     this.credentialMode = 'ref';
     this.showApiKey = false;
@@ -523,6 +526,10 @@ export class TenantListComponent implements OnInit, OnDestroy {
       return;
     }
     const purposeSelected = this.credentialValueForm.purpose.trim() || 'provider_api';
+    if (purposeSelected === 'tenant_events') {
+      this.saveTenantEventCredential();
+      return;
+    }
     if (purposeSelected === 'sms_api') {
       this.saveSmsGatewayCredential(purposeSelected);
       return;
@@ -591,6 +598,33 @@ export class TenantListComponent implements OnInit, OnDestroy {
    * travels inside `headers` so any aggregator can be described by the same
    * blob, and it is encrypted server-side along with the rest of it.
    */
+  private emptyTenantEventForm(): TenantEventSecretValue {
+    return { url: '', signing_secret: '', default_amount: 0.80, default_currency: 'GHS' };
+  }
+
+  private saveTenantEventCredential(): void {
+    const f = this.tenantEventForm;
+    try {
+      const url = new URL(f.url.trim());
+      if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password || url.hash) { throw new Error(); }
+    } catch {
+      this.toast('Enter an absolute http or https URL without credentials or fragment');
+      return;
+    }
+    if (Array.from(f.signing_secret).length < 16) {
+      this.toast('Signing secret must be at least 16 characters');
+      return;
+    }
+    if (!Number.isFinite(f.default_amount) || f.default_amount <= 0 || !/^[A-Z]{3}$/.test(f.default_currency)) {
+      this.toast('Enter a positive amount and a currency of three uppercase letters');
+      return;
+    }
+    const value: TenantEventSecretValue = { ...f, url: f.url.trim() };
+    this.submitCredentialValue('tenant_events', value, 'Tenant event webhook bound', () => {
+      this.tenantEventForm = this.emptyTenantEventForm();
+    });
+  }
+
   private saveSmsGatewayCredential(purpose: string): void {
     const f = this.smsGatewayForm;
     const url = f.url.trim();
@@ -714,7 +748,7 @@ export class TenantListComponent implements OnInit, OnDestroy {
   /** POST a per-purpose blob and refresh the version history on success. */
   private submitCredentialValue(
     purpose: string,
-    value: SmsGatewaySecretValue | OtpGatewaySecretValue,
+    value: SmsGatewaySecretValue | OtpGatewaySecretValue | TenantEventSecretValue,
     successMessage: string,
     reset: () => void
   ): void {

@@ -213,6 +213,9 @@ services:
       - ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS=${ADMIN_BOOTSTRAP_PLATFORM_SUBJECTS:-}
       - GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
       - GATEWAY_TRUST_REQUIRED=${GATEWAY_TRUST_REQUIRED:-false}
+      # Tenant event dispatcher: decrypts tenant_events credentials and calls partner opt-out.
+      - TENANT_SECRET_MASTER_KEY=${TENANT_SECRET_MASTER_KEY}
+      - SUBSCRIPTION_EXTERNAL_BASE_URL=${SUBSCRIPTION_EXTERNAL_BASE_URL:-http://subscription-external:8083}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/health"]
       interval: 30s

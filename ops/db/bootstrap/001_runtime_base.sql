@@ -52,6 +52,28 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     channel_id UUID
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id UUID,
+    channel_id UUID,
+    partner_role INTEGER NOT NULL,
+    external_tx_id TEXT,
+    product_id INTEGER NOT NULL,
+    pricepoint_id INTEGER,
+    mcc TEXT,
+    mnc TEXT,
+    msisdn TEXT NOT NULL,
+    large_account TEXT,
+    transaction_uuid TEXT,
+    mno_delivery_code TEXT,
+    entry_channel TEXT,
+    message_type TEXT,
+    message TEXT,
+    tags TEXT[],
+    type TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status_renewal
     ON subscriptions (status, renewal_status, start_date);
 

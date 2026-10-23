@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/seidu626/subscription-manager/common/tenantevents"
 	"strings"
 )
 
@@ -22,6 +23,9 @@ import (
 // vault:// by nothing here), so those binds stay unvalidated by construction.
 func validateCredentialSecretValue(purpose, secretValue string) error {
 	switch purpose {
+	case "tenant_events":
+		_, err := tenantevents.Parse([]byte(secretValue))
+		return err
 	case tenantSMSCredentialPurpose:
 		cfg, err := decodeCredentialBlob[smsGatewayConfig](secretValue, "sms gateway config")
 		if err != nil {

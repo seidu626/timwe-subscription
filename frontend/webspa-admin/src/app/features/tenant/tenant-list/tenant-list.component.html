@@ -493,6 +493,28 @@
           </div>
           </ng-container>
 
+          <ng-container *ngIf="credentialValueForm.purpose === 'tenant_events'">
+            <div class="form-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Webhook URL</mat-label>
+                <input matInput type="url" [(ngModel)]="tenantEventForm.url" placeholder="https://talentrivia.com/api/airtime/events" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Signing secret</mat-label>
+                <input matInput type="password" [(ngModel)]="tenantEventForm.signing_secret" autocomplete="new-password" />
+                <mat-hint>At least 16 characters. Stored encrypted and never returned.</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Default amount</mat-label>
+                <input matInput type="number" min="0.01" step="0.01" [(ngModel)]="tenantEventForm.default_amount" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Default currency</mat-label>
+                <input matInput maxlength="3" [(ngModel)]="tenantEventForm.default_currency" placeholder="GHS" />
+              </mat-form-field>
+            </div>
+          </ng-container>
+
           <ng-container *ngIf="credentialValueForm.purpose === 'sms_api'">
             <div class="row">
               <mat-form-field appearance="outline">

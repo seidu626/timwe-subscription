@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	cached "github.com/seidu626/subscription-manager/common/cache"
@@ -12,6 +13,7 @@ import (
 	"github.com/seidu626/subscription-manager/notification/internal/transport"
 	"go.uber.org/zap"
 	"log"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/valyala/fasthttp"
@@ -58,6 +60,7 @@ func main() {
 	redisClient := cached.NewFailoverRedisClient(redisOptions)
 
 	repo := repository.NewNotificationRepository(db, redisClient)
+	go repo.RunTenantEventDispatcher(context.Background(), 3*time.Second)
 	svc := service.NewNotificationService(repo)
 	h := handler.NewNotificationHandler(svc).
 		WithRequireTenantContext(cfg.Notification.RequireTenantContext).

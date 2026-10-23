@@ -21,6 +21,7 @@ var defaultAdminManagementSchemaPaths = []string{
 	"migrations/add_tenant_channel_secrets.sql",
 	"migrations/revoke_channel_credential.sql",
 	"migrations/add_msisdn_catalog.sql",
+	"migrations/add_tenant_event_outbox.sql",
 }
 
 var requiredAdminManagementRelations = []string{
@@ -32,6 +33,7 @@ var requiredAdminManagementRelations = []string{
 	"public.tenant_channel_credentials",
 	"public.tenant_channel_secrets",
 	"public.tenant_admin_memberships",
+	"public.tenant_event_outbox",
 	"public.msisdn_catalog",
 	"public.msisdn_catalog_pool_counts",
 }

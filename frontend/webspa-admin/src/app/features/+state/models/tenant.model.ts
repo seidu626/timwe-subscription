@@ -168,6 +168,11 @@ export const CREDENTIAL_PURPOSES: ReadonlyArray<{ value: string; label: string; 
     hint: 'Carrier opt-in and billing credentials for this channel.'
   },
   {
+    value: 'tenant_events',
+    label: 'Tenant event webhook',
+    hint: 'Forward subscription and successful charge events. Revoke this credential to stop forwarding.'
+  },
+  {
     value: 'sms_api',
     label: 'SMS gateway',
     hint: 'Outbound SMS aggregator used to deliver app login codes.'
@@ -226,4 +231,11 @@ export interface OtpGatewaySecretValue {
 export interface RevokeCredentialResponse {
   credential: AdminChannelCredential;
   was_only_active: boolean;
+}
+
+export interface TenantEventSecretValue {
+  url: string;
+  signing_secret: string;
+  default_amount: number;
+  default_currency: string;
 }

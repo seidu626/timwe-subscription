@@ -38,4 +38,8 @@ apply_sql "services/acquisition-api/migrations/add_tenant_postback_routing.sql"
 apply_sql "services/subscription-external/migrations/011_message_cadence_engine.sql"
 apply_sql "services/subscription-external/migrations/017_tenant_notification_cadence_routing.sql"
 
+apply_sql "services/subscription-external/migrations/022_tenant_product_sms_templates.sql"
+apply_sql "services/subscription-external/migrations/032_notifications_dedup_transaction_uuid.sql"
+apply_sql "services/acquisition-api/migrations/add_tenant_event_outbox.sql"
+
 echo "compose-db-bootstrap: complete"
