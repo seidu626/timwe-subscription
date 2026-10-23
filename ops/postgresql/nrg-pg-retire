@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# Scoped operator helper for a reversible trial stop of the droplet's host PG15.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export LC_ALL=C
+umask 077
+
+unit=postgresql@15-main.service
+backup_dir=/var/backups/nrg-pg-retire
+marker="$backup_dir/latest-backup"
+timer_marker="$backup_dir/rollback-timer"
+
+psql_as_postgres() {
+  runuser -u postgres -- psql -X -A -t -v ON_ERROR_STOP=1 -d postgres -c "$1"
+}
+
+client_count() {
+  psql_as_postgres "SELECT count(*) FROM pg_stat_activity WHERE backend_type = 'client backend' AND pid <> pg_backend_pid()"
+}
+
+require_running() {
+  systemctl is-active --quiet "$unit" || { echo 'Host PostgreSQL is not active' >&2; exit 1; }
+}
+
+if (( $# != 1 )); then
+  echo 'Usage: nrg-pg-retire audit|backup|stop|confirm|start' >&2
+  exit 2
+fi
+
+case "$1" in
+  audit)
+    require_running
+    echo "unit=$unit"
+    echo "client_sessions=$(client_count)"
+    echo "host_tcp_sessions=$(ss -Htn state established '( sport = :5432 )' | wc -l)"
+    echo 'database|bytes|sessions_since_reset|stats_reset'
+    psql_as_postgres "SELECT d.datname, pg_database_size(d.oid), coalesce(s.sessions,0), coalesce(s.stats_reset::text,'never') FROM pg_database d LEFT JOIN pg_stat_database s ON s.datid=d.oid WHERE NOT d.datistemplate ORDER BY d.datname"
+    echo "data_dir_bytes=$(du -sb /var/lib/postgresql/15/main | cut -f1)"
+    echo "backup_fs_available_bytes=$(df -B1 --output=avail /var/backups | tail -n1 | tr -d ' ')"
+    echo "log_connections=$(psql_as_postgres 'SHOW log_connections')"
+    echo "log_disconnections=$(psql_as_postgres 'SHOW log_disconnections')"
+    ;;
+  backup)
+    require_running
+    install -d -o root -g root -m 0700 "$backup_dir"
+    data_bytes=$(du -sb /var/lib/postgresql/15/main | cut -f1)
+    available_bytes=$(df -B1 --output=avail "$backup_dir" | tail -n1 | tr -d ' ')
+    if (( available_bytes < data_bytes * 2 + 2147483648 )); then
+      echo 'Insufficient free space for a conservative PostgreSQL backup' >&2
+      exit 1
+    fi
+    archive="$backup_dir/pg15-main-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+    partial="$archive.partial"
+    trap 'rm -f "$partial"' EXIT
+    runuser -u postgres -- pg_dumpall | gzip -1 > "$partial"
+    gzip -t "$partial"
+    chmod 0600 "$partial"
+    mv "$partial" "$archive"
+    printf '%s\n' "$archive" > "$marker"
+    chmod 0600 "$marker"
+    trap - EXIT
+    echo "backup=$archive"
+    echo "backup_bytes=$(stat -c %s "$archive")"
+    sha256sum "$archive"
+    ;;
+  stop)
+    require_running
+    if [[ ! -f "$marker" ]]; then
+      echo 'A verified backup from this helper is required before stopping' >&2
+      exit 1
+    fi
+    backup=$(<"$marker")
+    if [[ ! -f "$backup" ]] || (( $(date +%s) - $(stat -c %Y "$backup") > 86400 )); then
+      echo 'The latest backup is missing or older than 24 hours' >&2
+      exit 1
+    fi
+    if [[ $(client_count) != 0 ]]; then
+      echo 'Active PostgreSQL client sessions detected; refusing to stop' >&2
+      exit 1
+    fi
+    rollback_name="nrg-pg-retire-rollback-$(date +%s)"
+    systemd-run --quiet --unit="$rollback_name" --on-active=15m /usr/bin/systemctl start "$unit"
+    printf '%s\n' "$rollback_name.timer" > "$timer_marker"
+    chmod 0600 "$timer_marker"
+    systemctl stop "$unit"
+    if systemctl is-active --quiet "$unit"; then
+      echo 'PostgreSQL remained active after stop' >&2
+      exit 1
+    fi
+    echo 'host_postgresql=stopped'
+    echo 'automatic_rollback_in=15m'
+    echo 'rollback: sudo -n /usr/local/sbin/nrg-pg-retire start'
+    ;;
+  confirm)
+    if systemctl is-active --quiet "$unit"; then
+      echo 'PostgreSQL is active; no stopped state to confirm' >&2
+      exit 1
+    fi
+    [[ -f "$timer_marker" ]] || { echo 'No rollback timer marker' >&2; exit 1; }
+    timer=$(<"$timer_marker")
+    systemctl stop "$timer"
+    rm -f "$timer_marker"
+    echo 'host_postgresql=stopped; automatic_rollback=cancelled'
+    ;;
+  start)
+    if [[ -f "$timer_marker" ]]; then
+      timer=$(<"$timer_marker")
+      systemctl stop "$timer"
+      rm -f "$timer_marker"
+    fi
+    systemctl start "$unit"
+    pg_isready -h 127.0.0.1 -p 5432 -t 10 >/dev/null
+    echo 'host_postgresql=running'
+    ;;
+  *)
+    echo 'Usage: nrg-pg-retire audit|backup|stop|confirm|start' >&2
+    exit 2
+    ;;
+esac

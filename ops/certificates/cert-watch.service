@@ -1,0 +1,15 @@
+[Unit]
+Description=Audit certificates served by nginx and local TLS listeners
+After=network-online.target docker.service nginx.service
+Wants=network-online.target
+OnFailure=cert-watch-failed.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/cert-watch.py
+ExecStartPost=-/usr/local/libexec/cert-watch-ping.py success
+TimeoutStartSec=180
+ProtectSystem=strict
+ReadWritePaths=/var/lib/cert-watch /run/nginx.pid /var/log/nginx
+PrivateTmp=true
+NoNewPrivileges=true

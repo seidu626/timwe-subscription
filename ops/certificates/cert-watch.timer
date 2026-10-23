@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily TLS certificate expiry and coverage audit
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 UTC
+RandomizedDelaySec=1800
+Persistent=true
+Unit=cert-watch.service
+
+[Install]
+WantedBy=timers.target
