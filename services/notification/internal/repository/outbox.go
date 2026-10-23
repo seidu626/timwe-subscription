@@ -23,10 +23,11 @@ func NewOutboxRepository(db *sql.DB, logger *zap.Logger) *OutboxRepository {
 // content item reach every not-yet-sent job, including already-planned ones.
 //
 // It also sets SkipReason for jobs that must not be sent: any job whose
-// subscription is inactive, a cadence job whose subscription is not active
-// (the planner's own condition), and a job planned more than staleAfter ago
-// (staleAfter 0 disables that check). Transactional jobs (series_id NULL) to
-// pending subscribers still send.
+// subscription status is not pending, preactive or active (an allowlist, so
+// NULL or unexpected values skip too), a cadence job whose subscription is
+// not active (the planner's own condition), and a job planned more than
+// staleAfter ago (staleAfter 0 disables that check). Transactional jobs
+// (series_id NULL) to pending subscribers still send.
 func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int, staleAfter time.Duration) ([]domain.OutboxJob, error) {
 	query := `
 		WITH claimed AS (
@@ -54,8 +55,10 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int, stal
 		            THEN TRIM(ci.message_text) || ' ' || TRIM(ci.link_url)
 		            ELSE COALESCE(ci.message_text, mo.message_text) END,
 		       CASE WHEN s.status = 'inactive' THEN 'subscription inactive'
+		            WHEN s.status IS NULL OR s.status NOT IN ('pending', 'preactive', 'active')
+		                 THEN 'subscription status unknown'
 		            WHEN mo.series_id IS NOT NULL
-		                 AND (s.status IS DISTINCT FROM 'active' OR s.renewal_status IS DISTINCT FROM 'active')
+		                 AND (s.status <> 'active' OR s.renewal_status IS DISTINCT FROM 'active')
 		                 THEN 'subscription not active'
 		            WHEN $2::interval > INTERVAL '0' AND u.planned_send_at < NOW() - $2::interval THEN 'stale'
 		            ELSE '' END AS skip_reason
