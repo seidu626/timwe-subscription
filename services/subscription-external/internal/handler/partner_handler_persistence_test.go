@@ -22,10 +22,11 @@ import (
 type stubTenantPersistRepo struct {
 	*stubGatewayRepo
 
-	createErr   error
-	updateErr   error
-	createCalls []domain.SubscriptionRequest
-	updateCalls []stubUpdateCall
+	createErr          error
+	updateErr          error
+	createCalls        []domain.SubscriptionRequest
+	updateCalls        []stubUpdateCall
+	guardedUpdateCalls []stubUpdateCall
 }
 
 type stubExistingOptinNotifier struct {
@@ -61,6 +62,11 @@ func (r *stubTenantPersistRepo) CreateSubscription(request *domain.SubscriptionR
 
 func (r *stubTenantPersistRepo) UpdateSubscriptionStatus(msisdn string, productID string, status string) error {
 	r.updateCalls = append(r.updateCalls, stubUpdateCall{msisdn: msisdn, productID: productID, status: status})
+	return r.updateErr
+}
+
+func (r *stubTenantPersistRepo) UpdateSubscriptionStatusUnlessActive(msisdn string, productID string, status string) error {
+	r.guardedUpdateCalls = append(r.guardedUpdateCalls, stubUpdateCall{msisdn: msisdn, productID: productID, status: status})
 	return r.updateErr
 }
 
@@ -128,8 +134,8 @@ func TestPartnerOptinStatusFromResult(t *testing.T) {
 		wantStatus string
 		wantMapped bool
 	}{
-		{"already active", service.SubscriptionResultOptinAlreadyActive, partnerSubscriptionStatusActive, true},
-		{"active wait charging", service.SubscriptionResultOptinActiveWaitCharging, partnerSubscriptionStatusActive, true},
+		{"already active", service.SubscriptionResultOptinAlreadyActive, partnerSubscriptionStatusPending, true},
+		{"active wait charging", service.SubscriptionResultOptinActiveWaitCharging, partnerSubscriptionStatusPending, true},
 		{"preactive wait conf", service.SubscriptionResultOptinPreactiveWaitConf, partnerSubscriptionStatusPreactive, true},
 		{"config not found passthrough", service.SubscriptionResultOptinConfigNotFound, "", false},
 		{"unknown result", "SOMETHING_ELSE", "", false},
@@ -184,7 +190,9 @@ func TestTransactionIDFromResponse(t *testing.T) {
 
 // --- persistPartnerOptinSubscription ---
 
-func TestPersistPartnerOptinSubscription_AlreadyActive_CreatesActive(t *testing.T) {
+// OPTIN_ALREADY_ACTIVE is TIMWE's view, not proof of payment: the row is
+// written pending and only a DELIVERED charge activates it.
+func TestPersistPartnerOptinSubscription_AlreadyActive_CreatesPending(t *testing.T) {
 	repo := newStubTenantPersistRepo()
 	h := newPersistenceTestHandler(repo, "42", nil)
 	notifier := &stubExistingOptinNotifier{}
@@ -202,8 +210,11 @@ func TestPersistPartnerOptinSubscription_AlreadyActive_CreatesActive(t *testing.
 	if created.TransactionId != "txn-abc" || created.PartnerRoleId != 42 || created.UserIdentifier != "233572503330" || created.ProductId != 32535 {
 		t.Errorf("unexpected CreateSubscription request: %+v", created)
 	}
-	if len(repo.updateCalls) != 0 {
-		t.Errorf("already-active result must not trigger a follow-up status update, got %d calls", len(repo.updateCalls))
+	if created.Status != partnerSubscriptionStatusPending {
+		t.Errorf("already-active result must create a pending row, got status %q", created.Status)
+	}
+	if len(repo.updateCalls) != 0 || len(repo.guardedUpdateCalls) != 0 {
+		t.Errorf("already-active result must not trigger a follow-up status update, got %d+%d calls", len(repo.updateCalls), len(repo.guardedUpdateCalls))
 	}
 	if len(notifier.calls) != 1 {
 		t.Fatalf("already-active result must notify once, got %d calls", len(notifier.calls))
@@ -244,9 +255,12 @@ func TestPersistPartnerOptinSubscription_WaitCharging_Notifies(t *testing.T) {
 	if call.notification.MessageType != service.SubscriptionResultOptinActiveWaitCharging {
 		t.Errorf("unexpected MessageType %q, want %q", call.notification.MessageType, service.SubscriptionResultOptinActiveWaitCharging)
 	}
+	if len(repo.createCalls) != 1 || repo.createCalls[0].Status != partnerSubscriptionStatusPending {
+		t.Errorf("wait-charging result must create one pending row, got %+v", repo.createCalls)
+	}
 }
 
-func TestPersistPartnerOptinSubscription_Preactive_CreatesThenUpdatesStatus(t *testing.T) {
+func TestPersistPartnerOptinSubscription_Preactive_CreatesPreactive(t *testing.T) {
 	repo := newStubTenantPersistRepo()
 	h := newPersistenceTestHandler(repo, "42", nil)
 	notifier := &stubExistingOptinNotifier{}
@@ -263,12 +277,12 @@ func TestPersistPartnerOptinSubscription_Preactive_CreatesThenUpdatesStatus(t *t
 	if len(repo.createCalls) != 1 {
 		t.Fatalf("expected 1 CreateSubscription call, got %d", len(repo.createCalls))
 	}
-	if len(repo.updateCalls) != 1 {
-		t.Fatalf("expected 1 follow-up UpdateSubscriptionStatus call for preactive, got %d", len(repo.updateCalls))
+	if got := repo.createCalls[0].Status; got != partnerSubscriptionStatusPreactive {
+		t.Errorf("preactive result must create a preactive row, got status %q", got)
 	}
-	update := repo.updateCalls[0]
-	if update.status != partnerSubscriptionStatusPreactive || update.msisdn != "233572503330" || update.productID != "32535" {
-		t.Errorf("unexpected UpdateSubscriptionStatus call: %+v", update)
+	// A follow-up plain update would demote an already-active (paid) row.
+	if len(repo.updateCalls) != 0 || len(repo.guardedUpdateCalls) != 0 {
+		t.Errorf("preactive status must be written by CreateSubscription only, got %d+%d follow-up updates", len(repo.updateCalls), len(repo.guardedUpdateCalls))
 	}
 }
 
@@ -343,19 +357,24 @@ func TestPersistPartnerOptinSubscription_CreateSubscriptionError_DoesNotPanic(t 
 
 // --- persistPartnerConfirmSubscription ---
 
-func TestPersistPartnerConfirmSubscription_ActivatesSubscription(t *testing.T) {
+// A confirmed optin still awaits its first DELIVERED charge, so confirm marks
+// the row pending through the guard that never demotes an active row.
+func TestPersistPartnerConfirmSubscription_MarksPendingUnlessActive(t *testing.T) {
 	repo := newStubTenantPersistRepo()
 	h := newPersistenceTestHandler(repo, "42", nil)
 	req := domain.SubscriptionConfirmationRequest{UserIdentifier: "233572503330", ProductId: 32535}
 
 	h.persistPartnerConfirmSubscription(testRoute(), req)
 
-	if len(repo.updateCalls) != 1 {
-		t.Fatalf("expected 1 UpdateSubscriptionStatus call, got %d", len(repo.updateCalls))
+	if len(repo.updateCalls) != 0 {
+		t.Fatalf("confirm must not use the unguarded UpdateSubscriptionStatus, got %d calls", len(repo.updateCalls))
 	}
-	update := repo.updateCalls[0]
-	if update.status != partnerSubscriptionStatusActive || update.msisdn != "233572503330" || update.productID != "32535" {
-		t.Errorf("unexpected UpdateSubscriptionStatus call: %+v", update)
+	if len(repo.guardedUpdateCalls) != 1 {
+		t.Fatalf("expected 1 UpdateSubscriptionStatusUnlessActive call, got %d", len(repo.guardedUpdateCalls))
+	}
+	update := repo.guardedUpdateCalls[0]
+	if update.status != partnerSubscriptionStatusPending || update.msisdn != "233572503330" || update.productID != "32535" {
+		t.Errorf("unexpected UpdateSubscriptionStatusUnlessActive call: %+v", update)
 	}
 }
 

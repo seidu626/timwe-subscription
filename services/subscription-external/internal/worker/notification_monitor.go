@@ -223,10 +223,11 @@ func (m *NotificationMonitor) processCycle() error {
 		m.logger.Error("processUserOptout failed", zap.Error(err))
 	}
 
-	// Enhanced: Process ghost subscriptions (subscriptions without opt-in notifications)
-	if err := m.processGhostSubscriptions(); err != nil {
-		m.logger.Error("processGhostSubscriptions failed", zap.Error(err))
-	}
+	// Ghost-subscription re-opt-in stays disabled: it opts users in without
+	// their consent and marked rows active before any charge was DELIVERED.
+	// if err := m.processGhostSubscriptions(); err != nil {
+	// 	m.logger.Error("processGhostSubscriptions failed", zap.Error(err))
+	// }
 
 	// process CHARGE postbacks (only when acquisition client is configured)
 	if m.acquisitionClient != nil {
@@ -466,38 +467,15 @@ func (m *NotificationMonitor) processUserOptout() error {
 				continue
 			}
 
-			// 2) attempt opt-in using configured entry channels
-			optinSuccess := m.attemptOptinWithConfiguredChannels(n.MSISDN, n.ProductID, n.EntryChannel)
-
-			if optinSuccess {
-				// 3) mark active on success
-				if err := m.repo.UpsertSubscriptionStatus(n.MSISDN, n.ProductID, "active"); err != nil {
-					m.logger.Error("failed to mark subscription active after successful optin",
-						zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
-						zap.Int("productId", n.ProductID),
-						zap.Error(err))
-					incError("USER_OPTOUT", "mark_active_failed")
-					errorCount++
-				} else {
-					incOptinSuccess()
-					successCount++
-					m.logger.Info("successfully processed opt-out notification with opt-in",
-						zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
-						zap.Int("productId", n.ProductID),
-						zap.String("notificationEntryChannel", n.EntryChannel),
-						zap.Strings("configuredEntryChannels", m.cfg.EntryChannels))
-				}
-			} else {
-				m.logger.Warn("optin attempt failed after optout",
-					zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
-					zap.Int("productId", n.ProductID),
-					zap.String("notificationEntryChannel", n.EntryChannel),
-					zap.Strings("configuredEntryChannels", m.cfg.EntryChannels))
-				errorCount++
-			}
+			// An opt-out is the user's decision: never re-opt them in. The row
+			// stays inactive until a DELIVERED charge proves a new subscription.
+			successCount++
+			m.logger.Info("processed opt-out notification",
+				zap.String("msisdn", pii.MaskMSISDN(n.MSISDN)),
+				zap.Int("productId", n.ProductID))
 
 			// Mark opt-out as successfully processed
-			m.markOptoutAsProcessed(processingKey, optinSuccess)
+			m.markOptoutAsProcessed(processingKey, false)
 
 			// Release processing lock
 			m.releaseOptoutProcessing(processingKey)

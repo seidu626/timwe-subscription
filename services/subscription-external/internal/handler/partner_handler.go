@@ -693,22 +693,22 @@ func (h *PartnerHandler) PartnerSubscriptionStatus(ctx *fasthttp.RequestCtx) {
 type subscriptionPersister interface {
 	CreateSubscription(request *domain.SubscriptionRequest) error
 	UpdateSubscriptionStatus(msisdn string, productID string, status string) error
+	UpdateSubscriptionStatusUnlessActive(msisdn string, productID string, status string) error
 }
 
 // Tenant-scoped subscriptions.status values used by the partner persistence
-// helpers below. "active"/"inactive" mirror the lowercase vocabulary already
-// established for this column (repository.CheckSubscriptionExists filters
-// status = 'active'; worker/notification_monitor.go calls
-// UpsertSubscriptionStatus with "active"/"inactive"; the column default is
-// 'active'). renewal_service.go writes different uppercase, multi-word values
+// helpers below, in the lowercase vocabulary already established for this
+// column. renewal_service.go writes different uppercase, multi-word values
 // ("PENDING_RENEWAL", etc.) to the same column for its own renewal-cycle
 // bookkeeping - that is a separate, pre-existing convention this change does
-// not touch. "preactive" has no prior precedent in this column; it is a
-// conservative, lowercase-consistent placeholder for a subscription still
-// awaiting double opt-in confirmation (PartnerSubscriptionConfirm promotes it
-// to "active").
+// not touch.
+//
+// No TIMWE optin/confirm result proves payment, so these helpers never write
+// "active": "preactive" awaits double opt-in confirmation, and "pending"
+// awaits the first charge. Only a CHARGE/USER_RENEWED callback with
+// mnoDeliveryCode=DELIVERED activates the row (notification service).
 const (
-	partnerSubscriptionStatusActive    = "active"
+	partnerSubscriptionStatusPending   = "pending"
 	partnerSubscriptionStatusPreactive = "preactive"
 	partnerSubscriptionStatusInactive  = "inactive"
 )
@@ -753,7 +753,7 @@ func (h *PartnerHandler) notifyAcquisitionPartnerSubscription(action string, rou
 func partnerOptinStatusFromResult(result string) (string, bool) {
 	switch result {
 	case service.SubscriptionResultOptinAlreadyActive, service.SubscriptionResultOptinActiveWaitCharging:
-		return partnerSubscriptionStatusActive, true
+		return partnerSubscriptionStatusPending, true
 	case service.SubscriptionResultOptinPreactiveWaitConf:
 		return partnerSubscriptionStatusPreactive, true
 	default:
@@ -842,25 +842,15 @@ func (h *PartnerHandler) persistPartnerOptinSubscription(route domain.TenantRout
 		return
 	}
 	subscriptionRequest := domain.MapMTRequestToSubscriptionRequest(req, transactionID, partnerRoleID, "GATEWAY", "GATEWAY")
+	// CreateSubscription keeps an already-active (paid) row active, so a
+	// re-optin by a paying subscriber never demotes them.
+	subscriptionRequest.Status = status
 	if err := persister.CreateSubscription(&subscriptionRequest); err != nil {
 		h.logger.Error("failed to persist partner optin subscription",
 			zap.Error(err),
 			zap.String("tenant_id", route.TenantID),
 			zap.String("channel_id", route.ChannelID))
 		return
-	}
-	// CreateSubscription's INSERT/ON CONFLICT statement does not include the
-	// status column, so every call leaves status at the table default
-	// ("active"). That is correct for the two "already active" results, but
-	// wrong for the preactive (awaiting confirmation) result, which needs an
-	// explicit follow-up update.
-	if status == partnerSubscriptionStatusPreactive {
-		if err := persister.UpdateSubscriptionStatus(req.UserIdentifier, strconv.Itoa(req.ProductID), status); err != nil {
-			h.logger.Error("failed to set preactive status on partner optin subscription",
-				zap.Error(err),
-				zap.String("tenant_id", route.TenantID),
-				zap.String("channel_id", route.ChannelID))
-		}
 	}
 	// Both results mean the carrier already holds an active subscription (the
 	// same pair isSubscriptionAlreadyActive recognises), so no USER_OPTIN
@@ -914,17 +904,18 @@ func (h *PartnerHandler) notifyExistingSubscriptionOptin(route domain.TenantRout
 	}
 }
 
-// persistPartnerConfirmSubscription activates a tenant-scoped subscription
-// row after a successful gateway-trust partner optin confirm
-// (h.svc.SendOptinConfirm returned err == nil). See
+// persistPartnerConfirmSubscription moves a tenant-scoped subscription row
+// to "pending" (awaiting the first DELIVERED charge) after a successful
+// gateway-trust partner optin confirm (h.svc.SendOptinConfirm returned
+// err == nil). An already-active row is left alone. See
 // persistPartnerOptinSubscription for the never-fail-the-response contract.
 func (h *PartnerHandler) persistPartnerConfirmSubscription(route domain.TenantRouteContext, req domain.SubscriptionConfirmationRequest) {
 	persister, ok := h.tenantRepo.(subscriptionPersister)
 	if !ok {
 		return
 	}
-	if err := persister.UpdateSubscriptionStatus(req.UserIdentifier, strconv.Itoa(req.ProductId), partnerSubscriptionStatusActive); err != nil {
-		h.logger.Error("failed to activate partner subscription after optin confirm",
+	if err := persister.UpdateSubscriptionStatusUnlessActive(req.UserIdentifier, strconv.Itoa(req.ProductId), partnerSubscriptionStatusPending); err != nil {
+		h.logger.Error("failed to mark partner subscription pending after optin confirm",
 			zap.Error(err),
 			zap.String("tenant_id", route.TenantID),
 			zap.String("channel_id", route.ChannelID))
