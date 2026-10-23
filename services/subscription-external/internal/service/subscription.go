@@ -1963,20 +1963,21 @@ func (s *SubscriptionService) handleInvalidMSISDNCleanup(msisdn string, productI
 		return
 	}
 
-	// Step 2: Attempt to delete all subscriptions for this MSISDN with retry logic
+	// Step 2: End (never delete) all subscriptions for this MSISDN with retry logic.
+	// Deleting lost paid history and cascaded to message_outbox.
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		err = s.repo.DeleteSubscriptionRecord(msisdn)
+		err = s.repo.EndSubscriptionRecords(msisdn)
 		if err == nil {
 			success = true
-			s.logger.Info("Successfully deleted all subscription records for invalid MSISDN",
+			s.logger.Info("Successfully ended all subscription records for invalid MSISDN",
 				zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 				zap.Int("attempt", attempt))
 			break
 		}
 
 		// Log retry attempt
-		s.logger.Warn("Failed to delete subscription records for invalid MSISDN, retrying",
+		s.logger.Warn("Failed to end subscription records for invalid MSISDN, retrying",
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int("attempt", attempt),
 			zap.Int("maxRetries", maxRetries),
@@ -1991,7 +1992,7 @@ func (s *SubscriptionService) handleInvalidMSISDNCleanup(msisdn string, productI
 
 	// If all retries failed, log the final error
 	if !success {
-		s.logger.Error("Failed to delete subscription records for invalid MSISDN after all retries",
+		s.logger.Error("Failed to end subscription records for invalid MSISDN after all retries",
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int("maxRetries", maxRetries),
 			zap.Error(err))

@@ -208,7 +208,7 @@ func (m *MockSubscriptionRepository) FindAndRemoveSubscription(msisdn string, pr
 	return nil
 }
 
-func (m *MockSubscriptionRepository) DeleteSubscriptionRecord(msisdn string) error {
+func (m *MockSubscriptionRepository) EndSubscriptionRecords(msisdn string) error {
 	// Mock implementation for testing
 	return nil
 }

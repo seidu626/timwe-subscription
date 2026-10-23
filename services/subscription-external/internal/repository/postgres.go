@@ -929,38 +929,24 @@ func (r *SubscriptionRepository) FindAndRemoveSubscription(msisdn string, produc
 	return nil
 }
 
-// DeleteSubscriptionRecord completely removes a subscription record for the given MSISDN
-func (r *SubscriptionRepository) DeleteSubscriptionRecord(msisdn string) error {
+// EndSubscriptionRecords ends every subscription for the given MSISDN
+// (status 'inactive', end_date NOW()) and keeps the rows. Deleting them lost
+// paid history and cascaded to message_outbox; a later DELIVERED charge
+// reactivates an ended row through the notification projection.
+func (r *SubscriptionRepository) EndSubscriptionRecords(msisdn string) error {
 	ctx, cancel := r.getContextWithTimeout(30 * time.Second)
 	defer cancel()
 
-	// First check if subscription exists
-	query := `
-        SELECT COUNT(*) 
-        FROM subscriptions 
+	// Rows that are already inactive keep their original end_date
+	updateQuery := `
+        UPDATE subscriptions
+        SET status = 'inactive', end_date = NOW()
         WHERE user_identifier = $1
+          AND status IS DISTINCT FROM 'inactive'
     `
-	var count int
-	err := r.db.QueryRowContext(ctx, query, msisdn).Scan(&count)
+	result, err := r.db.ExecContext(ctx, updateQuery, msisdn)
 	if err != nil {
-		return fmt.Errorf("failed to check subscription existence for deletion: %w", err)
-	}
-
-	// If no subscription found, nothing to delete
-	if count == 0 {
-		r.logger.Info("No subscription found to delete",
-			zap.String("msisdn", pii.MaskMSISDN(msisdn)))
-		return nil
-	}
-
-	// Delete the subscription record completely
-	deleteQuery := `
-        DELETE FROM subscriptions 
-        WHERE user_identifier = $1
-    `
-	result, err := r.db.ExecContext(ctx, deleteQuery, msisdn)
-	if err != nil {
-		return fmt.Errorf("failed to delete subscription: %w", err)
+		return fmt.Errorf("failed to end subscriptions: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -969,10 +955,10 @@ func (r *SubscriptionRepository) DeleteSubscriptionRecord(msisdn string) error {
 	}
 
 	if rowsAffected == 0 {
-		r.logger.Warn("No subscription rows were deleted",
+		r.logger.Info("No subscription found to end",
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)))
 	} else {
-		r.logger.Info("Successfully deleted subscription record",
+		r.logger.Info("Successfully ended subscription records",
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int64("rowsAffected", rowsAffected))
 	}

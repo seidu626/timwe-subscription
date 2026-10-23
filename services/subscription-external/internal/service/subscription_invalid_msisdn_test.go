@@ -38,7 +38,7 @@ func (m *MockSubscriptionRepositoryForInvalidMSISDN) HasAnySubscription(msisdn s
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockSubscriptionRepositoryForInvalidMSISDN) DeleteSubscriptionRecord(msisdn string) error {
+func (m *MockSubscriptionRepositoryForInvalidMSISDN) EndSubscriptionRecords(msisdn string) error {
 	args := m.Called(msisdn)
 	return args.Error(0)
 }
@@ -314,8 +314,8 @@ func TestHandleInvalidMSISDNCleanup(t *testing.T) {
 	productId := 123
 	requestID := "test-request-id"
 
-	// Test case 1: Subscription exists and deletion succeeds
-	t.Run("subscription exists and deletion succeeds", func(t *testing.T) {
+	// Test case 1: Subscription exists and ending it succeeds
+	t.Run("subscription exists and ending it succeeds", func(t *testing.T) {
 		mockRepo := &MockSubscriptionRepositoryForInvalidMSISDN{}
 		service := &SubscriptionService{
 			logger: logger,
@@ -323,7 +323,7 @@ func TestHandleInvalidMSISDNCleanup(t *testing.T) {
 		}
 
 		mockRepo.On("HasAnySubscription", msisdn).Return(true, nil)
-		mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(nil)
+		mockRepo.On("EndSubscriptionRecords", msisdn).Return(nil)
 
 		service.handleInvalidMSISDNCleanup(msisdn, productId, requestID)
 
@@ -351,8 +351,8 @@ func TestHandleInvalidMSISDNCleanup(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 
-	// Test case 3: Deletion fails multiple times
-	t.Run("deletion fails multiple times", func(t *testing.T) {
+	// Test case 3: Ending fails multiple times
+	t.Run("ending fails multiple times", func(t *testing.T) {
 		mockRepo := &MockSubscriptionRepositoryForInvalidMSISDN{}
 		service := &SubscriptionService{
 			logger: logger,
@@ -360,7 +360,7 @@ func TestHandleInvalidMSISDNCleanup(t *testing.T) {
 		}
 
 		mockRepo.On("HasAnySubscription", msisdn).Return(true, nil)
-		mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(fmt.Errorf("database error")).Times(3)
+		mockRepo.On("EndSubscriptionRecords", msisdn).Return(fmt.Errorf("database error")).Times(3)
 
 		service.handleInvalidMSISDNCleanup(msisdn, productId, requestID)
 
@@ -441,8 +441,8 @@ func TestBatchHandleInvalidMSISDNs(t *testing.T) {
 	mockRepo.On("CreateInvalidMSISDNLog", mock.AnythingOfType("*domain.InvalidMSISDNLog")).Return(nil).Times(2)
 	mockRepo.On("HasAnySubscription", "233123456789").Return(true, nil)
 	mockRepo.On("HasAnySubscription", "233123456791").Return(true, nil)
-	mockRepo.On("DeleteSubscriptionRecord", "233123456789").Return(nil)
-	mockRepo.On("DeleteSubscriptionRecord", "233123456791").Return(nil)
+	mockRepo.On("EndSubscriptionRecords", "233123456789").Return(nil)
+	mockRepo.On("EndSubscriptionRecords", "233123456791").Return(nil)
 
 	// Process batch
 	service.BatchHandleInvalidMSISDNs(responses, requests, partnerId)
@@ -627,8 +627,8 @@ func TestBatchCleanupInvalidMSISDNSubscriptions(t *testing.T) {
 	// Set up mock expectations
 	mockRepo.On("HasAnySubscription", "233123456789").Return(true, nil)
 	mockRepo.On("HasAnySubscription", "233123456790").Return(true, nil)
-	mockRepo.On("DeleteSubscriptionRecord", "233123456789").Return(nil)
-	mockRepo.On("DeleteSubscriptionRecord", "233123456790").Return(nil)
+	mockRepo.On("EndSubscriptionRecords", "233123456789").Return(nil)
+	mockRepo.On("EndSubscriptionRecords", "233123456790").Return(nil)
 
 	// Process cleanup
 	service.batchCleanupInvalidMSISDNSubscriptions(cleanupTasks)
