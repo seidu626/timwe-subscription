@@ -54,7 +54,7 @@ func (m *MockSubscriptionRepositoryComplete) HasAnySubscription(msisdn string) (
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockSubscriptionRepositoryComplete) DeleteSubscriptionRecord(msisdn string) error {
+func (m *MockSubscriptionRepositoryComplete) EndSubscriptionRecords(msisdn string) error {
 	args := m.Called(msisdn)
 	return args.Error(0)
 }
@@ -281,7 +281,7 @@ func TestIntegrationInvalidMSISDNHandling(t *testing.T) {
 	// Set up mock expectations for the complete flow
 	mockRepo.On("CreateInvalidMSISDNLog", mock.AnythingOfType("*domain.InvalidMSISDNLog")).Return(nil)
 	mockRepo.On("HasAnySubscription", msisdn).Return(true, nil) // User has subscriptions
-	mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(nil) // Cleanup succeeds
+	mockRepo.On("EndSubscriptionRecords", msisdn).Return(nil)   // Cleanup succeeds
 
 	// Create test response and request
 	response := &domain.MTResponse{
@@ -332,7 +332,7 @@ func TestIntegrationProductIndependentCleanup(t *testing.T) {
 
 	// Set up mock expectations
 	mockRepo.On("HasAnySubscription", msisdn).Return(true, nil) // User has subscriptions (any product)
-	mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(nil) // Cleanup succeeds
+	mockRepo.On("EndSubscriptionRecords", msisdn).Return(nil)   // Cleanup succeeds
 
 	// Execute cleanup directly
 	service.handleInvalidMSISDNCleanup(msisdn, productId, requestID)
@@ -346,8 +346,9 @@ func TestIntegrationProductIndependentCleanup(t *testing.T) {
 	// Verify that HasAnySubscription was called (product-independent check)
 	mockRepo.AssertCalled(t, "HasAnySubscription", msisdn)
 
-	// Verify that DeleteSubscriptionRecord was called (removes ALL subscriptions)
-	mockRepo.AssertCalled(t, "DeleteSubscriptionRecord", msisdn)
+	// Verify that EndSubscriptionRecords was called (ends ALL subscriptions) and nothing was deleted
+	mockRepo.AssertCalled(t, "EndSubscriptionRecords", msisdn)
+	mockRepo.AssertNotCalled(t, "DeleteSubscriptionRecordsForTenant", mock.Anything, mock.Anything, mock.Anything)
 }
 
 // TestIntegrationBatchProcessing tests batch processing of multiple INVALID_MSISDN responses
@@ -421,8 +422,8 @@ func TestIntegrationBatchProcessing(t *testing.T) {
 	mockRepo.On("CreateInvalidMSISDNLog", mock.AnythingOfType("*domain.InvalidMSISDNLog")).Return(nil).Times(2)
 	mockRepo.On("HasAnySubscription", "233123456789").Return(true, nil)
 	mockRepo.On("HasAnySubscription", "233123456791").Return(true, nil)
-	mockRepo.On("DeleteSubscriptionRecord", "233123456789").Return(nil)
-	mockRepo.On("DeleteSubscriptionRecord", "233123456791").Return(nil)
+	mockRepo.On("EndSubscriptionRecords", "233123456789").Return(nil)
+	mockRepo.On("EndSubscriptionRecords", "233123456791").Return(nil)
 
 	// Process batch
 	service.BatchHandleInvalidMSISDNs(responses, requests, partnerId)
@@ -499,14 +500,14 @@ func TestIntegrationErrorHandling(t *testing.T) {
 	// Verify expectations
 	mockRepo.AssertExpectations(t)
 
-	// Test scenario: Database error during deletion (with retries)
+	// Test scenario: Database error while ending subscriptions (with retries)
 	msisdn2 := "233123456793"
 	productId2 := 790
 	requestID2 := "test-request-id-retry"
 
 	// Set up mock expectations for retry scenario
 	mockRepo.On("HasAnySubscription", msisdn2).Return(true, nil)
-	mockRepo.On("DeleteSubscriptionRecord", msisdn2).Return(assert.AnError).Times(3) // All retries fail
+	mockRepo.On("EndSubscriptionRecords", msisdn2).Return(assert.AnError).Times(3) // All retries fail
 
 	// Execute cleanup (should retry and eventually fail)
 	service.handleInvalidMSISDNCleanup(msisdn2, productId2, requestID2)
@@ -538,7 +539,7 @@ func TestIntegrationConfiguration(t *testing.T) {
 	for _, msisdn := range testCases {
 		// Set up mock expectations
 		mockRepo.On("HasAnySubscription", msisdn).Return(true, nil)
-		mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(nil)
+		mockRepo.On("EndSubscriptionRecords", msisdn).Return(nil)
 
 		// Execute cleanup
 		service.handleInvalidMSISDNCleanup(msisdn, 123, "test-request-id")
@@ -591,7 +592,7 @@ func TestIntegrationPerformance(t *testing.T) {
 		msisdn := fmt.Sprintf("233123456%03d", i)
 		mockRepo.On("CreateInvalidMSISDNLog", mock.AnythingOfType("*domain.InvalidMSISDNLog")).Return(nil)
 		mockRepo.On("HasAnySubscription", msisdn).Return(true, nil)
-		mockRepo.On("DeleteSubscriptionRecord", msisdn).Return(nil)
+		mockRepo.On("EndSubscriptionRecords", msisdn).Return(nil)
 	}
 
 	partnerId := 789

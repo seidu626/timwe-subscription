@@ -645,6 +645,11 @@ func main() {
 		}()
 	}
 
+	// Expire pending/preactive subscriptions that never received a DELIVERED
+	// charge. Disable with PENDING_EXPIRY_ENABLED=false.
+	pendingExpiryWorker := worker.NewPendingExpiryWorker(repo, logger, worker.PendingExpiryConfigFromEnv(logger))
+	go pendingExpiryWorker.Start(monitorCtx)
+
 	// Start a goroutine to sync real data with the monitor
 	go func() {
 		// Do initial sync immediately

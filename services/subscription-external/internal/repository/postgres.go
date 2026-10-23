@@ -804,16 +804,16 @@ func (r *SubscriptionRepository) FetchGhostSubscriptions(cutoff time.Time, after
 	return out, rows.Err()
 }
 
-// UpsertSubscriptionStatus ensures a row exists and updates status
+// UpsertSubscriptionStatus updates the status of the existing rows for msisdn
+// and product. It never inserts: a status write must not mint a subscription
+// (the old insert path created partner_role_id 0 rows with no tenant).
 func (r *SubscriptionRepository) UpsertSubscriptionStatus(msisdn string, productId int, status string) error {
 	if msisdn == "" || productId <= 0 {
 		return errors.New("invalid args")
 	}
 	q := `
-		INSERT INTO subscriptions (partner_role_id, user_identifier, user_identifier_type, product_id, status, start_date)
-		VALUES (COALESCE((SELECT partner_role_id FROM subscriptions WHERE user_identifier=$1 AND product_id=$2 LIMIT 1), 0), $1,'MSISDN',$2,$3, COALESCE((SELECT start_date FROM subscriptions WHERE user_identifier=$1 AND product_id=$2 LIMIT 1), NOW()))
-		ON CONFLICT (partner_role_id, user_identifier, product_id)
-		DO UPDATE SET status = EXCLUDED.status`
+		UPDATE subscriptions SET status = $3
+		WHERE user_identifier = $1 AND product_id = $2 AND status IS DISTINCT FROM $3`
 	_, err := r.db.Exec(q, msisdn, productId, status)
 	return err
 }
@@ -929,38 +929,24 @@ func (r *SubscriptionRepository) FindAndRemoveSubscription(msisdn string, produc
 	return nil
 }
 
-// DeleteSubscriptionRecord completely removes a subscription record for the given MSISDN
-func (r *SubscriptionRepository) DeleteSubscriptionRecord(msisdn string) error {
+// EndSubscriptionRecords ends every subscription for the given MSISDN
+// (status 'inactive', end_date NOW()) and keeps the rows. Deleting them lost
+// paid history and cascaded to message_outbox; a later DELIVERED charge
+// reactivates an ended row through the notification projection.
+func (r *SubscriptionRepository) EndSubscriptionRecords(msisdn string) error {
 	ctx, cancel := r.getContextWithTimeout(30 * time.Second)
 	defer cancel()
 
-	// First check if subscription exists
-	query := `
-        SELECT COUNT(*) 
-        FROM subscriptions 
+	// Rows that are already inactive keep their original end_date
+	updateQuery := `
+        UPDATE subscriptions
+        SET status = 'inactive', end_date = NOW()
         WHERE user_identifier = $1
+          AND status IS DISTINCT FROM 'inactive'
     `
-	var count int
-	err := r.db.QueryRowContext(ctx, query, msisdn).Scan(&count)
+	result, err := r.db.ExecContext(ctx, updateQuery, msisdn)
 	if err != nil {
-		return fmt.Errorf("failed to check subscription existence for deletion: %w", err)
-	}
-
-	// If no subscription found, nothing to delete
-	if count == 0 {
-		r.logger.Info("No subscription found to delete",
-			zap.String("msisdn", pii.MaskMSISDN(msisdn)))
-		return nil
-	}
-
-	// Delete the subscription record completely
-	deleteQuery := `
-        DELETE FROM subscriptions 
-        WHERE user_identifier = $1
-    `
-	result, err := r.db.ExecContext(ctx, deleteQuery, msisdn)
-	if err != nil {
-		return fmt.Errorf("failed to delete subscription: %w", err)
+		return fmt.Errorf("failed to end subscriptions: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -969,10 +955,10 @@ func (r *SubscriptionRepository) DeleteSubscriptionRecord(msisdn string) error {
 	}
 
 	if rowsAffected == 0 {
-		r.logger.Warn("No subscription rows were deleted",
+		r.logger.Info("No subscription found to end",
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)))
 	} else {
-		r.logger.Info("Successfully deleted subscription record",
+		r.logger.Info("Successfully ended subscription records",
 			zap.String("msisdn", pii.MaskMSISDN(msisdn)),
 			zap.Int64("rowsAffected", rowsAffected))
 	}

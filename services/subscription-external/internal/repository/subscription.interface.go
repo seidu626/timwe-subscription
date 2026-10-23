@@ -24,8 +24,8 @@ type SubscriptionRepositoryInterface interface {
 	HasAnySubscription(msisdn string) (bool, error)
 	// FindAndRemoveSubscription finds and removes/deactivates a subscription for the given MSISDN and product
 	FindAndRemoveSubscription(msisdn string, productId int) error
-	// DeleteSubscriptionRecord completely removes a subscription record for the given MSISDN and product
-	DeleteSubscriptionRecord(msisdn string) error
+	// EndSubscriptionRecords ends (status inactive, end_date NOW()) every subscription for the given MSISDN without deleting rows
+	EndSubscriptionRecords(msisdn string) error
 	GenerateCacheKey(startDate, endDate time.Time, productId int, shortcode, userIdentifier, entryChannel string, page, pageSize int) string
 	// FetchActiveMsisdnsMissingSomeProducts returns active MSISDNs that are missing at least one of the provided product IDs using offset/limit windowing
 	FetchActiveMsisdnsMissingSomeProducts(productIds []int, offset int, limit int) ([]string, error)
