@@ -28,6 +28,12 @@ func NewOutboxRepository(db *sql.DB, logger *zap.Logger) *OutboxRepository {
 // not active (the planner's own condition), and a job planned more than
 // staleAfter ago (staleAfter 0 disables that check). Transactional jobs
 // (series_id NULL) to pending subscribers still send.
+//
+// Jobs of a tenant whose metadata_json has sms_sending_paused = true (set from
+// the admin console) are not claimed, so they wait unsent and keep their
+// attempt count. Once such a job is older than staleAfter it is claimed again
+// and skipped as stale, as it would be on resume, so a long pause does not pile
+// up a backlog that is scanned on every poll.
 func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int, staleAfter time.Duration) ([]domain.OutboxJob, error) {
 	query := `
 		WITH claimed AS (
@@ -35,6 +41,12 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int, stal
 			FROM message_outbox
 			WHERE status IN ('PENDING', 'RETRYING')
 			  AND planned_send_at <= NOW()
+			  AND NOT EXISTS (
+			      SELECT 1 FROM tenants t
+			      WHERE t.id = message_outbox.tenant_id
+			        AND t.metadata_json @> '{"sms_sending_paused": true}'::jsonb
+			        AND ($2::interval <= INTERVAL '0' OR message_outbox.planned_send_at >= NOW() - $2::interval)
+			  )
 			ORDER BY planned_send_at
 			LIMIT $1
 			FOR UPDATE SKIP LOCKED

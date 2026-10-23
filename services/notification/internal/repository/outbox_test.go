@@ -144,6 +144,44 @@ func TestClaimPendingJobsFlagsSkippedJobs(t *testing.T) {
 	}
 }
 
+// A tenant paused from the admin console keeps its jobs queued: the claim
+// must not pick them up until they pass the stale window, so the pause neither
+// sends nor burns attempts, and old held jobs are skipped instead of piling up.
+func TestClaimPendingJobsHoldsPausedTenants(t *testing.T) {
+	holdMatcher := sqlmock.QueryMatcherFunc(func(expected, actual string) error {
+		normalized := strings.Join(strings.Fields(actual), " ")
+		want := "AND NOT EXISTS ( SELECT 1 FROM tenants t WHERE t.id = message_outbox.tenant_id" +
+			" AND t.metadata_json @> '{\"sms_sending_paused\": true}'::jsonb" +
+			" AND ($2::interval <= INTERVAL '0' OR message_outbox.planned_send_at >= NOW() - $2::interval) )" +
+			" ORDER BY planned_send_at LIMIT $1 FOR UPDATE SKIP LOCKED"
+		if !strings.Contains(normalized, want) {
+			return errors.New("claim query does not hold paused tenants")
+		}
+		return nil
+	})
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(holdMatcher))
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewOutboxRepository(db, zap.NewNop())
+	mock.ExpectQuery("claim").
+		WithArgs(200, "24h0m0s").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"job_id", "tenant_id", "channel_id", "subscription_id", "content_item_id",
+			"attempt", "planned_send_at", "partner_role_id", "product_id",
+			"user_identifier", "entry_channel", "delivery_channel", "message_text", "skip_reason",
+		}))
+
+	if _, err := repo.ClaimPendingJobs(context.Background(), 200, 24*time.Hour); err != nil {
+		t.Fatalf("ClaimPendingJobs: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
+	}
+}
+
 // MarkSent must arm delivery polling only when the gateway returned a message
 // id: provider_message_id stays NULL and delivery_status untouched for empty
 // ids (MT fallback, push), while a real id flips delivery_status to PENDING.
