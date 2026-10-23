@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 	expectRelationExists(mock, "public.tenant_channel_credentials")
 	expectRelationExists(mock, "public.tenant_channel_secrets")
 	expectRelationExists(mock, "public.tenant_admin_memberships")
+	expectRelationExists(mock, "public.tenant_event_outbox")
 	expectRelationExists(mock, "public.msisdn_catalog")
 	expectRelationExists(mock, "public.msisdn_catalog_pool_counts")
 
@@ -88,6 +89,7 @@ CREATE TABLE IF NOT EXISTS tenant_channel_credentials (id UUID PRIMARY KEY);
 	expectRelationExists(mock, "public.tenant_channel_credentials")
 	expectRelationExists(mock, "public.tenant_channel_secrets")
 	expectRelationExists(mock, "public.tenant_admin_memberships")
+	expectRelationExists(mock, "public.tenant_event_outbox")
 	expectRelationExists(mock, "public.msisdn_catalog")
 	expectRelationExists(mock, "public.msisdn_catalog_pool_counts")
 
