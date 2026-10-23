@@ -166,7 +166,7 @@ func TestUpdateTenantWithActivityLogMutatesCatalogAndAudits(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectQuery(regexp.QuoteMeta("UPDATE tenants")).
-		WithArgs(tenantID, name, status, country, `{"tier":"gold"}`).
+		WithArgs(tenantID, name, status, country, `{"tier":"gold"}`, nil).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
 			AddRow(tenantID, "nrg", "NRG Prime", domain.TenantStatusActive, "GH", []byte(`{"tier":"gold"}`), now, now))
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
@@ -184,6 +184,43 @@ func TestUpdateTenantWithActivityLogMutatesCatalogAndAudits(t *testing.T) {
 	}
 	if updated.Name != "NRG Prime" || updated.TenantKey != "nrg" {
 		t.Fatalf("unexpected tenant: %#v", updated)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// The console SMS switch writes only metadata_json.sms_sending_paused, and a
+// whole-metadata replacement keeps the current value of that key.
+func TestUpdateTenantWithActivityLogSetsSMSSendingPaused(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewAdminManagementRepository(db, zap.NewNop())
+	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	paused := true
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("jsonb_set(COALESCE($5::jsonb, metadata_json, '{}'::jsonb), '{sms_sending_paused}', to_jsonb($6::boolean))") +
+		`(.|\n)*` + regexp.QuoteMeta("$5::jsonb || jsonb_build_object('sms_sending_paused', metadata_json->'sms_sending_paused')")).
+		WithArgs(tenantID, nil, nil, nil, nil, true).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "careerify", "Careerify", domain.TenantStatusActive, "GH", []byte(`{"sms_sending_paused":true}`), now, now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	updated, err := repo.UpdateTenantWithActivityLog(tenantID, &domain.TenantUpdateInput{SMSSendingPaused: &paused},
+		&domain.AdminActivityLog{ID: "11111111-1111-1111-1111-111111111111", Action: "update"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if string(updated.Metadata) != `{"sms_sending_paused":true}` {
+		t.Fatalf("unexpected metadata: %s", updated.Metadata)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

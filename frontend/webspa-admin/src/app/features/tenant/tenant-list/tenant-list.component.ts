@@ -40,6 +40,7 @@ import {
 export class TenantListComponent implements OnInit, OnDestroy {
   loading = false;
   saving = false;
+  smsSendingSaving = false;
   memberLoading = false;
   memberSaving = false;
   channelLoading = false;
@@ -54,7 +55,7 @@ export class TenantListComponent implements OnInit, OnDestroy {
   readonly memberStatuses: TenantMemberStatus[] = ['ACTIVE', 'INACTIVE'];
   readonly memberRoles: TenantMemberRole[] = ['TENANT_ADMIN', 'TENANT_VIEWER'];
   readonly capabilityOptions = ['optin', 'confirm', 'mt', 'charge'];
-  displayedColumns: string[] = ['tenant_key', 'name', 'status', 'default_country', 'updated_at', 'actions'];
+  displayedColumns: string[] = ['tenant_key', 'name', 'status', 'sms_sending', 'default_country', 'updated_at', 'actions'];
   memberDisplayedColumns: string[] = ['auth0_subject', 'email', 'role', 'status', 'updated_at', 'actions'];
   channelDisplayedColumns: string[] = ['channel_key', 'provider', 'capabilities', 'status', 'updated_at', 'actions'];
   credentialDisplayedColumns: string[] = ['purpose', 'version', 'redacted_display', 'status', 'updated_at', 'created_at', 'actions'];
@@ -278,6 +279,34 @@ export class TenantListComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.saving = false;
         this.toast(this.extractErrorMessage(err, this.editingTenantId ? 'Failed to update tenant' : 'Failed to create tenant'));
+      }
+    });
+  }
+
+  smsSendingPaused(tenant: AdminTenant): boolean {
+    return tenant.metadata?.['sms_sending_paused'] === true;
+  }
+
+  /** Resuming releases every job the dispatcher held for the tenant, so it
+   *  asks first; pausing takes effect on the next dispatcher poll. */
+  setSmsSendingPaused(tenant: AdminTenant, paused: boolean): void {
+    if (!this.platformScoped) {
+      this.toast('Platform scope is required to pause or resume SMS sending');
+      return;
+    }
+    if (!paused && !window.confirm(`Resume SMS sending for ${tenant.name}? Held messages from the last 24 hours will be sent.`)) {
+      return;
+    }
+    this.smsSendingSaving = true;
+    this.tenantService.update(tenant.id, { sms_sending_paused: paused }).subscribe({
+      next: () => {
+        this.smsSendingSaving = false;
+        this.toast(paused ? `SMS sending paused for ${tenant.name}` : `SMS sending resumed for ${tenant.name}`);
+        this.loadTenants();
+      },
+      error: (err) => {
+        this.smsSendingSaving = false;
+        this.toast(this.extractErrorMessage(err, 'Failed to update SMS sending'));
       }
     });
   }

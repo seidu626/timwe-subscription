@@ -34,6 +34,8 @@ export interface TenantMutationPayload {
   status?: TenantStatus;
   default_country?: string;
   metadata?: Record<string, unknown>;
+  /** Pauses (true) or resumes (false) every outbox SMS and content send for the tenant. */
+  sms_sending_paused?: boolean;
   performed_by?: string;
 }
 

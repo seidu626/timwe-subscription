@@ -85,6 +85,11 @@ func TestValidateTenantUpdateInputNormalizesPartialPatch(t *testing.T) {
 		t.Fatalf("input not normalized: %#v", input)
 	}
 
+	paused := true
+	if err := validateTenantUpdateInput(&domain.TenantUpdateInput{SMSSendingPaused: &paused}); err != nil {
+		t.Fatalf("expected sms_sending_paused alone to be a valid patch, got %v", err)
+	}
+
 	invalid := json.RawMessage(`[]`)
 	input = &domain.TenantUpdateInput{Metadata: &invalid}
 	if err := validateTenantUpdateInput(input); err == nil || !strings.Contains(err.Error(), "metadata must be a JSON object") {
@@ -117,7 +122,7 @@ func TestUpdateTenantAuditsCatalogChange(t *testing.T) {
 			AddRow(tenantID, "nrg", "NRG", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
 	mock.ExpectBegin()
 	mock.ExpectQuery(regexp.QuoteMeta("UPDATE tenants")).
-		WithArgs(tenantID, name, nil, nil, nil).
+		WithArgs(tenantID, name, nil, nil, nil, nil).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
 			AddRow(tenantID, "nrg", "NRG Prime", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).

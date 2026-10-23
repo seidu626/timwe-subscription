@@ -123,6 +123,9 @@ type tenantUpdatePayload struct {
 	DefaultCountry *string          `json:"default_country,omitempty"`
 	Metadata       *json.RawMessage `json:"metadata,omitempty"`
 	PerformedBy    string           `json:"performed_by,omitempty"`
+	// SMSSendingPaused pauses (true) or resumes (false) all outbox SMS and
+	// content sends for the tenant.
+	SMSSendingPaused *bool `json:"sms_sending_paused,omitempty"`
 }
 
 type tenantBrandingPayload struct {
@@ -252,10 +255,11 @@ func (h *AdminManagementHandler) UpdateTenant(ctx *fasthttp.RequestCtx) {
 		status = &value
 	}
 	input := &domain.TenantUpdateInput{
-		Name:           req.Name,
-		Status:         status,
-		DefaultCountry: req.DefaultCountry,
-		Metadata:       req.Metadata,
+		Name:             req.Name,
+		Status:           status,
+		DefaultCountry:   req.DefaultCountry,
+		Metadata:         req.Metadata,
+		SMSSendingPaused: req.SMSSendingPaused,
 	}
 	actor := actorFromPayloadIdentityOrRequest(req.PerformedBy, identity, ctx)
 	requestID := requestIDFromHeader(ctx)
