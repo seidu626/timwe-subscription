@@ -7,8 +7,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
+	"github.com/seidu626/subscription-manager/notification/internal/repository"
 	"go.uber.org/zap"
 )
 
@@ -340,5 +343,52 @@ func TestSendSMS_UnwiredGatewayKeepsMTPath(t *testing.T) {
 	}
 	if !*mtCalled {
 		t.Error("MT endpoint was not called; a dispatcher without WithTenantGateway must keep the MT path")
+	}
+}
+
+// A job the claim query flagged is marked FAILED with its reason and never
+// reaches the SMS path; an unflagged job still sends.
+func TestProcessJobSkipsFlaggedJobWithoutSending(t *testing.T) {
+	mtCalls := 0
+	mt := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mtCalls++
+		_ = json.NewEncoder(w).Encode(map[string]any{"inError": false})
+	}))
+	defer mt.Close()
+
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+	d := NewDispatcher(repository.NewOutboxRepository(db, zap.NewNop()), zap.NewNop(),
+		Config{MTBaseURL: mt.URL, MaxAttempts: 5, HTTPTimeout: time.Second})
+
+	mock.ExpectExec(`SET status = 'FAILED'`).
+		WithArgs("job-skip", "skipped: subscription inactive").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	if err := d.processJob(context.Background(), domain.OutboxJob{
+		JobID: "job-skip", Attempt: 1, DeliveryChannel: channelSMS, MSISDN: "233241234567",
+		MessageText: "tip", SkipReason: "subscription inactive",
+	}); err != nil {
+		t.Fatalf("processJob skipped: %v", err)
+	}
+	if mtCalls != 0 {
+		t.Fatalf("skipped job reached the MT path %d times", mtCalls)
+	}
+
+	mock.ExpectExec(`SET status = 'SENT'`).
+		WithArgs("job-send", channelSMS, "").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	if err := d.processJob(context.Background(), domain.OutboxJob{
+		JobID: "job-send", Attempt: 1, DeliveryChannel: channelSMS, MSISDN: "233241234568", MessageText: "tip",
+	}); err != nil {
+		t.Fatalf("processJob send: %v", err)
+	}
+	if mtCalls != 1 {
+		t.Fatalf("unflagged job MT calls = %d, want 1", mtCalls)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
 	}
 }
