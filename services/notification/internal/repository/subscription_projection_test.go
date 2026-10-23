@@ -12,7 +12,7 @@ import (
 const (
 	activateSQL   = `UPDATE subscriptions SET status = 'active', renewal_status = 'active', end_date = NULL, last_successful_payment = NOW\(\), last_charge_notification_at = NOW\(\), total_charge_notifications = COALESCE\(total_charge_notifications, 0\) \+ 1, consecutive_payment_failures = 0 WHERE tenant_id = \$1 AND user_identifier = \$2 AND product_id = \$3$`
 	deactivateSQL = `UPDATE subscriptions SET status = 'inactive', end_date = NOW\(\) WHERE tenant_id = \$1 AND user_identifier = \$2 AND product_id = \$3 AND status IS DISTINCT FROM 'inactive'$`
-	insertPaidSQL = `INSERT INTO subscriptions \(.*\) VALUES \(.*'active', 'active', NOW\(\), NOW\(\), NOW\(\), 1 \) ON CONFLICT DO NOTHING$`
+	insertPaidSQL = `INSERT INTO subscriptions \(.*\) SELECT .*'active', 'active', NOW\(\), NOW\(\), NOW\(\), 1 WHERE EXISTS \( SELECT 1 FROM products p .*\) ON CONFLICT DO NOTHING$`
 )
 
 func projectionCallback(eventType, mnoDeliveryCode string) *domain.NotificationRequest {
@@ -83,7 +83,7 @@ func TestProcessNotification_PaymentWithoutSubscriptionCreatesIt(t *testing.T) {
 	}{
 		{name: "missing row is created", inserted: 1},
 		{name: "callback channel is kept", mutate: func(n *domain.NotificationRequest) { n.ChannelID = &channelID }, channel: channelID, inserted: 1},
-		{name: "row created concurrently still gets the payment", inserted: 0, retry: true},
+		{name: "row created concurrently, or product not owned, falls back to the UPDATE", inserted: 0, retry: true},
 		{name: "no partner role creates nothing", mutate: func(n *domain.NotificationRequest) { n.PartnerRole = 0 }, inserted: -1},
 		{name: "insert error rolls back", insertErr: errors.New("connection reset")},
 	}
