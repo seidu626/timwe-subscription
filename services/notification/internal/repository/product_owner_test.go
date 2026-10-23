@@ -91,6 +91,34 @@ func TestTenantIDByProductID(t *testing.T) {
 	})
 }
 
+func TestTenantOwnsChannel(t *testing.T) {
+	const query = `SELECT EXISTS \(\s+SELECT 1 FROM tenant_channels\s+WHERE id = \$1 AND tenant_id = \$2 AND status = 'ACTIVE'`
+
+	for _, owned := range []bool{true, false} {
+		repo, mock := newNotificationRepoWithMock(t)
+		mock.ExpectQuery(query).WithArgs("channel-1", "tenant-1").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(owned))
+
+		got, err := repo.TenantOwnsChannel(context.Background(), " tenant-1 ", "channel-1")
+		if err != nil || got != owned {
+			t.Fatalf("expected owned=%v, got %v err=%v", owned, got, err)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	t.Run("blank ids skip the query", func(t *testing.T) {
+		repo, mock := newNotificationRepoWithMock(t)
+		if owned, err := repo.TenantOwnsChannel(context.Background(), "tenant-1", " "); owned || err == nil {
+			t.Fatalf("expected not owned with error, got %v err=%v", owned, err)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func TestProcessNotification_SkipOptinSMSNeverReadsTemplates(t *testing.T) {
 	tenantID := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 	optin := func(skip bool) *domain.NotificationRequest {

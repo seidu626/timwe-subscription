@@ -24,6 +24,7 @@ type handlerRepoStub struct {
 	tenantIDByKey   map[string]string
 	channelIDByKeys map[string]string // keyed by tenantID + "|" + channelKey
 	productOwners   map[int]string    // provider productId → owning tenant UUID
+	channelTenants  map[string]string // channel UUID → owning tenant UUID
 	saved           *domain.NotificationRequest
 	templates       map[string]domain.SMSTemplate
 	templateTenant  string
@@ -101,6 +102,11 @@ func (h *handlerRepoStub) ChannelIDByKeys(_ context.Context, tenantID, channelKe
 		}
 	}
 	return "", errors.New("tenant channel not found")
+}
+
+func (h *handlerRepoStub) TenantOwnsChannel(_ context.Context, tenantID, channelID string) (bool, error) {
+	owner, ok := h.channelTenants[strings.TrimSpace(channelID)]
+	return ok && owner == strings.TrimSpace(tenantID), nil
 }
 
 func (h *handlerRepoStub) TenantIDByProductID(_ context.Context, productID int) (string, error) {
@@ -257,13 +263,14 @@ func TestListNotifications_UsesVerifiedTenantOverSpoofedTenantHeader(t *testing.
 }
 
 func TestNotificationInboundPersistsTenantChannelContext(t *testing.T) {
-	repo := &handlerRepoStub{}
+	repo := &handlerRepoStub{channelTenants: map[string]string{"channel-1": "tenant-1"}}
 	svc := service.NewNotificationService(repo)
-	h := NewNotificationHandler(svc)
+	h := NewNotificationHandler(svc).WithGatewayTrust("test-gateway-secret", false)
 	ctx := &fasthttp.RequestCtx{}
 	ctx.Request.SetRequestURI("/api/v1/notification/user-optin/2117")
 	ctx.SetUserValue("partnerRole", "2117")
 	ctx.Request.Header.SetMethod(fasthttp.MethodPost)
+	ctx.Request.Header.Set(tenantctx.HeaderGatewayTrust, tenantctx.GatewayTrustToken("test-gateway-secret"))
 	ctx.Request.Header.Set("X-Tenant-Id", "tenant-1")
 	ctx.Request.Header.Set("X-Tenant-Channel-Id", "channel-1")
 	ctx.Request.SetBodyString(`{"msisdn":"233241234567","productId":8509,"message":"ok"}`)
@@ -345,15 +352,16 @@ func TestHandleNotification_TenantEnforcement(t *testing.T) {
 			wantBodySubstr: "TENANT_CONTEXT_REQUIRED",
 		},
 		{
-			name: "(e) X-Tenant-Id (UUID, legacy admin path) only",
+			// Without the gateway-trust marker a raw tenant UUID is ignored, and
+			// this product has no owner, so there is no tenant context.
+			name: "(e) untrusted X-Tenant-Id only → ignored, 422",
 			uri:  "/api/v1/notification/mo/2117",
 			headers: map[string]string{
 				"X-Tenant-Id": "tenant-1",
 			},
-			tenantIDByKey: map[string]string{},
-			wantStatus:    fasthttp.StatusOK,
-			wantTenantID:  ptr("tenant-1"),
-			wantChannelID: nil,
+			tenantIDByKey:  map[string]string{},
+			wantStatus:     fasthttp.StatusUnprocessableEntity,
+			wantBodySubstr: "TENANT_CONTEXT_REQUIRED",
 		},
 		{
 			name: "(f) header-only tenant + channel",
@@ -443,6 +451,111 @@ func TestHandleNotification_TenantEnforcement(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestHandleNotification_RawTenantIDRequiresGatewayTrust covers the X-Tenant-Id /
+// tenant_id path. KrakenD forwards neither, so only an in-cluster caller holding
+// the gateway-trust secret may name a tenant UUID; anyone else falls through to
+// the product-owner fallback, and a channel UUID must belong to the tenant.
+func TestHandleNotification_RawTenantIDRequiresGatewayTrust(t *testing.T) {
+	const (
+		secret          = "test-gateway-secret"
+		ownerTenantID   = "11111111-1111-1111-1111-111111111111"
+		victimTenantID  = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+		victimChannelID = "00000000-0000-0000-0000-00000000000a"
+		ownerChannelID  = "00000000-0000-0000-0000-00000000000b"
+		body            = `{"msisdn":"233241234567","productId":8509,"transactionUUID":"tx-1"}`
+	)
+
+	run := func(t *testing.T, uri string, headers map[string]string) (*handlerRepoStub, *fasthttp.RequestCtx) {
+		t.Helper()
+		repo := &handlerRepoStub{
+			productOwners:  map[int]string{8509: ownerTenantID},
+			channelTenants: map[string]string{victimChannelID: victimTenantID, ownerChannelID: ownerTenantID},
+		}
+		// Enforcement off: the deployment shape in which untrusted callers reach the resolver.
+		h := NewNotificationHandler(service.NewNotificationService(repo)).WithGatewayTrust(secret, false)
+		ctx := &fasthttp.RequestCtx{}
+		ctx.Request.SetRequestURI(uri)
+		ctx.Request.Header.SetMethod(fasthttp.MethodPost)
+		ctx.SetUserValue("partnerRole", "2117")
+		ctx.Request.SetBodyString(body)
+		for k, v := range headers {
+			ctx.Request.Header.Set(k, v)
+		}
+		h.ChargeHandler(ctx)
+		if ctx.Response.StatusCode() != fasthttp.StatusOK {
+			t.Fatalf("expected 200, got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+		}
+		if repo.saved == nil || repo.saved.TenantID == nil {
+			t.Fatalf("expected a tenant-stamped notification, got %#v", repo.saved)
+		}
+		return repo, ctx
+	}
+	trusted := tenantctx.GatewayTrustToken(secret)
+
+	untrusted := []struct {
+		name    string
+		uri     string
+		headers map[string]string
+	}{
+		{"header, no trust marker", "/api/v1/notification/charge/2117", map[string]string{"X-Tenant-Id": victimTenantID, "X-Tenant-Channel-Id": victimChannelID}},
+		{"query, no trust marker", "/api/v1/notification/charge/2117?tenant_id=" + victimTenantID + "&channel_id=" + victimChannelID, nil},
+		{"header, wrong trust marker", "/api/v1/notification/charge/2117", map[string]string{"X-Tenant-Id": victimTenantID, tenantctx.HeaderGatewayTrust: "forged"}},
+	}
+	for _, tc := range untrusted {
+		t.Run("untrusted tenant_id ignored: "+tc.name, func(t *testing.T) {
+			repo, _ := run(t, tc.uri, tc.headers)
+			if *repo.saved.TenantID != ownerTenantID {
+				t.Fatalf("expected product owner %q, got requested tenant %q", ownerTenantID, *repo.saved.TenantID)
+			}
+			if repo.saved.ChannelID != nil {
+				t.Fatalf("expected no channel, got %q", *repo.saved.ChannelID)
+			}
+			if !repo.saved.SkipOptinSMS {
+				t.Fatal("expected the inferred attribution to skip SMS")
+			}
+		})
+	}
+
+	t.Run("trusted tenant_id honoured with its own channel", func(t *testing.T) {
+		repo, _ := run(t, "/api/v1/notification/charge/2117", map[string]string{
+			tenantctx.HeaderGatewayTrust: trusted,
+			"X-Tenant-Id":                victimTenantID,
+			"X-Tenant-Channel-Id":        victimChannelID,
+		})
+		if *repo.saved.TenantID != victimTenantID {
+			t.Fatalf("expected trusted tenant %q, got %q", victimTenantID, *repo.saved.TenantID)
+		}
+		if repo.saved.ChannelID == nil || *repo.saved.ChannelID != victimChannelID {
+			t.Fatalf("expected channel %q, got %#v", victimChannelID, repo.saved.ChannelID)
+		}
+		if repo.saved.SkipOptinSMS {
+			t.Fatal("explicit trusted context must not skip SMS")
+		}
+	})
+
+	t.Run("trusted tenant_id with a foreign channel drops the channel", func(t *testing.T) {
+		for _, channel := range []string{ownerChannelID, "not-a-channel"} {
+			repo, _ := run(t, "/api/v1/notification/charge/2117?tenant_id="+victimTenantID+"&channel_id="+channel, map[string]string{
+				tenantctx.HeaderGatewayTrust: trusted,
+			})
+			if *repo.saved.TenantID != victimTenantID {
+				t.Fatalf("channel %q: expected trusted tenant %q, got %q", channel, victimTenantID, *repo.saved.TenantID)
+			}
+			if repo.saved.ChannelID != nil {
+				t.Fatalf("channel %q: expected foreign channel dropped, got %q", channel, *repo.saved.ChannelID)
+			}
+		}
+	})
+
+	t.Run("bare callback through the gateway still resolves the product owner", func(t *testing.T) {
+		repo, _ := run(t, "/api/v1/notification/charge/2117", map[string]string{tenantctx.HeaderGatewayTrust: trusted})
+		if *repo.saved.TenantID != ownerTenantID || repo.saved.ChannelID != nil || !repo.saved.SkipOptinSMS {
+			t.Fatalf("expected product-owner attribution without channel/SMS, got tenant=%q channel=%#v skip=%v",
+				*repo.saved.TenantID, repo.saved.ChannelID, repo.saved.SkipOptinSMS)
+		}
+	})
 }
 
 func newListRequestContext(uri string) *fasthttp.RequestCtx {
@@ -583,6 +696,7 @@ func TestUserOptinConfirmationIdempotencyAndDisabledBehavior(t *testing.T) {
 		ctx := &fasthttp.RequestCtx{}
 		ctx.Request.SetRequestURI("/api/v1/notification/user-optin/2117")
 		ctx.Request.Header.SetMethod(fasthttp.MethodPost)
+		ctx.Request.Header.Set(tenantctx.HeaderGatewayTrust, tenantctx.GatewayTrustToken("test-gateway-secret"))
 		ctx.Request.Header.Set(tenantIDHeader, tenantID)
 		ctx.SetUserValue("partnerRole", "2117")
 		ctx.Request.SetBodyString(`{"externalTxId":"` + externalTxID + `","msisdn":"233241234567","productId":32535,"largeAccount":"CAREERIFY"}`)
@@ -593,7 +707,7 @@ func TestUserOptinConfirmationIdempotencyAndDisabledBehavior(t *testing.T) {
 		repo := &handlerRepoStub{templates: map[string]domain.SMSTemplate{
 			tenantID + "|32535|USER_OPTIN": {ID: 9, Enabled: true},
 		}}
-		h := NewNotificationHandler(service.NewNotificationService(repo))
+		h := NewNotificationHandler(service.NewNotificationService(repo)).WithGatewayTrust("test-gateway-secret", false)
 		h.UserOptinHandler(newCallback("carrier-tx-1"))
 		h.UserOptinHandler(newCallback("carrier-tx-1"))
 		if repo.enqueueCount != 1 {
@@ -605,7 +719,7 @@ func TestUserOptinConfirmationIdempotencyAndDisabledBehavior(t *testing.T) {
 		repo := &handlerRepoStub{templates: map[string]domain.SMSTemplate{
 			tenantID + "|32535|USER_OPTIN": {ID: 10, Enabled: false},
 		}}
-		h := NewNotificationHandler(service.NewNotificationService(repo))
+		h := NewNotificationHandler(service.NewNotificationService(repo)).WithGatewayTrust("test-gateway-secret", false)
 		h.UserOptinHandler(newCallback("carrier-tx-2"))
 		if repo.enqueueCount != 0 {
 			t.Fatalf("expected no enqueue for disabled template, got %d", repo.enqueueCount)
