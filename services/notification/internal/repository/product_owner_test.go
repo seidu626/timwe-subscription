@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
@@ -17,6 +18,21 @@ func newNotificationRepoWithMock(t *testing.T) (*NotificationRepository, sqlmock
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	return &NotificationRepository{db: db, ctx: context.Background()}, mock
+}
+
+// expectInsertNotification mirrors ProcessNotification's INSERT ... RETURNING;
+// stored=false is a replay that hit the dedup index and returns no row.
+func expectInsertNotification(mock sqlmock.Sqlmock, stored bool) {
+	rows := sqlmock.NewRows([]string{"id", "created_at"})
+	if stored {
+		rows.AddRow(int64(1), time.Now())
+	}
+	mock.ExpectQuery(`INSERT INTO notifications .* ON CONFLICT DO NOTHING RETURNING id, created_at`).WillReturnRows(rows)
+}
+
+// expectNoTenantEventBinding: the tenant has no tenant_events credential, so no event is queued.
+func expectNoTenantEventBinding(mock sqlmock.Sqlmock) {
+	mock.ExpectQuery(`FROM tenant_channel_credentials c`).WillReturnRows(sqlmock.NewRows([]string{"channel_id", "secret_ref"}))
 }
 
 func TestTenantIDByProductID(t *testing.T) {
@@ -87,7 +103,8 @@ func TestProcessNotification_SkipOptinSMSNeverReadsTemplates(t *testing.T) {
 	t.Run("inferred tenant: insert only, no template lookup or outbox write", func(t *testing.T) {
 		repo, mock := newNotificationRepoWithMock(t)
 		mock.ExpectBegin()
-		mock.ExpectExec(`INSERT INTO notifications`).WillReturnResult(sqlmock.NewResult(1, 1))
+		expectInsertNotification(mock, true)
+		expectNoTenantEventBinding(mock)
 		mock.ExpectCommit()
 
 		if err := repo.ProcessNotification(context.Background(), optin(true)); err != nil {
@@ -101,7 +118,8 @@ func TestProcessNotification_SkipOptinSMSNeverReadsTemplates(t *testing.T) {
 	t.Run("explicit tenant: template lookup still runs", func(t *testing.T) {
 		repo, mock := newNotificationRepoWithMock(t)
 		mock.ExpectBegin()
-		mock.ExpectExec(`INSERT INTO notifications`).WillReturnResult(sqlmock.NewResult(1, 1))
+		expectInsertNotification(mock, true)
+		expectNoTenantEventBinding(mock)
 		mock.ExpectQuery(`FROM tenant_product_sms_templates`).WillReturnRows(sqlmock.NewRows([]string{"id", "template"}))
 		mock.ExpectCommit()
 

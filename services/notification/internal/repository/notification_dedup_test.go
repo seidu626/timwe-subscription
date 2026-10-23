@@ -21,7 +21,7 @@ func TestProcessNotification_ReplayedCallbackIsNoOp(t *testing.T) {
 	t.Run("duplicate insert returns success without the opt-in SMS", func(t *testing.T) {
 		repo, mock := newNotificationRepoWithMock(t)
 		mock.ExpectBegin()
-		mock.ExpectExec(`INSERT INTO notifications .* ON CONFLICT DO NOTHING`).WillReturnResult(sqlmock.NewResult(0, 0))
+		expectInsertNotification(mock, false)
 		mock.ExpectRollback()
 
 		if err := repo.ProcessNotification(context.Background(), optin); err != nil {
@@ -35,7 +35,8 @@ func TestProcessNotification_ReplayedCallbackIsNoOp(t *testing.T) {
 	t.Run("first delivery still enqueues the opt-in SMS", func(t *testing.T) {
 		repo, mock := newNotificationRepoWithMock(t)
 		mock.ExpectBegin()
-		mock.ExpectExec(`INSERT INTO notifications .* ON CONFLICT DO NOTHING`).WillReturnResult(sqlmock.NewResult(1, 1))
+		expectInsertNotification(mock, true)
+		expectNoTenantEventBinding(mock)
 		mock.ExpectQuery(`FROM tenant_product_sms_templates`).WillReturnRows(sqlmock.NewRows([]string{"id", "template"}))
 		mock.ExpectCommit()
 

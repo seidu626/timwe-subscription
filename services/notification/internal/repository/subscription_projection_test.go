@@ -10,9 +10,8 @@ import (
 )
 
 const (
-	insertNotificationSQL = `INSERT INTO notifications .* ON CONFLICT DO NOTHING`
-	activateSQL           = `UPDATE subscriptions SET status = 'active', renewal_status = 'active', end_date = NULL, last_successful_payment = NOW\(\), last_charge_notification_at = NOW\(\), total_charge_notifications = COALESCE\(total_charge_notifications, 0\) \+ 1, consecutive_payment_failures = 0 WHERE tenant_id = \$1 AND user_identifier = \$2 AND product_id = \$3$`
-	deactivateSQL         = `UPDATE subscriptions SET status = 'inactive', end_date = NOW\(\) WHERE tenant_id = \$1 AND user_identifier = \$2 AND product_id = \$3 AND status IS DISTINCT FROM 'inactive'$`
+	activateSQL   = `UPDATE subscriptions SET status = 'active', renewal_status = 'active', end_date = NULL, last_successful_payment = NOW\(\), last_charge_notification_at = NOW\(\), total_charge_notifications = COALESCE\(total_charge_notifications, 0\) \+ 1, consecutive_payment_failures = 0 WHERE tenant_id = \$1 AND user_identifier = \$2 AND product_id = \$3$`
+	deactivateSQL = `UPDATE subscriptions SET status = 'inactive', end_date = NOW\(\) WHERE tenant_id = \$1 AND user_identifier = \$2 AND product_id = \$3 AND status IS DISTINCT FROM 'inactive'$`
 )
 
 func projectionCallback(eventType, mnoDeliveryCode string) *domain.NotificationRequest {
@@ -48,7 +47,10 @@ func TestProcessNotification_ProjectsPaidEvidenceOntoSubscription(t *testing.T) 
 		t.Run(tc.name, func(t *testing.T) {
 			repo, mock := newNotificationRepoWithMock(t)
 			mock.ExpectBegin()
-			mock.ExpectExec(insertNotificationSQL).WillReturnResult(sqlmock.NewResult(1, 1))
+			expectInsertNotification(mock, true)
+			if tc.callback.Type != "MO" && tc.callback.Type != "MT_DN" {
+				expectNoTenantEventBinding(mock)
+			}
 			if tc.update != "" {
 				mock.ExpectExec(tc.update).
 					WithArgs(*tc.callback.TenantID, tc.callback.MSISDN, tc.callback.ProductID).
@@ -70,7 +72,7 @@ func TestProcessNotification_ProjectionSkipped(t *testing.T) {
 	t.Run("replayed callback projects nothing", func(t *testing.T) {
 		repo, mock := newNotificationRepoWithMock(t)
 		mock.ExpectBegin()
-		mock.ExpectExec(insertNotificationSQL).WillReturnResult(sqlmock.NewResult(0, 0))
+		expectInsertNotification(mock, false)
 		mock.ExpectRollback()
 
 		if err := repo.ProcessNotification(context.Background(), projectionCallback(domain.ChargeEvent, "DELIVERED")); err != nil {
@@ -95,7 +97,10 @@ func TestProcessNotification_ProjectionSkipped(t *testing.T) {
 				mutate(callback)
 				repo, mock := newNotificationRepoWithMock(t)
 				mock.ExpectBegin()
-				mock.ExpectExec(insertNotificationSQL).WillReturnResult(sqlmock.NewResult(1, 1))
+				expectInsertNotification(mock, true)
+				if callback.TenantID != nil {
+					expectNoTenantEventBinding(mock)
+				}
 				mock.ExpectCommit()
 
 				if err := repo.ProcessNotification(context.Background(), callback); err != nil {
@@ -123,7 +128,8 @@ func TestProcessNotification_ProjectionErrorRollsBack(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			repo, mock := newNotificationRepoWithMock(t)
 			mock.ExpectBegin()
-			mock.ExpectExec(insertNotificationSQL).WillReturnResult(sqlmock.NewResult(1, 1))
+			expectInsertNotification(mock, true)
+			expectNoTenantEventBinding(mock)
 			mock.ExpectExec(tc.update).WillReturnError(errors.New("connection reset"))
 			mock.ExpectRollback()
 
