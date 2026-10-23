@@ -7,6 +7,13 @@ import (
 )
 
 const UserOptinEvent = "USER_OPTIN"
+const UserRenewedEvent = "USER_RENEWED"
+const UserOptoutEvent = "USER_OPTOUT"
+const ChargeEvent = "CHARGE"
+
+// DeliveredMnoCode is the only mnoDeliveryCode that proves the carrier
+// collected payment; other codes (e.g. NO_BALANCE) are failed attempts.
+const DeliveredMnoCode = "DELIVERED"
 const maxSMSMessageRunes = 480
 
 // SMSTemplate configures an event message for one tenant and product.

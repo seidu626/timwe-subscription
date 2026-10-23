@@ -410,9 +410,10 @@ func nullStringPtr(val sql.NullString) *string {
 }
 
 // ProcessNotification persists the carrier callback and atomically enqueues an
-// enabled USER_OPTIN confirmation. TIMWE re-posts a callback until it gets a
-// 2xx; the (tenant_id, type, transaction_uuid) unique index (migration 032)
-// turns a replay into a no-op success that enqueues nothing.
+// enabled USER_OPTIN confirmation and the subscription projection. TIMWE
+// re-posts a callback until it gets a 2xx; the (tenant_id, type,
+// transaction_uuid) unique index (migration 032) turns a replay into a no-op
+// success that enqueues and projects nothing.
 func (r *NotificationRepository) ProcessNotification(ctx context.Context, notification *domain.NotificationRequest) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -464,8 +465,50 @@ func (r *NotificationRepository) ProcessNotification(ctx context.Context, notifi
 			return err
 		}
 	}
+	if err := projectSubscriptionStatus(ctx, tx, notification); err != nil {
+		return err
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit notification transaction: %w", err)
+	}
+	return nil
+}
+
+// projectSubscriptionStatus applies a freshly stored callback to the shared
+// subscriptions row that other services gate on. Opt-in results do not prove
+// payment: only a DELIVERED CHARGE/USER_RENEWED activates, and USER_OPTOUT
+// ends the subscription. It never creates rows; a missing row is not an error.
+func projectSubscriptionStatus(ctx context.Context, tx *sql.Tx, notification *domain.NotificationRequest) error {
+	// Same normalization as the insert, so a blank tenant never reaches a uuid comparison.
+	tenantID := nullStringPtrValue(notification.TenantID)
+	if !tenantID.Valid || notification.MSISDN == "" || notification.ProductID <= 0 {
+		return nil
+	}
+
+	var query string
+	switch notification.Type {
+	case domain.ChargeEvent, domain.UserRenewedEvent:
+		if !strings.EqualFold(strings.TrimSpace(notification.MnoDeliveryCode), domain.DeliveredMnoCode) {
+			return nil
+		}
+		query = `
+			UPDATE subscriptions
+			SET status = 'active', renewal_status = 'active', end_date = NULL,
+				last_successful_payment = NOW(), last_charge_notification_at = NOW(),
+				total_charge_notifications = COALESCE(total_charge_notifications, 0) + 1,
+				consecutive_payment_failures = 0
+			WHERE tenant_id = $1 AND user_identifier = $2 AND product_id = $3`
+	case domain.UserOptoutEvent:
+		query = `
+			UPDATE subscriptions
+			SET status = 'inactive', end_date = NOW()
+			WHERE tenant_id = $1 AND user_identifier = $2 AND product_id = $3
+				AND status IS DISTINCT FROM 'inactive'`
+	default:
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, query, tenantID.String, notification.MSISDN, notification.ProductID); err != nil {
+		return fmt.Errorf("project %s onto subscription: %w", notification.Type, err)
 	}
 	return nil
 }
