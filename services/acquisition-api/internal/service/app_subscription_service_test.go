@@ -66,6 +66,10 @@ func TestMapTransactionServiceError_NilIsNil(t *testing.T) {
 // tenant comes from its own row (GetTenantIDByID + GetByIDForTenant), never
 // from the caller's JWT tenant.
 func expectAuthorize(mock sqlmock.Sqlmock, txID uuid.UUID, ownerMSISDN string, status domain.TransactionStatus, now time.Time) {
+	expectAuthorizeWithPayload(mock, txID, ownerMSISDN, status, nil, now)
+}
+
+func expectAuthorizeWithPayload(mock sqlmock.Sqlmock, txID uuid.UUID, ownerMSISDN string, status domain.TransactionStatus, nextActionPayload interface{}, now time.Time) {
 	mock.ExpectQuery(`SELECT tenant_id FROM acquisition_transactions WHERE id = \$1`).
 		WithArgs(txID).
 		WillReturnRows(sqlmock.NewRows([]string{"tenant_id"}).AddRow(testTenantID))
@@ -73,7 +77,7 @@ func expectAuthorize(mock sqlmock.Sqlmock, txID uuid.UUID, ownerMSISDN string, s
 		WithArgs(txID, testTenantID).
 		WillReturnRows(sqlmock.NewRows(acquisitionTransactionColumns()).
 			AddRow(txID, uuid.New(), "daily", ownerMSISDN, status, nil,
-				nil, nil, nil, nil, nil, nil, false, true, nil, nil, nil, nil, nil, nil,
+				nextActionPayload, nil, nil, nil, nil, nil, false, true, nil, nil, nil, nil, nil, nil,
 				nil, nil, nil, nil, nil, nil, nil, nil, false, now, now))
 }
 
@@ -128,7 +132,7 @@ func TestAppSubscriptionService_List_SpansTenants(t *testing.T) {
 			"price", "billing_cycle", "app_name", "lp_copy", "country",
 			"tenant_key", "name",
 		}).AddRow(
-			uuid.New().String(), "daily", "SUBSCRIBED", now, nil,
+			uuid.New().String(), "daily", "CHARGED", now, now,
 			2.0, "DAILY", "Daily Tips", nil, "GH",
 			"nrg", "NRG",
 		).AddRow(
@@ -152,6 +156,10 @@ func TestAppSubscriptionService_List_SpansTenants(t *testing.T) {
 	}
 	if subs[1].Tenant != "careerify" || subs[1].ProductName != "Career Boost" {
 		t.Fatalf("unexpected second subscription: %+v", subs[1])
+	}
+	// SUBSCRIBED has no charge evidence yet: PENDING, no renewal hint.
+	if subs[1].Status != "PENDING" || subs[1].NextChargeHint != "" {
+		t.Fatalf("expected uncharged SUBSCRIBED row to be PENDING without hint, got %+v", subs[1])
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -211,6 +219,55 @@ func TestAppSubscriptionService_Cancel_AlreadyCancelledIsIdempotent(t *testing.T
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("expected no writes for an already-cancelled subscription: %v", err)
+	}
+}
+
+func TestAppSubscriptionService_Cancel_ExpiredUnchargedConfirmCancelsLocally(t *testing.T) {
+	svc, mock := newAppSubscriptionTestService(t, nil)
+	txID := uuid.New()
+
+	// The reconciler expired a CONFIRM_REQUIRED row: the user never
+	// confirmed, so there is no provider subscription to opt out of.
+	expectAuthorizeWithPayload(mock, txID, "233241234567", domain.StatusFailed,
+		`{"failure_reason":"NO_CHARGE_EVIDENCE","expired_from":"CONFIRM_REQUIRED"}`, time.Now())
+	mock.ExpectExec(`UPDATE acquisition_transactions\s+SET status = \$1`).
+		WithArgs(string(domain.StatusCancelled), nil, nil, txID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	if err := svc.Cancel(txID.String(), "233241234567"); err != nil {
+		t.Fatalf("expected expired confirm cancel to succeed locally, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestAppSubscriptionService_Cancel_ExpiredSubscribedGoesUpstream(t *testing.T) {
+	svc, mock := newAppSubscriptionTestService(t, nil)
+	txID := uuid.New()
+	now := time.Now()
+
+	// The reconciler expired a SUBSCRIBED row that may still be live at the
+	// provider: cancel must take the upstream opt-out path, not a local-only
+	// CANCELLED write. The campaign has no channel, so the path stops with a
+	// provider error after the tenant and campaign lookups.
+	expectAuthorizeWithPayload(mock, txID, "233241234567", domain.StatusFailed,
+		`{"failure_reason":"NO_CHARGE_EVIDENCE","expired_from":"SUBSCRIBED"}`, now)
+	mock.ExpectQuery(`SELECT tenant_key\s+FROM tenants\s+WHERE id = \$1::uuid`).
+		WithArgs(testTenantID).
+		WillReturnRows(sqlmock.NewRows([]string{"tenant_key"}).AddRow(testTenantKey))
+	expectTenantCampaign(mock, testTenantKey, "daily",
+		1, "daily", "en", "GH", nil, 101, nil, nil,
+		"OTP", nil, nil, nil, nil, nil, nil,
+		nil, false, nil, nil, nil,
+		`{}`, pq.StringArray{}, pq.StringArray{}, pq.StringArray{}, nil, nil,
+		true, now, now, nil, nil,
+	)
+
+	err := svc.Cancel(txID.String(), "233241234567")
+	requireAppError(t, err, domain.AppErrProviderError)
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
 	}
 }
 

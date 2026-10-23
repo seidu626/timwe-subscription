@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/google/uuid"
@@ -108,6 +109,12 @@ func (s *AppSubscriptionService) Cancel(ref, msisdn string) error {
 		// Already cancelled: repeat requests are a no-op, not an error.
 		return nil
 	case "PENDING", "FAILED":
+		// SUBSCRIBED maps to PENDING (no charge evidence yet) but is live at
+		// the provider, and so may be a SUBSCRIBED row the charge reconciler
+		// expired; both fall through to the upstream opt-out.
+		if tx.Status == domain.StatusSubscribed || expiredFromSubscribed(tx) {
+			break
+		}
 		// The subscription never activated at the provider, so there is
 		// nothing to opt out of upstream; clearing the row locally is the
 		// whole cancellation.
@@ -154,6 +161,24 @@ func (s *AppSubscriptionService) Cancel(ref, msisdn string) error {
 // msisdn, returning the transaction and its owning tenant's UUID. Ownership
 // is keyed on msisdn alone; the tenant comes from the transaction row so
 // cross-tenant marketplace subscriptions stay manageable after login.
+// expiredFromSubscribed reports whether the charge reconciler expired this
+// transaction out of SUBSCRIBED, i.e. it is FAILED for NO_CHARGE_EVIDENCE but
+// the provider-side subscription may still exist.
+func expiredFromSubscribed(tx *domain.AcquisitionTransaction) bool {
+	if tx.Status != domain.StatusFailed || len(tx.NextActionPayload) == 0 {
+		return false
+	}
+	var payload struct {
+		FailureReason string `json:"failure_reason"`
+		ExpiredFrom   string `json:"expired_from"`
+	}
+	if err := json.Unmarshal(tx.NextActionPayload, &payload); err != nil {
+		return false
+	}
+	return payload.FailureReason == repository.NoChargeEvidenceFailureReason &&
+		payload.ExpiredFrom == string(domain.StatusSubscribed)
+}
+
 func (s *AppSubscriptionService) authorize(transactionID uuid.UUID, msisdn string) (*domain.AcquisitionTransaction, string, error) {
 	tenantID, err := s.txRepo.GetTenantIDByID(transactionID)
 	if err != nil || strings.TrimSpace(tenantID) == "" {

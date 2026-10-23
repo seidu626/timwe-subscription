@@ -7,7 +7,7 @@ func TestMapTransactionStatusToApp(t *testing.T) {
 		status TransactionStatus
 		want   string
 	}{
-		{StatusSubscribed, "ACTIVE"},
+		{StatusSubscribed, "PENDING"},
 		{StatusCharged, "ACTIVE"},
 		{StatusPending, "PENDING"},
 		{StatusActionRequired, "PENDING"},
