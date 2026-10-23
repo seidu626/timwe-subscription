@@ -362,13 +362,17 @@ func nullTimePtr(val sql.NullTime) *time.Time {
 	return &t
 }
 
+// createSubscriptionQuery writes status 'pending' explicitly: the column
+// default is 'active', and only a DELIVERED charge (notification projection)
+// may make a subscription active.
+const createSubscriptionQuery = `
+        INSERT INTO subscriptions (partner_role_id, user_identifier, user_identifier_type, product_id, mcc, mnc, entry_channel, large_account, sub_keyword, tracking_id, client_ip, campaign_url, tenant_id, channel_id, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULLIF($13, ''::text)::uuid, NULLIF($14, ''::text)::uuid, 'pending')
+    `
+
 // CreateSubscription inserts a new subscription record into the database.
 func (r *SubscriptionRepository) CreateSubscription(request *domain.SubscriptionRequest) error {
-	query := `
-        INSERT INTO subscriptions (partner_role_id, user_identifier, user_identifier_type, product_id, mcc, mnc, entry_channel, large_account, sub_keyword, tracking_id, client_ip, campaign_url, tenant_id, channel_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULLIF($13, ''::text)::uuid, NULLIF($14, ''::text)::uuid)
-    `
-	_, err := r.db.Exec(query, request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TenantRoute.TenantID, request.TenantRoute.ChannelID)
+	_, err := r.db.Exec(createSubscriptionQuery, request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TenantRoute.TenantID, request.TenantRoute.ChannelID)
 	if err != nil {
 		return fmt.Errorf("failed to create subscription: %w", err)
 	}
