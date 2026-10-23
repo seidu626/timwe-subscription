@@ -1,6 +1,7 @@
 {
   "name": "KRAKEND API Gateway",
   "port": 8080,
+  "listen_ip": "127.0.0.1",
   "cache_ttl": "3600s",
   "timeout": "30s",
   "read_header_timeout": "30s",

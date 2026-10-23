@@ -5,10 +5,10 @@
 # 1. Create .env file with required secrets (see docs/environment-variables.md)
 # 2. Place SSL certificates at ./certs/STAR_nouveauricheglobalgroup.crt and .key
 # 3. Create shared-network: docker network create shared-network (if not exists)
-# 4. PostgreSQL must be running on host (port 5432)
+# 4. Configure the DigitalOcean managed PostgreSQL endpoint in .env
 #
 # Required environment variables in .env:
-#   PG_HOST (default: host.docker.internal for Docker Desktop, or use actual IP)
+#   PG_HOST, PG_PORT, PG_SSL_MODE (managed PostgreSQL connection settings)
 #   PG_USER, PG_PASSWORD, PG_DB
 #   JWT_SECRET, TIMWE_API_KEY, TIMWE_PSK
 #   ADMIN_AUTH0_DOMAIN, ADMIN_AUTH0_AUDIENCE
@@ -68,11 +68,11 @@ services:
     container_name: subscription-partner
     # Port bound to localhost - access via reverse proxy or SSH tunnel
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     environment:
       - APP_APPLICATION_ENVIRONMENT=PRODUCTION
-      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
-      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:?PG_HOST must be set to the managed PostgreSQL host}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:?PG_PORT must be set to the managed PostgreSQL port}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
@@ -102,7 +102,7 @@ services:
     container_name: subscription-external
     # Port bound to localhost - access via reverse proxy or SSH tunnel
     ports:
-      - "8083:8083"
+      - "127.0.0.1:8083:8083"
     volumes:
       - ./services/subscription-external/config:/app/config:ro
     environment:
@@ -113,8 +113,8 @@ services:
       - APP_DATABASE_POSTGRESQL_CONNECTION_TIMEOUT=10s
       - APP_APPLICATION_BATCH_MAX_WORKERS_PER_JOB=5
       - APP_APPLICATION_BATCH_MAX_CONCURRENT_OPTINS=5
-      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
-      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:?PG_HOST must be set to the managed PostgreSQL host}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:?PG_PORT must be set to the managed PostgreSQL port}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
@@ -166,8 +166,8 @@ services:
   #   ports:
   #     - "8085:8085"
   #   environment:
-  #     - DB_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
-  #     - DB_POSTGRESQL_PORT=${PG_PORT:-5432}
+  #     - DB_POSTGRESQL_HOST=${PG_HOST:?PG_HOST must be set to the managed PostgreSQL host}
+  #     - DB_POSTGRESQL_PORT=${PG_PORT:?PG_PORT must be set to the managed PostgreSQL port}
   #     - DB_POSTGRESQL_USER=${PG_USER}
   #     - DB_POSTGRESQL_PASSWORD=${PG_PASSWORD}
   #     - DB_POSTGRESQL_DB_NAME=${PG_DB}
@@ -194,11 +194,11 @@ services:
     container_name: notification-service
     # Port bound to localhost - access via reverse proxy or SSH tunnel
     ports:
-      - "8082:8082"
+      - "127.0.0.1:8082:8082"
     environment:
       - APPLICATION_ENVIRONMENT=PRODUCTION
-      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
-      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:?PG_HOST must be set to the managed PostgreSQL host}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:?PG_PORT must be set to the managed PostgreSQL port}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
@@ -234,8 +234,8 @@ services:
     container_name: notification-worker
     command: ["./notification-worker"]
     environment:
-      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
-      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:?PG_HOST must be set to the managed PostgreSQL host}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:?PG_PORT must be set to the managed PostgreSQL port}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
@@ -244,6 +244,7 @@ services:
       - PGMAX_IDLE_CONNS=1
       - NOTIFICATION_WORKER_MT_BASE_URL=${NOTIFICATION_WORKER_MT_BASE_URL:-http://subscription-external:8083}
       - NOTIFICATION_WORKER_MT_CHANNEL=${NOTIFICATION_WORKER_MT_CHANNEL:-SMS}
+      - NOTIFICATION_WORKER_POLL_INTERVAL=${NOTIFICATION_WORKER_POLL_INTERVAL:-30s}
       - TENANT_SECRET_MASTER_KEY=${TENANT_SECRET_MASTER_KEY}
     networks:
       - backend
@@ -260,7 +261,8 @@ services:
     command: server /data --console-address ":9001"
     ports:
       - "9100:9000"
-      - "9101:9001"
+      # Access the operator console through an SSH tunnel.
+      - "127.0.0.1:9101:9001"
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
@@ -295,10 +297,10 @@ services:
     container_name: acquisition-api
     # Port bound to localhost - access via reverse proxy or SSH tunnel
     ports:
-      - "8084:8084"
+      - "127.0.0.1:8084:8084"
     environment:
-      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
-      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:?PG_HOST must be set to the managed PostgreSQL host}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:?PG_PORT must be set to the managed PostgreSQL port}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
@@ -364,10 +366,10 @@ services:
     container_name: cadence-engine
     # Expose cadence admin API publicly (Option B).
     ports:
-      - "8091:8091"
+      - "127.0.0.1:8091:8091"
     environment:
-      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
-      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:?PG_HOST must be set to the managed PostgreSQL host}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:?PG_PORT must be set to the managed PostgreSQL port}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
@@ -395,8 +397,8 @@ services:
     image: xper626/postback-dispatcher:latest
     container_name: postback-dispatcher
     environment:
-      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:-host.docker.internal}
-      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:-5432}
+      - APP_DATABASE_POSTGRESQL_HOST=${PG_HOST:?PG_HOST must be set to the managed PostgreSQL host}
+      - APP_DATABASE_POSTGRESQL_PORT=${PG_PORT:?PG_PORT must be set to the managed PostgreSQL port}
       - APP_DATABASE_POSTGRESQL_USER=${PG_USER}
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
@@ -414,7 +416,7 @@ services:
     container_name: landing-web
     # Port bound to localhost - access via reverse proxy or SSH tunnel
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - NEXT_PUBLIC_ACQUISITION_API_URL=${NEXT_PUBLIC_ACQUISITION_API_URL:-https://api.nouveauricheglobalgroup.com}
       # Server-side API calls (API routes) use internal Docker network
