@@ -53,7 +53,17 @@ func (p *Planner) processBatch(ctx context.Context) error {
 		_ = tx.Rollback()
 	}()
 
-	dueStates, err := p.repo.ClaimDueStatesTx(ctx, tx, p.cfg.BatchSize)
+	// Tenants paused in the admin console get no new jobs: their states stay
+	// due and are planned once sending resumes.
+	tenantIDs, err := p.repo.SendingTenantIDsTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if len(tenantIDs) == 0 {
+		return nil
+	}
+
+	dueStates, err := p.repo.ClaimDueStatesTx(ctx, tx, p.cfg.BatchSize, tenantIDs)
 	if err != nil {
 		return err
 	}

@@ -103,7 +103,37 @@ func (r *CadenceRepository) ListActiveTenantsForMember(ctx context.Context, auth
 	return out, nil
 }
 
-func (r *CadenceRepository) ClaimDueStatesTx(ctx context.Context, tx *sql.Tx, limit int) ([]domain.DueState, error) {
+// SendingTenantIDsTx returns the tenants whose SMS sending is not paused.
+// The admin console pauses a tenant by setting metadata_json.sms_sending_paused
+// to true; the notification dispatcher holds those tenants' jobs, and the
+// planner must not create new ones for them either.
+func (r *CadenceRepository) SendingTenantIDsTx(ctx context.Context, tx *sql.Tx) ([]string, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id::text
+		FROM tenants
+		WHERE NOT (COALESCE(metadata_json, '{}'::jsonb) @> '{"sms_sending_paused": true}'::jsonb)
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// ClaimDueStatesTx claims due states of the given tenants only, so states of
+// tenants paused in the admin console are never planned. The caller skips the
+// claim when no tenant is sending; with some tenants paused, the scan still
+// walks their due states in next_send_at order and filters them out.
+func (r *CadenceRepository) ClaimDueStatesTx(ctx context.Context, tx *sql.Tx, limit int, tenantIDs []string) ([]domain.DueState, error) {
 	query := `
 		WITH due AS (
 			SELECT sms.subscription_id, sms.tenant_id::text, sms.channel_id::text,
@@ -112,6 +142,7 @@ func (r *CadenceRepository) ClaimDueStatesTx(ctx context.Context, tx *sql.Tx, li
 			JOIN subscriptions s ON s.id = sms.subscription_id
 			JOIN product_message_series pms ON pms.id = sms.series_id
 			WHERE sms.status = 'ACTIVE'
+			  AND sms.tenant_id = ANY($2::uuid[])
 			  AND sms.next_send_at <= NOW()
 			  AND (sms.inflight_until IS NULL OR sms.inflight_until < NOW())
 			  AND s.status = 'active'
@@ -127,7 +158,7 @@ func (r *CadenceRepository) ClaimDueStatesTx(ctx context.Context, tx *sql.Tx, li
 		SELECT subscription_id, tenant_id, channel_id, series_id, cursor_seq, next_send_at FROM due;
 	`
 
-	rows, err := tx.QueryContext(ctx, query, limit)
+	rows, err := tx.QueryContext(ctx, query, limit, pq.Array(tenantIDs))
 	if err != nil {
 		return nil, err
 	}

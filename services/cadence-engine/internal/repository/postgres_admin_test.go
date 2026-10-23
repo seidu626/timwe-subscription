@@ -274,13 +274,13 @@ func TestClaimDueStatesTxOnlyClaimsActiveTenantCompatibleStates(t *testing.T) {
 	}
 
 	now := time.Now().UTC()
-	mock.ExpectQuery("sms.tenant_id = s.tenant_id").
-		WithArgs(10).
+	mock.ExpectQuery(`(?s)sms\.tenant_id = ANY\(\$2::uuid\[\]\).*sms\.tenant_id = s\.tenant_id`).
+		WithArgs(10, `{"tenant-1"}`).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"subscription_id", "tenant_id", "channel_id", "series_id", "cursor_seq", "next_send_at",
 		}).AddRow(int64(42), "tenant-1", "channel-1", int64(7), 1, now))
 
-	states, err := repo.ClaimDueStatesTx(context.Background(), tx, 10)
+	states, err := repo.ClaimDueStatesTx(context.Background(), tx, 10, []string{"tenant-1"})
 	if err != nil {
 		t.Fatalf("ClaimDueStatesTx: %v", err)
 	}
@@ -427,5 +427,36 @@ func TestSeriesHealthRequiresTenant(t *testing.T) {
 	repo := NewCadenceRepository(db, zap.NewNop())
 	if _, err := repo.SeriesHealth(context.Background(), "  ", ""); err == nil {
 		t.Fatal("expected error for blank tenant")
+	}
+}
+
+func TestSendingTenantIDsTxSkipsPausedTenants(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewCadenceRepository(db, zap.NewNop())
+	mock.ExpectBegin()
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+
+	mock.ExpectQuery(`(?s)FROM tenants.*NOT \(COALESCE\(metadata_json, '\{\}'::jsonb\) @> '\{"sms_sending_paused": true\}'::jsonb\)`).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("tenant-1").AddRow("tenant-2"))
+
+	ids, err := repo.SendingTenantIDsTx(context.Background(), tx)
+	if err != nil {
+		t.Fatalf("SendingTenantIDsTx: %v", err)
+	}
+	if len(ids) != 2 || ids[0] != "tenant-1" || ids[1] != "tenant-2" {
+		t.Fatalf("unexpected tenant ids %v", ids)
+	}
+
+	_ = tx.Rollback()
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
 	}
 }
