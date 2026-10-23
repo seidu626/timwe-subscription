@@ -2,6 +2,8 @@
 # Install the certificate audit, or extend the NRG lineage after DNS is ready.
 # This file must be root-owned before granting scoped sudo access to it.
 set -eu
+# sudo keeps the caller's directory; python3 - would import modules from it.
+cd /
 
 [ "$(id -u)" -eq 0 ] || { echo "root required" >&2; exit 1; }
 [ "$#" -eq 1 ] || { echo "usage: $0 install|enroll" >&2; exit 2; }
@@ -29,7 +31,7 @@ case "$1" in
         url_tmp=$(mktemp /etc/cert-watch/healthchecks-url.XXXXXX)
         trap 'rm -f "$url_tmp"' EXIT HUP INT TERM
         install -o root -g root -m 0600 "$stage/healthchecks-url" "$url_tmp"
-        python3 - "$url_tmp" <<'PY'
+        python3 -I - "$url_tmp" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -83,7 +85,7 @@ PY
         done
         backup=$(mktemp /var/backups/nrg-ssl-conf.pre-four-san.XXXXXX)
         cp -p "$nginx_conf" "$backup"
-        python3 - "$nginx_conf" <<'PY'
+        python3 -I - "$nginx_conf" <<'PY'
 import os
 import pathlib
 import sys
