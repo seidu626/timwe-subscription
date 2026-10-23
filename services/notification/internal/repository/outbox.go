@@ -21,7 +21,13 @@ func NewOutboxRepository(db *sql.DB, logger *zap.Logger) *OutboxRepository {
 // ClaimPendingJobs resolves message text from message_content_items at send
 // time (LINK items get the URL appended here), so admin edits to a published
 // content item reach every not-yet-sent job, including already-planned ones.
-func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]domain.OutboxJob, error) {
+//
+// It also sets SkipReason for jobs that must not be sent: any job whose
+// subscription is inactive, a cadence job whose subscription is not active
+// (the planner's own condition), and a job planned more than staleAfter ago
+// (staleAfter 0 disables that check). Transactional jobs (series_id NULL) to
+// pending subscribers still send.
+func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int, staleAfter time.Duration) ([]domain.OutboxJob, error) {
 	query := `
 		WITH claimed AS (
 			SELECT job_id
@@ -46,7 +52,13 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 		       COALESCE(pms.delivery_channel, 'USER_PREF'),
 		       CASE WHEN ci.content_kind = 'LINK' AND COALESCE(ci.link_url, '') <> ''
 		            THEN TRIM(ci.message_text) || ' ' || TRIM(ci.link_url)
-		            ELSE COALESCE(ci.message_text, mo.message_text) END
+		            ELSE COALESCE(ci.message_text, mo.message_text) END,
+		       CASE WHEN s.status = 'inactive' THEN 'subscription inactive'
+		            WHEN mo.series_id IS NOT NULL
+		                 AND (s.status IS DISTINCT FROM 'active' OR s.renewal_status IS DISTINCT FROM 'active')
+		                 THEN 'subscription not active'
+		            WHEN $2::interval > INTERVAL '0' AND u.planned_send_at < NOW() - $2::interval THEN 'stale'
+		            ELSE '' END AS skip_reason
 		FROM updated u
 		JOIN message_outbox mo ON mo.job_id = u.job_id
 		JOIN subscriptions s ON s.id = u.subscription_id
@@ -54,7 +66,7 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 		LEFT JOIN message_content_items ci ON ci.id = u.content_item_id
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, limit)
+	rows, err := r.db.QueryContext(ctx, query, limit, staleAfter.String())
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +90,7 @@ func (r *OutboxRepository) ClaimPendingJobs(ctx context.Context, limit int) ([]d
 			&job.EntryChannel,
 			&job.DeliveryChannel,
 			&job.MessageText,
+			&job.SkipReason,
 		); err != nil {
 			return nil, err
 		}

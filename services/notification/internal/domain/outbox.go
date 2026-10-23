@@ -16,6 +16,9 @@ type OutboxJob struct {
 	ProductID       int
 	PartnerRoleID   int
 	DeliveryChannel string
+	// SkipReason is set by the claim query when the job must not be sent
+	// (subscription inactive, or planned too long ago); empty means send.
+	SkipReason string
 }
 
 // DeliveryCheck is a SENT gateway job awaiting a handset delivery verdict,

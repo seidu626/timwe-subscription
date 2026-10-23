@@ -55,6 +55,9 @@ type Config struct {
 	MTBaseURL    string
 	MTChannel    string
 	HTTPTimeout  time.Duration
+	// StaleAfter skips jobs planned longer ago than this instead of sending
+	// them late; 0 disables the check.
+	StaleAfter time.Duration
 }
 
 type Dispatcher struct {
@@ -121,7 +124,7 @@ func (d *Dispatcher) Run(ctx context.Context) error {
 }
 
 func (d *Dispatcher) processBatch(ctx context.Context) error {
-	jobs, err := d.repo.ClaimPendingJobs(ctx, d.cfg.BatchSize)
+	jobs, err := d.repo.ClaimPendingJobs(ctx, d.cfg.BatchSize, d.cfg.StaleAfter)
 	if err != nil {
 		return err
 	}
@@ -190,6 +193,14 @@ func (d *Dispatcher) resolveChannel(ctx context.Context, job domain.OutboxJob) (
 }
 
 func (d *Dispatcher) processJob(ctx context.Context, job domain.OutboxJob) error {
+	// A skipped job is FAILED with processed_at NULL, so the cadence advancer
+	// moves the state to its next slot without advancing the content cursor.
+	if job.SkipReason != "" {
+		recordDispatch(job, "skipped")
+		d.logger.Info("dispatcher job skipped", append(d.jobFields(job), zap.String("reason", job.SkipReason))...)
+		return d.repo.MarkFailed(ctx, job.JobID, "skipped: "+job.SkipReason)
+	}
+
 	channel, deviceToken := d.resolveChannel(ctx, job)
 
 	var err error

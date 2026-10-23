@@ -158,6 +158,7 @@ func loadWorkerConfig() dispatcher.Config {
 		MTBaseURL:    os.Getenv("NOTIFICATION_WORKER_MT_BASE_URL"),
 		MTChannel:    os.Getenv("NOTIFICATION_WORKER_MT_CHANNEL"),
 		HTTPTimeout:  getEnvDuration("NOTIFICATION_WORKER_HTTP_TIMEOUT", 30*time.Second),
+		StaleAfter:   getEnvDuration("NOTIFICATION_WORKER_STALE_AFTER", 24*time.Hour),
 	}
 }
 

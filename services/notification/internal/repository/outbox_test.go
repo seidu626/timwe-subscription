@@ -26,18 +26,18 @@ func TestClaimPendingJobsResolvesTextAtSendTime(t *testing.T) {
 
 	planned := time.Date(2026, 8, 18, 10, 0, 0, 0, time.UTC)
 	mock.ExpectQuery(`ci\.message_text`).
-		WithArgs(10).
+		WithArgs(10, "24h0m0s").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"job_id", "tenant_id", "channel_id", "subscription_id", "content_item_id",
 			"attempt", "planned_send_at", "partner_role_id", "product_id",
-			"user_identifier", "entry_channel", "delivery_channel", "message_text",
+			"user_identifier", "entry_channel", "delivery_channel", "message_text", "skip_reason",
 		}).
 			AddRow("job-1", "tenant-1", nil, int64(42), int64(99), 1, planned,
-				2117, 8509, "233241234567", "MO", "SMS", "Edited tip text").
+				2117, 8509, "233241234567", "MO", "SMS", "Edited tip text", "").
 			AddRow("job-2", "tenant-1", nil, int64(43), int64(100), 1, planned,
-				2117, 8509, "233241234568", "MO", "SMS", "Read more https://x.co/a"))
+				2117, 8509, "233241234568", "MO", "SMS", "Read more https://x.co/a", ""))
 
-	jobs, err := repo.ClaimPendingJobs(context.Background(), 10)
+	jobs, err := repo.ClaimPendingJobs(context.Background(), 10, 24*time.Hour)
 	if err != nil {
 		t.Fatalf("ClaimPendingJobs: %v", err)
 	}
@@ -77,15 +77,65 @@ func TestClaimPendingJobsFallsBackToDirectOutboxText(t *testing.T) {
 	repo := NewOutboxRepository(db, zap.NewNop())
 
 	mock.ExpectQuery("claim").
-		WithArgs(5).
+		WithArgs(5, "0s").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"job_id", "tenant_id", "channel_id", "subscription_id", "content_item_id",
 			"attempt", "planned_send_at", "partner_role_id", "product_id",
-			"user_identifier", "entry_channel", "delivery_channel", "message_text",
+			"user_identifier", "entry_channel", "delivery_channel", "message_text", "skip_reason",
 		}))
 
-	if _, err := repo.ClaimPendingJobs(context.Background(), 5); err != nil {
+	if _, err := repo.ClaimPendingJobs(context.Background(), 5, 0); err != nil {
 		t.Fatalf("ClaimPendingJobs: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
+	}
+}
+
+// The claim query flags jobs that must not be sent: inactive subscriptions
+// (every job), non-active subscriptions (cadence jobs only, so opt-in
+// confirmations to pending users still go out) and stale jobs.
+func TestClaimPendingJobsFlagsSkippedJobs(t *testing.T) {
+	skipMatcher := sqlmock.QueryMatcherFunc(func(expected, actual string) error {
+		normalized := strings.Join(strings.Fields(actual), " ")
+		for _, want := range []string{
+			"WHEN s.status = 'inactive' THEN 'subscription inactive'",
+			"WHEN mo.series_id IS NOT NULL AND (s.status IS DISTINCT FROM 'active' OR s.renewal_status IS DISTINCT FROM 'active') THEN 'subscription not active'",
+			"WHEN $2::interval > INTERVAL '0' AND u.planned_send_at < NOW() - $2::interval THEN 'stale'",
+		} {
+			if !strings.Contains(normalized, want) {
+				return errors.New("claim query is missing skip rule: " + want)
+			}
+		}
+		return nil
+	})
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(skipMatcher))
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewOutboxRepository(db, zap.NewNop())
+	planned := time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)
+
+	mock.ExpectQuery("claim").
+		WithArgs(200, "24h0m0s").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"job_id", "tenant_id", "channel_id", "subscription_id", "content_item_id",
+			"attempt", "planned_send_at", "partner_role_id", "product_id",
+			"user_identifier", "entry_channel", "delivery_channel", "message_text", "skip_reason",
+		}).
+			AddRow("job-1", "tenant-1", nil, int64(42), int64(99), 1, planned,
+				2117, 8509, "233241234567", "MO", "SMS", "tip", "stale").
+			AddRow("job-2", "tenant-1", nil, int64(43), int64(0), 1, planned,
+				2117, 8509, "233241234568", "MO", "SMS", "welcome", ""))
+
+	jobs, err := repo.ClaimPendingJobs(context.Background(), 200, 24*time.Hour)
+	if err != nil {
+		t.Fatalf("ClaimPendingJobs: %v", err)
+	}
+	if len(jobs) != 2 || jobs[0].SkipReason != "stale" || jobs[1].SkipReason != "" {
+		t.Fatalf("skip reasons = %+v", jobs)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("ExpectationsWereMet: %v", err)
