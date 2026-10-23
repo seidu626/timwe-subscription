@@ -71,7 +71,7 @@ func TestPromoteOnChargeEvidence_MarksChargedAndEnqueuesConversion(t *testing.T)
 		WithArgs(tx.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	if err := svc.PromoteOnChargeEvidence(tx); err != nil {
+	if err := svc.PromoteOnChargeEvidence(tx, false); err != nil {
 		t.Fatalf("promote: %v", err)
 	}
 	if tx.Status != domain.StatusCharged || tx.ChargedAt == nil {
@@ -97,7 +97,7 @@ func TestPromoteOnChargeEvidence_PostbackAlreadySentMarksChargedWithoutSecondPos
 		WithArgs(domain.StatusCharged, sqlmock.AnyArg(), sql.NullString{}, tx.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	if err := svc.PromoteOnChargeEvidence(tx); err != nil {
+	if err := svc.PromoteOnChargeEvidence(tx, false); err != nil {
 		t.Fatalf("promote: %v", err)
 	}
 	if tx.Status != domain.StatusCharged || tx.ChargedAt == nil {
@@ -124,7 +124,7 @@ func TestPromoteOnChargeEvidence_AdvancesConfirmRequiredBeforeCharging(t *testin
 		WithArgs(domain.StatusCharged, sqlmock.AnyArg(), sql.NullString{}, tx.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	if err := svc.PromoteOnChargeEvidence(tx); err != nil {
+	if err := svc.PromoteOnChargeEvidence(tx, false); err != nil {
 		t.Fatalf("promote: %v", err)
 	}
 	if tx.Status != domain.StatusCharged {
@@ -137,7 +137,35 @@ func TestPromoteOnChargeEvidence_AdvancesConfirmRequiredBeforeCharging(t *testin
 
 func TestPromoteOnChargeEvidence_RequiresTransaction(t *testing.T) {
 	svc := &TransactionService{logger: zap.NewNop()}
-	if err := svc.PromoteOnChargeEvidence(nil); err == nil {
+	if err := svc.PromoteOnChargeEvidence(nil, false); err == nil {
 		t.Fatal("expected transaction required error")
+	}
+}
+
+func TestPromoteOnChargeEvidence_AlreadyPayingMarksChargedWithoutPostback(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	svc := newPartnerTestService(db)
+	svc.providerReg.Register(NewMobplusProvider(zap.NewNop()))
+	// The MSISDN paid before this transaction existed: a re-optin by an
+	// existing subscriber must not fire a conversion postback, even with
+	// a registered provider and an unsent postback flag.
+	tx := newChargeEvidenceTestTx(domain.StatusConfirmRequired, false)
+
+	mock.ExpectExec(`UPDATE acquisition_transactions\s+SET status = \$1, charged_at = \$2`).
+		WithArgs(domain.StatusCharged, sqlmock.AnyArg(), sql.NullString{}, tx.ID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	if err := svc.PromoteOnChargeEvidence(tx, true); err != nil {
+		t.Fatalf("promote: %v", err)
+	}
+	if tx.Status != domain.StatusCharged || tx.ChargedAt == nil {
+		t.Fatalf("expected CHARGED with charged_at, got status=%s charged_at=%v", tx.Status, tx.ChargedAt)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
 	}
 }

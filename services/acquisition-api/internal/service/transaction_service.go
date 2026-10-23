@@ -852,10 +852,24 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 // the same path as HandleChargeSuccess after lookup and tenant verification.
 // When the conversion postback was already sent, applyChargeSuccess returns
 // early without marking the row; it is still marked CHARGED here so the
-// reconciler does not reselect it on every tick.
-func (s *TransactionService) PromoteOnChargeEvidence(tx *domain.AcquisitionTransaction) error {
+// reconciler does not reselect it on every tick. alreadyPaying means the
+// MSISDN was charged before this transaction existed: the row is marked
+// CHARGED for the app, but no conversion postback fires for a subscriber the
+// campaign did not acquire.
+func (s *TransactionService) PromoteOnChargeEvidence(tx *domain.AcquisitionTransaction, alreadyPaying bool) error {
 	if tx == nil {
 		return fmt.Errorf("transaction is required")
+	}
+	if alreadyPaying {
+		now := time.Now()
+		if err := s.txRepo.MarkCharged(tx.ID, &now, ""); err != nil {
+			return fmt.Errorf("failed to mark transaction as charged: %w", err)
+		}
+		tx.Status = domain.StatusCharged
+		tx.ChargedAt = &now
+		s.logger.Info("Existing subscriber charged; marked CHARGED without conversion postback",
+			zap.String("transaction_id", tx.ID.String()))
+		return nil
 	}
 	timweTransactionID := ""
 	if tx.TimweTransactionID != nil {

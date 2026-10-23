@@ -26,11 +26,27 @@ const chargeEvidenceExists = `EXISTS (
 		  AND n.created_at >= (t.created_at AT TIME ZONE 'UTC') - interval '5 minutes'
 	)`
 
+// priorChargeEvidenceExists matches a DELIVERED charge for transaction alias t
+// from before the transaction: the MSISDN was already paying, so the
+// transaction is a re-optin by an existing subscriber, not a new conversion.
+const priorChargeEvidenceExists = `EXISTS (
+		SELECT 1
+		FROM notifications p
+		WHERE p.msisdn = t.msisdn
+		  AND p.product_id = t.offer_product_id
+		  AND p.tenant_id = t.tenant_id
+		  AND p.type IN ('CHARGE', 'USER_RENEWED')
+		  AND upper(trim(p.mno_delivery_code)) = 'DELIVERED'
+		  AND p.created_at < (t.created_at AT TIME ZONE 'UTC') - interval '5 minutes'
+	)`
+
 // ChargeEvidenceCandidate identifies an uncharged transaction with payment
-// evidence in the notifications table.
+// evidence in the notifications table. AlreadyPaying is true when the MSISDN
+// also had DELIVERED charges before the transaction was created.
 type ChargeEvidenceCandidate struct {
-	ID       uuid.UUID
-	TenantID string
+	ID            uuid.UUID
+	TenantID      string
+	AlreadyPaying bool
 }
 
 // ListChargeEvidenceCandidates returns up to limit uncharged transactions
@@ -39,7 +55,7 @@ type ChargeEvidenceCandidate struct {
 // one charge never promotes several opt-in attempts.
 func (r *TransactionRepository) ListChargeEvidenceCandidates(lookbackDays, limit int) ([]ChargeEvidenceCandidate, error) {
 	query := `
-		SELECT t.id, t.tenant_id::text
+		SELECT t.id, t.tenant_id::text, ` + priorChargeEvidenceExists + ` AS already_paying
 		FROM acquisition_transactions t
 		WHERE t.charged_at IS NULL
 		  AND t.tenant_id IS NOT NULL
@@ -72,7 +88,7 @@ func (r *TransactionRepository) ListChargeEvidenceCandidates(lookbackDays, limit
 	candidates := make([]ChargeEvidenceCandidate, 0)
 	for rows.Next() {
 		var c ChargeEvidenceCandidate
-		if err := rows.Scan(&c.ID, &c.TenantID); err != nil {
+		if err := rows.Scan(&c.ID, &c.TenantID, &c.AlreadyPaying); err != nil {
 			return nil, fmt.Errorf("failed to scan charge evidence candidate: %w", err)
 		}
 		candidates = append(candidates, c)
@@ -85,13 +101,14 @@ func (r *TransactionRepository) ListChargeEvidenceCandidates(lookbackDays, limit
 
 // ExpireUnchargedTransactions moves pre-charge transactions older than
 // expiryDays with no DELIVERED charge evidence to FAILED with failure_reason
-// NO_CHARGE_EVIDENCE, returning the number of rows expired.
+// NO_CHARGE_EVIDENCE, returning the number of rows expired. expired_from keeps
+// the prior status: an expired SUBSCRIBED row may still be live at TIMWE.
 func (r *TransactionRepository) ExpireUnchargedTransactions(expiryDays int) (int64, error) {
 	query := `
 		UPDATE acquisition_transactions t
 		SET status = 'FAILED',
 		    next_action = NULL,
-		    next_action_payload = jsonb_build_object('failure_reason', '` + NoChargeEvidenceFailureReason + `', 'expired_at', now()),
+		    next_action_payload = jsonb_build_object('failure_reason', '` + NoChargeEvidenceFailureReason + `', 'expired_at', now(), 'expired_from', t.status),
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE t.status IN ('SUBSCRIBED', 'CONFIRM_REQUIRED', 'ACTION_REQUIRED')
 		  AND t.charged_at IS NULL

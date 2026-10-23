@@ -22,7 +22,7 @@ const (
 // ChargePromoter applies charge success to a transaction matched to payment
 // evidence. Implemented by service.TransactionService.
 type ChargePromoter interface {
-	PromoteOnChargeEvidence(tx *domain.AcquisitionTransaction) error
+	PromoteOnChargeEvidence(tx *domain.AcquisitionTransaction, alreadyPaying bool) error
 }
 
 // ChargeReconcilerConfig holds tunable parameters for the charge reconciler.
@@ -166,7 +166,7 @@ func (r *ChargeReconciler) promote(ctx context.Context) {
 			continue
 		}
 		previousStatus := tx.Status
-		if err := r.promoter.PromoteOnChargeEvidence(tx); err != nil {
+		if err := r.promoter.PromoteOnChargeEvidence(tx, c.AlreadyPaying); err != nil {
 			failed++
 			log.Error("Failed to promote transaction on charge evidence", zap.Error(err))
 			continue
@@ -174,6 +174,7 @@ func (r *ChargeReconciler) promote(ctx context.Context) {
 		promoted++
 		log.Info("Transaction promoted to CHARGED on charge evidence",
 			zap.String("previous_status", string(previousStatus)),
+			zap.Bool("already_paying", c.AlreadyPaying),
 			zap.String("campaign_slug", tx.CampaignSlug),
 		)
 	}

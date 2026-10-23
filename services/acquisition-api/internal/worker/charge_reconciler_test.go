@@ -16,12 +16,14 @@ import (
 const reconcilerTenantID = "11111111-1111-1111-1111-111111111111"
 
 type fakeChargePromoter struct {
-	calls []uuid.UUID
-	fail  map[uuid.UUID]error
+	calls         []uuid.UUID
+	alreadyPaying []bool
+	fail          map[uuid.UUID]error
 }
 
-func (f *fakeChargePromoter) PromoteOnChargeEvidence(tx *domain.AcquisitionTransaction) error {
+func (f *fakeChargePromoter) PromoteOnChargeEvidence(tx *domain.AcquisitionTransaction, alreadyPaying bool) error {
 	f.calls = append(f.calls, tx.ID)
+	f.alreadyPaying = append(f.alreadyPaying, alreadyPaying)
 	if tx.TenantID == nil || *tx.TenantID != reconcilerTenantID {
 		return errors.New("tenant not loaded")
 	}
@@ -65,23 +67,24 @@ func expectCandidateLoad(mock sqlmock.Sqlmock, id uuid.UUID, status domain.Trans
 }
 
 const expireSQL = `UPDATE acquisition_transactions t\s+SET status = 'FAILED',\s+next_action = NULL,\s+` +
-	`next_action_payload = jsonb_build_object\('failure_reason', 'NO_CHARGE_EVIDENCE', 'expired_at', now\(\)\)`
+	`next_action_payload = jsonb_build_object\('failure_reason', 'NO_CHARGE_EVIDENCE', 'expired_at', now\(\), 'expired_from', t.status\)`
 
 func TestChargeReconcilerTick_PromotesCandidatesAndContinuesPastFailures(t *testing.T) {
 	failing, missing, ok := uuid.New(), uuid.New(), uuid.New()
 	promoter := &fakeChargePromoter{fail: map[uuid.UUID]error{failing: errors.New("mark charged failed")}}
 	r, mock := newTestChargeReconciler(t, promoter, enabledReconcilerConfig())
 
-	mock.ExpectQuery(`(?s)SELECT t.id, t.tenant_id::text\s+FROM acquisition_transactions t.*`+
+	mock.ExpectQuery(`(?s)SELECT t.id, t.tenant_id::text, EXISTS \(.*FROM notifications p.*`+
+		`p.created_at < \(t.created_at AT TIME ZONE 'UTC'\) - interval '5 minutes'.*\) AS already_paying\s+FROM acquisition_transactions t.*`+
 		`t.status = 'FAILED' AND t.next_action_payload->>'failure_reason' = 'NO_CHARGE_EVIDENCE'.*`+
 		`newer.offer_product_id = t.offer_product_id.*`+
 		`n.type IN \('CHARGE', 'USER_RENEWED'\).*upper\(trim\(n.mno_delivery_code\)\) = 'DELIVERED'.*`+
 		`n.created_at >= \(t.created_at AT TIME ZONE 'UTC'\) - interval '5 minutes'.*LIMIT \$2`).
 		WithArgs(30, 200).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id"}).
-			AddRow(failing, reconcilerTenantID).
-			AddRow(missing, reconcilerTenantID).
-			AddRow(ok, reconcilerTenantID))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "already_paying"}).
+			AddRow(failing, reconcilerTenantID, false).
+			AddRow(missing, reconcilerTenantID, false).
+			AddRow(ok, reconcilerTenantID, true))
 	expectCandidateLoad(mock, failing, domain.StatusSubscribed)
 	mock.ExpectQuery(`FROM acquisition_transactions\s+WHERE id = \$1\s+AND tenant_id = \$2::uuid`).
 		WithArgs(missing, reconcilerTenantID).
@@ -94,6 +97,9 @@ func TestChargeReconcilerTick_PromotesCandidatesAndContinuesPastFailures(t *test
 	if len(promoter.calls) != 2 || promoter.calls[0] != failing || promoter.calls[1] != ok {
 		t.Fatalf("expected promote attempts for both loadable candidates, got %v", promoter.calls)
 	}
+	if promoter.alreadyPaying[0] || !promoter.alreadyPaying[1] {
+		t.Fatalf("expected already_paying passed through per candidate, got %v", promoter.alreadyPaying)
+	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}
@@ -105,7 +111,7 @@ func TestChargeReconcilerTick_ExpiresUnchargedWithFailurePayload(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT t.id, t.tenant_id::text`).
 		WithArgs(30, 200).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "already_paying"}))
 	mock.ExpectExec(`(?s)` + expireSQL + `.*t.status IN \('SUBSCRIBED', 'CONFIRM_REQUIRED', 'ACTION_REQUIRED'\)` +
 		`.*t.charged_at IS NULL.*t.created_at < \(now\(\) AT TIME ZONE 'UTC'\) - \(\$1::int \* interval '1 day'\)` +
 		`.*AND NOT EXISTS \(.*upper\(trim\(n.mno_delivery_code\)\) = 'DELIVERED'`).
