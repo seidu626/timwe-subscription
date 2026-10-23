@@ -481,7 +481,7 @@ func (r *NotificationRepository) ProcessNotification(ctx context.Context, notifi
 // projectSubscriptionStatus applies a freshly stored callback to the shared
 // subscriptions row that other services gate on. Opt-in results do not prove
 // payment: only a DELIVERED CHARGE/USER_RENEWED activates, and USER_OPTOUT
-// ends the subscription. It never creates rows; a missing row is not an error.
+// ends the subscription. A missing row is not an error; only a payment creates one.
 func projectSubscriptionStatus(ctx context.Context, tx *sql.Tx, notification *domain.NotificationRequest) error {
 	// Same normalization as the insert, so a blank tenant never reaches a uuid comparison.
 	tenantID := nullStringPtrValue(notification.TenantID)
@@ -489,32 +489,76 @@ func projectSubscriptionStatus(ctx context.Context, tx *sql.Tx, notification *do
 		return nil
 	}
 
-	var query string
 	switch notification.Type {
 	case domain.ChargeEvent, domain.UserRenewedEvent:
 		if !strings.EqualFold(strings.TrimSpace(notification.MnoDeliveryCode), domain.DeliveredMnoCode) {
 			return nil
 		}
-		query = `
-			UPDATE subscriptions
-			SET status = 'active', renewal_status = 'active', end_date = NULL,
-				last_successful_payment = NOW(), last_charge_notification_at = NOW(),
-				total_charge_notifications = COALESCE(total_charge_notifications, 0) + 1,
-				consecutive_payment_failures = 0
-			WHERE tenant_id = $1 AND user_identifier = $2 AND product_id = $3`
+		if err := projectPayment(ctx, tx, tenantID.String, notification); err != nil {
+			return fmt.Errorf("project %s onto subscription: %w", notification.Type, err)
+		}
 	case domain.UserOptoutEvent:
-		query = `
+		query := `
 			UPDATE subscriptions
 			SET status = 'inactive', end_date = NOW()
 			WHERE tenant_id = $1 AND user_identifier = $2 AND product_id = $3
 				AND status IS DISTINCT FROM 'inactive'`
-	default:
-		return nil
-	}
-	if _, err := tx.ExecContext(ctx, query, tenantID.String, notification.MSISDN, notification.ProductID); err != nil {
-		return fmt.Errorf("project %s onto subscription: %w", notification.Type, err)
+		if _, err := tx.ExecContext(ctx, query, tenantID.String, notification.MSISDN, notification.ProductID); err != nil {
+			return fmt.Errorf("project %s onto subscription: %w", notification.Type, err)
+		}
 	}
 	return nil
+}
+
+const activatePaidSubscriptionSQL = `
+	UPDATE subscriptions
+	SET status = 'active', renewal_status = 'active', end_date = NULL,
+		last_successful_payment = NOW(), last_charge_notification_at = NOW(),
+		total_charge_notifications = COALESCE(total_charge_notifications, 0) + 1,
+		consecutive_payment_failures = 0
+	WHERE tenant_id = $1 AND user_identifier = $2 AND product_id = $3`
+
+// insertPaidSubscriptionSQL copies the channel of an existing row of the same
+// product, because TIMWE callbacks carry no channel.
+const insertPaidSubscriptionSQL = `
+	INSERT INTO subscriptions (
+		tenant_id, channel_id, partner_role_id, user_identifier, user_identifier_type, product_id,
+		mcc, mnc, entry_channel, large_account, status, renewal_status, start_date,
+		last_successful_payment, last_charge_notification_at, total_charge_notifications
+	)
+	VALUES (
+		$1, COALESCE($2::uuid, (SELECT channel_id FROM subscriptions WHERE tenant_id = $1 AND product_id = $5 LIMIT 1)),
+		$3, $4, 'MSISDN', $5, NULLIF($6, ''), NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, ''),
+		'active', 'active', NOW(), NOW(), NOW(), 1
+	)
+	ON CONFLICT DO NOTHING`
+
+// projectPayment activates the subscription a DELIVERED charge belongs to.
+// TIMWE also bills users who have no row here (USSD and SMS keyword
+// subscriptions, rows lost to cleanup). The charge is the only proof of
+// subscription TIMWE gives us, so a payment without a row creates one.
+func projectPayment(ctx context.Context, tx *sql.Tx, tenantID string, notification *domain.NotificationRequest) error {
+	activated, err := execRows(ctx, tx, activatePaidSubscriptionSQL, tenantID, notification.MSISDN, notification.ProductID)
+	if err != nil || activated > 0 || notification.PartnerRole <= 0 {
+		return err
+	}
+	inserted, err := execRows(ctx, tx, insertPaidSubscriptionSQL, tenantID, nullStringPtrValue(notification.ChannelID),
+		notification.PartnerRole, notification.MSISDN, notification.ProductID,
+		notification.MCC, notification.MNC, notification.EntryChannel, notification.LargeAccount)
+	if err != nil || inserted > 0 {
+		return err
+	}
+	// A concurrent callback created the row after our UPDATE missed it; apply this payment too.
+	_, err = execRows(ctx, tx, activatePaidSubscriptionSQL, tenantID, notification.MSISDN, notification.ProductID)
+	return err
+}
+
+func execRows(ctx context.Context, tx *sql.Tx, query string, args ...any) (int64, error) {
+	result, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 func enqueueOptinConfirmation(ctx context.Context, tx *sql.Tx, notification *domain.NotificationRequest) error {
