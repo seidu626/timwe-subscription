@@ -1,0 +1,12 @@
+[Unit]
+Description=Signal failed certificate audit to Healthchecks.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/cert-watch-ping.py fail
+TimeoutStartSec=20
+ProtectSystem=strict
+PrivateTmp=true
+NoNewPrivileges=true

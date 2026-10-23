@@ -1,0 +1,1 @@
+xper626 ALL=(root) NOPASSWD: /usr/local/sbin/nrg-cert-maintenance install, /usr/local/sbin/nrg-cert-maintenance enroll

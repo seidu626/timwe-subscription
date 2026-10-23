@@ -1,0 +1,1 @@
+xper626 ALL=(root) NOPASSWD: /usr/local/sbin/nrg-pg-retire audit, /usr/local/sbin/nrg-pg-retire backup, /usr/local/sbin/nrg-pg-retire stop, /usr/local/sbin/nrg-pg-retire confirm, /usr/local/sbin/nrg-pg-retire start
