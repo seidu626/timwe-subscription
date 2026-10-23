@@ -142,6 +142,24 @@ func (r *NotificationRepository) ChannelIDByKeys(ctx context.Context, tenantID, 
 	return channelID, nil
 }
 
+// TenantOwnsChannel reports whether channelID is an active channel of tenantID.
+func (r *NotificationRepository) TenantOwnsChannel(ctx context.Context, tenantID, channelID string) (bool, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	channelID = strings.TrimSpace(channelID)
+	if tenantID == "" || channelID == "" {
+		return false, fmt.Errorf("tenantID and channelID are required")
+	}
+
+	var owned bool
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM tenant_channels
+			WHERE id = $1 AND tenant_id = $2 AND status = 'ACTIVE'
+		)
+	`, channelID, tenantID).Scan(&owned)
+	return owned, err
+}
+
 // ErrProductOwnerNotUnique is returned when no active tenant, or more than one,
 // owns a provider product ID.
 var ErrProductOwnerNotUnique = errors.New("product is not owned by exactly one active tenant")

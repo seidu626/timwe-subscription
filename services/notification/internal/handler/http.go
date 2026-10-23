@@ -195,8 +195,8 @@ type tenantResolution struct {
 //  2. tenant_key supplied and resolves, but channel_key absent → Invalid=true, Reason="CHANNEL_REQUIRED".
 //  3. tenant_key supplied but unknown → Invalid=true, Reason="UNKNOWN_TENANT".
 //
-// The UUID (X-Tenant-Id / tenant_id) path is treated as a trusted admin path
-// and does NOT require a paired channel_key.
+// The UUID (X-Tenant-Id / tenant_id) path is honoured only with a valid
+// gateway-trust marker and does NOT require a paired channel_key.
 //
 // Middleware-populated identity with a TenantID is returned directly (admin/platform path).
 func (h *NotificationHandler) resolveNotificationTenant(ctx *fasthttp.RequestCtx) tenantResolution {
@@ -208,12 +208,18 @@ func (h *NotificationHandler) resolveNotificationTenant(ctx *fasthttp.RequestCtx
 		return tenantResolution{TenantID: strings.TrimSpace(identity.TenantID), ChannelID: channelIDFromRequest(ctx)}
 	}
 
-	// --- 2. Raw UUID via X-Tenant-Id header or tenant_id query (legacy admin path) ---
+	// --- 2. Raw UUID via X-Tenant-Id header or tenant_id query (internal callers) ---
+	// KrakenD forwards neither, so only an in-cluster caller holding the gateway-trust
+	// secret may name a tenant UUID. Anyone else falls through to tenant_key or the
+	// product owner, independent of GATEWAY_TRUST_REQUIRED.
 	rawTenantID := headerOrQueryTenantID(ctx)
 	if rawTenantID != "" {
-		// UUID-based callers do not go through the tenant_key/channel_key contract.
-		// Still propagate any channel ID that was supplied (e.g. X-Tenant-Channel-Id).
-		return tenantResolution{TenantID: rawTenantID, ChannelID: channelIDFromRequest(ctx), ContextGiven: true}
+		if tenantctx.VerifyGatewayTrust(fasthttpHeaderGetter{ctx: ctx}, tenantctx.GatewayTrustOptions{Secret: h.gatewayTrustSecret}) == nil {
+			// UUID-based callers do not go through the tenant_key/channel_key contract.
+			// A supplied channel ID (e.g. X-Tenant-Channel-Id) must belong to the tenant.
+			return tenantResolution{TenantID: rawTenantID, ChannelID: h.tenantChannelFromRequest(ctx, rawTenantID), ContextGiven: true}
+		}
+		log.Printf("[WARN] ignoring tenant id %q without gateway trust path=%s", rawTenantID, string(ctx.Path()))
 	}
 
 	// --- 3. tenant_key / X-Tenant-Key partner-callback path ---
@@ -441,6 +447,21 @@ func channelIDFromRequest(ctx *fasthttp.RequestCtx) string {
 		return value
 	}
 	return strings.TrimSpace(firstQuery(ctx, "channel_id", "channelId"))
+}
+
+// tenantChannelFromRequest returns the request's channel ID only when it is an
+// active channel of tenantID; a foreign or unknown channel is dropped.
+func (h *NotificationHandler) tenantChannelFromRequest(ctx *fasthttp.RequestCtx, tenantID string) string {
+	channelID := channelIDFromRequest(ctx)
+	if channelID == "" || h.service == nil {
+		return ""
+	}
+	owned, err := h.service.TenantOwnsChannel(context.Background(), tenantID, channelID)
+	if err != nil || !owned {
+		log.Printf("[WARN] dropping channel %q not owned by tenant %q: %v", channelID, tenantID, err)
+		return ""
+	}
+	return channelID
 }
 
 // humanTenantReason returns a human-readable message for a resolution reason code.
