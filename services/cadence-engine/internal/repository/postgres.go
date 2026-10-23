@@ -977,11 +977,14 @@ func (r *CadenceRepository) InsertState(ctx context.Context, tenantID, channelID
 	return err
 }
 
+// ClaimSentOutboxTx and ClaimFailedOutboxTx skip transactional rows (opt-in
+// confirmations, series_id NULL): they have no cadence state to advance, and
+// scanning their NULL series_id failed the whole advancer batch.
 func (r *CadenceRepository) ClaimSentOutboxTx(ctx context.Context, tx *sql.Tx, limit int) ([]domain.OutboxJob, error) {
 	query := `
 		SELECT job_id, tenant_id::text, channel_id::text, subscription_id, series_id, planned_send_at, sent_at
 		FROM message_outbox
-		WHERE status = 'SENT' AND processed_at IS NULL
+		WHERE status = 'SENT' AND processed_at IS NULL AND series_id IS NOT NULL
 		ORDER BY planned_send_at
 		LIMIT $1
 		FOR UPDATE SKIP LOCKED
@@ -1014,7 +1017,7 @@ func (r *CadenceRepository) ClaimFailedOutboxTx(ctx context.Context, tx *sql.Tx,
 	query := `
 		SELECT job_id, tenant_id::text, channel_id::text, subscription_id, series_id, planned_send_at, sent_at
 		FROM message_outbox
-		WHERE status = 'FAILED' AND processed_at IS NULL
+		WHERE status = 'FAILED' AND processed_at IS NULL AND series_id IS NOT NULL
 		ORDER BY planned_send_at
 		LIMIT $1
 		FOR UPDATE SKIP LOCKED
