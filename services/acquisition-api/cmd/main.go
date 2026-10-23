@@ -273,6 +273,8 @@ func main() {
 	dispatcher := worker.NewPostbackDispatcher(postbackRepo, logger, worker.PostbackDispatcherConfig{})
 	go dispatcher.Start(dispatcherCtx)
 	logger.Info("Postback dispatcher started")
+	chargeReconciler := worker.NewChargeReconciler(transactionRepo, transactionService, logger, worker.ChargeReconcilerConfigFromEnv(logger))
+	go chargeReconciler.Start(dispatcherCtx)
 	if providerReportSync != nil {
 		go providerReportSync.Run(dispatcherCtx)
 		logger.Info("TIMWE report importer started")

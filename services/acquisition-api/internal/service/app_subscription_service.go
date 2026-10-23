@@ -108,6 +108,11 @@ func (s *AppSubscriptionService) Cancel(ref, msisdn string) error {
 		// Already cancelled: repeat requests are a no-op, not an error.
 		return nil
 	case "PENDING", "FAILED":
+		// SUBSCRIBED maps to PENDING (no charge evidence yet) but is live at
+		// the provider, so it falls through to the upstream opt-out.
+		if tx.Status == domain.StatusSubscribed {
+			break
+		}
 		// The subscription never activated at the provider, so there is
 		// nothing to opt out of upstream; clearing the row locally is the
 		// whole cancellation.

@@ -844,6 +844,40 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 		return err
 	}
 
+	return s.applyChargeSuccess(tx, req.TimweTransactionID, req.Payout)
+}
+
+// PromoteOnChargeEvidence applies charge success to a transaction the charge
+// reconciler matched to a DELIVERED CHARGE/USER_RENEWED notification. It runs
+// the same path as HandleChargeSuccess after lookup and tenant verification.
+// When the conversion postback was already sent, applyChargeSuccess returns
+// early without marking the row; it is still marked CHARGED here so the
+// reconciler does not reselect it on every tick.
+func (s *TransactionService) PromoteOnChargeEvidence(tx *domain.AcquisitionTransaction) error {
+	if tx == nil {
+		return fmt.Errorf("transaction is required")
+	}
+	timweTransactionID := ""
+	if tx.TimweTransactionID != nil {
+		timweTransactionID = *tx.TimweTransactionID
+	}
+	if err := s.applyChargeSuccess(tx, timweTransactionID, ""); err != nil {
+		return err
+	}
+	if tx.ChargedAt == nil {
+		now := time.Now()
+		if err := s.txRepo.MarkCharged(tx.ID, &now, ""); err != nil {
+			return fmt.Errorf("failed to mark transaction as charged: %w", err)
+		}
+		tx.Status = domain.StatusCharged
+		tx.ChargedAt = &now
+	}
+	return nil
+}
+
+// applyChargeSuccess advances a loaded, tenant-verified transaction to
+// CHARGED and enqueues its conversion postback exactly once.
+func (s *TransactionService) applyChargeSuccess(tx *domain.AcquisitionTransaction, timweTransactionID, payout string) error {
 	// If the transaction is in a pre-SUBSCRIBED state, advance it to SUBSCRIBED first.
 	// A charge success proves the subscription succeeded on TIMWE's side.
 	if tx.Status == domain.StatusConfirmRequired || tx.Status == domain.StatusActionRequired {
@@ -861,7 +895,7 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 	if tx.ConversionPostbackSent {
 		s.logger.Info("Conversion postback already sent, skipping",
 			zap.String("transaction_id", tx.ID.String()),
-			zap.String("timwe_transaction_id", req.TimweTransactionID),
+			zap.String("timwe_transaction_id", timweTransactionID),
 		)
 		return nil
 	}
@@ -870,12 +904,12 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 	now := time.Now()
 	tx.Status = domain.StatusCharged
 	tx.ChargedAt = &now
-	if req.Payout != "" {
-		tx.ChargePayout = &req.Payout
+	if payout != "" {
+		tx.ChargePayout = &payout
 	}
 
 	// Mark postback as pending to be sent
-	if err := s.txRepo.MarkCharged(tx.ID, &now, req.Payout); err != nil {
+	if err := s.txRepo.MarkCharged(tx.ID, &now, payout); err != nil {
 		return fmt.Errorf("failed to mark transaction as charged: %w", err)
 	}
 
@@ -918,7 +952,7 @@ func (s *TransactionService) HandleChargeSuccess(req *ChargeSuccessRequest) erro
 
 	s.logger.Info("Charge success processed, conversion postback enqueued",
 		zap.String("transaction_id", tx.ID.String()),
-		zap.String("timwe_transaction_id", req.TimweTransactionID),
+		zap.String("timwe_transaction_id", timweTransactionID),
 		zap.String("provider", attribution.Provider),
 		zap.String("click_id", attribution.ClickID),
 	)

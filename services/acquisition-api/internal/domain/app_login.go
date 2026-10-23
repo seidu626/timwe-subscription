@@ -93,12 +93,14 @@ type TenantBranding struct {
 // MapTransactionStatusToApp collapses the acquisition transaction state
 // machine's finer-grained statuses to the app contract's status values
 // (ACTIVE|PENDING|CANCELLED|FAILED); the app doesn't distinguish
-// ACTION_REQUIRED from CONFIRM_REQUIRED.
+// ACTION_REQUIRED from CONFIRM_REQUIRED. Only CHARGED is ACTIVE: a TIMWE
+// opt-in/confirm result (SUBSCRIBED) does not prove payment, so it stays
+// PENDING until a DELIVERED charge promotes the transaction to CHARGED.
 func MapTransactionStatusToApp(status TransactionStatus) string {
 	switch status {
-	case StatusSubscribed, StatusCharged:
+	case StatusCharged:
 		return "ACTIVE"
-	case StatusPending, StatusActionRequired, StatusConfirmRequired:
+	case StatusPending, StatusActionRequired, StatusConfirmRequired, StatusSubscribed:
 		return "PENDING"
 	case StatusCancelled:
 		return "CANCELLED"

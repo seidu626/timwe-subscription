@@ -128,7 +128,7 @@ func TestAppSubscriptionService_List_SpansTenants(t *testing.T) {
 			"price", "billing_cycle", "app_name", "lp_copy", "country",
 			"tenant_key", "name",
 		}).AddRow(
-			uuid.New().String(), "daily", "SUBSCRIBED", now, nil,
+			uuid.New().String(), "daily", "CHARGED", now, now,
 			2.0, "DAILY", "Daily Tips", nil, "GH",
 			"nrg", "NRG",
 		).AddRow(
@@ -152,6 +152,10 @@ func TestAppSubscriptionService_List_SpansTenants(t *testing.T) {
 	}
 	if subs[1].Tenant != "careerify" || subs[1].ProductName != "Career Boost" {
 		t.Fatalf("unexpected second subscription: %+v", subs[1])
+	}
+	// SUBSCRIBED has no charge evidence yet: PENDING, no renewal hint.
+	if subs[1].Status != "PENDING" || subs[1].NextChargeHint != "" {
+		t.Fatalf("expected uncharged SUBSCRIBED row to be PENDING without hint, got %+v", subs[1])
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
