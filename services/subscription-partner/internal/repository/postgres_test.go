@@ -161,3 +161,44 @@ func TestCreateNotificationQuery_ReplayIsNoOp(t *testing.T) {
 		t.Fatalf("a replayed webhook must not fail on the notifications unique index, got: %s", createNotificationQuery)
 	}
 }
+
+func TestCreateSubscriptionQueryInsertsPending(t *testing.T) {
+	q := strings.Join(strings.Fields(createSubscriptionQuery), " ")
+	cols := q[strings.Index(q, "(")+1 : strings.Index(q, ")")]
+	vals := q[strings.Index(q, "VALUES (")+len("VALUES (") : strings.LastIndex(q, ")")]
+
+	colList := splitTopLevel(cols)
+	valList := splitTopLevel(vals)
+	if len(colList) != len(valList) {
+		t.Fatalf("column/value count mismatch: %d columns, %d values in %q", len(colList), len(valList), q)
+	}
+	for i, c := range colList {
+		if c == "status" {
+			if valList[i] != "'pending'" {
+				t.Fatalf("status value = %s, want 'pending'", valList[i])
+			}
+			return
+		}
+	}
+	t.Fatalf("status column missing; the column default 'active' would apply: %q", q)
+}
+
+// splitTopLevel splits a SQL list on commas outside parentheses.
+func splitTopLevel(list string) []string {
+	var parts []string
+	depth, start := 0, 0
+	for i, r := range list {
+		switch r {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case ',':
+			if depth == 0 {
+				parts = append(parts, strings.TrimSpace(list[start:i]))
+				start = i + 1
+			}
+		}
+	}
+	return append(parts, strings.TrimSpace(list[start:]))
+}
