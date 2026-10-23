@@ -39,6 +39,9 @@ type TenantUpdateInput struct {
 	Status         *TenantStatus
 	DefaultCountry *string
 	Metadata       *json.RawMessage
+	// SMSSendingPaused sets metadata_json.sms_sending_paused, which makes the
+	// notification dispatcher hold the tenant's outbox jobs unsent.
+	SMSSendingPaused *bool
 }
 
 // TenantBrandingUpdateInput carries the branding fields a workspace operator

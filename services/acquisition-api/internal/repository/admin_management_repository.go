@@ -201,13 +201,26 @@ func (r *AdminManagementRepository) UpdateTenantWithActivityLog(id string, input
 	if input.Metadata != nil {
 		metadata = tenantMetadataJSON(*input.Metadata)
 	}
+	var smsSendingPaused any
+	if input.SMSSendingPaused != nil {
+		smsSendingPaused = *input.SMSSendingPaused
+	}
+	// A metadata replacement keeps the current sms_sending_paused key, so a
+	// tenant form opened before a pause cannot resume sending on save; only
+	// sms_sending_paused itself changes it.
 	query := `
 		UPDATE tenants
 		SET
 			name = COALESCE($2, name),
 			status = COALESCE($3, status),
 			default_country = COALESCE($4, default_country),
-			metadata_json = COALESCE($5, metadata_json),
+			metadata_json = CASE
+				WHEN $6::boolean IS NOT NULL
+					THEN jsonb_set(COALESCE($5::jsonb, metadata_json, '{}'::jsonb), '{sms_sending_paused}', to_jsonb($6::boolean))
+				WHEN $5::jsonb IS NOT NULL AND metadata_json ? 'sms_sending_paused'
+					THEN $5::jsonb || jsonb_build_object('sms_sending_paused', metadata_json->'sms_sending_paused')
+				ELSE COALESCE($5::jsonb, metadata_json)
+			END,
 			updated_at = NOW()
 		WHERE id = $1
 		RETURNING id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at
@@ -219,6 +232,7 @@ func (r *AdminManagementRepository) UpdateTenantWithActivityLog(id string, input
 		nullableTenantStatusPtr(input.Status),
 		nullableStringPtr(input.DefaultCountry),
 		metadata,
+		smsSendingPaused,
 	))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

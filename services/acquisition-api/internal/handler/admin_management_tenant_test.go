@@ -156,7 +156,7 @@ func TestUpdateTenantPatchesCatalogAndReturnsAuditReference(t *testing.T) {
 			AddRow(tenantID, "nrg", "NRG", domain.TenantStatusActive, "GH", []byte(`{}`), now, now))
 	mock.ExpectBegin()
 	mock.ExpectQuery(regexp.QuoteMeta("UPDATE tenants")).
-		WithArgs(tenantID, "NRG Prime", domain.TenantStatusActive, "GH", `{"tier":"gold"}`).
+		WithArgs(tenantID, "NRG Prime", domain.TenantStatusActive, "GH", `{"tier":"gold"}`, nil).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
 			AddRow(tenantID, "nrg", "NRG Prime", domain.TenantStatusActive, "GH", []byte(`{"tier":"gold"}`), now, now))
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
@@ -184,6 +184,50 @@ func TestUpdateTenantPatchesCatalogAndReturnsAuditReference(t *testing.T) {
 	}
 	if body["name"] != "NRG Prime" || body["audit_log_id"] == "" {
 		t.Fatalf("unexpected response body: %#v", body)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// The console SMS switch sends only sms_sending_paused; the strict decoder must
+// accept it and pass it through as the one changed field.
+func TestUpdateTenantAcceptsSMSSendingPausedOnly(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
+	tenantID := "22222222-2222-2222-2222-222222222222"
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, tenant_key, name, status, default_country, metadata_json, created_at, updated_at")).
+		WithArgs(tenantID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "careerify", "Careerify", domain.TenantStatusActive, "GH", []byte(`{"service":{}}`), now, now))
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("UPDATE tenants")).
+		WithArgs(tenantID, nil, nil, nil, nil, false).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_key", "name", "status", "default_country", "metadata_json", "created_at", "updated_at"}).
+			AddRow(tenantID, "careerify", "Careerify", domain.TenantStatusActive, "GH", []byte(`{"service":{},"sms_sending_paused":false}`), now, now))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO admin_activity_logs")).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	h := newTenantTestHandler(db)
+	var ctx fasthttp.RequestCtx
+	ctx.Request.SetRequestURI("/v1/admin/tenants/" + tenantID)
+	ctx.SetUserValue(tenantctx.FastHTTPUserValueKey, tenantctx.Identity{
+		Subject:        "auth0|operator",
+		PlatformScoped: true,
+		TrustSource:    tenantctx.TrustSourceJWT,
+	})
+	ctx.Request.SetBodyString(`{"sms_sending_paused":false}`)
+
+	h.UpdateTenant(&ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("status=%d body=%q", ctx.Response.StatusCode(), ctx.Response.Body())
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

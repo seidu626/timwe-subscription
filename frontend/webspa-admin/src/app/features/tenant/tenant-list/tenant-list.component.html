@@ -793,6 +793,13 @@
             </td>
           </ng-container>
 
+          <ng-container matColumnDef="sms_sending">
+            <th mat-header-cell *matHeaderCellDef>SMS Sending</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="status" [class.inactive]="smsSendingPaused(row)">{{ smsSendingPaused(row) ? 'PAUSED' : 'ENABLED' }}</span>
+            </td>
+          </ng-container>
+
           <ng-container matColumnDef="default_country">
             <th mat-header-cell *matHeaderCellDef>Country</th>
             <td mat-cell *matCellDef="let row">{{ row.default_country }}</td>
@@ -808,6 +815,14 @@
             <td mat-cell *matCellDef="let row">
               <button mat-icon-button (click)="editTenant(row)" matTooltip="Edit">
                 <mat-icon>edit</mat-icon>
+              </button>
+              <button
+                *ngIf="platformScoped"
+                mat-icon-button
+                [disabled]="smsSendingSaving"
+                (click)="setSmsSendingPaused(row, !smsSendingPaused(row))"
+                [matTooltip]="smsSendingPaused(row) ? 'Resume SMS sending' : 'Pause SMS sending'">
+                <mat-icon>{{ smsSendingPaused(row) ? 'play_circle' : 'pause_circle' }}</mat-icon>
               </button>
             </td>
           </ng-container>

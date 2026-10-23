@@ -1625,6 +1625,9 @@ func validateTenantUpdateInput(input *domain.TenantUpdateInput) error {
 		}
 		hasChange = true
 	}
+	if input.SMSSendingPaused != nil {
+		hasChange = true
+	}
 	if !hasChange {
 		return fmt.Errorf("%w: at least one tenant field is required", ErrInvalidInput)
 	}

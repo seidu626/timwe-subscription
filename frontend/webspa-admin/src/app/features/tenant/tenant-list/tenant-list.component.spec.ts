@@ -252,6 +252,50 @@ describe('TenantListComponent', () => {
     expect(tenantService.create).not.toHaveBeenCalled();
   });
 
+  it('pauses SMS sending with a PATCH that carries only the flag', () => {
+    const { component, tenantService } = createComponent();
+    const tenant = {
+      id: 'tenant-1',
+      tenant_key: 'nrg',
+      name: 'NRG',
+      status: 'ACTIVE' as const,
+      default_country: 'GH',
+      metadata: { kind: 'canonical-default' },
+      created_at: '2026-05-10T00:00:00Z',
+      updated_at: '2026-05-10T00:00:00Z'
+    };
+
+    expect(component.smsSendingPaused(tenant)).toBeFalse();
+    component.setSmsSendingPaused(tenant, true);
+
+    expect(tenantService.update).toHaveBeenCalledWith('tenant-1', { sms_sending_paused: true });
+    expect(tenantService.list).toHaveBeenCalled();
+  });
+
+  // Resuming releases the held backlog, so declining the prompt must send nothing.
+  it('resumes SMS sending only after the operator confirms', () => {
+    const { component, tenantService } = createComponent();
+    const tenant = {
+      id: 'tenant-1',
+      tenant_key: 'nrg',
+      name: 'NRG',
+      status: 'ACTIVE' as const,
+      default_country: 'GH',
+      metadata: { sms_sending_paused: true },
+      created_at: '2026-05-10T00:00:00Z',
+      updated_at: '2026-05-10T00:00:00Z'
+    };
+    const confirmSpy = spyOn(window, 'confirm').and.returnValue(false);
+
+    expect(component.smsSendingPaused(tenant)).toBeTrue();
+    component.setSmsSendingPaused(tenant, false);
+    expect(tenantService.update).not.toHaveBeenCalled();
+
+    confirmSpy.and.returnValue(true);
+    component.setSmsSendingPaused(tenant, false);
+    expect(tenantService.update).toHaveBeenCalledWith('tenant-1', { sms_sending_paused: false });
+  });
+
   it('sends normalized tenant creates with JSON metadata', () => {
     const { component, tenantService } = createComponent();
     component.form = {
