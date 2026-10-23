@@ -518,19 +518,26 @@ const activatePaidSubscriptionSQL = `
 		consecutive_payment_failures = 0
 	WHERE tenant_id = $1 AND user_identifier = $2 AND product_id = $3`
 
-// insertPaidSubscriptionSQL copies the channel of an existing row of the same
-// product, because TIMWE callbacks carry no channel.
+// insertPaidSubscriptionSQL creates a row only for a product the tenant
+// actively owns, so a raw tenant_id callback cannot mint subscriptions for
+// another tenant's product. A supplied channel must belong to the tenant;
+// otherwise it copies the channel of an existing row of the same product,
+// because TIMWE callbacks carry none.
 const insertPaidSubscriptionSQL = `
 	INSERT INTO subscriptions (
 		tenant_id, channel_id, partner_role_id, user_identifier, user_identifier_type, product_id,
 		mcc, mnc, entry_channel, large_account, status, renewal_status, start_date,
 		last_successful_payment, last_charge_notification_at, total_charge_notifications
 	)
-	VALUES (
-		$1, COALESCE($2::uuid, (SELECT channel_id FROM subscriptions WHERE tenant_id = $1 AND product_id = $5 LIMIT 1)),
+	SELECT $1,
+		COALESCE(
+			(SELECT c.id FROM tenant_channels c WHERE c.id = $2::uuid AND c.tenant_id = $1),
+			(SELECT s.channel_id FROM subscriptions s WHERE s.tenant_id = $1 AND s.product_id = $5 LIMIT 1)),
 		$3, $4, 'MSISDN', $5, NULLIF($6, ''), NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, ''),
 		'active', 'active', NOW(), NOW(), NOW(), 1
-	)
+	WHERE EXISTS (
+		SELECT 1 FROM products p JOIN tenants t ON t.id = p.tenant_id AND t.status = 'ACTIVE'
+		WHERE p.tenant_id = $1 AND p.product_id = $5::text)
 	ON CONFLICT DO NOTHING`
 
 // projectPayment activates the subscription a DELIVERED charge belongs to.
@@ -548,7 +555,9 @@ func projectPayment(ctx context.Context, tx *sql.Tx, tenantID string, notificati
 	if err != nil || inserted > 0 {
 		return err
 	}
-	// A concurrent callback created the row after our UPDATE missed it; apply this payment too.
+	// Nothing inserted: the tenant does not own the product, or a concurrent
+	// callback created the row after our UPDATE missed it. Apply the payment to
+	// that row; for an unowned product this matches nothing.
 	_, err = execRows(ctx, tx, activatePaidSubscriptionSQL, tenantID, notification.MSISDN, notification.ProductID)
 	return err
 }
