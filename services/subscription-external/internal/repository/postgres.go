@@ -257,18 +257,26 @@ func (r *SubscriptionRepository) FetchActiveMsisdnsWithProductsWindow(productIds
 }
 
 // CreateSubscription inserts a new subscription record into the database.
+// An opt-in result never proves payment, so the row is written with
+// request.Status (default "pending"); only a DELIVERED CHARGE/USER_RENEWED
+// activates it. A conflicting row that is already active keeps its status.
 func (r *SubscriptionRepository) CreateSubscription(request *domain.SubscriptionRequest) error {
 	ctx, cancel := r.getContextWithTimeout(30 * time.Second)
 	defer cancel()
+
+	status := strings.TrimSpace(request.Status)
+	if status == "" {
+		status = "pending"
+	}
 
 	if request.TenantID != nil && strings.TrimSpace(*request.TenantID) != "" {
 		query := `
         INSERT INTO subscriptions (
             tenant_id, channel_id, partner_role_id, user_identifier, user_identifier_type, product_id, mcc, mnc, entry_channel,
-            large_account, sub_keyword, tracking_id, client_ip, campaign_url, transaction_id, start_date
+            large_account, sub_keyword, tracking_id, client_ip, campaign_url, transaction_id, start_date, status
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8,
-            $9, $10, $11, $12, $13, $14, $15, NOW()
+            $9, $10, $11, $12, $13, $14, $15, NOW(), $16
         )
         ON CONFLICT (tenant_id, partner_role_id, user_identifier, product_id) WHERE tenant_id IS NOT NULL DO UPDATE SET
             channel_id = EXCLUDED.channel_id,
@@ -283,9 +291,9 @@ func (r *SubscriptionRepository) CreateSubscription(request *domain.Subscription
             campaign_url = EXCLUDED.campaign_url,
             transaction_id = EXCLUDED.transaction_id,
             start_date = COALESCE(subscriptions.start_date, EXCLUDED.start_date),
-			status = EXCLUDED.status
+            status = CASE WHEN subscriptions.status = 'active' THEN subscriptions.status ELSE EXCLUDED.status END
     `
-		_, err := r.db.ExecContext(ctx, query, nullStringPtr(request.TenantID), nullStringPtr(request.ChannelID), request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId)
+		_, err := r.db.ExecContext(ctx, query, nullStringPtr(request.TenantID), nullStringPtr(request.ChannelID), request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId, status)
 		if err != nil {
 			return fmt.Errorf("failed to create tenant subscription: %w", err)
 		}
@@ -295,10 +303,10 @@ func (r *SubscriptionRepository) CreateSubscription(request *domain.Subscription
 	query := `
         INSERT INTO subscriptions (
             partner_role_id, user_identifier, user_identifier_type, product_id, mcc, mnc, entry_channel,
-            large_account, sub_keyword, tracking_id, client_ip, campaign_url, transaction_id, start_date
+            large_account, sub_keyword, tracking_id, client_ip, campaign_url, transaction_id, start_date, status
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7,
-            $8, $9, $10, $11, $12, $13, NOW()
+            $8, $9, $10, $11, $12, $13, NOW(), $14
         )
         ON CONFLICT (partner_role_id, user_identifier, product_id) DO UPDATE SET
             user_identifier_type = EXCLUDED.user_identifier_type,
@@ -312,9 +320,9 @@ func (r *SubscriptionRepository) CreateSubscription(request *domain.Subscription
             campaign_url = EXCLUDED.campaign_url,
             transaction_id = EXCLUDED.transaction_id,
             start_date = COALESCE(subscriptions.start_date, EXCLUDED.start_date),
-			status = EXCLUDED.status
+            status = CASE WHEN subscriptions.status = 'active' THEN subscriptions.status ELSE EXCLUDED.status END
     `
-	_, err := r.db.ExecContext(ctx, query, request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId)
+	_, err := r.db.ExecContext(ctx, query, request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId, status)
 	if err != nil {
 		return fmt.Errorf("failed to create subscription: %w", err)
 	}
@@ -554,8 +562,9 @@ func (r *SubscriptionRepository) FetchNotificationsWindow(ntype string, since ti
 	return out, rows.Err()
 }
 
-// FetchChargeSuccessNotifications returns CHARGE notifications with transaction_uuid,
-// paginated by id cursor, ordered ascending.
+// FetchChargeSuccessNotifications returns DELIVERED CHARGE notifications with
+// transaction_uuid, paginated by id cursor, ordered ascending. A CHARGE with any
+// other mno_delivery_code (e.g. NO_BALANCE) is a failed charge attempt.
 func (r *SubscriptionRepository) FetchChargeSuccessNotifications(since time.Time, afterID int64, limit int) ([]ChargeSuccessNotificationRow, error) {
 	if limit <= 0 {
 		limit = 1000
@@ -564,7 +573,8 @@ func (r *SubscriptionRepository) FetchChargeSuccessNotifications(since time.Time
 	query := `
 		SELECT id, tenant_id::text, channel_id::text, msisdn, product_id, COALESCE(transaction_uuid, ''), created_at
 		FROM notifications
-		WHERE type = $1 AND created_at >= $2`
+		WHERE type = $1 AND created_at >= $2
+		  AND UPPER(TRIM(COALESCE(mno_delivery_code, ''))) = 'DELIVERED'`
 	if afterID > 0 {
 		query += " AND id > $3"
 		args = append(args, afterID)
@@ -1655,6 +1665,21 @@ func (r *SubscriptionRepository) SaveRenewalCycle(cycle *domain.RenewalCycle) er
 // UpdateSubscriptionStatus updates the subscription status
 func (r *SubscriptionRepository) UpdateSubscriptionStatus(msisdn string, productID string, status string) error {
 	query := `UPDATE subscriptions SET status = $1 WHERE user_identifier = $2 AND product_id = $3`
+
+	productIDInt, _ := strconv.Atoi(productID)
+	_, err := r.db.ExecContext(r.ctx, query, status, msisdn, productIDInt)
+	if err != nil {
+		return fmt.Errorf("failed to update subscription status: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateSubscriptionStatusUnlessActive sets status like UpdateSubscriptionStatus
+// but never touches a row that is already active, so an optin/confirm result
+// cannot demote a subscriber whose payment is already proven.
+func (r *SubscriptionRepository) UpdateSubscriptionStatusUnlessActive(msisdn string, productID string, status string) error {
+	query := `UPDATE subscriptions SET status = $1 WHERE user_identifier = $2 AND product_id = $3 AND status IS DISTINCT FROM 'active'`
 
 	productIDInt, _ := strconv.Atoi(productID)
 	_, err := r.db.ExecContext(r.ctx, query, status, msisdn, productIDInt)

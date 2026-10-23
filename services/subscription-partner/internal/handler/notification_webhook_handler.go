@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/seidu626/subscription-manager/common/config"
@@ -120,7 +121,7 @@ func (h *NotificationWebhookHandler) HandleNotificationWebhook(ctx *fasthttp.Req
 		return
 	}
 
-	if req.Type == "CHARGE" || req.Type == "USER_RENEWED" {
+	if isDeliveredCharge(&req) {
 		h.notifyAcquisitionAPI(&req)
 	}
 
@@ -133,6 +134,16 @@ func (h *NotificationWebhookHandler) HandleNotificationWebhook(ctx *fasthttp.Req
 		"msisdn":    req.MSISDN,
 		"timestamp": time.Now().Format(time.RFC3339),
 	})
+}
+
+// isDeliveredCharge reports whether a callback proves payment. Only CHARGE or
+// USER_RENEWED with mnoDeliveryCode=DELIVERED does; NO_BALANCE and other codes
+// are failed charge attempts and must not count as conversions.
+func isDeliveredCharge(req *TimweNotificationRequest) bool {
+	if req.Type != "CHARGE" && req.Type != "USER_RENEWED" {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(req.MnoDeliveryCode), "DELIVERED")
 }
 
 func (h *NotificationWebhookHandler) notifyAcquisitionAPI(req *TimweNotificationRequest) {
