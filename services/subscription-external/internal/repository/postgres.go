@@ -804,16 +804,16 @@ func (r *SubscriptionRepository) FetchGhostSubscriptions(cutoff time.Time, after
 	return out, rows.Err()
 }
 
-// UpsertSubscriptionStatus ensures a row exists and updates status
+// UpsertSubscriptionStatus updates the status of the existing rows for msisdn
+// and product. It never inserts: a status write must not mint a subscription
+// (the old insert path created partner_role_id 0 rows with no tenant).
 func (r *SubscriptionRepository) UpsertSubscriptionStatus(msisdn string, productId int, status string) error {
 	if msisdn == "" || productId <= 0 {
 		return errors.New("invalid args")
 	}
 	q := `
-		INSERT INTO subscriptions (partner_role_id, user_identifier, user_identifier_type, product_id, status, start_date)
-		VALUES (COALESCE((SELECT partner_role_id FROM subscriptions WHERE user_identifier=$1 AND product_id=$2 LIMIT 1), 0), $1,'MSISDN',$2,$3, COALESCE((SELECT start_date FROM subscriptions WHERE user_identifier=$1 AND product_id=$2 LIMIT 1), NOW()))
-		ON CONFLICT (partner_role_id, user_identifier, product_id)
-		DO UPDATE SET status = EXCLUDED.status`
+		UPDATE subscriptions SET status = $3
+		WHERE user_identifier = $1 AND product_id = $2 AND status IS DISTINCT FROM $3`
 	_, err := r.db.Exec(q, msisdn, productId, status)
 	return err
 }
