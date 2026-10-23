@@ -402,7 +402,7 @@ docker-build-subscription-partner:
 [group("docker")]
 docker-build-subscription-external:
     cd "{{ SUBSCRIPTION_EXTERNAL_DIR }}" && go mod vendor
-    docker build -t "{{ SUBSCRIPTION_EXTERNAL_IMAGE }}:{{ VERSION }}" "{{ SUBSCRIPTION_EXTERNAL_DIR }}"
+    docker build -f "{{ SUBSCRIPTION_EXTERNAL_DIR }}/Dockerfile" -t "{{ SUBSCRIPTION_EXTERNAL_IMAGE }}:{{ VERSION }}" .
 
 [group("docker")]
 vendor-check:
