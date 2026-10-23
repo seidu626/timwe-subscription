@@ -162,3 +162,24 @@ func TestHandleNotificationWebhook_WithTenantKeyHeader(t *testing.T) {
 		t.Fatal("expected TenantID stamped via headers")
 	}
 }
+
+func TestIsDeliveredCharge(t *testing.T) {
+	tests := []struct {
+		name string
+		req  TimweNotificationRequest
+		want bool
+	}{
+		{"charge delivered", TimweNotificationRequest{Type: "CHARGE", MnoDeliveryCode: "DELIVERED"}, true},
+		{"renewal delivered lowercase padded", TimweNotificationRequest{Type: "USER_RENEWED", MnoDeliveryCode: " delivered "}, true},
+		{"charge no balance", TimweNotificationRequest{Type: "CHARGE", MnoDeliveryCode: "NO_BALANCE"}, false},
+		{"charge missing code", TimweNotificationRequest{Type: "CHARGE"}, false},
+		{"optin delivered", TimweNotificationRequest{Type: "USER_OPTIN", MnoDeliveryCode: "DELIVERED"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isDeliveredCharge(&tt.req); got != tt.want {
+				t.Errorf("isDeliveredCharge(%+v) = %v, want %v", tt.req, got, tt.want)
+			}
+		})
+	}
+}
