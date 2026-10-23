@@ -93,14 +93,16 @@ func TestClaimPendingJobsFallsBackToDirectOutboxText(t *testing.T) {
 }
 
 // The claim query flags jobs that must not be sent: inactive subscriptions
-// (every job), non-active subscriptions (cadence jobs only, so opt-in
-// confirmations to pending users still go out) and stale jobs.
+// and statuses outside the pending/preactive/active allowlist (every job),
+// non-active subscriptions (cadence jobs only, so opt-in confirmations to
+// pending users still go out) and stale jobs.
 func TestClaimPendingJobsFlagsSkippedJobs(t *testing.T) {
 	skipMatcher := sqlmock.QueryMatcherFunc(func(expected, actual string) error {
 		normalized := strings.Join(strings.Fields(actual), " ")
 		for _, want := range []string{
 			"WHEN s.status = 'inactive' THEN 'subscription inactive'",
-			"WHEN mo.series_id IS NOT NULL AND (s.status IS DISTINCT FROM 'active' OR s.renewal_status IS DISTINCT FROM 'active') THEN 'subscription not active'",
+			"WHEN s.status IS NULL OR s.status NOT IN ('pending', 'preactive', 'active') THEN 'subscription status unknown'",
+			"WHEN mo.series_id IS NOT NULL AND (s.status <> 'active' OR s.renewal_status IS DISTINCT FROM 'active') THEN 'subscription not active'",
 			"WHEN $2::interval > INTERVAL '0' AND u.planned_send_at < NOW() - $2::interval THEN 'stale'",
 		} {
 			if !strings.Contains(normalized, want) {
