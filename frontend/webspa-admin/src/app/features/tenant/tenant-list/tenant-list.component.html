@@ -516,6 +516,9 @@
             <mat-checkbox [(ngModel)]="tenantEventForm.honor_optout_action">
               Opt the subscriber out at the provider when the webhook replies "action": "optout"
             </mat-checkbox>
+            <mat-checkbox [(ngModel)]="tenantEventForm.send_batch_subscriber_events">
+              Send events about subscribers created by batch or admin opt-in
+            </mat-checkbox>
           </ng-container>
 
           <ng-container *ngIf="credentialValueForm.purpose === 'sms_api'">

@@ -242,4 +242,6 @@ export interface TenantEventSecretValue {
   default_currency: string;
   /** Off unless set: a reply of "action": "optout" cancels the subscription at the provider. */
   honor_optout_action: boolean;
+  /** Off unless set: events about subscribers the platform created itself (batch or admin opt-in) are sent. */
+  send_batch_subscriber_events: boolean;
 }

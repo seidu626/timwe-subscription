@@ -86,6 +86,15 @@ const activeTenantEventBindingSQL = `SELECT c.channel_id::text, c.secret_ref FRO
 // tenantOptoutDisabled closes an opt-out request whose tenant binding does not set honor_optout_action.
 const tenantOptoutDisabled = "disabled: tenant opt-out requests are off for this binding"
 
+// batchSubscriberEventSQL reports whether the event's subscriber has a newest subscription row the
+// platform created itself (campaign_url INTERNAL: batch or admin opt-in) rather than the tenant or a
+// provider callback.
+const batchSubscriberEventSQL = `SELECT COALESCE((SELECT s.campaign_url = 'INTERNAL' FROM subscriptions s
+    WHERE s.tenant_id = n.tenant_id AND s.user_identifier = n.msisdn AND s.product_id = n.product_id
+    ORDER BY s.created_at DESC, s.id DESC LIMIT 1), false)
+  FROM tenant_event_outbox o JOIN notifications n ON n.id = o.source_notification_id AND n.tenant_id = o.tenant_id
+  WHERE o.tenant_id = $1::uuid AND o.event_id = $2`
+
 // tenantEventBatch caps deliveries per dispatcher tick so the opt-out queue still gets a turn.
 const tenantEventBatch = 200
 
@@ -157,6 +166,19 @@ func (r *NotificationRepository) dispatchOneTenantEvent(ctx context.Context) (bo
     attempts = GREATEST(attempts - 1, 0), next_attempt_at = now() + interval '1 hour',
     last_error = $3, updated_at = now() WHERE tenant_id = $1::uuid AND event_id = $2`, job.TenantID, job.ID, reason)
 		return true, err
+	}
+	// Checked at send time, so events queued before the flag changed follow the current binding.
+	if !cfg.SendBatchSubscriberEvents {
+		var batch bool
+		err = r.db.QueryRowContext(ctx, batchSubscriberEventSQL, job.TenantID, job.ID).Scan(&batch)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return true, fmt.Errorf("lookup batch subscriber: %w", err)
+		}
+		if batch {
+			_, err = r.db.ExecContext(ctx, `UPDATE tenant_event_outbox SET status = 'skipped', last_error = $3, updated_at = now()
+    WHERE tenant_id = $1::uuid AND event_id = $2`, job.TenantID, job.ID, "BATCH_SUBSCRIBER")
+			return true, err
+		}
 	}
 	var payload tenantEventPayload
 	if err := json.Unmarshal(job.Body, &payload); err != nil {
