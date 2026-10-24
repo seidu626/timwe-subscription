@@ -310,7 +310,7 @@ type SubscriptionService struct {
 	networkClient      *utils.NetworkResilientClient // Enhanced network client
 	config             *config.Config
 	tenantRouter       TenantProviderResolver
-	circuitBreaker     *gobreaker.TwoStepCircuitBreaker
+	breakers           timweBreakers
 	productsCache      sync.Map                // key: joined productIds or "all" -> []*domain.Product
 	bulkhead           chan struct{}           // semaphore for external calls
 	renewalService     RenewalServiceInterface // Interface for renewal operations
@@ -328,6 +328,24 @@ type tenantScopedBlacklistWriter interface {
 
 type tenantScopedSubscriptionDeleter interface {
 	DeleteSubscriptionRecordsForTenant(ctx context.Context, tenantID, msisdn string) error
+}
+
+// timweBreakers keeps one breaker per TIMWE operation, so failing opt-outs or status checks cannot
+// refuse opt-ins and charges.
+type timweBreakers struct {
+	mt, charge, status, optout, optinConfirm *gobreaker.TwoStepCircuitBreaker
+}
+
+func newTIMWEBreakers(settings gobreaker.Settings) timweBreakers {
+	named := func(op string) *gobreaker.TwoStepCircuitBreaker {
+		opSettings := settings
+		opSettings.Name = settings.Name + " (" + op + ")"
+		return gobreaker.NewTwoStepCircuitBreaker(opSettings)
+	}
+	return timweBreakers{
+		mt: named("SendMT"), charge: named("RequestCharge"), status: named("SendStatusCheck"),
+		optout: named("SendOptout"), optinConfirm: named("SendOptinConfirm"),
+	}
 }
 
 func NewSubscriptionService(logger *zap.Logger, repo repository.SubscriptionRepositoryInterface,
@@ -395,7 +413,7 @@ func NewSubscriptionService(logger *zap.Logger, repo repository.SubscriptionRepo
 			log.Printf("Circuit breaker %s state change: %v -> %v\n", name, from, to)
 		},
 	}
-	circuitBreaker := gobreaker.NewTwoStepCircuitBreaker(cbSettings)
+	breakers := newTIMWEBreakers(cbSettings)
 
 	// Initialize MSISDN validator with default config
 	msisdnValidator := utils.NewMSISDNValidator(logger, userBaseRepository, nil)
@@ -411,7 +429,7 @@ func NewSubscriptionService(logger *zap.Logger, repo repository.SubscriptionRepo
 		client:             client,
 		networkClient:      networkClient,
 		config:             cfg,
-		circuitBreaker:     circuitBreaker,
+		breakers:           breakers,
 		renewalService:     renewalService,
 		msisdnValidator:    msisdnValidator,
 	}
@@ -1164,7 +1182,7 @@ func (s *SubscriptionService) SendMT(reqData domain.MTRequest, realm, channel st
 	}
 
 	// TwoStep: decide success based on error classification
-	done, err := s.circuitBreaker.Allow()
+	done, err := s.breakers.mt.Allow()
 	if err != nil {
 		s.logger.Error("Circuit breaker open for SendMT", zap.Error(err))
 		return nil, err
@@ -1639,7 +1657,7 @@ func (s *SubscriptionService) RequestCharge(reqData domain.ChargeRequest) (*doma
 	}
 	url := fmt.Sprintf("%s/%s/charge/dob/%s", providerCfg.BaseURL, providerCfg.Realm, providerCfg.PartnerRoleID)
 
-	done, err := s.circuitBreaker.Allow()
+	done, err := s.breakers.charge.Allow()
 	if err != nil {
 		return nil, err
 	}
@@ -2828,7 +2846,7 @@ func (s *SubscriptionService) SendStatusCheck(reqData domain.GetStatusRequest, r
 	release := s.acquireBulkhead()
 	defer release()
 
-	done, err := s.circuitBreaker.Allow()
+	done, err := s.breakers.status.Allow()
 	if err != nil {
 		s.logger.Error("Circuit breaker open for SendStatusCheck", zap.Error(err))
 		return nil, err
@@ -2958,11 +2976,12 @@ func (s *SubscriptionService) sendStatusCheckWithRetry(reqData domain.GetStatusR
 				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("url", url))
 
+			statusCode := res.StatusCode() // read before release: a released response reports 200
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(res)
 
 			if attempt == maxRetries {
-				return nil, fmt.Errorf("status check request failed with status code: %d", res.StatusCode())
+				return nil, fmt.Errorf("status check request failed with status code: %d", statusCode)
 			}
 
 			// Exponential backoff for HTTP errors
@@ -3041,7 +3060,7 @@ func (s *SubscriptionService) SendOptout(reqData domain.UnsubscriptionRequest, r
 	defer release()
 
 	// Guard with circuit breaker (TwoStep)
-	done, err := s.circuitBreaker.Allow()
+	done, err := s.breakers.optout.Allow()
 	if err != nil {
 		s.logger.Error("Circuit breaker open for SendOptout", zap.Error(err))
 		return nil, err
@@ -3158,10 +3177,11 @@ func (s *SubscriptionService) sendOptoutWithRetry(reqData domain.UnsubscriptionR
 				zap.String("responseBody", string(res.Body())),
 				zap.String("msisdn", pii.MaskMSISDN(reqData.UserIdentifier)),
 				zap.String("url", url))
+			statusCode := res.StatusCode() // read before release: a released response reports 200
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(res)
 			if attempt == maxRetries {
-				return nil, fmt.Errorf("optout request failed with status code: %d", res.StatusCode())
+				return nil, fmt.Errorf("optout request failed with status code: %d", statusCode)
 			}
 			delay := time.Duration(math.Pow(2, float64(attempt-1))) * baseDelay
 			time.Sleep(delay)
@@ -3236,7 +3256,7 @@ func (s *SubscriptionService) SendOptinConfirm(reqData domain.SubscriptionConfir
 	release := s.acquireBulkhead()
 	defer release()
 
-	done, err := s.circuitBreaker.Allow()
+	done, err := s.breakers.optinConfirm.Allow()
 	if err != nil {
 		s.logger.Error("Circuit breaker open for SendOptinConfirm", zap.Error(err))
 		return nil, err
@@ -3349,10 +3369,11 @@ func (s *SubscriptionService) sendOptinConfirmWithRetry(reqData domain.Subscript
 				zap.String("responseBody", string(res.Body())),
 				zap.String("userIdentifier", reqData.UserIdentifier),
 				zap.String("url", url))
+			statusCode := res.StatusCode() // read before release: a released response reports 200
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(res)
 			if attempt == maxRetries {
-				return nil, fmt.Errorf("optin confirm request failed with status code: %d", res.StatusCode())
+				return nil, fmt.Errorf("optin confirm request failed with status code: %d", statusCode)
 			}
 			delay := time.Duration(math.Pow(2, float64(attempt-1))) * baseDelay
 			time.Sleep(delay)

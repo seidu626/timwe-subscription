@@ -44,7 +44,7 @@ func captureOptinPayload(t *testing.T, mtReq domain.MTRequest, providerCfg *Tena
 	t.Cleanup(server.Close)
 
 	svc := newSubscriptionServiceForExternalTxIDTest(server.URL)
-	svc.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+	svc.breakers = newTIMWEBreakers(gobreaker.Settings{})
 	svc.bulkhead = make(chan struct{}, 1)
 
 	cfg := &TenantProviderConfig{
@@ -82,7 +82,7 @@ func captureChargePayload(t *testing.T, chargeReq domain.ChargeRequest, provider
 	t.Cleanup(server.Close)
 
 	svc := newSubscriptionServiceForExternalTxIDTest(server.URL)
-	svc.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+	svc.breakers = newTIMWEBreakers(gobreaker.Settings{})
 	svc.bulkhead = make(chan struct{}, 1)
 
 	cfg := &TenantProviderConfig{

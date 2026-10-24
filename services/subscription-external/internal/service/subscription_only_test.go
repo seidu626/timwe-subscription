@@ -138,7 +138,7 @@ func TestSubscriptionOnlyOptinNoSMSAndInvalidPersistence(t *testing.T) {
 			var logs bytes.Buffer
 			svc.logger = zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.AddSync(&logs), zap.DebugLevel))
 			svc.repo = repo
-			svc.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+			svc.breakers = newTIMWEBreakers(gobreaker.Settings{})
 			svc.bulkhead = make(chan struct{}, 1)
 			configureContractTenantProvider(svc, server.URL)
 			err := svc.processOptinForProduct(&domain.OptinRequest{SubscriptionOnly: true, Msisdn: "233270000001", EntryChannel: "WAP", TenantRoute: contractTenantRoute()}, &domain.Product{ProductId: "32535", Name: "Careerify", PricePointId: 70946})
@@ -302,7 +302,7 @@ func TestSubscriptionOnlyPersistenceRetryNeverRepeatsProviderOptin(t *testing.T)
 			repo := &subscriptionOnlyRepo{createErrors: append([]error(nil), tt.createErrors...)}
 			svc := newSubscriptionServiceForExternalTxIDTest(server.URL)
 			svc.repo = repo
-			svc.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+			svc.breakers = newTIMWEBreakers(gobreaker.Settings{})
 			svc.bulkhead = make(chan struct{}, 1)
 			configureContractTenantProvider(svc, server.URL)
 
@@ -409,7 +409,7 @@ func TestSubscriptionOnlyProviderFailuresAttemptOnceWithSafeCorrelation(t *testi
 			var logs bytes.Buffer
 			svc.logger = zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.AddSync(&logs), zap.DebugLevel))
 			svc.repo = repo
-			svc.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+			svc.breakers = newTIMWEBreakers(gobreaker.Settings{})
 			svc.bulkhead = make(chan struct{}, 1)
 			configureContractTenantProvider(svc, server.URL)
 
@@ -470,7 +470,7 @@ func TestSubscriptionOnlyAcceptedMissingTransactionRetainsRecoveryEvidence(t *te
 	repo := &subscriptionOnlyRepo{}
 	svc := newSubscriptionServiceForExternalTxIDTest(server.URL)
 	svc.repo = repo
-	svc.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+	svc.breakers = newTIMWEBreakers(gobreaker.Settings{})
 	svc.bulkhead = make(chan struct{}, 1)
 	configureContractTenantProvider(svc, server.URL)
 	startedAt := time.Now().UTC()
@@ -519,7 +519,7 @@ func TestSubscriptionOnlyBlacklistedRegistryFailureIsSynchronousAndRecoverable(t
 	svc := newSubscriptionServiceForExternalTxIDTest(server.URL)
 	svc.repo = repo
 	svc.UserBaseRepository = userBase
-	svc.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+	svc.breakers = newTIMWEBreakers(gobreaker.Settings{})
 	svc.bulkhead = make(chan struct{}, 1)
 	configureContractTenantProvider(svc, server.URL)
 	err := svc.processOptinForProduct(
@@ -568,7 +568,7 @@ func TestSubscriptionOnlyInvalidRegistryTransientFailureRetainsRecoveryEvidence(
 	}}
 	svc := newSubscriptionServiceForExternalTxIDTest(server.URL)
 	svc.repo = repo
-	svc.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+	svc.breakers = newTIMWEBreakers(gobreaker.Settings{})
 	svc.bulkhead = make(chan struct{}, 1)
 	configureContractTenantProvider(svc, server.URL)
 	err := svc.processOptinForProduct(
