@@ -185,7 +185,7 @@ func TestSendMT_UsesSubscriptionAPIKeyForOptinWhenMTAPIKeySet(t *testing.T) {
 	defer server.Close()
 
 	svc := newSubscriptionServiceForExternalTxIDTest(server.URL)
-	svc.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+	svc.breakers = newTIMWEBreakers(gobreaker.Settings{})
 	svc.bulkhead = make(chan struct{}, 1)
 	svc.SetTenantProviderRouter(&fakeTenantProviderResolver{
 		cfg: &TenantProviderConfig{
@@ -220,7 +220,7 @@ func TestSendMT_FallsBackToAPIKeyWhenMTAPIKeyAbsent(t *testing.T) {
 	defer server.Close()
 
 	svc := newSubscriptionServiceForExternalTxIDTest(server.URL)
-	svc.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+	svc.breakers = newTIMWEBreakers(gobreaker.Settings{})
 	svc.bulkhead = make(chan struct{}, 1)
 	svc.SetTenantProviderRouter(&fakeTenantProviderResolver{
 		cfg: &TenantProviderConfig{

@@ -41,7 +41,7 @@ func TestSendMT_UsesPostmanOptinContract(t *testing.T) {
 	defer server.Close()
 
 	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
-	service.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+	service.breakers = newTIMWEBreakers(gobreaker.Settings{})
 	service.bulkhead = make(chan struct{}, 1)
 	configureContractTenantProvider(service, server.URL)
 
@@ -478,7 +478,7 @@ func TestCheckChargingStatus_SendsProductIDNotPricePointID(t *testing.T) {
 	defer server.Close()
 
 	service := newSubscriptionServiceForExternalTxIDTest(server.URL)
-	service.circuitBreaker = gobreaker.NewTwoStepCircuitBreaker(gobreaker.Settings{})
+	service.breakers = newTIMWEBreakers(gobreaker.Settings{})
 	service.bulkhead = make(chan struct{}, 1)
 	configureContractTenantProvider(service, server.URL)
 
