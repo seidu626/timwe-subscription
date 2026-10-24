@@ -28,3 +28,30 @@ func TestParse_HonorOptoutActionDefaultsOff(t *testing.T) {
 		t.Fatal("Parse accepted a non-boolean honor_optout_action")
 	}
 }
+
+func TestParse_SendBatchSubscriberEventsDefaultsOff(t *testing.T) {
+	t.Setenv(AllowPrivateTargetsEnv, "")
+	base := `"url":"https://talentrivia.com/api/airtime/events","signing_secret":"0123456789abcdef","default_amount":0.8,"default_currency":"GHS"`
+	cases := map[string]struct {
+		blob string
+		want bool
+	}{
+		"absent":         {`{` + base + `}`, false},
+		"explicit false": {`{` + base + `,"send_batch_subscriber_events":false}`, false},
+		"explicit true":  {`{` + base + `,"send_batch_subscriber_events":true}`, true},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			cfg, err := Parse([]byte(tc.blob))
+			if err != nil {
+				t.Fatalf("Parse: %v", err)
+			}
+			if cfg.SendBatchSubscriberEvents != tc.want {
+				t.Fatalf("SendBatchSubscriberEvents = %v; want %v", cfg.SendBatchSubscriberEvents, tc.want)
+			}
+		})
+	}
+	if _, err := Parse([]byte(`{` + base + `,"send_batch_subscriber_events":"yes"}`)); err == nil {
+		t.Fatal("Parse accepted a non-boolean send_batch_subscriber_events")
+	}
+}

@@ -628,7 +628,8 @@ export class TenantListComponent implements OnInit, OnDestroy {
    * blob, and it is encrypted server-side along with the rest of it.
    */
   private emptyTenantEventForm(): TenantEventSecretValue {
-    return { url: '', signing_secret: '', default_amount: 0.80, default_currency: 'GHS', honor_optout_action: false };
+    return { url: '', signing_secret: '', default_amount: 0.80, default_currency: 'GHS', honor_optout_action: false,
+      send_batch_subscriber_events: false };
   }
 
   private saveTenantEventCredential(): void {

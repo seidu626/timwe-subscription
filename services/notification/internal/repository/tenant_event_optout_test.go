@@ -22,11 +22,20 @@ const (
 // bindTestTenantEvents points the tenant's binding at webhookURL through an env:// secret reference.
 func bindTestTenantEvents(t *testing.T, webhookURL string, honor bool) {
 	t.Helper()
+	bindTestTenantEventsWith(t, webhookURL, map[string]any{"honor_optout_action": honor})
+}
+
+// bindTestTenantEventsWith binds a valid credential with flags added to it.
+func bindTestTenantEventsWith(t *testing.T, webhookURL string, flags map[string]any) {
+	t.Helper()
 	t.Setenv(tenantevents.AllowPrivateTargetsEnv, "1")
-	blob, _ := json.Marshal(map[string]any{
-		"url": webhookURL, "signing_secret": "0123456789abcdef", "default_amount": 0.8,
-		"default_currency": "GHS", "honor_optout_action": honor,
-	})
+	credential := map[string]any{
+		"url": webhookURL, "signing_secret": "0123456789abcdef", "default_amount": 0.8, "default_currency": "GHS",
+	}
+	for k, v := range flags {
+		credential[k] = v
+	}
+	blob, _ := json.Marshal(credential)
 	t.Setenv(optoutTestEnv, string(blob))
 	previous := tenantWebhookHTTPClient
 	tenantWebhookHTTPClient = newTenantWebhookHTTPClient(true)
@@ -72,6 +81,7 @@ func TestDispatchTenantEvent_OptoutReplyQueuesOnlyWhenHonored(t *testing.T) {
 				WillReturnRows(sqlmock.NewRows([]string{"event_id", "tenant_id", "payload", "attempts"}).
 					AddRow(optoutTestEvent, optoutTestTenant, []byte(`{"type":"RENEWAL_SUCCESS","msisdn":"233260000000"}`), 1))
 			expectActiveBinding(mock, true)
+			expectBatchSubscriber(mock, false)
 			mock.ExpectExec(`UPDATE tenant_event_outbox\s+SET status = \$3`).
 				WithArgs(optoutTestTenant, optoutTestEvent, "delivered", sqlmock.AnyArg(), 200, "", reply, honor).
 				WillReturnResult(sqlmock.NewResult(0, 1))
