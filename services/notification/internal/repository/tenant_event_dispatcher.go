@@ -83,6 +83,9 @@ const activeTenantEventBindingSQL = `SELECT c.channel_id::text, c.secret_ref FRO
   WHERE c.tenant_id = $1::uuid AND c.purpose = 'tenant_events' AND c.status = 'ACTIVE'
   ORDER BY c.version DESC, c.channel_id LIMIT 1`
 
+// tenantOptoutDisabled closes an opt-out request whose tenant binding does not set honor_optout_action.
+const tenantOptoutDisabled = "disabled: tenant opt-out requests are off for this binding"
+
 // tenantEventBatch caps deliveries per dispatcher tick so the opt-out queue still gets a turn.
 const tenantEventBatch = 200
 
@@ -198,7 +201,7 @@ func (r *NotificationRepository) dispatchOneTenantEvent(ctx context.Context) (bo
 			Action string `json:"action"`
 		}
 		_ = json.Unmarshal(body, &reply)
-		return true, r.finishTenantEvent(ctx, job, resp.StatusCode, body, "", false, reply.Action == "optout")
+		return true, r.finishTenantEvent(ctx, job, resp.StatusCode, body, "", false, reply.Action == "optout" && cfg.HonorOptoutAction)
 	}
 	return true, r.finishTenantEvent(ctx, job, resp.StatusCode, body,
 		fmt.Sprintf("HTTP %d", resp.StatusCode), resp.StatusCode >= 500, false)
@@ -317,6 +320,14 @@ func (r *NotificationRepository) dispatchOneTenantOptout(ctx context.Context) er
 	}
 	if err != nil {
 		return fmt.Errorf("claim tenant optout: %w", err)
+	}
+	// Check again at send time: the binding may have been rebound without the flag since the reply came in.
+	cfg, err := r.resolveTenantEventConfig(ctx, job.TenantID)
+	if err != nil {
+		return r.finishTenantOptout(ctx, job, "tenant_events credential unavailable: "+err.Error(), true)
+	}
+	if cfg == nil || !cfg.HonorOptoutAction {
+		return r.finishTenantOptout(ctx, job, tenantOptoutDisabled, false)
 	}
 	err = r.db.QueryRowContext(ctx, `SELECT t.tenant_key, c.channel_key, n.msisdn, n.product_id, n.mcc, n.mnc
 		FROM tenant_event_outbox o
