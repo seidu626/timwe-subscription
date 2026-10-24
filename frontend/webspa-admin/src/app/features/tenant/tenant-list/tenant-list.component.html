@@ -513,6 +513,9 @@
                 <input matInput maxlength="3" [(ngModel)]="tenantEventForm.default_currency" placeholder="GHS" />
               </mat-form-field>
             </div>
+            <mat-checkbox [(ngModel)]="tenantEventForm.honor_optout_action">
+              Opt the subscriber out at the provider when the webhook replies "action": "optout"
+            </mat-checkbox>
           </ng-container>
 
           <ng-container *ngIf="credentialValueForm.purpose === 'sms_api'">

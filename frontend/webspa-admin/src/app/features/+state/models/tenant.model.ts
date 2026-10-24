@@ -240,4 +240,6 @@ export interface TenantEventSecretValue {
   signing_secret: string;
   default_amount: number;
   default_currency: string;
+  /** Off unless set: a reply of "action": "optout" cancels the subscription at the provider. */
+  honor_optout_action: boolean;
 }
