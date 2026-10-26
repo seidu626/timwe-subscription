@@ -68,6 +68,11 @@ DATABASE:
     # PASSWORD provided via APP_DATABASE_POSTGRESQL_PASSWORD environment variable
     DB_NAME: subscription_manager
     SSL_MODE: disable
+    # Pool limits (override with APP_DATABASE_POSTGRESQL_MAX_OPEN_CONNS etc.;
+    # PGMAX_* is not read by this service's vendored config).
+    MAX_OPEN_CONNS: 3
+    MAX_IDLE_CONNS: 1
+    CONN_MAX_LIFETIME: 5m
 
 CACHE:
   REDIS:

@@ -162,7 +162,7 @@ func (r *NotificationRepository) TenantOwnsChannel(ctx context.Context, tenantID
 
 // ErrProductOwnerNotUnique is returned when no active tenant, or more than one,
 // owns a provider product ID.
-var ErrProductOwnerNotUnique = errors.New("product is not owned by exactly one active tenant")
+var ErrProductOwnerNotUnique = domain.ErrProductOwnerNotUnique
 
 // TenantIDByProductID resolves the active tenant that owns a provider product ID.
 // Provider callbacks registered without tenant_key/channel_key carry only the

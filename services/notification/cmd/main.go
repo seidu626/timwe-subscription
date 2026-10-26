@@ -49,6 +49,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to the database: %v", err)
 	}
+	if err := config.ConfigureDatabasePool(db, cfg); err != nil {
+		log.Fatalf("Failed to configure the database pool: %v", err)
+	}
+	log.Printf("Database pool bounded: max_open=%d", db.Stats().MaxOpenConnections)
 	defer func(db *sql.DB) {
 		err := db.Close()
 		if err != nil {
