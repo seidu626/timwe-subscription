@@ -378,7 +378,15 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 	if !res.ContextGiven {
 		// Provider callbacks registered without tenant_key/channel_key (TIMWE posts
 		// bare /notification/{type}/{partnerRole}) fall back to the product owner.
-		if tenantID := h.tenantFromProductOwner(ctx.PostBody()); tenantID != "" {
+		tenantID, err := h.tenantFromProductOwner(ctx.PostBody())
+		if err != nil {
+			// A failed lookup (pool exhausted, DB unreachable) is transient. Answer
+			// with a retryable status so TIMWE re-posts instead of reading a 422.
+			body := `{"message":"tenant lookup is temporarily unavailable","code":"TENANT_LOOKUP_UNAVAILABLE","inError":"true"}`
+			ctx.Error(body, fasthttp.StatusServiceUnavailable)
+			return
+		}
+		if tenantID != "" {
 			res = tenantResolution{TenantID: tenantID, ContextGiven: true}
 			productOwned = true
 		}
@@ -421,22 +429,29 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 
 // tenantFromProductOwner returns the active tenant that owns the callback's
 // productId, or "" when the body carries no product or the owner is not unique.
-func (h *NotificationHandler) tenantFromProductOwner(body []byte) string {
+// tenantFromProductOwner returns "" with a nil error when the body names no
+// product or the product has no unique active owner, and a non-nil error only
+// when the lookup itself failed.
+func (h *NotificationHandler) tenantFromProductOwner(body []byte) (string, error) {
 	if h.service == nil {
-		return ""
+		return "", nil
 	}
 	var payload struct {
 		ProductID int `json:"productId"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil || payload.ProductID <= 0 {
-		return ""
+		return "", nil
 	}
 	tenantID, err := h.service.TenantIDByProductID(context.Background(), payload.ProductID)
-	if err != nil {
+	if errors.Is(err, domain.ErrProductOwnerNotUnique) {
 		log.Printf("no unique tenant owns notification product %d: %v", payload.ProductID, err)
-		return ""
+		return "", nil
 	}
-	return tenantID
+	if err != nil {
+		log.Printf("product owner lookup failed for notification product %d: %v", payload.ProductID, err)
+		return "", err
+	}
+	return tenantID, nil
 }
 
 func channelIDFromRequest(ctx *fasthttp.RequestCtx) string {

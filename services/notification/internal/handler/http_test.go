@@ -24,6 +24,7 @@ type handlerRepoStub struct {
 	tenantIDByKey   map[string]string
 	channelIDByKeys map[string]string // keyed by tenantID + "|" + channelKey
 	productOwners   map[int]string    // provider productId → owning tenant UUID
+	productOwnerErr error             // forced TenantIDByProductID failure
 	channelTenants  map[string]string // channel UUID → owning tenant UUID
 	saved           *domain.NotificationRequest
 	templates       map[string]domain.SMSTemplate
@@ -110,10 +111,13 @@ func (h *handlerRepoStub) TenantOwnsChannel(_ context.Context, tenantID, channel
 }
 
 func (h *handlerRepoStub) TenantIDByProductID(_ context.Context, productID int) (string, error) {
+	if h.productOwnerErr != nil {
+		return "", h.productOwnerErr
+	}
 	if tenantID := h.productOwners[productID]; tenantID != "" {
 		return tenantID, nil
 	}
-	return "", errors.New("product is not owned by exactly one active tenant")
+	return "", domain.ErrProductOwnerNotUnique
 }
 
 func TestListNotifications_ReturnsInternalServerError(t *testing.T) {

@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"database/sql"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/redis/go-redis/v9"
@@ -69,6 +70,10 @@ type Config struct {
 			DBPassword string `mapstructure:"PASSWORD"`
 			DBName     string `mapstructure:"DB_NAME"`
 			SSLMode    string `mapstructure:"SSL_MODE"`
+			// Pool limits; database/sql is unbounded unless they are applied.
+			MaxOpenConns    int           `mapstructure:"MAX_OPEN_CONNS"`
+			MaxIdleConns    int           `mapstructure:"MAX_IDLE_CONNS"`
+			ConnMaxLifetime time.Duration `mapstructure:"CONN_MAX_LIFETIME"`
 		} `mapstructure:"POSTGRESQL"`
 	} `mapstructure:"DB"`
 
@@ -104,6 +109,9 @@ func InitConfig(logger *zap.Logger, path string, files []string) Config {
 	conf.SetDefault("DB.POSTGRESQL.HOST", "localhost")
 	conf.SetDefault("DB.POSTGRESQL.PORT", "5432")
 	conf.SetDefault("DB.POSTGRESQL.SSL_MODE", "disable")
+	conf.SetDefault("DB.POSTGRESQL.MAX_OPEN_CONNS", 4)
+	conf.SetDefault("DB.POSTGRESQL.MAX_IDLE_CONNS", 4)
+	conf.SetDefault("DB.POSTGRESQL.CONN_MAX_LIFETIME", 5*time.Minute)
 	conf.SetDefault("NOTIFICATION.REQUIRE_TENANT_CONTEXT", true)
 
 	for _, file := range files {
@@ -174,6 +182,9 @@ func bindEnv(logger *zap.Logger, conf *viper.Viper) {
 	mustBindEnv(logger, conf, "DB.POSTGRESQL.PASSWORD", "APP_DATABASE_POSTGRESQL_PASSWORD", "DB_POSTGRESQL_PASSWORD", "DB.POSTGRESQL.PASSWORD")
 	mustBindEnv(logger, conf, "DB.POSTGRESQL.DB_NAME", "APP_DATABASE_POSTGRESQL_DB_NAME", "DB_POSTGRESQL_DB_NAME", "DB.POSTGRESQL.DB_NAME")
 	mustBindEnv(logger, conf, "DB.POSTGRESQL.SSL_MODE", "APP_DATABASE_POSTGRESQL_SSL_MODE", "DB_POSTGRESQL_SSL_MODE", "DB.POSTGRESQL.SSL_MODE")
+	mustBindEnv(logger, conf, "DB.POSTGRESQL.MAX_OPEN_CONNS", "APP_DATABASE_POSTGRESQL_MAX_OPEN_CONNS", "DB_POSTGRESQL_MAX_OPEN_CONNS", "PGMAX_OPEN_CONNS")
+	mustBindEnv(logger, conf, "DB.POSTGRESQL.MAX_IDLE_CONNS", "APP_DATABASE_POSTGRESQL_MAX_IDLE_CONNS", "DB_POSTGRESQL_MAX_IDLE_CONNS", "PGMAX_IDLE_CONNS")
+	mustBindEnv(logger, conf, "DB.POSTGRESQL.CONN_MAX_LIFETIME", "APP_DATABASE_POSTGRESQL_CONN_MAX_LIFETIME", "DB_POSTGRESQL_CONN_MAX_LIFETIME", "PGCONN_MAX_LIFETIME")
 
 	mustBindEnv(logger, conf, "CACHE.REDIS.HOST", "APP_CACHE_REDIS_HOST", "CACHE_REDIS_HOST", "CACHE.REDIS.HOST")
 	mustBindEnv(logger, conf, "CACHE.REDIS.PORT", "APP_CACHE_REDIS_PORT", "CACHE_REDIS_PORT", "CACHE.REDIS.PORT")
@@ -248,6 +259,28 @@ func parseGatewayTrustRequired(raw string) bool {
 	default:
 		return false
 	}
+}
+
+// ConfigureDatabasePool applies the configured pool limits. It mirrors
+// common/config.ConfigureDatabasePool for this service's own Config type.
+func ConfigureDatabasePool(db *sql.DB, config Config) error {
+	if db == nil {
+		return fmt.Errorf("database pool is nil")
+	}
+	pool := config.DB.Postgresql
+	if pool.MaxOpenConns <= 0 {
+		return fmt.Errorf("max open connections must be positive: %d", pool.MaxOpenConns)
+	}
+	if pool.MaxIdleConns < 0 || pool.MaxIdleConns > pool.MaxOpenConns {
+		return fmt.Errorf("max idle connections must be between 0 and %d: %d", pool.MaxOpenConns, pool.MaxIdleConns)
+	}
+	if pool.ConnMaxLifetime <= 0 {
+		return fmt.Errorf("connection max lifetime must be positive: %s", pool.ConnMaxLifetime)
+	}
+	db.SetMaxOpenConns(pool.MaxOpenConns)
+	db.SetMaxIdleConns(pool.MaxIdleConns)
+	db.SetConnMaxLifetime(pool.ConnMaxLifetime)
+	return nil
 }
 
 func GetDBConnectionString(config Config) string {

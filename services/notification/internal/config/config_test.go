@@ -1,11 +1,14 @@
 package config
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
+	_ "github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -128,5 +131,77 @@ func TestRequireTenantContextViaEnv(t *testing.T) {
 				t.Errorf("RequireTenantContext = %v, want %v (env=%q)", loaded.Notification.RequireTenantContext, tc.want, tc.envVal)
 			}
 		})
+	}
+}
+
+func TestDatabasePoolLimits(t *testing.T) {
+	cases := []struct {
+		desc               string
+		env                map[string]string
+		wantOpen, wantIdle int
+		wantLifetime       time.Duration
+	}{
+		{"defaults", nil, 4, 4, 5 * time.Minute},
+		{"compose PGMAX vars", map[string]string{"PGMAX_OPEN_CONNS": "6", "PGMAX_IDLE_CONNS": "2"}, 6, 2, 5 * time.Minute},
+		{"APP vars", map[string]string{"APP_DATABASE_POSTGRESQL_MAX_OPEN_CONNS": "3", "APP_DATABASE_POSTGRESQL_MAX_IDLE_CONNS": "1", "APP_DATABASE_POSTGRESQL_CONN_MAX_LIFETIME": "10m"}, 3, 1, 10 * time.Minute},
+	}
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg = Config{}
+			doOnce = sync.Once{}
+			for _, key := range []string{"PGMAX_OPEN_CONNS", "PGMAX_IDLE_CONNS", "APP_DATABASE_POSTGRESQL_MAX_OPEN_CONNS", "APP_DATABASE_POSTGRESQL_MAX_IDLE_CONNS", "APP_DATABASE_POSTGRESQL_CONN_MAX_LIFETIME"} {
+				t.Setenv(key, "")
+				_ = os.Unsetenv(key)
+			}
+			for key, value := range tc.env {
+				t.Setenv(key, value)
+			}
+
+			loaded := InitConfig(noopLogger(), t.TempDir(), nil)
+			pool := loaded.DB.Postgresql
+			if pool.MaxOpenConns != tc.wantOpen || pool.MaxIdleConns != tc.wantIdle || pool.ConnMaxLifetime != tc.wantLifetime {
+				t.Fatalf("pool = %d/%d/%s, want %d/%d/%s", pool.MaxOpenConns, pool.MaxIdleConns, pool.ConnMaxLifetime, tc.wantOpen, tc.wantIdle, tc.wantLifetime)
+			}
+
+			db, err := sql.Open("postgres", "host=127.0.0.1 port=1 sslmode=disable")
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer db.Close()
+			if err := ConfigureDatabasePool(db, loaded); err != nil {
+				t.Fatalf("ConfigureDatabasePool: %v", err)
+			}
+			if got := db.Stats().MaxOpenConnections; got != tc.wantOpen {
+				t.Fatalf("MaxOpenConnections = %d, want %d", got, tc.wantOpen)
+			}
+		})
+	}
+}
+
+func TestConfigureDatabasePoolRejectsInvalidLimits(t *testing.T) {
+	db, err := sql.Open("postgres", "host=127.0.0.1 port=1 sslmode=disable")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	for _, tc := range []struct {
+		desc       string
+		open, idle int
+		lifetime   time.Duration
+	}{
+		{"unbounded", 0, 0, time.Minute},
+		{"idle above open", 2, 3, time.Minute},
+		{"no lifetime", 2, 1, 0},
+	} {
+		var c Config
+		c.DB.Postgresql.MaxOpenConns = tc.open
+		c.DB.Postgresql.MaxIdleConns = tc.idle
+		c.DB.Postgresql.ConnMaxLifetime = tc.lifetime
+		if err := ConfigureDatabasePool(db, c); err == nil {
+			t.Errorf("%s: expected an error", tc.desc)
+		}
+	}
+	if got := db.Stats().MaxOpenConnections; got != 0 {
+		t.Fatalf("rejected limits were applied: MaxOpenConnections = %d", got)
 	}
 }

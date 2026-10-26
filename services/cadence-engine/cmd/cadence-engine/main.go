@@ -25,13 +25,17 @@ func main() {
 	logger, _ := zap.NewProduction()
 	defer func() { _ = logger.Sync() }()
 
-	config.InitConfig(logger, ".", []string{"config.yaml", ".env"})
+	cfg := config.InitConfig(logger, ".", []string{"config.yaml", ".env"})
 
 	connStr := config.GetDBConnectionString()
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatalf("Failed to connect to the database: %v", err)
 	}
+	if err := config.ConfigureDatabasePool(db, cfg); err != nil {
+		log.Fatalf("Failed to configure the database pool: %v", err)
+	}
+	log.Printf("Database pool bounded: max_open=%d", db.Stats().MaxOpenConnections)
 	defer func() { _ = db.Close() }()
 
 	if err := db.Ping(); err != nil {

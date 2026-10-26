@@ -2,8 +2,13 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 )
+
+// ErrProductOwnerNotUnique is returned when no active tenant, or more than one,
+// owns a provider product ID.
+var ErrProductOwnerNotUnique = errors.New("product is not owned by exactly one active tenant")
 
 type ListResponse struct {
 	Data        []*Notification `json:"data"`

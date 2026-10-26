@@ -371,7 +371,7 @@ func main() {
 	defer func() { _ = logger.Sync() }()
 
 	// Load configuration
-	_ = config.InitConfig(logger, ".", []string{"config.yaml"})
+	cfg := config.InitConfig(logger, ".", []string{"config.yaml"})
 
 	// Connect to database
 	connStr := config.GetDBConnectionString()
@@ -379,6 +379,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+	if err := configureDatabasePool(db, cfg); err != nil {
+		log.Fatalf("Failed to configure database pool: %v", err)
+	}
+	log.Printf("Database pool bounded: max_open=%d", db.Stats().MaxOpenConnections)
 	defer func() { _ = db.Close() }()
 
 	// Test connection
@@ -417,4 +421,24 @@ func main() {
 	// Give some time for graceful shutdown
 	time.Sleep(2 * time.Second)
 	logger.Info("Postback dispatcher stopped")
+}
+
+// configureDatabasePool bounds the pool with DATABASE.POSTGRESQL.* from
+// config.yaml (override with APP_DATABASE_POSTGRESQL_*). It mirrors
+// common/config.ConfigureDatabasePool, which the committed vendor tree predates.
+func configureDatabasePool(db *sql.DB, cfg *config.Config) error {
+	pool := cfg.Database.Postgresql
+	if pool.MaxOpenConns <= 0 {
+		return fmt.Errorf("max open connections must be positive: %d", pool.MaxOpenConns)
+	}
+	if pool.MaxIdleConns < 0 || pool.MaxIdleConns > pool.MaxOpenConns {
+		return fmt.Errorf("max idle connections must be between 0 and %d: %d", pool.MaxOpenConns, pool.MaxIdleConns)
+	}
+	if pool.ConnMaxLifetime <= 0 {
+		return fmt.Errorf("connection max lifetime must be positive: %s", pool.ConnMaxLifetime)
+	}
+	db.SetMaxOpenConns(pool.MaxOpenConns)
+	db.SetMaxIdleConns(pool.MaxIdleConns)
+	db.SetConnMaxLifetime(pool.ConnMaxLifetime)
+	return nil
 }

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/seidu626/subscription-manager/notification/internal/service"
@@ -90,6 +92,26 @@ func TestHandleNotification_ProductOwnerFallback(t *testing.T) {
 		}
 		if repo.saved != nil {
 			t.Fatalf("expected nothing persisted, got %#v", repo.saved)
+		}
+	})
+
+	t.Run("owner lookup failure → 503 so TIMWE re-posts", func(t *testing.T) {
+		for _, require := range []bool{true, false} {
+			repo := &handlerRepoStub{productOwners: owners, productOwnerErr: errors.New("pq: sorry, too many clients already")}
+			h := NewNotificationHandler(service.NewNotificationService(repo)).WithRequireTenantContext(require)
+
+			ctx := makeCtx("/api/v1/notification/charge/2117", `{"msisdn":"233241234567","productId":32535,"transactionUUID":"tx-1"}`)
+			h.ChargeHandler(ctx)
+
+			if ctx.Response.StatusCode() != fasthttp.StatusServiceUnavailable {
+				t.Fatalf("requireTenantContext=%v: expected 503, got %d body=%s", require, ctx.Response.StatusCode(), ctx.Response.Body())
+			}
+			if !strings.Contains(string(ctx.Response.Body()), "TENANT_LOOKUP_UNAVAILABLE") {
+				t.Fatalf("expected TENANT_LOOKUP_UNAVAILABLE in body, got %s", ctx.Response.Body())
+			}
+			if repo.saved != nil {
+				t.Fatalf("expected nothing persisted, got %#v", repo.saved)
+			}
 		}
 	})
 
