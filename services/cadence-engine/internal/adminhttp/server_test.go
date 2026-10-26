@@ -1,8 +1,11 @@
 package adminhttp
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -437,5 +440,63 @@ func TestHandleSeriesReactivateRequiresRuleWhenResuming(t *testing.T) {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestHandleCSVImportResolvesSeriesBeforeTx(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+	// One connection: a pool query issued while the import tx holds it would
+	// wait forever, the same way concurrent imports deadlock at the pool cap.
+	db.SetMaxOpenConns(1)
+
+	s := &Server{
+		logger: zap.NewNop(),
+		repo:   repository.NewCadenceRepository(db, zap.NewNop()),
+		access: &access{staticToken: "secret-token"},
+	}
+
+	const tenantID = "66d39a9a-f1ef-4721-a31c-5bb966d25c3d"
+	created := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	mock.ExpectQuery("FROM product_message_series").
+		WithArgs(tenantID, 1, 10, "News").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "tenant_id", "channel_id", "partner_role_id", "product_id", "name", "mode",
+			"content_version", "delivery_channel", "is_active", "created_at",
+		}).AddRow(int64(7), tenantID, nil, 1, 10, "News", "SEQUENTIAL", 1, "USER_PREF", true, created))
+	mock.ExpectBegin()
+	mock.ExpectQuery("INSERT INTO message_content_items").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(1)))
+	mock.ExpectExec("UPDATE message_content_items").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectCommit()
+
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	part, err := form.CreateFormFile("file", "content.csv")
+	if err != nil {
+		t.Fatalf("CreateFormFile: %v", err)
+	}
+	_, _ = part.Write([]byte("partner_role_id,product_id,series_name,mode,content_version,seq_no,message_text,is_active\n1,10,News,SEQUENTIAL,1,1,Hello,true\n"))
+	_ = form.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req := httptest.NewRequest(http.MethodPost, "/v1/admin/cadence/import", &body).WithContext(ctx)
+	req.Header.Set("Content-Type", form.FormDataContentType())
+	req.Header.Set("X-Admin-Token", "secret-token")
+	req.Header.Set(tenantctx.HeaderTenantID, tenantID)
+	rr := httptest.NewRecorder()
+
+	s.handleCSVImport(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ExpectationsWereMet: %v", err)
 	}
 }
