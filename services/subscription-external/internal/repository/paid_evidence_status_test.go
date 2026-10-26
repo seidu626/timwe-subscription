@@ -69,7 +69,7 @@ func TestUpdateSubscriptionStatusUnlessActiveGuardsActiveRows(t *testing.T) {
 	}
 	defer db.Close()
 
-	mock.ExpectExec(regexp.QuoteMeta("UPDATE subscriptions SET status = $1 WHERE user_identifier = $2 AND product_id = $3 AND status IS DISTINCT FROM 'active'")).
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE subscriptions SET status = $1, end_date = CASE WHEN $1::varchar IN ('pending', 'preactive') THEN NULL ELSE end_date END WHERE user_identifier = $2 AND product_id = $3 AND status IS DISTINCT FROM 'active'")).
 		WithArgs("pending", "233572503330", 32535).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
@@ -106,7 +106,8 @@ func TestFetchChargeSuccessNotificationsFiltersDelivered(t *testing.T) {
 }
 
 // Runs the real upsert against PostgreSQL: a re-optin keeps an active (paid)
-// row active, moves an inactive row to pending, and inserts new rows pending.
+// row active, moves an inactive row to pending without the end_date of its
+// previous term, and inserts new rows pending.
 func TestCreateSubscriptionStatusTransitionsPostgres(t *testing.T) {
 	db := openIsolatedRepositoryTestDB(t)
 	ctx := context.Background()
@@ -126,7 +127,7 @@ func TestCreateSubscriptionStatusTransitionsPostgres(t *testing.T) {
 			mcc VARCHAR(10), mnc VARCHAR(10), entry_channel VARCHAR(50),
 			large_account VARCHAR(50), sub_keyword VARCHAR(50), tracking_id VARCHAR(255),
 			client_ip VARCHAR(64), campaign_url TEXT, transaction_id VARCHAR(255),
-			start_date TIMESTAMP,
+			start_date TIMESTAMP, end_date TIMESTAMP,
 			status VARCHAR(50) DEFAULT 'active'
 		)`); err != nil {
 		t.Fatalf("create subscriptions table: %v", err)
@@ -137,8 +138,12 @@ func TestCreateSubscriptionStatusTransitionsPostgres(t *testing.T) {
 	}
 	if _, err := db.ExecContext(ctx, `
 		INSERT INTO subscriptions (tenant_id, partner_role_id, user_identifier, product_id, status)
-		VALUES ($1, 42, '233000000001', 32535, 'active'), ($1, 42, '233000000002', 32535, 'inactive')`, tenantID); err != nil {
+		VALUES ($1, 42, '233000000001', 32535, 'active'), ($1, 42, '233000000002', 32535, 'inactive'),
+			($1, 42, '233000000004', 32535, 'inactive'), ($1, 42, '233000000005', 32535, 'inactive')`, tenantID); err != nil {
 		t.Fatalf("seed subscriptions: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE subscriptions SET end_date = '2026-10-20 10:00:00'`); err != nil {
+		t.Fatalf("seed end dates: %v", err)
 	}
 
 	repo := NewSubscriptionRepository(db, zap.NewNop(), nil)
@@ -152,18 +157,33 @@ func TestCreateSubscriptionStatusTransitionsPostgres(t *testing.T) {
 			t.Fatalf("CreateSubscription(%s): %v", msisdn, err)
 		}
 	}
-	if err := repo.UpdateSubscriptionStatusUnlessActive("233000000001", "32535", "preactive"); err != nil {
-		t.Fatalf("UpdateSubscriptionStatusUnlessActive: %v", err)
+	for msisdn, status := range map[string]string{"233000000001": "preactive", "233000000004": "preactive", "233000000005": "inactive"} {
+		if err := repo.UpdateSubscriptionStatusUnlessActive(msisdn, "32535", status); err != nil {
+			t.Fatalf("UpdateSubscriptionStatusUnlessActive(%s): %v", msisdn, err)
+		}
 	}
 
-	want := map[string]string{"233000000001": "active", "233000000002": "pending", "233000000003": "pending"}
-	for msisdn, wantStatus := range want {
+	want := map[string]struct {
+		status     string
+		endDateSet bool
+	}{
+		"233000000001": {"active", true},
+		"233000000002": {"pending", false},
+		"233000000003": {"pending", false},
+		"233000000004": {"preactive", false},
+		"233000000005": {"inactive", true},
+	}
+	for msisdn, w := range want {
 		var got string
-		if err := db.QueryRowContext(ctx, `SELECT status FROM subscriptions WHERE user_identifier = $1`, msisdn).Scan(&got); err != nil {
+		var endDateSet bool
+		if err := db.QueryRowContext(ctx, `SELECT status, end_date IS NOT NULL FROM subscriptions WHERE user_identifier = $1`, msisdn).Scan(&got, &endDateSet); err != nil {
 			t.Fatalf("read status for %s: %v", msisdn, err)
 		}
-		if got != wantStatus {
-			t.Errorf("status for %s = %q, want %q", msisdn, got, wantStatus)
+		if got != w.status {
+			t.Errorf("status for %s = %q, want %q", msisdn, got, w.status)
+		}
+		if endDateSet != w.endDateSet {
+			t.Errorf("end_date set for %s = %v, want %v", msisdn, endDateSet, w.endDateSet)
 		}
 	}
 }

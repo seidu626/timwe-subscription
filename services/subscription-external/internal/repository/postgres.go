@@ -259,7 +259,9 @@ func (r *SubscriptionRepository) FetchActiveMsisdnsWithProductsWindow(productIds
 // CreateSubscription inserts a new subscription record into the database.
 // An opt-in result never proves payment, so the row is written with
 // request.Status (default "pending"); only a DELIVERED CHARGE/USER_RENEWED
-// activates it. A conflicting row that is already active keeps its status.
+// activates it. A conflicting row that is already active keeps its status; any
+// other conflicting row written back to pending/preactive is a re-opt-in and
+// drops the end_date of its previous term.
 func (r *SubscriptionRepository) CreateSubscription(request *domain.SubscriptionRequest) error {
 	ctx, cancel := r.getContextWithTimeout(30 * time.Second)
 	defer cancel()
@@ -291,6 +293,7 @@ func (r *SubscriptionRepository) CreateSubscription(request *domain.Subscription
             campaign_url = EXCLUDED.campaign_url,
             transaction_id = EXCLUDED.transaction_id,
             start_date = COALESCE(subscriptions.start_date, EXCLUDED.start_date),
+            end_date = CASE WHEN subscriptions.status = 'active' OR EXCLUDED.status NOT IN ('pending', 'preactive') THEN subscriptions.end_date ELSE NULL END,
             status = CASE WHEN subscriptions.status = 'active' THEN subscriptions.status ELSE EXCLUDED.status END
     `
 		_, err := r.db.ExecContext(ctx, query, nullStringPtr(request.TenantID), nullStringPtr(request.ChannelID), request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId, status)
@@ -320,6 +323,7 @@ func (r *SubscriptionRepository) CreateSubscription(request *domain.Subscription
             campaign_url = EXCLUDED.campaign_url,
             transaction_id = EXCLUDED.transaction_id,
             start_date = COALESCE(subscriptions.start_date, EXCLUDED.start_date),
+            end_date = CASE WHEN subscriptions.status = 'active' OR EXCLUDED.status NOT IN ('pending', 'preactive') THEN subscriptions.end_date ELSE NULL END,
             status = CASE WHEN subscriptions.status = 'active' THEN subscriptions.status ELSE EXCLUDED.status END
     `
 	_, err := r.db.ExecContext(ctx, query, request.PartnerRoleId, request.UserIdentifier, request.UserIdentifierType, request.ProductId, request.Mcc, request.Mnc, request.EntryChannel, request.LargeAccount, request.SubKeyword, request.TrackingId, request.ClientIp, request.CampaignUrl, request.TransactionId, status)
@@ -1663,9 +1667,10 @@ func (r *SubscriptionRepository) UpdateSubscriptionStatus(msisdn string, product
 
 // UpdateSubscriptionStatusUnlessActive sets status like UpdateSubscriptionStatus
 // but never touches a row that is already active, so an optin/confirm result
-// cannot demote a subscriber whose payment is already proven.
+// cannot demote a subscriber whose payment is already proven. Moving a row to
+// pending/preactive also drops the end_date of its previous term.
 func (r *SubscriptionRepository) UpdateSubscriptionStatusUnlessActive(msisdn string, productID string, status string) error {
-	query := `UPDATE subscriptions SET status = $1 WHERE user_identifier = $2 AND product_id = $3 AND status IS DISTINCT FROM 'active'`
+	query := `UPDATE subscriptions SET status = $1, end_date = CASE WHEN $1::varchar IN ('pending', 'preactive') THEN NULL ELSE end_date END WHERE user_identifier = $2 AND product_id = $3 AND status IS DISTINCT FROM 'active'`
 
 	productIDInt, _ := strconv.Atoi(productID)
 	_, err := r.db.ExecContext(r.ctx, query, status, msisdn, productIDInt)
