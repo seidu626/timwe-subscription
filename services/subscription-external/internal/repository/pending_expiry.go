@@ -9,7 +9,9 @@ import (
 // expireStalePendingQuery ends one batch of pending/preactive rows that have
 // not been written for longer than $1 seconds and have no DELIVERED
 // CHARGE/USER_RENEWED notification for the same tenant, msisdn and product
-// since the row was created. updated_at is the age column because an opt-in
+// since the row was created. A payment followed by a USER_OPTOUT is not
+// evidence: a former payer who opted out and opted in again must pay again or
+// expire. updated_at is the age column because an opt-in
 // on an existing row keeps created_at and start_date; only the
 // update_subscriptions_updated_at trigger moves updated_at. subscriptions
 // timestamps are timestamp without time zone holding UTC; notifications
@@ -31,6 +33,15 @@ const expireStalePendingQuery = `
 				  AND n.type IN ('CHARGE', 'USER_RENEWED')
 				  AND upper(trim(n.mno_delivery_code)) = 'DELIVERED'
 				  AND n.created_at >= (s.created_at AT TIME ZONE 'UTC') - interval '5 minutes'
+				  AND NOT EXISTS (
+					SELECT 1
+					FROM notifications o
+					WHERE o.tenant_id = s.tenant_id
+					  AND o.msisdn = s.user_identifier
+					  AND o.product_id = s.product_id
+					  AND o.type = 'USER_OPTOUT'
+					  AND o.created_at > n.created_at
+				  )
 			  )
 			ORDER BY s.id
 			LIMIT $2
