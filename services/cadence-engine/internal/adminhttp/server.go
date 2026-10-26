@@ -638,6 +638,30 @@ func (s *Server) handleCSVImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Resolve series before opening the tx: these calls use the pool, and a
+	// tx waiting on a second pool conn deadlocks once concurrent imports
+	// reach the pool cap.
+	seriesByGroup := make([]*domain.MessageSeries, len(importReq.Series))
+	for i, group := range importReq.Series {
+		series, err := s.repo.GetSeriesByKey(r.Context(), tenantID, group.PartnerRoleID, group.ProductID, group.SeriesName)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				created, err := s.repo.UpsertSeries(r.Context(), tenantID, channelID, group.PartnerRoleID, group.ProductID, group.SeriesName, group.Mode, 1, "USER_PREF", true)
+				if err != nil {
+					s.logger.Error("ensure series failed", zap.Error(err))
+					writeError(w, http.StatusInternalServerError, "failed to import")
+					return
+				}
+				series = created
+			} else {
+				s.logger.Error("get series by key failed", zap.Error(err))
+				writeError(w, http.StatusInternalServerError, "failed to import")
+				return
+			}
+		}
+		seriesByGroup[i] = series
+	}
+
 	tx, err := s.repo.BeginTx(r.Context())
 	if err != nil {
 		s.logger.Error("begin tx failed", zap.Error(err))
@@ -655,24 +679,8 @@ func (s *Server) handleCSVImport(w http.ResponseWriter, r *http.Request) {
 	var upserted int64
 	var deactivated int64
 
-	for _, group := range importReq.Series {
-		series, err := s.repo.GetSeriesByKey(r.Context(), tenantID, group.PartnerRoleID, group.ProductID, group.SeriesName)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				created, err := s.repo.UpsertSeries(r.Context(), tenantID, channelID, group.PartnerRoleID, group.ProductID, group.SeriesName, group.Mode, 1, "USER_PREF", true)
-				if err != nil {
-					s.logger.Error("ensure series failed", zap.Error(err))
-					writeError(w, http.StatusInternalServerError, "failed to import")
-					return
-				}
-				series = created
-			} else {
-				s.logger.Error("get series by key failed", zap.Error(err))
-				writeError(w, http.StatusInternalServerError, "failed to import")
-				return
-			}
-		}
-
+	for i, group := range importReq.Series {
+		series := seriesByGroup[i]
 		for contentVersion, items := range group.ItemsByVersion {
 			keep := make([]int, 0, len(items))
 			for _, item := range items {
