@@ -39,6 +39,10 @@ func (r *NotificationRepository) enqueueTenantEvent(ctx context.Context, tx *sql
 	if kind != "USER_OPTIN" && kind != "CHARGE" && kind != "USER_RENEWED" && kind != "USER_OPTOUT" {
 		return nil
 	}
+	// Charges are delivered as CHARGE_SUCCESS; an attempt the carrier did not collect (NO_BALANCE) is none.
+	if n.IsFailedChargeAttempt() {
+		return nil
+	}
 	// Same binding the dispatcher delivers with; nothing is queued for a binding it would refuse.
 	var bindingChannelID, bindingRef string
 	err := tx.QueryRowContext(ctx, activeTenantEventBindingSQL, *n.TenantID).Scan(&bindingChannelID, &bindingRef)

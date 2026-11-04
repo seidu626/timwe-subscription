@@ -8,6 +8,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
@@ -22,10 +23,23 @@ type NotificationHandler struct {
 	requireTenantContext bool   // when true, callbacks without resolvable tenant context → 422
 	gatewayTrustSecret   string // GATEWAY_TRUST_SECRET for X-Gateway-Trust verification
 	gatewayTrustRequired bool   // when true, missing/invalid header → 403 (default: false = log-only)
+	callbackTimeout      time.Duration
 }
 
+// DefaultCallbackTimeout bounds the database work for one provider callback. KrakenD gives up
+// after 30s; answering 503 well before that lets TIMWE retry instead of reading a gateway error.
+const DefaultCallbackTimeout = 10 * time.Second
+
 func NewNotificationHandler(service *service.NotificationService) *NotificationHandler {
-	return &NotificationHandler{service: service, requireTenantContext: true}
+	return &NotificationHandler{service: service, requireTenantContext: true, callbackTimeout: DefaultCallbackTimeout}
+}
+
+// WithCallbackTimeout sets the per-callback deadline; a non-positive value keeps the default.
+func (h *NotificationHandler) WithCallbackTimeout(d time.Duration) *NotificationHandler {
+	if d > 0 {
+		h.callbackTimeout = d
+	}
+	return h
 }
 
 // WithRequireTenantContext sets the tenant-context enforcement flag and returns the handler
@@ -374,11 +388,15 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 		ctx.Error(body, status)
 		return
 	}
+	// Bound the database work, pool waits included: with the pool exhausted, a fast 503 beats
+	// holding the request until KrakenD times out.
+	callbackCtx, cancel := context.WithTimeout(context.Background(), h.callbackTimeout)
+	defer cancel()
 	productOwned := false
 	if !res.ContextGiven {
 		// Provider callbacks registered without tenant_key/channel_key (TIMWE posts
 		// bare /notification/{type}/{partnerRole}) fall back to the product owner.
-		tenantID, err := h.tenantFromProductOwner(ctx.PostBody())
+		tenantID, err := h.tenantFromProductOwner(callbackCtx, ctx.PostBody())
 		if err != nil {
 			// A failed lookup (pool exhausted, DB unreachable) is transient. Answer
 			// with a retryable status so TIMWE re-posts instead of reading a 422.
@@ -417,8 +435,13 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 	if res.ChannelID != "" {
 		notification.ChannelID = &res.ChannelID
 	}
-	if err := h.service.ProcessNotification(&notification); err != nil {
+	if err := h.service.ProcessNotification(callbackCtx, &notification); err != nil {
 		log.Printf("Error processing notification: %v", err)
+		if callbackCtx.Err() != nil || errors.Is(err, service.ErrNotificationStoreUnavailable) {
+			body := `{"message":"notification store is temporarily unavailable","code":"NOTIFICATION_STORE_UNAVAILABLE","inError":"true"}`
+			ctx.Error(body, fasthttp.StatusServiceUnavailable)
+			return
+		}
 		ctx.Error(`{"message": "Error processing notification", "code": "FAILURE", "inError": "true"}`, fasthttp.StatusInternalServerError)
 		return
 	}
@@ -432,7 +455,7 @@ func (h *NotificationHandler) handleNotification(ctx *fasthttp.RequestCtx, notif
 // tenantFromProductOwner returns "" with a nil error when the body names no
 // product or the product has no unique active owner, and a non-nil error only
 // when the lookup itself failed.
-func (h *NotificationHandler) tenantFromProductOwner(body []byte) (string, error) {
+func (h *NotificationHandler) tenantFromProductOwner(ctx context.Context, body []byte) (string, error) {
 	if h.service == nil {
 		return "", nil
 	}
@@ -442,7 +465,7 @@ func (h *NotificationHandler) tenantFromProductOwner(body []byte) (string, error
 	if err := json.Unmarshal(body, &payload); err != nil || payload.ProductID <= 0 {
 		return "", nil
 	}
-	tenantID, err := h.service.TenantIDByProductID(context.Background(), payload.ProductID)
+	tenantID, err := h.service.TenantIDByProductID(ctx, payload.ProductID)
 	if errors.Is(err, domain.ErrProductOwnerNotUnique) {
 		log.Printf("no unique tenant owns notification product %d: %v", payload.ProductID, err)
 		return "", nil

@@ -21,6 +21,14 @@ type Config struct {
 	SigningSecret   string  `json:"signing_secret"`
 	DefaultAmount   float64 `json:"default_amount"`
 	DefaultCurrency string  `json:"default_currency"`
+	// HonorOptoutAction lets a webhook reply of {"action":"optout"} opt the subscriber out at the
+	// provider. Off unless the binding sets it: a tenant that does not know a subscriber must not be
+	// able to cancel a paying subscription by replying to its event.
+	HonorOptoutAction bool `json:"honor_optout_action,omitempty"`
+	// SendBatchSubscriberEvents delivers events about subscriptions the platform created itself (batch
+	// or admin opt-in, campaign_url INTERNAL). Off unless the binding sets it: those subscribers never
+	// came through the tenant, so by default the tenant does not hear about them.
+	SendBatchSubscriberEvents bool `json:"send_batch_subscriber_events,omitempty"`
 }
 
 // AllowPrivateTargets reports whether the local-development escape hatch is on.
