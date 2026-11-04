@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/seidu626/subscription-manager/notification/internal/service"
 	"github.com/valyala/fasthttp"
@@ -155,4 +156,31 @@ func TestHandleNotification_ProductOwnerFallback(t *testing.T) {
 			t.Fatal("explicit tenant context must not skip SMS, and the body must not set the flag")
 		}
 	})
+}
+
+// With no free pool connection the callback must get a retryable answer before KrakenD's 30s
+// timeout turns it into a gateway error.
+func TestHandleNotification_StoreTimeoutIsRetryable(t *testing.T) {
+	const tenantID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	repo := &handlerRepoStub{productOwners: map[int]string{33261: tenantID}, processBlocks: true}
+	h := NewNotificationHandler(service.NewNotificationService(repo)).WithCallbackTimeout(20 * time.Millisecond)
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetRequestURI("/api/v1/notification/charge/2117")
+	ctx.Request.Header.SetMethod(fasthttp.MethodPost)
+	ctx.SetUserValue("partnerRole", "2117")
+	ctx.Request.SetBodyString(`{"msisdn":"233241234567","productId":33261,"transactionUUID":"tx-1","mnoDeliveryCode":"DELIVERED"}`)
+
+	start := time.Now()
+	h.ChargeHandler(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d body=%s", ctx.Response.StatusCode(), ctx.Response.Body())
+	}
+	if !strings.Contains(string(ctx.Response.Body()), "NOTIFICATION_STORE_UNAVAILABLE") {
+		t.Fatalf("expected NOTIFICATION_STORE_UNAVAILABLE, got %s", ctx.Response.Body())
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("handler answered after %s; want about the 20ms deadline", elapsed)
+	}
 }

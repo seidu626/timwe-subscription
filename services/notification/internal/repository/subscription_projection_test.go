@@ -49,7 +49,8 @@ func TestProcessNotification_ProjectsPaidEvidenceOntoSubscription(t *testing.T) 
 			repo, mock := newNotificationRepoWithMock(t)
 			mock.ExpectBegin()
 			expectInsertNotification(mock, true)
-			if tc.callback.Type != "MO" && tc.callback.Type != "MT_DN" {
+			// A failed charge attempt queues no tenant event, so it never looks the binding up.
+			if tc.callback.Type != "MO" && tc.callback.Type != "MT_DN" && !tc.callback.IsFailedChargeAttempt() {
 				expectNoTenantEventBinding(mock)
 			}
 			if tc.update != "" {

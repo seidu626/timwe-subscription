@@ -13,8 +13,8 @@ import (
 
 func expectEventClaim(mock sqlmock.Sqlmock) {
 	mock.ExpectQuery(`WITH due AS .* UPDATE tenant_event_outbox o\s+SET status = 'sending'`).
-		WillReturnRows(sqlmock.NewRows([]string{"event_id", "tenant_id", "payload", "attempts"}).
-			AddRow(optoutTestEvent, optoutTestTenant, []byte(`{"type":"CHARGE_SUCCESS","msisdn":"233260000000"}`), 1))
+		WillReturnRows(sqlmock.NewRows([]string{"event_id", "tenant_id", "payload", "attempts", "delivery_code"}).
+			AddRow(optoutTestEvent, optoutTestTenant, []byte(`{"type":"CHARGE_SUCCESS","msisdn":"233260000000"}`), 1, "DELIVERED"))
 }
 
 func expectBatchSubscriber(mock sqlmock.Sqlmock, batch bool) {

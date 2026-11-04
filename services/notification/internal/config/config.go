@@ -95,6 +95,10 @@ type Config struct {
 		// after Unmarshal so unset/garbage env values fail CLOSED instead of fatally
 		// failing or decoding to false.
 		RequireTenantContext bool
+		// CallbackTimeout bounds the database work for one provider callback, pool waits
+		// included. Set by parseCallbackTimeout from NOTIFICATION_CALLBACK_TIMEOUT (a Go
+		// duration such as "10s"); 0 means the handler default.
+		CallbackTimeout time.Duration
 	} `mapstructure:"NOTIFICATION"`
 }
 
@@ -155,6 +159,7 @@ func InitConfig(logger *zap.Logger, path string, files []string) Config {
 		cfg.Notification.RequireTenantContext = parseTenantContextFlag(
 			os.Getenv("NOTIFICATION_REQUIRE_TENANT_CONTEXT"),
 		)
+		cfg.Notification.CallbackTimeout = parseCallbackTimeout(logger, os.Getenv("NOTIFICATION_CALLBACK_TIMEOUT"))
 		// Gateway trust secret: read directly from env (sensitive value, not from viper).
 		if secret := strings.TrimSpace(os.Getenv("GATEWAY_TRUST_SECRET")); secret != "" {
 			cfg.Auth.GatewayTrust.Secret = secret
@@ -247,6 +252,21 @@ func parseTenantContextFlag(raw string) bool {
 	default:
 		return true
 	}
+}
+
+// parseCallbackTimeout reads NOTIFICATION_CALLBACK_TIMEOUT. Unset, unparseable or non-positive
+// values return 0 so the handler keeps its default.
+func parseCallbackTimeout(logger *zap.Logger, raw string) time.Duration {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		logger.Warn("ignoring invalid NOTIFICATION_CALLBACK_TIMEOUT", zap.String("value", raw))
+		return 0
+	}
+	return d
 }
 
 // parseGatewayTrustRequired resolves the GATEWAY_TRUST_REQUIRED env var with

@@ -32,6 +32,7 @@ type handlerRepoStub struct {
 	templateProduct int
 	enqueuedKeys    map[string]struct{}
 	enqueueCount    int
+	processBlocks   bool // ProcessNotification waits for its context, like a pool with no free connection
 }
 
 func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, tenantID, channelID, partnerRole, msisdn, entryChannel, notificationType, sortBy, sortDir string, page, pageSize int) (*domain.ListResponse, error) {
@@ -46,7 +47,11 @@ func (h *handlerRepoStub) FetchNotifications(startDate, endDate time.Time, tenan
 	return &domain.ListResponse{}, nil
 }
 
-func (h *handlerRepoStub) ProcessNotification(_ context.Context, notification *domain.NotificationRequest) error {
+func (h *handlerRepoStub) ProcessNotification(ctx context.Context, notification *domain.NotificationRequest) error {
+	if h.processBlocks {
+		<-ctx.Done()
+		return ctx.Err()
+	}
 	h.saved = notification
 	if notification.Type == domain.UserOptinEvent && notification.TenantID != nil {
 		key := *notification.TenantID + "|" + strconv.Itoa(notification.ProductID) + "|" + domain.UserOptinEvent

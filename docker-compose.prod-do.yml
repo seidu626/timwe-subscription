@@ -203,8 +203,11 @@ services:
       - APP_DATABASE_POSTGRESQL_PASSWORD=${PG_PASSWORD}
       - APP_DATABASE_POSTGRESQL_DB_NAME=${PG_DB}
       - APP_DATABASE_POSTGRESQL_SSL_MODE=${PG_SSL_MODE:-disable}
-      - PGMAX_OPEN_CONNS=6
-      - PGMAX_IDLE_CONNS=6
+      # TIMWE's daily charge sweep peaks near 140 callbacks/s; failed attempts are batched, but
+      # opt-ins, renewals and the tenant event dispatcher still need their own connections.
+      - PGMAX_OPEN_CONNS=10
+      - PGMAX_IDLE_CONNS=10
+      - NOTIFICATION_CALLBACK_TIMEOUT=${NOTIFICATION_CALLBACK_TIMEOUT:-10s}
       - APP_CACHE_REDIS_HOST=${REDIS_HOST:-host.docker.internal}
       - APP_CACHE_REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET}

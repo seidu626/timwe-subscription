@@ -205,3 +205,21 @@ func TestConfigureDatabasePoolRejectsInvalidLimits(t *testing.T) {
 		t.Fatalf("rejected limits were applied: MaxOpenConnections = %d", got)
 	}
 }
+
+func TestParseCallbackTimeout(t *testing.T) {
+	logger := zap.NewNop()
+	cases := map[string]time.Duration{
+		"":      0,
+		"10s":   10 * time.Second,
+		" 5s ":  5 * time.Second,
+		"250ms": 250 * time.Millisecond,
+		"0s":    0,
+		"-1s":   0,
+		"ten":   0,
+	}
+	for raw, want := range cases {
+		if got := parseCallbackTimeout(logger, raw); got != want {
+			t.Errorf("parseCallbackTimeout(%q) = %s; want %s", raw, got, want)
+		}
+	}
+}

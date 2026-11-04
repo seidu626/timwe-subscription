@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
 	"strconv"
@@ -11,7 +12,9 @@ import (
 )
 
 type NotificationService struct {
-	repo notificationRepository
+	repo     notificationRepository
+	owners   *productOwnerCache
+	attempts *chargeAttemptBatcher
 }
 
 type notificationRepository interface {
@@ -28,7 +31,7 @@ type notificationRepository interface {
 }
 
 func NewNotificationService(repo notificationRepository) *NotificationService {
-	return &NotificationService{repo: repo}
+	return &NotificationService{repo: repo, owners: newProductOwnerCache(productOwnerCacheTTL)}
 }
 
 // GetNotifications fetches notifications based on filters
@@ -84,12 +87,35 @@ func (s *NotificationService) TenantOwnsChannel(ctx context.Context, tenantID, c
 	return s.repo.TenantOwnsChannel(ctx, tenantID, channelID)
 }
 
+// TenantIDByProductID returns the product's single active owner. TIMWE sends hundreds of
+// callbacks a second for one product, so answers are reused for productOwnerCacheTTL; a
+// no-unique-owner answer is reused too, a failed lookup never is.
 func (s *NotificationService) TenantIDByProductID(ctx context.Context, productID int) (string, error) {
-	return s.repo.TenantIDByProductID(ctx, productID)
+	if tenantID, err, ok := s.owners.get(productID); ok {
+		return tenantID, err
+	}
+	tenantID, err := s.repo.TenantIDByProductID(ctx, productID)
+	if err == nil || errors.Is(err, domain.ErrProductOwnerNotUnique) {
+		s.owners.put(productID, tenantID, err)
+	}
+	return tenantID, err
 }
 
-func (s *NotificationService) ProcessNotification(notification *domain.NotificationRequest) error {
-	return s.repo.ProcessNotification(context.Background(), notification)
+// ProcessNotification stores a carrier callback. With batching started, a charge attempt the
+// carrier did not collect is group-committed instead of taking the full transaction; either
+// way it returns only once the row is stored or the store failed.
+func (s *NotificationService) ProcessNotification(ctx context.Context, notification *domain.NotificationRequest) error {
+	if s.attempts != nil && notification.IsFailedChargeAttempt() {
+		return s.attempts.submit(ctx, notification)
+	}
+	return s.repo.ProcessNotification(ctx, notification)
+}
+
+// StartChargeAttemptBatching routes failed charge attempts through a group-commit writer
+// until ctx ends. Call it once, before serving.
+func (s *NotificationService) StartChargeAttemptBatching(ctx context.Context, writer ChargeAttemptWriter) {
+	s.attempts = newChargeAttemptBatcher(writer, chargeAttemptBatchMax, chargeAttemptBatchWait, chargeAttemptFlushTimeout)
+	go s.attempts.run(ctx)
 }
 
 // RenderSMSTemplate substitutes the supported placeholders and limits the

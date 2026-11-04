@@ -25,6 +25,7 @@ import (
 	"github.com/seidu626/subscription-manager/common/auth/tenantctx"
 	"github.com/seidu626/subscription-manager/common/secretcrypto"
 	"github.com/seidu626/subscription-manager/common/tenantevents"
+	"github.com/seidu626/subscription-manager/notification/internal/domain"
 )
 
 const tenantEventContractVersion = "tenant-channel-v1.0.0"
@@ -98,11 +99,24 @@ const batchSubscriberEventSQL = `SELECT COALESCE((SELECT s.campaign_url = 'INTER
 // tenantEventBatch caps deliveries per dispatcher tick so the opt-out queue still gets a turn.
 const tenantEventBatch = 200
 
+// tenantEventClaimTimeout bounds one claim query. A claim that runs longer is cancelled server-side
+// instead of holding a pool connection the callback handlers need. A variable so tests can shorten it.
+var tenantEventClaimTimeout = 30 * time.Second
+
+// tenantEventClaimBackoff is how long the dispatcher waits after a claim timed out, so a claim
+// that cannot finish does not keep a database backend busy back to back.
+const tenantEventClaimBackoff = 2 * time.Minute
+
+// tenantEventNotDelivered closes a charge event whose source callback the carrier did not collect.
+const tenantEventNotDelivered = "NOT_DELIVERED"
+
 type dueTenantEvent struct {
 	ID       string
 	TenantID string
 	Body     []byte
 	Attempts int
+	// DeliveryCode is the source callback's mno_delivery_code for charge events, "" otherwise.
+	DeliveryCode string
 }
 
 // RunTenantEventDispatcher sends due events and opt-out requests until ctx ends.
@@ -113,11 +127,15 @@ func (r *NotificationRepository) RunTenantEventDispatcher(ctx context.Context, i
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
+		claimTimedOut := false
 		// Drain due rows each tick: a renewal run can bring thousands of charges, and each one is a vote waiting on us.
 		for i := 0; i < tenantEventBatch; i++ {
 			claimed, err := r.dispatchOneTenantEvent(ctx)
 			if err != nil && !errors.Is(err, context.Canceled) {
 				log.Printf("tenant event dispatch: %v", err)
+			}
+			if errors.Is(err, errTenantEventClaimTimeout) {
+				claimTimedOut = true
 			}
 			if !claimed || err != nil {
 				break
@@ -125,6 +143,13 @@ func (r *NotificationRepository) RunTenantEventDispatcher(ctx context.Context, i
 		}
 		if err := r.dispatchOneTenantOptout(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			log.Printf("tenant optout dispatch: %v", err)
+		}
+		if claimTimedOut {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(tenantEventClaimBackoff):
+			}
 		}
 		select {
 		case <-ctx.Done():
@@ -134,9 +159,28 @@ func (r *NotificationRepository) RunTenantEventDispatcher(ctx context.Context, i
 	}
 }
 
+var errTenantEventClaimTimeout = errors.New("tenant event claim timed out")
+
 func (r *NotificationRepository) dispatchOneTenantEvent(ctx context.Context) (bool, error) {
+	claimed, job, err := r.claimTenantEvent(ctx)
+	if err != nil || !claimed {
+		return false, err
+	}
+	if domain.IsFailedChargeCode(job.DeliveryCode) {
+		_, err = r.db.ExecContext(ctx, `UPDATE tenant_event_outbox SET status = 'skipped', last_error = $3, updated_at = now()
+    WHERE tenant_id = $1::uuid AND event_id = $2`, job.TenantID, job.ID, tenantEventNotDelivered)
+		return true, err
+	}
+	return r.deliverTenantEvent(ctx, job)
+}
+
+// claimTenantEvent marks the next due event as sending. Charge events carry their source callback's
+// delivery code, so one queued before the enqueue guard existed is closed instead of sent as a success.
+func (r *NotificationRepository) claimTenantEvent(ctx context.Context) (bool, dueTenantEvent, error) {
 	var job dueTenantEvent
-	err := r.db.QueryRowContext(ctx, `WITH due AS (
+	claimCtx, cancel := context.WithTimeout(ctx, tenantEventClaimTimeout)
+	defer cancel()
+	err := r.db.QueryRowContext(claimCtx, `WITH due AS (
 		SELECT candidate.tenant_id, candidate.event_id FROM tenant_event_outbox candidate
 		WHERE NOT EXISTS (SELECT 1 FROM tenant_event_outbox earlier
           WHERE earlier.tenant_id = candidate.tenant_id
@@ -149,13 +193,24 @@ func (r *NotificationRepository) dispatchOneTenantEvent(ctx context.Context) (bo
 	SET status = 'sending', attempts = attempts + 1,
 	    next_attempt_at = now() + interval '1 minute', updated_at = now()
 	FROM due WHERE o.tenant_id = due.tenant_id AND o.event_id = due.event_id
-	RETURNING o.event_id, o.tenant_id::text, o.payload, o.attempts`).Scan(&job.ID, &job.TenantID, &job.Body, &job.Attempts)
+	RETURNING o.event_id, o.tenant_id::text, o.payload, o.attempts,
+	    COALESCE((SELECT btrim(n.mno_delivery_code) FROM notifications n
+	        WHERE n.id = o.source_notification_id AND n.tenant_id = o.tenant_id
+	        AND o.source_type IN ('CHARGE','USER_RENEWED')), '')`).
+		Scan(&job.ID, &job.TenantID, &job.Body, &job.Attempts, &job.DeliveryCode)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+		return false, job, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("claim tenant event: %w", err)
+		if errors.Is(claimCtx.Err(), context.DeadlineExceeded) && ctx.Err() == nil {
+			return false, job, fmt.Errorf("%w after %s: %v", errTenantEventClaimTimeout, tenantEventClaimTimeout, err)
+		}
+		return false, job, fmt.Errorf("claim tenant event: %w", err)
 	}
+	return true, job, nil
+}
+
+func (r *NotificationRepository) deliverTenantEvent(ctx context.Context, job dueTenantEvent) (bool, error) {
 	cfg, err := r.resolveTenantEventConfig(ctx, job.TenantID)
 	if err != nil || cfg == nil {
 		reason := "tenant_events credential missing or revoked"

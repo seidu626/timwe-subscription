@@ -13,6 +13,7 @@ import (
 	cached "github.com/seidu626/subscription-manager/common/cache"
 	"github.com/seidu626/subscription-manager/notification/internal/domain"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -443,35 +444,14 @@ func (r *NotificationRepository) ProcessNotification(ctx context.Context, notifi
 	defer func() { _ = tx.Rollback() }()
 
 	query := `
-        INSERT INTO notifications (
-            tenant_id, channel_id, partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn,
-            large_account, transaction_uuid, mno_delivery_code, entry_channel, message_type,
-            message, tags, type
+        INSERT INTO notifications (` + notificationInsertColumns + `
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
         )
         ON CONFLICT DO NOTHING RETURNING id, created_at`
 	var notificationID int64
 	var receivedAt time.Time
-	err = tx.QueryRowContext(ctx, query,
-		nullStringPtrValue(notification.TenantID),
-		nullStringPtrValue(notification.ChannelID),
-		notification.PartnerRole,
-		notification.ExternalTxID,
-		notification.ProductID,
-		notification.PricepointID,
-		notification.MCC,
-		notification.MNC,
-		notification.MSISDN,
-		notification.LargeAccount,
-		notification.TransactionUUID,
-		notification.MnoDeliveryCode,
-		notification.EntryChannel,
-		notification.MessageType,
-		notification.Message,
-		pq.Array(notification.Tags),
-		notification.Type,
-	).Scan(&notificationID, &receivedAt)
+	err = tx.QueryRowContext(ctx, query, notificationInsertArgs(notification)...).Scan(&notificationID, &receivedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
@@ -492,6 +472,73 @@ func (r *NotificationRepository) ProcessNotification(ctx context.Context, notifi
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit notification transaction: %w", err)
+	}
+	return nil
+}
+
+const notificationInsertColumns = `
+            tenant_id, channel_id, partner_role, external_tx_id, product_id, pricepoint_id, mcc, mnc, msisdn,
+            large_account, transaction_uuid, mno_delivery_code, entry_channel, message_type,
+            message, tags, type`
+
+// notificationInsertColumnCount is the number of placeholders one notifications row takes.
+const notificationInsertColumnCount = 17
+
+// notificationInsertArgs returns the values for notificationInsertColumns, in order.
+func notificationInsertArgs(n *domain.NotificationRequest) []any {
+	return []any{
+		nullStringPtrValue(n.TenantID),
+		nullStringPtrValue(n.ChannelID),
+		n.PartnerRole,
+		n.ExternalTxID,
+		n.ProductID,
+		n.PricepointID,
+		n.MCC,
+		n.MNC,
+		n.MSISDN,
+		n.LargeAccount,
+		n.TransactionUUID,
+		n.MnoDeliveryCode,
+		n.EntryChannel,
+		n.MessageType,
+		n.Message,
+		pq.Array(n.Tags),
+		n.Type,
+	}
+}
+
+// InsertChargeAttempts stores failed charge attempts (CHARGE/USER_RENEWED with a
+// non-DELIVERED mno_delivery_code) in one multi-row statement. A failed attempt
+// projects nothing and queues no tenant event, so it needs none of
+// ProcessNotification's transaction; replays are dropped by the same unique index.
+func (r *NotificationRepository) InsertChargeAttempts(ctx context.Context, attempts []*domain.NotificationRequest) error {
+	if len(attempts) == 0 {
+		return nil
+	}
+	var query strings.Builder
+	query.WriteString("INSERT INTO notifications (" + notificationInsertColumns + "\n        ) VALUES ")
+	args := make([]any, 0, len(attempts)*notificationInsertColumnCount)
+	for i, n := range attempts {
+		if !n.IsFailedChargeAttempt() {
+			return fmt.Errorf("insert charge attempts: row %d is not a failed charge attempt", i)
+		}
+		if i > 0 {
+			query.WriteString(", ")
+		}
+		query.WriteByte('(')
+		for j := 1; j <= notificationInsertColumnCount; j++ {
+			if j > 1 {
+				query.WriteString(", ")
+			}
+			query.WriteByte('$')
+			query.WriteString(strconv.Itoa(len(args) + j))
+		}
+		query.WriteByte(')')
+		args = append(args, notificationInsertArgs(n)...)
+	}
+	query.WriteString(" ON CONFLICT DO NOTHING")
+	if _, err := r.db.ExecContext(ctx, query.String(), args...); err != nil {
+		return fmt.Errorf("insert %d charge attempts: %w", len(attempts), err)
 	}
 	return nil
 }

@@ -78,8 +78,8 @@ func TestDispatchTenantEvent_OptoutReplyQueuesOnlyWhenHonored(t *testing.T) {
 			bindTestTenantEvents(t, webhook.URL, honor)
 			repo, mock := newNotificationRepoWithMock(t)
 			mock.ExpectQuery(`WITH due AS .* UPDATE tenant_event_outbox o\s+SET status = 'sending'`).
-				WillReturnRows(sqlmock.NewRows([]string{"event_id", "tenant_id", "payload", "attempts"}).
-					AddRow(optoutTestEvent, optoutTestTenant, []byte(`{"type":"RENEWAL_SUCCESS","msisdn":"233260000000"}`), 1))
+				WillReturnRows(sqlmock.NewRows([]string{"event_id", "tenant_id", "payload", "attempts", "delivery_code"}).
+					AddRow(optoutTestEvent, optoutTestTenant, []byte(`{"type":"RENEWAL_SUCCESS","msisdn":"233260000000"}`), 1, "DELIVERED"))
 			expectActiveBinding(mock, true)
 			expectBatchSubscriber(mock, false)
 			mock.ExpectExec(`UPDATE tenant_event_outbox\s+SET status = \$3`).
